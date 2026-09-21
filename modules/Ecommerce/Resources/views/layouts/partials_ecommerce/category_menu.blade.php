@@ -117,10 +117,14 @@
     border-top: 1px solid rgba(255,255,255,.10);
 }
 .ec-catmenu__inner {
-    max-width: 1600px; margin: 0 auto; padding: 0 20px;
+    /* Mismos escalones que .ec-shop en el listado: si el menú y la
+       grilla no comparten ancho, los productos arrancan más a la
+       izquierda que la navegación que los filtra. */
+    max-width: 1340px; margin: 0 auto; padding: 0 20px;
     display: flex; align-items: stretch; gap: 2px;
     overflow: visible;
 }
+@media (min-width: 1700px) { .ec-catmenu__inner { max-width: 1600px; } }
 .ec-catmenu__group { position: relative; display: flex; }
 
 .ec-catmenu__item {

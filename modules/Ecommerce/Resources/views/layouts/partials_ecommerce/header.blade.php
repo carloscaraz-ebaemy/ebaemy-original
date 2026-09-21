@@ -344,6 +344,114 @@ div.cart-dropdown {
 .ec-mob-hist-del:hover { color: #94a3b8; }
 mark.ec-search-hl { background: hsl(var(--primary-h),90%,88%); color: inherit; border-radius: 2px; padding: 0 1px; }
 
+/* ═══════════════════════════════════════════════════════════════════
+   HEADER POR DEFECTO — compactación (2026-09-21)
+   ───────────────────────────────────────────────────────────────────
+   Va al final de este <style>, que se sirve después de las hojas, así
+   que gana sobre Porto sin tocar sus 47KB heredados. Todo es altura,
+   alineación y ancho: ni un color ni un nodo del DOM.
+
+   De dónde salían los 137px de header pegajoso:
+     .header-middle          64px SOLO de padding (3.2rem arriba y abajo)
+     logo sin tope de alto   la imagen del tenant mandaba sobre la altura
+     .header-bottom          la fila de categorías
+
+   Queda en ~93px, y el logo deja de decidir cuánto mide el header.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── Altura ──────────────────────────────────────────────────────── */
+.header .header-middle { padding-top: 10px; padding-bottom: 10px; }
+
+/* Porto separaba el buscador del logo con 90px fijos. Ese hueco es
+   ancho que le falta al buscador. */
+.header .header-middle .header-center { padding-left: 24px; }
+
+/* El tope de alto es lo que hace que el header mida siempre lo mismo:
+   sin él, un logo alto empujaba toda la barra. El valor es el MISMO con
+   y sin scroll, para que la página no dé un salto al bajar. */
+.header .header-left .logo { max-width: 170px; display: flex; align-items: center; }
+.header .header-left .logo img,
+.header.ec-header--scrolled .logo img { max-height: 36px; width: auto; }
+
+/* ── El buscador es el elemento principal de la barra ────────────── */
+.header .ec-search-wrap { max-width: 720px; }
+.header .search_input {
+    height: 40px !important;
+    border-radius: 10px !important;
+    background-color: #f1f4f9 !important;
+    border: 1px solid #e2e7ef !important;
+    font-size: 1.35rem;
+    transition: background-color .15s, border-color .15s, box-shadow .15s;
+}
+.header .search_input:hover { border-color: #cfd6e3 !important; }
+/* La regla heredada ponía el fondo transparente al enfocar: sobre el
+   header de color el texto escrito se volvía ilegible. */
+.header .search_input:focus {
+    background-color: #fff !important;
+    border-color: hsl(var(--primary-h),var(--primary-s),60%) !important;
+    box-shadow: 0 0 0 3px hsl(var(--primary-h),var(--primary-s),92%) !important;
+}
+.header .header-dropdown-inside .search-icon { left: 13px; }
+
+/* ── Bloque de contacto: informativo, no protagonista ────────────── */
+.header .header-contact {
+    font-size: 1.3rem; line-height: 1.25;
+    padding-right: 16px; margin-right: 14px;
+}
+.header .header-contact::after { height: 26px; margin-top: -13px; }
+.header .header-contact span { font-size: 1rem; }
+/* Por debajo de 1200px el ancho lo necesita el buscador. */
+@media (max-width: 1199px) { .header .header-contact { display: none !important; } }
+
+/* ── Acciones: misma altura, área táctil pareja ──────────────────── */
+.header .header-right { gap: 2px; }
+.header .header-right > a,
+.header .header-right > button,
+.header .ec-theme-toggle,
+.header .ec-header-wishlist {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-height: 38px; min-width: 38px;
+}
+
+/* ── Ancho: header y catálogo alineados ──────────────────────────────
+   El listado usa .ec-shop (1340/1600px). Sin esto el menú de categorías
+   quedaba cortado en 1140px y los productos empezaban más a la
+   izquierda que su propia navegación.
+
+   Se ensancha SOLO donde el contenido también lo hace (`:has(.ec-shop)`,
+   o sea el listado): en la ficha de producto o el carrito el contenido
+   sigue en 1140px y un header más ancho que su página se nota. Si el
+   navegador no soporta :has, la regla se descarta y el header se queda
+   como estaba: el peor caso es el comportamiento de siempre. */
+@media (min-width: 1400px) {
+    body:has(.container.ec-shop) .header .header-middle > .container,
+    body:has(.container.ec-shop) .header .header-bottom > .container { max-width: 1340px; }
+}
+@media (min-width: 1700px) {
+    body:has(.container.ec-shop) .header .header-middle > .container,
+    body:has(.container.ec-shop) .header .header-bottom > .container { max-width: 1600px; }
+}
+
+/* Dentro de este header el ancho lo pone el .container: el menú no
+   necesita el suyo, y sumar los dos paddings lo desalineaba del
+   contenido de la página. */
+.header .header-bottom .ec-catmenu__inner { max-width: none; padding: 0; }
+.header .header-bottom > .container { padding-left: 15px; padding-right: 15px; }
+
+/* ── Móvil ───────────────────────────────────────────────────────── */
+@media (max-width: 991px) {
+    .header .header-middle { padding-top: 7px; padding-bottom: 7px; }
+    .header .header-middle .header-center { padding-left: 12px; }
+    .header .header-left .logo img,
+    .header.ec-header--scrolled .logo img { max-height: 30px; }
+    /* El pulgar necesita más que 38px. */
+    .header .header-right > a,
+    .header .header-right > button,
+    .header .ec-theme-toggle,
+    .header .ec-header-wishlist { min-height: 42px; min-width: 42px; }
+}
+
+
 
 
  </style>

@@ -23,8 +23,9 @@
 }
 .tech-header__top {
     display: flex; align-items: center; gap: 14px;
-    padding: 7px 20px; max-width: 1600px; margin: 0 auto;
+    padding: 7px 20px; max-width: 1340px; margin: 0 auto;
 }
+@media (min-width: 1700px) { .tech-header__top { max-width: 1600px; } }
 .tech-header__logo { flex: 0 0 auto; display: flex; align-items: center; }
 .tech-header__logo img { height: 30px; width: auto; display: block; {{ $__headerDark ? 'filter:brightness(0) invert(1);' : '' }} }
 
