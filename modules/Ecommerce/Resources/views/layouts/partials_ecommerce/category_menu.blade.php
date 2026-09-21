@@ -117,7 +117,7 @@
     border-top: 1px solid rgba(255,255,255,.10);
 }
 .ec-catmenu__inner {
-    max-width: 1400px; margin: 0 auto; padding: 0 16px;
+    max-width: 1600px; margin: 0 auto; padding: 0 20px;
     display: flex; align-items: stretch; gap: 2px;
     overflow: visible;
 }
@@ -125,7 +125,7 @@
 
 .ec-catmenu__item {
     display: inline-flex; align-items: center; gap: 6px;
-    padding: 12px 14px; font-size: 13.5px; font-weight: 500;
+    padding: 7px 11px; font-size: 13px; font-weight: 500;
     color: inherit; text-decoration: none; white-space: nowrap;
     background: none; border: 0; cursor: pointer; font-family: inherit;
     border-bottom: 2px solid transparent;
@@ -162,7 +162,7 @@
 .ec-catmenu__panel {
     position: absolute; top: 100%; left: 0;
     z-index: 1200;
-    min-width: 272px; max-width: 440px;
+    min-width: 258px; max-width: 460px;
     background-color: #fff;            /* opaco, sin alpha ni blur */
     color: #1f2430;
     border: 1px solid #e5e9f0;
@@ -183,7 +183,7 @@
 }
 
 .ec-catmenu__panel-head {
-    padding: 4px 18px 10px; margin-bottom: 6px;
+    padding: 2px 18px 8px; margin-bottom: 5px;
     border-bottom: 1px solid #eef1f6;
 }
 .ec-catmenu__panel-head a {
@@ -200,7 +200,7 @@
 .ec-catmenu__list--cols { column-count: 2; column-gap: 0; }
 .ec-catmenu__list a {
     display: flex; align-items: center; justify-content: space-between; gap: 12px;
-    padding: 9px 18px; font-size: 13.5px; color: #39414f; text-decoration: none;
+    padding: 7px 18px; font-size: 13px; color: #39414f; text-decoration: none;
     break-inside: avoid;
 }
 .ec-catmenu__list a:hover,
@@ -225,7 +225,7 @@
 @media (max-width: 900px) {
     .ec-catmenu__inner { overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
     .ec-catmenu__inner::-webkit-scrollbar { display: none; }
-    .ec-catmenu__item { padding: 11px 12px; font-size: 13px; }
+    .ec-catmenu__item { padding: 9px 10px; font-size: 13px; }
     .ec-catmenu__panel {
         position: fixed; left: 0; right: 0; top: auto; bottom: 0; max-width: none;
         border: 0; border-radius: 16px 16px 0 0; padding-bottom: calc(20px + env(safe-area-inset-bottom));

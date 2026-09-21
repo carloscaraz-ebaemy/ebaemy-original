@@ -28,7 +28,36 @@
     var ajaxUrl     = form.getAttribute('data-ajax-url') || window.location.pathname;
     var debounceTimer = null;
     var currentXhr    = null;
-    var activeCatId   = '';
+
+    /* La categoria activa se leia SOLO al pulsar una pildora. Quitadas las
+       pildoras (duplicaban el menu del header), quien filtra por categoria
+       llega con ?category_id= desde ese menu: si no se inicializa aqui, el
+       primer toque a cualquier otro filtro rearmaba la URL sin el y el
+       listado saltaba en silencio a "todos los productos". */
+    var urlParams     = new URLSearchParams(window.location.search);
+    var activeCatId   = urlParams.get('category_id') || '';
+
+    var catInputInit = document.getElementById('ec-filter-category');
+    if (catInputInit) catInputInit.value = activeCatId;
+
+    /* Tipo de producto (categorias oficiales). Antes era una fila de
+       enlaces fuera del formulario, asi que cualquier filtro por AJAX lo
+       perdia; ahora es un control mas de la barra. */
+    var mpSel = document.getElementById('ec-mp-category');
+    if (mpSel) {
+        mpSel.addEventListener('change', function () {
+            var u = new URL(window.location);
+            if (mpSel.value) { u.searchParams.set('mp_category', mpSel.value); }
+            else             { u.searchParams.delete('mp_category'); }
+            try { window.history.replaceState({}, '', u.pathname + (u.searchParams.toString() ? '?' + u.searchParams.toString() : '')); } catch (e) {}
+            scheduleFilter(0);
+        });
+    }
+
+    function currentMpCategory() {
+        if (mpSel) return mpSel.value || '';
+        return new URLSearchParams(window.location.search).get('mp_category') || '';
+    }
 
     // ── Price Range Slider ────────────────────────────────────────────────────
     var slider   = document.getElementById('ec-range-slider');
@@ -153,6 +182,7 @@
             activeCatId = '';
             var catInput = document.getElementById('ec-filter-category');
             if (catInput) catInput.value = '';
+            if (mpSel) mpSel.value = '';
 
             // Deactivate category pills
             document.querySelectorAll('.ec-cat-pill').forEach(function (p) {
@@ -197,6 +227,9 @@
         }
         if (activeCatId) params.set('category_id', activeCatId);
 
+        var mp = currentMpCategory();
+        if (mp) params.set('mp_category', mp);
+
         var qs = params.toString();
         return baseUrl + (qs ? '?' + qs : '');
     }
@@ -213,6 +246,7 @@
             var hasFilters = (sortSel && sortSel.value !== 'newest') ||
                              (availChk && availChk.checked) ||
                              activeCatId ||
+                             currentMpCategory() ||
                              (inputMin && parseInt(inputMin.value) > parseInt(inputMin.min)) ||
                              (inputMax && parseInt(inputMax.value) < parseInt(inputMax.max));
             clearWrap.style.display = hasFilters ? '' : 'none';

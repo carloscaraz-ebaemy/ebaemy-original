@@ -139,7 +139,11 @@
 @endphp
 
 @section('content')
-<div class="container">
+{{-- `ec-shop` ensancha el contenedor del catálogo a 1400px en pantallas
+     grandes. Con el .container de Porto (1140px) una pantalla de 1920
+     desperdiciaba 780px de ancho y seguía mostrando 4 productos por fila.
+     Solo afecta a esta vista; el resto del ecommerce sigue con su ancho. --}}
+<div class="container ec-shop">
     <div class="row">
         <div class="col-lg-12 ecommerce-view" style="padding-top: 0">
 

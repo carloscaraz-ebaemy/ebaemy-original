@@ -22,23 +22,23 @@
     box-shadow: 0 1px 0 var(--theme-header-line, rgba(148,163,184,.18));
 }
 .tech-header__top {
-    display: flex; align-items: center; gap: 16px;
-    padding: 12px 24px; max-width: 1400px; margin: 0 auto;
+    display: flex; align-items: center; gap: 14px;
+    padding: 7px 20px; max-width: 1600px; margin: 0 auto;
 }
 .tech-header__logo { flex: 0 0 auto; display: flex; align-items: center; }
-.tech-header__logo img { height: 38px; width: auto; display: block; {{ $__headerDark ? 'filter:brightness(0) invert(1);' : '' }} }
+.tech-header__logo img { height: 30px; width: auto; display: block; {{ $__headerDark ? 'filter:brightness(0) invert(1);' : '' }} }
 
 /* Buscador: elemento principal de la barra. */
-.tech-header__search { flex: 1 1 auto; max-width: 620px; margin: 0 auto; position: relative; }
+.tech-header__search { flex: 1 1 auto; max-width: 680px; margin: 0 auto; position: relative; }
 .tech-header__search form { display: block; }
 .tech-header__search input {
-    width: 100%; height: 44px;
-    padding: 0 44px 0 42px;
+    width: 100%; height: 36px;
+    padding: 0 40px 0 38px;
     border: 1px solid var(--theme-header-line, rgba(148,163,184,.28));
     border-radius: 10px;
     background: var(--theme-header-soft-2,#1e293b);
     color: var(--theme-header-text,#e2e8f0);
-    font-size: 14px; line-height: 44px; outline: none;
+    font-size: 13.5px; line-height: 36px; outline: none;
     transition: border-color .15s, background .15s, box-shadow .15s;
 }
 .tech-header__search input::placeholder { color: var(--theme-header-text,#64748b); opacity: .6; }
@@ -49,12 +49,12 @@
     box-shadow: 0 0 0 3px hsla(var(--primary-h),var(--primary-s),var(--primary-l),.18);
 }
 .tech-header__search-icon {
-    position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
+    position: absolute; left: 13px; top: 50%; transform: translateY(-50%);
     color: var(--theme-header-text,#64748b); opacity: .6; pointer-events: none;
 }
 .tech-header__search-go {
     position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
-    width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center;
+    width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center;
     border: 0; border-radius: 8px; cursor: pointer;
     background: transparent; color: var(--theme-header-text,#cbd5e1); opacity: .7;
 }
@@ -68,8 +68,8 @@
 .tech-header__action {
     color: var(--theme-header-text,#cbd5e1); opacity: .9; text-decoration: none;
     display: inline-flex; align-items: center; gap: .45rem;
-    min-height: 44px; padding: 0 10px; border-radius: 8px;
-    font-size: 13px; font-weight: 500; position: relative;
+    min-height: 38px; padding: 0 9px; border-radius: 8px;
+    font-size: 12.5px; font-weight: 500; position: relative;
     background: none; border: none; cursor: pointer;
     transition: background .15s, color .15s, opacity .15s;
 }
@@ -81,7 +81,7 @@
 }
 .tech-header__action:focus-visible { outline: 2px solid currentColor; outline-offset: -2px; }
 .tech-header__badge {
-    position: absolute; top: 4px; right: 2px;
+    position: absolute; top: 1px; right: 0;
     background: var(--theme-primary,hsl(var(--primary-h),var(--primary-s),var(--primary-l)));
     color: var(--theme-primary-contrast,#fff);
     font-size: 10px; font-weight: 700; min-width: 17px; height: 17px; padding: 0 4px;
@@ -97,7 +97,8 @@
 /* Móvil: el buscador no se esconde, baja a su propia línea. Antes era
    display:none y en un teléfono la tienda se quedaba sin buscador. */
 @media (max-width: 767px) {
-    .tech-header__top { flex-wrap: wrap; gap: 8px; padding: 10px 16px 12px; }
+    .tech-header__top { flex-wrap: wrap; gap: 6px; padding: 7px 14px 9px; }
+    .tech-header__action { min-height: 42px; }
     .tech-header__logo { margin-right: auto; }
     .tech-header__logo img { height: 32px; }
     .tech-header__actions { gap: 0; }
@@ -106,7 +107,7 @@
     .tech-header__search {
         order: 3; flex: 1 0 100%; max-width: none; margin: 2px 0 0;
     }
-    .tech-header__search input { height: 42px; line-height: 42px; font-size: 15px; }
+    .tech-header__search input { height: 38px; line-height: 38px; font-size: 15px; }
 }
 </style>
 

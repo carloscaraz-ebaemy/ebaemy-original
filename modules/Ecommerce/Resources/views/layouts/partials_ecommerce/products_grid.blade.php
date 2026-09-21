@@ -10,19 +10,14 @@
      porque el boton «Ver N productos» del drawer movil lo lee de ahi
      (ver filter-ajax.js, syncApplyLabel). --}}
 <div class="ec-results-bar">
-    <div class="ec-results-info">
-        <p class="ec-results-count" id="ec-results-count">
-            @if($total > 0)
-                <strong>{{ number_format($total) }}</strong>
-                producto{{ $total !== 1 ? 's' : '' }}
-            @else
-                <strong>0</strong> productos encontrados
-            @endif
-        </p>
+    <p class="ec-results-count" id="ec-results-count">
         @if($total > 0)
-            <span class="ec-results-range">Mostrando {{ $from }}–{{ $to }}</span>
+            <strong>{{ number_format($total) }}</strong> producto{{ $total !== 1 ? 's' : '' }}
+            <span class="ec-results-range">· Mostrando {{ $from }}–{{ $to }}</span>
+        @else
+            <strong>0</strong> productos encontrados
         @endif
-    </div>
+    </p>
     <div class="ec-view-toggle" id="ec-view-toggle" role="group" aria-label="Cambiar vista">
         <button type="button" class="ec-view-btn ec-view-btn--active"
                 data-view="grid" title="Vista cuadrícula" aria-pressed="true">

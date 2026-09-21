@@ -77,7 +77,7 @@
 
         {{-- Ordenar por --}}
         <div class="ec-filter-group">
-            <label for="ec-sort" class="ec-filter-label">Ordenar</label>
+            <label for="ec-sort" class="ec-filter-label">Ordenar:</label>
             <div class="ec-filter-select-wrap">
                 <select id="ec-sort" name="sort" class="ec-filter-select">
                     <option value="newest"     {{ $currentSort === 'newest'     ? 'selected' : '' }}>Más recientes</option>
@@ -88,12 +88,38 @@
             </div>
         </div>
 
+        {{-- Tipo de producto (categorías oficiales del marketplace).
+
+             Antes era una fila de píldoras con su propia caja de color bajo
+             la barra. Es un filtro como los demás, así que vive con los
+             demás: mismo alto, misma fila, cero píxeles extra.
+
+             Navega con un submit nativo del formulario para el caso sin JS;
+             filter-ajax.js lo intercepta y lo resuelve por AJAX como al
+             resto de controles. --}}
+        @if(isset($marketplaceCategories) && $marketplaceCategories->count())
+        <div class="ec-filter-group">
+            <label for="ec-mp-category" class="ec-filter-label">Tipo:</label>
+            <div class="ec-filter-select-wrap">
+                <select id="ec-mp-category" name="mp_category" class="ec-filter-select">
+                    <option value="">Todos</option>
+                    @foreach($marketplaceCategories as $mpCat)
+                        <option value="{{ $mpCat->id }}"
+                            {{ (isset($currentMpCategory) && $currentMpCategory && $currentMpCategory->id == $mpCat->id) ? 'selected' : '' }}>
+                            {{ $mpCat->name }}
+                        </option>
+                    @endforeach
+                </select>
+            </div>
+        </div>
+        @endif
+
         {{-- Rango de precio con slider.
              El importe vive en su propia linea (#ec-price-display lo sigue
              escribiendo el JS del slider, igual que antes): la etiqueta manda
              y el valor se lee sin competir con el control. --}}
         <div class="ec-filter-group ec-filter-group--price">
-            <span class="ec-filter-label">Precio</span>
+            <span class="ec-filter-label">Precio:</span>
             <span class="ec-filter-value" id="ec-price-display">S/ {{ $sliderMin }} – S/ {{ $sliderMax }}</span>
             <div class="ec-range-slider" id="ec-range-slider"
                  data-min="{{ $prMin }}" data-max="{{ $prMax }}"
@@ -114,9 +140,9 @@
             </div>
         </div>
 
-        {{-- Disponibilidad --}}
+        {{-- Disponibilidad. El texto del interruptor ya es la etiqueta:
+             una segunda encima solo sumaba altura. --}}
         <div class="ec-filter-group ec-filter-group--toggle">
-            <span class="ec-filter-label">Disponibilidad</span>
             <label class="ec-filter-toggle" for="ec-only-avail">
                 <input type="checkbox"
                        id="ec-only-avail"
