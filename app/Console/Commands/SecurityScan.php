@@ -203,8 +203,8 @@ class SecurityScan extends Command
   "modules": {
     "unauthorized_access": true,
     "web_attacks": true,
-    "order_fraud": false,
-    "catalog_anomalies": false,
+    "order_fraud": true,
+    "catalog_anomalies": true,
     "marketplace_health": false,
     "work_schedule": false
   },
@@ -270,6 +270,52 @@ class SecurityScan extends Command
     "integrity": {
       "enabled": true
     }
+  },
+
+  // ── Módulo 1: fraude en pedidos ────────────────────────────────────────────
+  "order_fraud": {
+    // Un pedido se alerta desde 35 puntos. Cada señal suma lo que dice
+    // "scores" en config/security-agent.php.
+    "thresholds": { "media": 35, "alta": 60, "critica": 85 },
+
+    // Monto máximo normal de un pedido, en soles. Por encima, suma riesgo.
+    "max_amount": 5000,
+
+    // Cuántas veces la mediana de tus pedidos se considera "monto desmedido".
+    "median_multiplier": 4,
+
+    // Pedidos desde la misma IP en 24 h a partir de los cuales suma riesgo.
+    "same_ip_orders": 3,
+
+    // Pedidos del mismo cliente en pocas horas.
+    "customer_velocity": { "orders": 3, "window_hours": 6 },
+
+    // Dominios de correo desechable. Agrega los que veas aparecer.
+    "disposable_domains": [
+      "mailinator.com", "yopmail.com", "tempmail.com", "10minutemail.com",
+      "guerrillamail.com", "trashmail.com", "sharklasers.com",
+      "getnada.com", "maildrop.cc", "throwawaymail.com", "dispostable.com"
+    ]
+  },
+
+  // ── Módulo 2: errores de catálogo ──────────────────────────────────────────
+  "catalog_anomalies": {
+    // Margen mínimo sobre la VENTA, en porcentaje. El min_margin_pct del
+    // propio producto, si lo tiene, manda sobre este valor.
+    "min_margin_pct": 10,
+
+    // Variación de precio que se considera anormal, respecto al precio previo.
+    "price_drop_pct": 30,
+    "price_rise_pct": 50,
+
+    // Diferencia máxima tolerada entre el precio de tienda y el de marketplace.
+    "cross_channel_pct": 25,
+
+    // Stock a partir del cual el producto se considera crítico.
+    "critical_stock": 3,
+
+    // IDs de productos que nunca deben alertar (promos permanentes, muestras).
+    "ignore_item_ids": []
   },
 
   // ── Módulo 6: horarios (fase C) ────────────────────────────────────────────

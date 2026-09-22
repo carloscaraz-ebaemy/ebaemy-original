@@ -29,6 +29,8 @@ class SecurityAgent
         $this->detectors = $detectors ?? [
             new Detectors\UnauthorizedAccessDetector(),
             new Detectors\WebAttackDetector(),
+            new Detectors\OrderFraudDetector(),
+            new Detectors\CatalogAnomalyDetector(),
         ];
     }
 

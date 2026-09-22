@@ -32,8 +32,8 @@ return [
     'modules' => [
         'unauthorized_access' => true,   // 5
         'web_attacks'         => true,   // 3
-        'order_fraud'         => false,  // 1 — fase B
-        'catalog_anomalies'   => false,  // 2 — fase B
+        'order_fraud'         => true,   // 1
+        'catalog_anomalies'   => true,   // 2
         'marketplace_health'  => false,  // 4 — fase C
         'work_schedule'       => false,  // 6 — fase C
     ],

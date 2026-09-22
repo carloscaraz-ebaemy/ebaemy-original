@@ -49,6 +49,13 @@
             // L2 — Culqi pre-autorización
             'culqi_charge_id',
             'payment_status',
+            // Contexto de riesgo (lo lee el agente de seguridad, módulo 1).
+            // `card_fingerprint` es un SHA-256 de BIN+últimos 4: sirve para
+            // comparar tarjetas entre pedidos sin guardar ningún número.
+            'ip_address',
+            'user_agent',
+            'card_last4',
+            'card_fingerprint',
             // Fases del despacho ecommerce (ver migration add_warehouse_phase_timestamps_to_orders)
             'prepared_at',
             'dispatched_at',

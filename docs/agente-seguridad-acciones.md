@@ -153,6 +153,56 @@ El agente está ciego para todo el módulo 3. Corrige la ruta en `config.json` y
 
 ---
 
+## Módulo 1 — Fraude en pedidos
+
+La alerta trae el puntaje y la lista de motivos que lo formaron. Léela antes de decidir: no es lo mismo "compró de madrugada" que "la tarjeta se usó con cuatro clientes distintos".
+
+### `pedido_sospechoso` con severidad CRÍTICA (≥85)
+1. **No despaches.** Nada se prepara hasta verificar.
+2. Llama al teléfono del pedido. Que el cliente confirme monto, productos y dirección.
+3. Si pagó con tarjeta, **no captures el cobro** hasta confirmar. Un contracargo te cuesta el producto, el flete y la comisión.
+4. Comprueba que coincidan tres nombres: el del pedido, el del documento de identidad y el del titular de la tarjeta.
+5. Si no contesta o algo no cuadra, anula y libera el stock. Es más barato perder la venta.
+
+### ALTA (60–84)
+1. Retén el despacho y verifica por teléfono o WhatsApp antes de preparar.
+2. Presta atención especial si la dirección de envío no corresponde a la zona del teléfono.
+
+### MEDIA (35–59)
+Una mirada humana antes de despachar. No hace falta detenerlo.
+
+### Señales que casi siempre significan algo
+
+- **Misma tarjeta, varios clientes** — es el patrón clásico de tarjeta robada probada contra varias identidades. Trátalo como CRÍTICA aunque el puntaje total no llegue.
+- **País de la IP distinto al de envío** — un VPN da falsos positivos, pero combinado con correo desechable no lo es.
+- **Varios pedidos del mismo cliente en pocas horas** — puede ser un cliente indeciso que reintentó, o alguien probando hasta que un pago pase. Mira si los anteriores fueron rechazados.
+
+---
+
+## Módulo 2 — Errores de catálogo
+
+Estas alertas no son ataques: son dinero que se pierde solo. Llegan agrupadas, con la lista de productos en la evidencia.
+
+### `precio_cero` — CRÍTICA
+Se pueden comprar a S/ 0.00 **ahora mismo**. Despublica o corrige antes que cualquier otra cosa. Si aparecieron muchos de golpe, revisa la última importación: casi siempre es una columna mal mapeada.
+
+### `precio_bajo_costo` — ALTA
+Cada venta pierde dinero. A veces el error no está en el precio sino en el costo, cargado con IGV cuando no correspondía. Revisa también el `floor_price`.
+
+### `caida_de_precio` — ALTA
+La evidencia dice quién lo cambió y desde qué origen (`manual`, `import`, `promotion`). Confirma con esa persona antes de revertir: puede ser una promoción legítima que nadie avisó.
+
+### `stock_negativo` — ALTA
+Se vendió más de lo registrado. Corre `php artisan stock:reconcile` para ver la divergencia **antes** de ajustar nada a mano.
+
+### `margen_insuficiente`, `subida_de_precio`, `publicado_sin_stock`, `precio_dispar_entre_canales` — MEDIA
+Revisión de rutina. Si alguna es intencional y permanente, agrega el producto a `ignore_item_ids` o sube su `min_margin_pct` en vez de convivir con el aviso: una alerta que se ignora siempre acaba tapando a una que importa.
+
+### `stock_critico` — BAJA
+Programa reposición. Importa más de lo que parece: si se agota con publicaciones activas en los marketplaces, se convierte en cancelaciones, y eso sí golpea la reputación de la cuenta.
+
+---
+
 ## Si confirmas un compromiso: el orden correcto
 
 1. **Contener** — modo mantenimiento, bloquear las IPs, desactivar las cuentas sospechosas.

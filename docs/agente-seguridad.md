@@ -12,12 +12,12 @@ Revisa el sistema cada 15 minutos, clasifica lo que encuentra en **BAJA / MEDIA 
 |---|--------|--------|-----------------|
 | 5 | Ingreso no autorizado | **Activo** | `login_events`, `users` |
 | 3 | Ciberseguridad del servidor | **Activo** | access log de nginx/OpenResty + SHA-256 de archivos |
-| 1 | Fraude en pedidos y pagos | Fase B | `orders`, `order_payments` |
-| 2 | Errores de catálogo | Fase B | `items`, `item_price_history` |
+| 1 | Fraude en pedidos y pagos | **Activo** | `orders` (IP, user-agent, huella de tarjeta) |
+| 2 | Errores de catálogo | **Activo** | `items`, `item_warehouse`, `item_price_history` |
 | 4 | Salud en marketplaces | Fase C | API de MercadoLibre + métricas locales de Falabella |
 | 6 | Horarios de trabajo | Fase C | `audit_logs`, `login_events` |
 
-Los módulos de fases posteriores ya tienen su bloque de configuración reservado y salen desactivados.
+Los módulos de la fase C ya tienen su bloque de configuración reservado y salen desactivados.
 
 ---
 
@@ -28,8 +28,12 @@ Los módulos de fases posteriores ya tienen su bloque de configuración reservad
 Crean la bitácora de autenticación `login_events` (una en la base del sistema, una por tenant). **No se ejecuta SQL directo: todo por migración.**
 
 ```bash
+# Bitácora de autenticación (módulos 5 y 6)
 php artisan migrate --path=database/migrations/2026_09_22_000100_create_login_events_table.php --force
 php artisan tenancy:migrate --path=database/migrations/tenant/2026_09_22_000100_create_login_events_table.php --force
+
+# Contexto de riesgo del pedido: IP, user-agent y huella de tarjeta (módulo 1)
+php artisan tenancy:migrate --path=database/migrations/tenant/2026_09_22_000200_add_risk_context_to_orders.php --force
 ```
 
 Verifica que la tabla exista en todos los tenants:
@@ -183,6 +187,36 @@ Hay que actualizarlos cada año: son fechas fijas, no se calculan.
 }
 ```
 
+### Ajustar el fraude
+
+```json
+"order_fraud": {
+  "max_amount": 8000,
+  "same_ip_orders": 4,
+  "disposable_domains": ["mailinator.com", "yopmail.com", "elquevistehoy.com"]
+}
+```
+
+El puntaje se arma sumando señales; los puntos de cada una están en `config/security-agent.php`, bajo `order_fraud.scores`. Si quieres que una señal deje de pesar, ponla en `0` desde el JSON:
+
+```json
+"order_fraud": { "scores": { "night_purchase": 0 } }
+```
+
+Útil si vendes de madrugada con normalidad: sin esto, toda venta nocturna arrastra 10 puntos de base.
+
+### Ajustar el catálogo
+
+```json
+"catalog_anomalies": {
+  "min_margin_pct": 15,
+  "critical_stock": 5,
+  "ignore_item_ids": [1204, 1877]
+}
+```
+
+`ignore_item_ids` es para productos que siempre van a "fallar" a propósito: muestras, promociones permanentes, artículos de costo cero.
+
 ### Silenciar ruido
 
 - `web_attacks.whitelist_ips` — tu oficina, tu monitoreo, tu CDN.
@@ -209,6 +243,10 @@ Conviene añadirlo al final del script de despliegue, después de `npm run build
 **La primera corrida aprende, no alerta.** Los hashes de integridad y las IPs conocidas de cada usuario se siembran en el primer escaneo. Si no fuera así, el estreno del agente dispararía una alerta por cada usuario y cada archivo.
 
 **La geolocalización se resuelve al escanear, no al entrar.** Ningún usuario espera una llamada HTTP para iniciar sesión. El resultado se guarda en caché 30 días en `storage/app/security-agent/state/geo_cache.json`.
+
+**El número de tarjeta no se guarda en ningún sitio.** Para detectar "la misma tarjeta con varios clientes" se guarda únicamente los últimos 4 dígitos y un HMAC-SHA256 de BIN + últimos 4, con la `APP_KEY` como clave. Dos pedidos con la misma tarjeta dan la misma huella, pero de la huella no se reconstruye nada — ni por fuerza bruta, porque sin la `APP_KEY` no se puede recalcular. La huella tampoco aparece en las alertas: ahí sólo sale `****1111`.
+
+**Las alertas de catálogo van agrupadas.** Si una importación deja 300 artículos sin precio, llega un aviso con la lista, no 300 avisos. La firma de deduplicación incluye el conjunto de productos: si la lista cambia, vuelve a avisar.
 
 **La bitácora nunca guarda contraseñas.** `RecordLoginEvent` toma sólo el identificador intentado (correo o usuario) de las credenciales; la contraseña se descarta. Y un fallo al escribir la bitácora jamás impide un login.
 

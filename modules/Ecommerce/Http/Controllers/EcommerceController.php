@@ -1431,6 +1431,9 @@ class EcommerceController extends Controller
                     'channel_id'        => $ecomChannel->id,
                     'warehouse_id'      => $channelWarehouseId,
                     'seller_id'         => null, // ventas digitales no tienen vendedor asignado
+                    // Contexto de riesgo para el agente de seguridad (modulo 1).
+                    'ip_address'        => request()->ip(),
+                    'user_agent'        => substr((string) request()->userAgent(), 0, 500),
                 ]);
 
                 // ── Reservar el stock del pedido ──────────────────────────

@@ -280,6 +280,9 @@ class CulqiController extends Controller
             'email'     => $request->email,
         ]);
 
+        // Huella de la tarjeta (BIN + ultimos 4, nunca el numero completo).
+        $cardContext = \App\Services\Security\Support\CardFingerprint::fromCulqiCharge($charge);
+
         $customerData = $customer;
         $customer_name  = $user ? $user->name : ($customerData['apellidos_y_nombres_o_razon_social'] ?? 'Cliente');
         $customer_email = ($request->email ?? null) ?: ($customerData['correo_electronico'] ?? null);
@@ -323,6 +326,12 @@ class CulqiController extends Controller
             'channel_id'        => $ecomChannel->id,
             'warehouse_id'      => $ecomWarehouseId,
             'seller_id'         => null,
+            // Contexto de riesgo para el agente de seguridad. La huella es un
+            // HMAC de BIN+ultimos 4: el numero de tarjeta no se guarda nunca.
+            'ip_address'        => $request->ip(),
+            'user_agent'        => substr((string) $request->userAgent(), 0, 500),
+            'card_last4'        => $cardContext['last4'],
+            'card_fingerprint'  => $cardContext['fingerprint'],
         ]);
 
         // ── PASO 4: Despachar captura en background ───────────────────────────
