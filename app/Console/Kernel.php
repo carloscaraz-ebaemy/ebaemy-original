@@ -119,6 +119,15 @@ class Kernel extends ConsoleKernel
                  ->dailyAt('02:30')
                  ->withoutOverlapping()
                  ->appendOutputTo(storage_path('logs/warehouse_etl.log'));
+
+        // Agente de seguridad: detecta riesgos, los clasifica y notifica ALTA/CRÍTICA.
+        // SOLO LEE: no bloquea IPs, no pausa publicaciones, no toca la BD.
+        // Config editable: storage/app/security-agent/config.json
+        $schedule->command('security:scan')
+                 ->everyFifteenMinutes()
+                 ->withoutOverlapping()
+                 ->appendOutputTo(storage_path('logs/security_agent.log'));
+
         // Marketplace (Falabella/Meta): sync stock cada 15 min — recorre todos los tenants
         // Descarga de imágenes de la importación de Saga. Cola dedicada, drenada
         // cada minuto: el lote HTTP del panel sólo escribe datos y encola aquí,

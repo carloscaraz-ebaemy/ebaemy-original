@@ -54,6 +54,21 @@ class EventServiceProvider extends ServiceProvider
             \App\Listeners\Tenancy\ApplySchemaSnapshot::class,
         ],
 
+        // ─── Bitácora de autenticación (agente de seguridad, módulos 5 y 6) ───
+        // El listener solo escribe en `login_events`; el agente la lee.
+        \Illuminate\Auth\Events\Login::class => [
+            [\App\Listeners\Security\RecordLoginEvent::class, 'handleLogin'],
+        ],
+        \Illuminate\Auth\Events\Failed::class => [
+            [\App\Listeners\Security\RecordLoginEvent::class, 'handleFailed'],
+        ],
+        \Illuminate\Auth\Events\Lockout::class => [
+            [\App\Listeners\Security\RecordLoginEvent::class, 'handleLockout'],
+        ],
+        \Illuminate\Auth\Events\Logout::class => [
+            [\App\Listeners\Security\RecordLoginEvent::class, 'handleLogout'],
+        ],
+
         // ─── Eventos ecommerce ─────────────────────────────────────────────────
         \App\Events\Ecommerce\OrderCreated::class => [
             \App\Listeners\Ecommerce\SendOrderConfirmationEmail::class,
