@@ -144,9 +144,11 @@
 .ec-catmenu__inner { min-width: 0; }
 .ec-catmenu__group { position: relative; display: flex; min-width: 0; }
 
-/* El acceso al resto de categorias nunca se encoge: es la salida para todo lo
-   que no cabe, y dejarlo ilegible seria esconder el menu entero. */
-.ec-catmenu__item--more { flex: none; }
+/* El acceso al resto de categorias es la salida para todo lo que no cabe, asi
+   que cede el ultimo y nunca por debajo de lo legible. Con `flex:none` a secas
+   quedaba un resto de 6px de desbordamiento cuando los demas items ya estaban
+   en su minimo: era el unico que no daba nada. */
+.ec-catmenu__item--more { flex: 0 1 auto; min-width: 5.5rem; }
 
 /* El nombre se recorta con puntos suspensivos en vez de cortarse en seco. */
 .ec-catmenu__label {
