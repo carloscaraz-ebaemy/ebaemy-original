@@ -34,8 +34,8 @@ return [
         'web_attacks'         => true,   // 3
         'order_fraud'         => true,   // 1
         'catalog_anomalies'   => true,   // 2
-        'marketplace_health'  => false,  // 4 — fase C
-        'work_schedule'       => false,  // 6 — fase C
+        'marketplace_health'  => true,   // 4
+        'work_schedule'       => true,   // 6
     ],
 
     // ── Deduplicacion y estado ────────────────────────────────────────────────
@@ -187,8 +187,12 @@ return [
         'ignore_item_ids'   => [],
     ],
 
-    // ── Modulo 4: salud de cuentas en marketplaces (fase C) ──────────────────
+    // ── Modulo 4: salud de cuentas en marketplaces ───────────────────────────
     'marketplace_health' => [
+        // Ventana de las metricas derivadas de nuestras propias tablas.
+        'window_days' => 30,
+        // Horas desde el pedido a partir de las cuales el despacho es tardio.
+        'dispatch_sla_hours' => 48,
         'limits' => [
             'claims_pct'           => 2,
             'cancellations_pct'    => 3,
@@ -199,8 +203,9 @@ return [
         'degradation_pct' => 30,
     ],
 
-    // ── Modulo 6: horarios de trabajo (fase C) ───────────────────────────────
+    // ── Modulo 6: horarios de trabajo ────────────────────────────────────────
     'work_schedule' => [
+        'lookback_hours'    => 24,
         'tolerance_minutes' => 15,
         'schedule' => [
             'mon' => ['08:00', '19:00'],
@@ -220,9 +225,17 @@ return [
         ],
         // Turnos especiales: "correo" => ['mon' => ['14:00','23:00'], ...]
         'user_exceptions' => [],
-        'sensitive_actions' => [
-            'item_price_change', 'customer_export', 'item_delete',
-            'permission_change', 'refund', 'bank_account_change', 'user_create',
+        // Traduccion de lo que hay en `audit_logs` ("modulo:accion") al nombre
+        // de la accion sensible. Cualquier accion `delete` o `export` cuenta
+        // como sensible aunque no este en esta lista.
+        'sensitive_audit' => [
+            'user:create'          => 'crear usuario',
+            'user:update'          => 'cambio de permisos',
+            'user:delete'          => 'eliminar usuario',
+            'item:delete'          => 'eliminar producto',
+            'person:export'        => 'exportar clientes',
+            'order_payment:delete' => 'reembolso',
+            'configuration:update' => 'cambio de configuracion (posible cuenta bancaria)',
         ],
         'sensitive_burst' => ['actions' => 20, 'window_minutes' => 60],
     ],

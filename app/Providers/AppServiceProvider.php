@@ -39,6 +39,11 @@ class AppServiceProvider extends ServiceProvider
 		// Auto-publica a Saga Falabella al crear/editar productos (Fase 4).
 		\App\Models\Tenant\Item::observe(\App\Observers\MarketplaceItemObserver::class);
 
+		// Deja rastro en `audit_logs` de altas, bajas y cambios de permisos de
+		// usuario. Lo lee el módulo 6 del agente de seguridad; el agente no
+		// escribe aquí. Solo audita campos de permiso/estado, no cada update.
+		\App\Models\Tenant\User::observe(\App\Observers\UserSecurityObserver::class);
+
 		// Macro DB::replica() — devuelve la conexión de solo-lectura (réplica)
 		// si TENANT_REPLICA_HOST está configurado, o la primaria como fallback.
 		// Uso: DB::replica()->table('documents')->where(...)->get();

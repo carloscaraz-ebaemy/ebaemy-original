@@ -31,6 +31,8 @@ class SecurityAgent
             new Detectors\WebAttackDetector(),
             new Detectors\OrderFraudDetector(),
             new Detectors\CatalogAnomalyDetector(),
+            new Detectors\MarketplaceHealthDetector(),
+            new Detectors\WorkScheduleDetector(),
         ];
     }
 

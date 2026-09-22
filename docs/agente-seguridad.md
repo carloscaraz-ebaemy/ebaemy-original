@@ -14,10 +14,16 @@ Revisa el sistema cada 15 minutos, clasifica lo que encuentra en **BAJA / MEDIA 
 | 3 | Ciberseguridad del servidor | **Activo** | access log de nginx/OpenResty + SHA-256 de archivos |
 | 1 | Fraude en pedidos y pagos | **Activo** | `orders` (IP, user-agent, huella de tarjeta) |
 | 2 | Errores de catálogo | **Activo** | `items`, `item_warehouse`, `item_price_history` |
-| 4 | Salud en marketplaces | Fase C | API de MercadoLibre + métricas locales de Falabella |
-| 6 | Horarios de trabajo | Fase C | `audit_logs`, `login_events` |
+| 4 | Salud en marketplaces | **Activo** | API de MercadoLibre + `marketplace_orders`/`marketplace_products` |
+| 6 | Horarios de trabajo | **Activo** | `login_events`, `item_price_history`, `audit_logs` |
 
-Los módulos de la fase C ya tienen su bloque de configuración reservado y salen desactivados.
+Los seis módulos están activos. Cualquiera se apaga desde el `config.json` sin tocar código.
+
+### Qué no cubre el módulo 4
+
+**Amazon y Ripley no existen como integración en este sistema**, así que el agente no tiene de dónde leer su salud. En cuanto aparezcan en `marketplace_channels` empezarán a evaluarse con las métricas locales sin tocar una línea de código.
+
+**Falabella no publica una API de salud de cuenta.** Sus porcentajes de cancelación y demora se derivan de `marketplace_orders`, y las publicaciones pausadas de `marketplace_products`. Es una aproximación honesta, no el dato oficial del Seller Center. La evidencia de cada alerta dice `"origen": "local"` o `"origen": "api"` para que sepas cuál estás mirando.
 
 ---
 
@@ -217,6 +223,34 @@ El puntaje se arma sumando señales; los puntos de cada una están en `config/se
 
 `ignore_item_ids` es para productos que siempre van a "fallar" a propósito: muestras, promociones permanentes, artículos de costo cero.
 
+### Ajustar marketplaces
+
+```json
+"marketplace_health": {
+  "limits": {
+    "cancellations_pct": 5,
+    "late_shipment_pct": 8,
+    "paused_listings": 25
+  },
+  "dispatch_sla_hours": 72
+}
+```
+
+`dispatch_sla_hours` sólo afecta a las métricas locales (Falabella): es a partir de cuántas horas desde el pedido se considera tardío un despacho. Para MercadoLibre manda su propio cálculo.
+
+### Ajustar los horarios
+
+La jornada admite turnos que cruzan la medianoche y excepciones por persona, que sólo pisan los días que declares:
+
+```json
+"work_schedule": {
+  "user_exceptions": {
+    "nocturno@ebaemy.com": { "mon": ["22:00", "06:00"], "tue": ["22:00", "06:00"] }
+  },
+  "sensitive_burst": { "actions": 20, "window_minutes": 60 }
+}
+```
+
 ### Silenciar ruido
 
 - `web_attacks.whitelist_ips` — tu oficina, tu monitoreo, tu CDN.
@@ -249,6 +283,10 @@ Conviene añadirlo al final del script de despliegue, después de `npm run build
 **Las alertas de catálogo van agrupadas.** Si una importación deja 300 artículos sin precio, llega un aviso con la lista, no 300 avisos. La firma de deduplicación incluye el conjunto de productos: si la lista cambia, vuelve a avisar.
 
 **La bitácora nunca guarda contraseñas.** `RecordLoginEvent` toma sólo el identificador intentado (correo o usuario) de las credenciales; la contraseña se descarta. Y un fallo al escribir la bitácora jamás impide un login.
+
+**El módulo 6 lee tres fuentes y sobrevive a que falte cualquiera.** `login_events` da la jornada (primer evento, último, total); `item_price_history` da los cambios de precio con su autor, y ya existía; `audit_logs` da el resto de acciones sensibles. Si un tenant antiguo no tiene alguna de las tres tablas, el módulo sigue con las demás.
+
+**El reporte de jornada va en severidad BAJA a propósito.** Se consulta en el HTML o en el JSONL; nunca dispara una notificación, porque un resumen diario que suena todos los días deja de leerse a la semana.
 
 **Un módulo caído no tumba la corrida.** Cada detector va aislado: su error se reporta en la consola, en el HTML y en `laravel.log`, y los demás siguen. El comando termina con código 1 para que el cron lo note.
 

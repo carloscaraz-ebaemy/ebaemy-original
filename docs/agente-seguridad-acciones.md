@@ -203,6 +203,52 @@ Programa reposición. Importa más de lo que parece: si se agota con publicacion
 
 ---
 
+## Módulo 4 — Salud en marketplaces
+
+### `reputacion_en_riesgo` con reputación roja — CRÍTICA
+MercadoLibre ya está bajando tu exposición en las búsquedas y puede suspender la cuenta.
+
+1. Cierra hoy los reclamos abiertos. La mayoría se resuelven respondiendo el mismo día.
+2. Responde todas las preguntas pendientes.
+3. Despacha lo atrasado, aunque sea con courier propio y a pérdida: la demora cuesta más que el flete.
+4. La reputación se recalcula sobre los últimos 60 días: mejora sola si dejas de sumar casos.
+
+### `reputacion_en_riesgo` naranja (ALTA) o amarilla (MEDIA)
+Mira cuál de las tres métricas — reclamos, cancelaciones, demoras — te está arrastrando y corrige esa. Están todas en la evidencia de la alerta.
+
+### `metrica_sobre_limite` — ALTA
+- **Cancelaciones altas** casi siempre significan stock publicado que no existe. Cruza con `publicado_sin_stock` del módulo 2: suelen ser la misma causa vista desde dos lados.
+- **Demoras de despacho** apuntan a un cuello de botella en preparación. Una demora sistemática hunde la reputación más rápido que un reclamo suelto.
+- **Publicaciones pausadas** no venden. El motivo está en Marketplaces → Productos.
+
+### `metrica_empeorando` — ALTA
+Todavía puedes estar dentro del límite, pero la tendencia va mal. Corregir ahora es mucho más barato que cuando el semáforo ya cambió de color.
+
+### `canal_sin_conexion` — ALTA
+El token expiró o las credenciales cambiaron. Mientras tanto **no se sincroniza stock ni precio**, y el catálogo publicado se va desfasando hasta que vendes algo que no tienes. Renueva las credenciales en Marketplaces → Canales.
+
+---
+
+## Módulo 6 — Horarios de trabajo
+
+### `actividad_sensible_fuera_de_horario` — ALTA
+Hubo cambios de precio, borrados o cambios de permisos fuera de la jornada.
+
+1. Pregunta a la persona qué estaba haciendo.
+2. **Contrasta con las alertas del módulo 5 de esa misma franja.** Si la cuenta está comprometida, este es el momento en que el atacante actuó: el horario raro y el acceso raro suelen ser el mismo incidente visto dos veces.
+3. Si la respuesta convence y el turno es habitual, dale una excepción en `user_exceptions` en vez de convivir con el aviso.
+
+### `rafaga_acciones_sensibles` — ALTA
+20 o más acciones sensibles en una hora casi nunca son trabajo manual: o es una importación masiva que alguien lanzó sin avisar, o es una cuenta tomada vaciando el catálogo. Identifica la herramienta. Si no hay explicación, cierra la sesión del usuario y cambia su contraseña.
+
+### `actividad_fuera_de_horario` — MEDIA
+Puede ser alguien adelantando trabajo o una sesión que no es suya. Una llamada lo resuelve.
+
+### `reporte_de_jornada` — BAJA
+Informativo. No notifica. Sirve para contrastar la actividad real con los horarios declarados: primer evento, último, total y cuántos cayeron fuera de horario, por usuario.
+
+---
+
 ## Si confirmas un compromiso: el orden correcto
 
 1. **Contener** — modo mantenimiento, bloquear las IPs, desactivar las cuentas sospechosas.

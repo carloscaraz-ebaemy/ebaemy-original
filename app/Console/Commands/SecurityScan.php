@@ -205,8 +205,8 @@ class SecurityScan extends Command
     "web_attacks": true,
     "order_fraud": true,
     "catalog_anomalies": true,
-    "marketplace_health": false,
-    "work_schedule": false
+    "marketplace_health": true,
+    "work_schedule": true
   },
 
   // No repetir la misma alerta dentro de estas horas.
@@ -318,7 +318,31 @@ class SecurityScan extends Command
     "ignore_item_ids": []
   },
 
-  // ── Módulo 6: horarios (fase C) ────────────────────────────────────────────
+  // ── Módulo 4: salud de cuentas en marketplaces ─────────────────────────────
+  "marketplace_health": {
+    // Límites por encima de los cuales se alerta. Los porcentajes de
+    // MercadoLibre vienen de su API; los de Falabella se derivan de nuestras
+    // propias tablas, porque su Seller Center no expone salud de cuenta.
+    "limits": {
+      "claims_pct": 2,
+      "cancellations_pct": 3,
+      "late_shipment_pct": 5,
+      "paused_listings": 10,
+      "unanswered_questions": 5
+    },
+
+    // Cuánto tiene que empeorar una métrica desde la revisión anterior para
+    // que avise, aunque siga dentro del límite.
+    "degradation_pct": 30,
+
+    // Horas desde el pedido a partir de las cuales el despacho es tardío.
+    "dispatch_sla_hours": 48,
+
+    // Ventana de las métricas derivadas localmente.
+    "window_days": 30
+  },
+
+  // ── Módulo 6: horarios ─────────────────────────────────────────────────────
   "work_schedule": {
     // Jornada por día. null = día no laborable.
     "schedule": {
@@ -341,9 +365,14 @@ class SecurityScan extends Command
     ],
 
     // Turnos especiales por usuario. Mismo formato que "schedule".
+    // Solo pisa los días que declares; el resto sigue el horario general.
+    // Admite turnos que cruzan la medianoche.
     "user_exceptions": {
-      // "nocturno@ebaemy.com": { "mon": ["22:00", "06:00"] }
-    }
+      // "nocturno@ebaemy.com": { "mon": ["22:00", "06:00"], "tue": ["22:00", "06:00"] }
+    },
+
+    // Ráfaga de acciones sensibles que se considera anormal.
+    "sensitive_burst": { "actions": 20, "window_minutes": 60 }
   }
 }
 JSON;
