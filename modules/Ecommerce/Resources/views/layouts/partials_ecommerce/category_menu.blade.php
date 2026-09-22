@@ -150,6 +150,12 @@
    en su minimo: era el unico que no daba nada. */
 .ec-catmenu__item--more { flex: 0 1 auto; min-width: 5.5rem; }
 
+/* «Todos» es hijo directo del contenedor --no cuelga de ningun grupo-- y mide
+   lo mismo siempre. flex-shrink reparte el recorte en proporcion al tamano de
+   cada item, asi que tambien se lo comia y quedaba en «To...»: 30px que no
+   hacen falta a cambio de la unica etiqueta que siempre deberia leerse. */
+.ec-catmenu__inner > .ec-catmenu__item { flex: none; }
+
 /* El nombre se recorta con puntos suspensivos en vez de cortarse en seco. */
 .ec-catmenu__label {
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;
