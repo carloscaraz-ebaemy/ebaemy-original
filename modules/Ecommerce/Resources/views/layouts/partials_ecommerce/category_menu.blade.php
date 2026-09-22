@@ -36,7 +36,7 @@
     <div class="ec-catmenu__inner">
 
         <a href="{{ route('tenant.ecommerce.index') }}"
-           class="ec-catmenu__item {{ $__current ? '' : 'is-active' }}">Todos</a>
+           class="ec-catmenu__item {{ $__current ? '' : 'is-active' }}"><span class="ec-catmenu__label">Todos</span></a>
 
         @foreach($__visible as $parent)
             <div class="ec-catmenu__group">
@@ -45,7 +45,7 @@
                    @if($parent->children_list->count())
                        aria-haspopup="true" aria-expanded="false"
                    @endif>
-                    {{ $parent->name }}
+                    <span class="ec-catmenu__label">{{ $parent->name }}</span>
                     @if($parent->children_list->count())
                         <svg class="ec-catmenu__caret" width="11" height="11" viewBox="0 0 24 24"
                              fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true">
@@ -82,7 +82,7 @@
             <div class="ec-catmenu__group">
                 <button type="button" class="ec-catmenu__item ec-catmenu__item--more"
                         aria-haspopup="true" aria-expanded="false">
-                    Más categorías
+                    <span class="ec-catmenu__label">Más categorías</span>
                     <svg class="ec-catmenu__caret" width="11" height="11" viewBox="0 0 24 24"
                          fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true">
                         <polyline points="6 9 12 15 18 9"/>
@@ -115,6 +115,14 @@
     position: relative;
     z-index: 900;                      /* por encima de .ec-filter-sticky-zone */
     border-top: 1px solid rgba(255,255,255,.10);
+
+    /* En el header heredado de Porto esta barra es hija de un
+       `.container.d-flex` de 960px, y un elemento flex NO baja de la anchura
+       de su contenido mientras conserve `min-width:auto`. Con muchas
+       categorias la barra crecia hasta 1195px dentro de un padre de 960 y se
+       llevaba por delante el ancho de la PAGINA: scroll horizontal en todo el
+       sitio, no solo en el menu. Medido a 1024px: el documento sobraba 218px. */
+    min-width: 0;
 }
 .ec-catmenu__inner {
     /* Mismos escalones que .ec-shop en el listado: si el menú y la
@@ -125,10 +133,29 @@
     overflow: visible;
 }
 @media (min-width: 1700px) { .ec-catmenu__inner { max-width: 1600px; } }
-.ec-catmenu__group { position: relative; display: flex; }
+/* La misma regla de `min-width:auto`, un nivel mas abajo: sin esto los items
+   no ceden ni un pixel y la fila desborda entre 901px --donde termina el
+   scroll horizontal de movil-- y el ancho en que las categorias ya caben. Esa
+   franja es justo la de tablet apaisada y portatil pequeno.
+
+   Se eligio que los items ENCOJAN y no que la fila haga scroll: `overflow-x`
+   recorta los paneles desplegables --se comprobo, el mega-menu deja de verse--
+   porque cuelgan de esta misma caja. */
+.ec-catmenu__inner { min-width: 0; }
+.ec-catmenu__group { position: relative; display: flex; min-width: 0; }
+
+/* El acceso al resto de categorias nunca se encoge: es la salida para todo lo
+   que no cabe, y dejarlo ilegible seria esconder el menu entero. */
+.ec-catmenu__item--more { flex: none; }
+
+/* El nombre se recorta con puntos suspensivos en vez de cortarse en seco. */
+.ec-catmenu__label {
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;
+}
 
 .ec-catmenu__item {
     display: inline-flex; align-items: center; gap: 6px;
+    min-width: 0;
     padding: 7px 11px; font-size: 13px; font-weight: 500;
     color: inherit; text-decoration: none; white-space: nowrap;
     background: none; border: 0; cursor: pointer; font-family: inherit;

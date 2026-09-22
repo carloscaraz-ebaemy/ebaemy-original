@@ -31,7 +31,14 @@
 
 /* Buscador: elemento principal de la barra. */
 .tech-header__search { flex: 1 1 auto; max-width: 680px; margin: 0 auto; position: relative; }
-.tech-header__search form { display: block; }
+/* `margin: 0` no es decorativo: el CSS heredado de Porto le pone
+   `margin-bottom: 50px` a TODO <form>, y este buscador es el unico de los
+   nueve temas que envuelve el input en uno. Esos 50px se sumaban a los 36 del
+   input, asi que la caja media 86px de alto y estiraba la barra entera a 100.
+   Peor aun: la lupa y el boton de enviar son `position:absolute` con
+   `top:50%`, y ese 50% se calculaba sobre los 86px -- se dibujaban DEBAJO del
+   input, sueltos, en vez de dentro. Medido en produccion antes del arreglo. */
+.tech-header__search form { display: block; margin: 0; }
 .tech-header__search input {
     width: 100%; height: 36px;
     padding: 0 40px 0 38px;
