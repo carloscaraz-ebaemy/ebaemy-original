@@ -81,7 +81,24 @@
 
                     <label class="req">Nombre completo</label>
                     <input type="text" name="full_name" id="{{ $p }}full_name" value="{{ old('full_name') }}" required maxlength="160">
-                    <small class="hint" id="{{ $p }}name_hint">🔒 Se completa automáticamente al ingresar tu documento.</small>
+                    {{-- La salida del callejon sin salida.
+
+                         Con DNI/RUC el nombre llega de RENIEC/SUNAT y el campo va
+                         bloqueado, que esta bien mientras la consulta responda.
+                         Cuando NO responde --documento que no figura, servicio
+                         caido, sin saldo-- el campo se quedaba vacio, bloqueado y
+                         required: el cliente no podia escribir su nombre ni
+                         continuar, y se quedaba clavado en el paso 2 de 5 sin que
+                         nada le dijera como salir.
+
+                         Ahora siempre puede escribirlo a mano. El enlace esta
+                         desde el principio, no solo tras el fallo: quien ya sabe
+                         que su documento no figura no tiene que provocar el error
+                         para poder avanzar. --}}
+                    <small class="hint" id="{{ $p }}name_hint">
+                        🔒 Se completa automáticamente al ingresar tu documento.
+                        <button type="button" class="js-name-manual" id="{{ $p }}name_manual">Escribirlo a mano</button>
+                    </small>
 
                     <label class="req">Celular (WhatsApp)</label>
                     <input type="tel" name="phone" id="{{ $p }}phone" value="{{ old('phone') }}" required maxlength="9" inputmode="numeric" placeholder="999 999 999" class="js-phone-pe">

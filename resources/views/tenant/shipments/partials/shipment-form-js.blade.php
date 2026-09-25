@@ -148,6 +148,50 @@
         var r = document.querySelector('input[name="document_type"]:checked');
         return r ? r.value : 'dni';
     }
+    /**
+     * Suelta el campo del nombre para que se escriba a mano.
+     *
+     * Es la salida cuando RENIEC/SUNAT no resuelve: el campo es `required`, y
+     * dejarlo bloqueado y vacio es un callejon sin salida --el cliente no puede
+     * escribir ni continuar, y se queda en el paso 2 de 5 sin saber por que--.
+     */
+    function soltarNombre(motivo) {
+        var nm = document.getElementById('{{ $p }}full_name');
+        var nh = document.getElementById('{{ $p }}name_hint');
+        if (!nm) return;
+        nm.readOnly = false;
+        nm.classList.remove('is-auto');
+        nm.placeholder = 'Escribe tu nombre completo';
+        if (nh) {
+            nh.style.display = '';
+            nh.classList.add('is-warn');
+            nh.firstChild.nodeValue = motivo || 'Escribe tu nombre completo tal como figura en tu documento. ';
+        }
+        try { nm.focus({ preventScroll: true }); } catch (e) {}
+    }
+
+    /** Vuelve a dejarlo en automatico (al cambiar de documento). */
+    function bloquearNombre() {
+        var nm = document.getElementById('{{ $p }}full_name');
+        var nh = document.getElementById('{{ $p }}name_hint');
+        if (nm) {
+            nm.readOnly = true;
+            nm.classList.add('is-auto');
+            nm.placeholder = 'Se completa con tu documento';
+        }
+        if (nh) {
+            nh.classList.remove('is-warn');
+            nh.firstChild.nodeValue = '\uD83D\uDD12 Se completa autom\u00e1ticamente al ingresar tu documento. ';
+        }
+    }
+
+    // El cliente puede tomar el control cuando quiera, sin tener que provocar
+    // primero el error de la consulta.
+    var btnManual = document.getElementById('{{ $p }}name_manual');
+    if (btnManual) btnManual.addEventListener('click', function () {
+        soltarNombre('Escribe tu nombre completo tal como figura en tu documento. ');
+    });
+
     function syncDocField() {
         if (!dni) return;
         var tp = docType();
@@ -163,17 +207,23 @@
         if (st) st.textContent = '';
         if (found) found.hidden = true;
 
-        // Con DNI/RUC el nombre lo trae RENIEC/SUNAT: no se escribe a mano.
+        // Con DNI/RUC el nombre lo trae RENIEC/SUNAT. Con carne o pasaporte
+        // no hay a quien consultar, asi que se escribe a mano desde el primer
+        // momento.
         var auto = (tp === 'dni' || tp === 'ruc');
         var nm = document.getElementById('{{ $p }}full_name');
         var nh = document.getElementById('{{ $p }}name_hint');
-        if (nm) {
-            nm.readOnly = auto;
-            nm.classList.toggle('is-auto', auto);
-            nm.placeholder = auto ? 'Se completa con tu documento' : 'Escribe tu nombre completo';
-            if (auto) nm.value = '';
+        if (auto) {
+            // Por los helpers y no a mano: asi el aviso ambar de «no pudimos
+            // obtener tus datos» se limpia al cambiar de documento, en vez de
+            // quedarse contradiciendo al campo que vuelve a estar bloqueado.
+            bloquearNombre();
+            if (nm) nm.value = '';
+        } else {
+            soltarNombre('Escribe tu nombre completo tal como figura en tu documento. ');
+            if (nh) nh.classList.remove('is-warn');
         }
-        if (nh) nh.style.display = auto ? '' : 'none';
+        if (nh) nh.style.display = '';
     }
     document.addEventListener('change', function (ev) {
         if (ev.target && ev.target.name === 'document_type') syncDocField();
@@ -231,7 +281,19 @@
             fetch(LOOKUP + '/' + kind + '/' + num, { headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' } })
                 .then(function (r) { return r.json(); })
                 .then(function (res) {
-                    if (!res || res.success === false || !res.data) { if (status) { status.style.color = '#dc2626'; status.textContent = (res && res.message) ? res.message : 'No se encontraron datos.'; } return; }
+                    if (!res || res.success === false || !res.data) {
+                        // No se encontro, o el servicio no contesta. En los dos
+                        // casos el cliente tiene que poder seguir: se suelta el
+                        // campo y se le dice que escriba el nombre a mano.
+                        if (status) {
+                            status.style.color = '#b45309';
+                            status.textContent = (res && res.message)
+                                ? res.message
+                                : 'No pudimos obtener tus datos con ese documento.';
+                        }
+                        soltarNombre('No pudimos obtener tus datos: escribe tu nombre completo. ');
+                        return;
+                    }
                     var d = res.data, full = d.name || [d.first_name, d.last_name].filter(Boolean).join(' ');
                     var nameEl = document.getElementById('{{ $p }}full_name'); if (nameEl && full) nameEl.value = full;
                     if (d.address) {
@@ -243,7 +305,13 @@
                         if ((dep || dist) && window.__ubPreset) window.__ubPreset('pub', dep, prov, dist);
                     }
                     if (status) { status.style.color = '#16a34a'; status.textContent = '✓ ' + (full || 'encontrado'); }
-                }).catch(function () { if (status) { status.style.color = '#dc2626'; status.textContent = 'No se pudo consultar.'; } });
+                }).catch(function () {
+                    // Sin red o con el servicio caido el resultado para el
+                    // cliente es el mismo que si no figurara: no puede
+                    // quedarse con el nombre bloqueado y vacio.
+                    if (status) { status.style.color = '#b45309'; status.textContent = 'No se pudo consultar.'; }
+                    soltarNombre('No pudimos consultar tu documento: escribe tu nombre completo. ');
+                });
         }, 450);
     });
 

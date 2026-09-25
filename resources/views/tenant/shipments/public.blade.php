@@ -47,6 +47,9 @@
         /* Campo que llena el sistema (no se escribe a mano) */
         input.is-auto { background:#f8fafc; color:#0f172a; font-weight:600; cursor:not-allowed; }
         input.is-auto:focus { border-color:var(--line); box-shadow:none; }
+        .js-name-manual { background:none; border:0; padding:0 0 0 4px; color:var(--brand); font:inherit; font-size:12px; text-decoration:underline; cursor:pointer; }
+        .hint.is-warn { color:#b45309; }
+        .hint.is-warn .js-name-manual { color:#b45309; }
 
         .btn { width:100%; padding:14px; border:none; border-radius:14px; background:var(--brand); color:#fff; font-size:16px; font-weight:700; cursor:pointer; transition:.15s; }
         .btn:hover { background:var(--brand-d); } .btn:active { transform:scale(.99); }
