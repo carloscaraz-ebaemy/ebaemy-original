@@ -7,6 +7,51 @@
         width="70%"
         @close="cerrar"
     >
+        <!-- ══ Barra de pasos ══════════════════════════════
+             El mismo recorrido que el registro de envios: una decision por
+             pantalla en vez de cinco bloques apilados. El alta manual pedia
+             canal, cliente, productos y envio en una sola pagina larga, y el
+             operador no sabia que le faltaba hasta que el boton de guardar
+             seguia apagado sin decir por que.
+
+             Al EDITAR se puede saltar a cualquier paso: el pedido ya esta
+             completo y obligar a recorrer los cinco para corregir un telefono
+             seria peor que la pagina larga. -->
+        <ol class="mo-steps">
+            <li
+                v-for="(ps, i) in pasos"
+                :key="ps.k"
+                class="mo-step"
+                :class="{ done: i < paso, active: i === paso, free: puedeSaltar(i) }"
+                @click="puedeSaltar(i) && irA(i)"
+            >
+                <span class="mo-step__n">
+                    <i v-if="i < paso" class="el-icon-check"></i>
+                    <template v-else>{{ i + 1 }}</template>
+                </span>
+                <span class="mo-step__t">{{ ps.t }}</span>
+            </li>
+        </ol>
+
+        <!-- Cuanto falta. Sale de los MISMOS requisitos que apagan el boton de
+             guardar (`sePuedeGuardar`), no de un total inventado: si dice 100%
+             el pedido se puede crear. -->
+        <div v-if="!editando" class="mo-prog" :class="{ 'is-done': progresoPct === 100 }">
+            <div class="mo-prog__bar"><span :style="{ width: progresoPct + '%' }"></span></div>
+            <small>{{ progresoPct === 100 ? 'Listo: ya se puede crear el pedido' : 'Pedido ' + progresoPct + '% completo' }}</small>
+        </div>
+
+        <!-- Lo que falta en ESTE paso, cada linea pulsable para ir al campo.
+             Antes el unico aviso era el boton de guardar apagado. -->
+        <div v-if="faltan.length" class="mo-errsum">
+            <strong>Para continuar falta:</strong>
+            <ul>
+                <li v-for="(f, i) in faltan" :key="i">
+                    <button type="button" @click="enfocar(f.ref)">{{ f.msg }}</button>
+                </li>
+            </ul>
+        </div>
+
         <div v-if="problemas.length" class="mo-alert">
             <strong>{{ editando ? "No se pudo guardar:" : "No se pudo crear el pedido:" }}</strong>
             <ul>
@@ -14,22 +59,34 @@
             </ul>
         </div>
 
-        <!-- ── Origen ────────────────────────────────────────────────── -->
-        <div class="mo-row">
-            <div class="mo-field">
-                <label>Canal de venta <span class="mo-req">*</span></label>
-                <el-select v-model="form.channel_id" placeholder="¿De dónde vino el pedido?" @change="buscarProductos">
-                    <el-option
-                        v-for="c in canales"
-                        :key="c.id"
-                        :label="c.name"
-                        :value="c.id"
-                    ></el-option>
-                </el-select>
-                <small class="mo-hint">Decide el almacén contra el que se descuenta el stock.</small>
+        <div class="mo-paso">
+        <!-- ══ PASO: Canal ════════════════════════════════
+             Tarjetas y no un desplegable: es la primera decision, define el
+             almacen contra el que se descuenta el stock, y en un <select> se
+             elegia sin llegar a leerla. Mismo patron que las tarjetas de
+             modalidad del formulario de envios. -->
+        <section v-show="clave === 'canal'">
+            <h4 class="mo-sec">¿De dónde vino este pedido?</h4>
+            <p class="mo-hint">Decide el almacén contra el que se descuenta el stock.</p>
+            <div class="mo-cards">
+                <button
+                    v-for="c in canales"
+                    :key="c.id"
+                    ref="canal"
+                    type="button"
+                    class="mo-card"
+                    :class="{ active: form.channel_id === c.id }"
+                    @click="elegirCanal(c.id)"
+                >
+                    <span class="mo-card__t">{{ c.name }}</span>
+                    <span class="mo-card__go">{{ form.channel_id === c.id ? 'Elegido' : 'Elegir' }}</span>
+                </button>
             </div>
-        </div>
+            <p v-if="!canales.length" class="mo-hint">Cargando canales…</p>
+        </section>
 
+        <!-- ══ PASO: Cliente ═════════════════════════════ -->
+        <section v-show="clave === 'cliente'">
         <!-- ── Cliente ───────────────────────────────────────────────── -->
         <h4 class="mo-sec">Cliente</h4>
         <div class="mo-row">
@@ -57,7 +114,7 @@
             </div>
             <div class="mo-field">
                 <label>Nombre <span class="mo-req">*</span></label>
-                <el-input v-model="form.customer.name" placeholder="Nombre o razón social"></el-input>
+                <el-input ref="nombre" v-model="form.customer.name" placeholder="Nombre o razón social"></el-input>
             </div>
             <div class="mo-field mo-sm">
                 <label>Teléfono</label>
@@ -68,61 +125,10 @@
                 <el-input v-model="form.customer.email"></el-input>
             </div>
         </div>
+        </section>
 
-        <!-- ── Envío ─────────────────────────────────────────────────────
-             La pregunta se hace AQUI, pero los datos de la entrega no se
-             piden aqui: en cuanto el pedido existe se abre el formulario de
-             envio que ya usa el modulo —mismo endpoint, mismo buscador de
-             ubigeo, mismo catalogo de agencias—. Duplicar esos campos dentro
-             de este modal habria creado una segunda forma de registrar un
-             envio, que es justo lo que no puede haber. -->
-        <div v-if="!editando && shippingModule" class="mo-envio">
-            <h4 class="mo-sec">Envío</h4>
-            <label class="mo-envio-q">¿Este pedido requiere envío?</label>
-            <div class="mo-envio-opts">
-                <button
-                    type="button"
-                    class="mo-envio-opt is-si"
-                    :class="{ active: necesitaEnvio === true }"
-                    @click="necesitaEnvio = true"
-                >
-                    <i class="el-icon-truck"></i>
-                    Sí, hay que entregarlo
-                </button>
-                <button
-                    type="button"
-                    class="mo-envio-opt is-no"
-                    :class="{ active: necesitaEnvio === false }"
-                    @click="necesitaEnvio = false"
-                >
-                    <i class="el-icon-shopping-bag-1"></i>
-                    No, se lo lleva el cliente
-                </button>
-            </div>
-
-            <div v-if="necesitaEnvio === true" class="mo-envio-modo">
-                <label class="mo-envio-q">¿Cómo se entrega?</label>
-                <div class="mo-envio-opts">
-                    <button
-                        v-for="(label, value) in modalidades"
-                        :key="value"
-                        type="button"
-                        class="mo-envio-opt"
-                        :class="{ active: modalidadEnvio === value }"
-                        @click="modalidadEnvio = value"
-                    >{{ label }}</button>
-                </div>
-                <small class="mo-hint">
-                    Al crear el pedido se abre el formulario de envío para el
-                    destino, la agencia y la dirección.
-                </small>
-            </div>
-            <small v-else-if="necesitaEnvio === false" class="mo-hint">
-                No se registrará envío. Si luego hace falta, se configura desde
-                el propio pedido.
-            </small>
-        </div>
-
+        <!-- ══ PASO: Productos ═════════════════════════ -->
+        <section v-show="clave === 'productos'">
         <!-- ── Productos ─────────────────────────────────────────────── -->
         <h4 class="mo-sec">Del catálogo</h4>
         <p class="mo-hint">
@@ -141,6 +147,7 @@
         <div class="mo-row">
             <div class="mo-field">
                 <el-select
+                    ref="buscador"
                     v-model="buscado"
                     filterable
                     remote
@@ -273,7 +280,6 @@
                 placeholder="2 polos talla M&#10;1 gorra azul"
             ></el-input>
         </div>
-
         <div class="mo-total">
             <span v-if="descuentoTotal > 0" class="mo-desc">
                 Descuento aplicado: −S/ {{ money(descuentoTotal) }}
@@ -281,10 +287,138 @@
             <span>Total</span>
             <strong>S/ {{ money(total) }}</strong>
         </div>
+        </section>
 
-        <span slot="footer">
-            <el-button @click="cerrar">Cancelar</el-button>
+        <!-- ══ PASO: Envío ═════════════════════════════ -->
+        <section v-show="clave === 'envio'">
+        <!-- ── Envío ─────────────────────────────────────────────────────
+             La pregunta se hace AQUI, pero los datos de la entrega no se
+             piden aqui: en cuanto el pedido existe se abre el formulario de
+             envio que ya usa el modulo —mismo endpoint, mismo buscador de
+             ubigeo, mismo catalogo de agencias—. Duplicar esos campos dentro
+             de este modal habria creado una segunda forma de registrar un
+             envio, que es justo lo que no puede haber. -->
+        <div v-if="!editando && shippingModule" class="mo-envio">
+            <h4 class="mo-sec">Envío</h4>
+            <label class="mo-envio-q">¿Este pedido requiere envío?</label>
+            <div class="mo-envio-opts">
+                <button
+                    type="button"
+                    class="mo-envio-opt is-si"
+                    :class="{ active: necesitaEnvio === true }"
+                    @click="necesitaEnvio = true"
+                >
+                    <i class="el-icon-truck"></i>
+                    Sí, hay que entregarlo
+                </button>
+                <button
+                    type="button"
+                    class="mo-envio-opt is-no"
+                    :class="{ active: necesitaEnvio === false }"
+                    @click="necesitaEnvio = false"
+                >
+                    <i class="el-icon-shopping-bag-1"></i>
+                    No, se lo lleva el cliente
+                </button>
+            </div>
+
+            <div v-if="necesitaEnvio === true" class="mo-envio-modo">
+                <label class="mo-envio-q">¿Cómo se entrega?</label>
+                <div class="mo-envio-opts">
+                    <button
+                        v-for="(label, value) in modalidades"
+                        :key="value"
+                        type="button"
+                        class="mo-envio-opt"
+                        :class="{ active: modalidadEnvio === value }"
+                        @click="modalidadEnvio = value"
+                    >{{ label }}</button>
+                </div>
+                <small class="mo-hint">
+                    Al crear el pedido se abre el formulario de envío para el
+                    destino, la agencia y la dirección.
+                </small>
+            </div>
+            <small v-else-if="necesitaEnvio === false" class="mo-hint">
+                No se registrará envío. Si luego hace falta, se configura desde
+                el propio pedido.
+            </small>
+        </div>        </section>
+
+        <!-- ══ PASO: Revisar ═════════════════════════════
+             Ultima pantalla antes de crear, con el mismo criterio que el
+             resumen del formulario de envios: cada dato al lado del boton que
+             lleva al paso donde se corrige, para no rehacer el recorrido. -->
+        <section v-show="clave === 'revisar'">
+            <h4 class="mo-sec">Revisa antes de crear</h4>
+
+            <div class="mo-conf">
+                <div class="mo-conf__h">
+                    <b>Canal</b>
+                    <button type="button" class="mo-conf__e" @click="irAClave('canal')">✏️ Editar</button>
+                </div>
+                <div class="mo-conf__b">{{ nombreCanal || '—' }}</div>
+            </div>
+
+            <div class="mo-conf">
+                <div class="mo-conf__h">
+                    <b>Cliente</b>
+                    <button type="button" class="mo-conf__e" @click="irAClave('cliente')">✏️ Editar</button>
+                </div>
+                <div class="mo-conf__b">
+                    {{ form.customer.name || '—' }}
+                    <span v-if="form.customer.document_number"> · {{ form.customer.document_number }}</span>
+                    <span v-if="form.customer.phone"> · {{ form.customer.phone }}</span>
+                </div>
+            </div>
+
+            <div class="mo-conf">
+                <div class="mo-conf__h">
+                    <b>Productos ({{ form.items.length }})</b>
+                    <button type="button" class="mo-conf__e" @click="irAClave('productos')">✏️ Editar</button>
+                </div>
+                <div class="mo-conf__b">
+                    <div v-for="l in form.items" :key="l.key" class="mo-conf__l">
+                        <span>{{ l.quantity }} × {{ l.name }}</span>
+                        <span>S/ {{ money(neto(l)) }}</span>
+                    </div>
+                    <div v-if="!form.items.length" class="mo-muted">Sin productos</div>
+                    <div class="mo-conf__tot"><span>Total</span><strong>S/ {{ money(total) }}</strong></div>
+                </div>
+            </div>
+
+            <div v-if="!editando && shippingModule" class="mo-conf">
+                <div class="mo-conf__h">
+                    <b>Envío</b>
+                    <button type="button" class="mo-conf__e" @click="irAClave('envio')">✏️ Editar</button>
+                </div>
+                <div class="mo-conf__b">
+                    <template v-if="necesitaEnvio === true">
+                        Sí · {{ modalidades[modalidadEnvio] || modalidadEnvio }}
+                        <small class="mo-hint">Al crear el pedido se abre el formulario de envío.</small>
+                    </template>
+                    <template v-else-if="necesitaEnvio === false">No, se lo lleva el cliente</template>
+                    <template v-else><span class="mo-muted">Sin decidir</span></template>
+                </div>
+            </div>
+        </section>
+        </div>
+
+        <span slot="footer" class="mo-foot">
+            <el-button v-if="paso > 0" @click="atras">← Atrás</el-button>
+            <el-button v-else @click="cerrar">Cancelar</el-button>
+
+            <!-- El boton de continuar NUNCA se apaga: si falta algo lo dice
+                 `faltan`, con el motivo y un enlace al campo. Un boton gris sin
+                 explicacion era justo el problema que trae aqui al operador. -->
             <el-button
+                v-if="clave !== 'revisar'"
+                type="primary"
+                @click="siguiente"
+            >Continuar →</el-button>
+
+            <el-button
+                v-else
                 type="primary"
                 :loading="guardando"
                 :disabled="!sePuedeGuardar || cargando"
@@ -391,6 +525,13 @@ export default {
             autollenado: {},
             docConsultado: "",
             peticionDoc: 0,
+            // Indice dentro de `pasos`. El alta empieza en el primero; al
+            // editar se abre en Cliente, que es lo que casi siempre se viene a
+            // corregir.
+            paso: 0,
+            // Lo que impide avanzar del paso actual, con el ref del campo para
+            // poder llevar el foco.
+            faltan: [],
             form: this.formVacio(),
         };
     },
@@ -407,6 +548,44 @@ export default {
         },
         editando() {
             return !!this.orderId;
+        },
+        /**
+         * Los pasos del recorrido. Se calculan, no son una lista fija: el de
+         * envio no existe si el negocio no tiene el modulo, y al editar
+         * tampoco --la modalidad se decide una vez, al crear--. Una lista fija
+         * habria dejado un paso vacio en esos casos.
+         */
+        pasos() {
+            const l = [
+                { k: "canal",     t: "Canal" },
+                { k: "cliente",   t: "Cliente" },
+                { k: "productos", t: "Productos" },
+            ];
+            if (!this.editando && this.shippingModule) l.push({ k: "envio", t: "Env\u00edo" });
+            l.push({ k: "revisar", t: this.editando ? "Revisar" : "Crear" });
+            return l;
+        },
+        clave() {
+            return (this.pasos[this.paso] || {}).k;
+        },
+        nombreCanal() {
+            const c = this.canales.find(x => x.id === this.form.channel_id);
+            return c ? c.name : "";
+        },
+        /**
+         * Cuanto falta, medido contra los MISMOS requisitos que apagan el
+         * boton de guardar. Si marca 100%, `sePuedeGuardar` es cierto: un
+         * porcentaje que no cuadre con el boton seria peor que no tenerlo.
+         */
+        progresoPct() {
+            const req = [
+                !!this.form.channel_id,
+                !!(this.form.customer.name || "").trim(),
+                this.form.items.length > 0,
+            ];
+            if (!this.editando && this.shippingModule) req.push(this.necesitaEnvio !== null);
+            const ok = req.filter(Boolean).length;
+            return Math.round((ok / req.length) * 100);
         },
         titulo() {
             return this.editando ? `Editar pedido #${this.orderId}` : "Nuevo pedido manual";
@@ -443,6 +622,97 @@ export default {
         },
     },
     methods: {
+        // ── Recorrido ────────────────────────────────────────
+
+        /**
+         * Que le falta al paso `i` para darse por terminado. Devuelve la lista
+         * de motivos, cada uno con el ref del campo que lo arregla, para que
+         * el aviso se pueda pulsar y lleve alli.
+         */
+        pendientesDe(i) {
+            const k = (this.pasos[i] || {}).k;
+            const f = [];
+            if (k === "canal" && !this.form.channel_id) {
+                f.push({ msg: "Elige el canal de venta", ref: "canal" });
+            }
+            if (k === "cliente" && !(this.form.customer.name || "").trim()) {
+                f.push({ msg: "Escribe el nombre del cliente", ref: "nombre" });
+            }
+            if (k === "productos" && !this.editando && !this.form.items.length) {
+                f.push({ msg: "Agrega al menos un producto", ref: "buscador" });
+            }
+            if (k === "envio" && this.necesitaEnvio === null) {
+                f.push({ msg: "Indica si el pedido requiere env\u00edo", ref: null });
+            }
+            return f;
+        },
+
+        /**
+         * Al EDITAR se puede ir a cualquier paso: el pedido ya existe completo
+         * y obligar a recorrerlo entero para tocar un telefono seria peor que
+         * la pagina larga que esto viene a sustituir. Al CREAR solo se vuelve
+         * atras o se avanza al siguiente ya resuelto.
+         */
+        puedeSaltar(i) {
+            if (this.editando) return true;
+            if (i <= this.paso) return true;
+            for (let x = this.paso; x < i; x++) {
+                if (this.pendientesDe(x).length) return false;
+            }
+            return true;
+        },
+
+        irA(i) {
+            if (i < 0 || i >= this.pasos.length) return;
+            this.paso = i;
+            this.faltan = [];
+        },
+
+        irAClave(k) {
+            const i = this.pasos.findIndex(p => p.k === k);
+            if (i >= 0) this.irA(i);
+        },
+
+        siguiente() {
+            const f = this.pendientesDe(this.paso);
+            if (f.length) {
+                // No se avanza, pero se DICE por que y se lleva al campo.
+                this.faltan = f;
+                this.enfocar(f[0].ref);
+                return;
+            }
+            this.faltan = [];
+            if (this.paso < this.pasos.length - 1) this.paso += 1;
+        },
+
+        atras() {
+            this.faltan = [];
+            if (this.paso > 0) this.paso -= 1;
+        },
+
+        /** Lleva el foco al campo que falta. Element UI envuelve el input. */
+        enfocar(ref) {
+            if (!ref) return;
+            this.$nextTick(() => {
+                let el = this.$refs[ref];
+                if (Array.isArray(el)) el = el[0];
+                if (!el) return;
+                const nodo = el.$el || el;
+                const campo = nodo.querySelector ? (nodo.querySelector("input, textarea") || nodo) : nodo;
+                try { campo.focus({ preventScroll: true }); } catch (e) { if (campo.focus) campo.focus(); }
+                if (nodo.scrollIntoView) nodo.scrollIntoView({ behavior: "smooth", block: "center" });
+            });
+        },
+
+        elegirCanal(id) {
+            this.form.channel_id = id;
+            this.faltan = [];
+            this.buscarProductos();
+            // Elegir canal es la unica decision del paso: encadenar sola evita
+            // un clic de mas en el recorrido mas frecuente.
+            if (!this.editando) this.siguiente();
+        },
+
         formVacio() {
             return {
                 channel_id: null,
@@ -451,6 +721,10 @@ export default {
             };
         },
         abrir() {
+            // Al editar se entra por Cliente --lo que casi siempre se viene a
+            // corregir--; al crear, por el principio.
+            this.paso = this.editando ? 1 : 0;
+            this.faltan = [];
             this.form = this.formVacio();
             this.opciones = [];
             this.problemas = [];
@@ -952,6 +1226,152 @@ export default {
 </script>
 
 <style scoped>
+/* ── Recorrido por pasos ────────────────────────────────────
+   Mismo lenguaje que los chips del formulario publico de envios, para que las
+   dos altas se lean como el mismo recorrido. */
+.mo-steps {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    list-style: none;
+    margin: 0 0 14px;
+    padding: 0 0 12px;
+    border-bottom: 1px solid #e2e8f0;
+    overflow-x: auto;
+}
+.mo-step {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 0 0 auto;
+    padding: 4px 10px 4px 4px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #94a3b8;
+    white-space: nowrap;
+}
+.mo-step.free { cursor: pointer; }
+.mo-step.free:hover { background: #f1f5f9; }
+.mo-step__n {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: #e2e8f0;
+    color: #64748b;
+    font-size: 11px;
+}
+.mo-step.active { color: #0f172a; }
+.mo-step.active .mo-step__n { background: #2563eb; color: #fff; }
+.mo-step.done { color: #0f766e; }
+.mo-step.done .mo-step__n { background: #0d9488; color: #fff; }
+
+/* Alto minimo: sin esto el dialogo cambia de tamano en cada paso y el boton de
+   continuar se mueve bajo el cursor. */
+.mo-paso { min-height: 320px; }
+
+/* ── Cuanto falta ────────────────────────────────────── */
+.mo-prog { margin: 0 0 12px; }
+.mo-prog__bar {
+    height: 5px;
+    border-radius: 999px;
+    background: #e2e8f0;
+    overflow: hidden;
+}
+.mo-prog__bar span {
+    display: block;
+    height: 100%;
+    background: #2563eb;
+    transition: width .25s ease;
+}
+.mo-prog small { display: block; margin-top: 4px; font-size: 11px; color: #64748b; }
+.mo-prog.is-done .mo-prog__bar span { background: #0d9488; }
+.mo-prog.is-done small { color: #0f766e; font-weight: 600; }
+
+/* ── Lo que falta en este paso ───────────────────────────── */
+.mo-errsum {
+    margin: 0 0 12px;
+    padding: 10px 12px;
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+    border-radius: 8px;
+    font-size: 12px;
+    color: #92400e;
+}
+.mo-errsum ul { margin: 4px 0 0; padding-left: 16px; }
+.mo-errsum button {
+    background: none;
+    border: 0;
+    padding: 0;
+    color: #92400e;
+    font: inherit;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+/* ── Tarjetas de canal ────────────────────────────────── */
+.mo-cards { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+.mo-card {
+    flex: 1 1 200px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 14px 16px;
+    background: #fff;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 10px;
+    cursor: pointer;
+    font: inherit;
+    text-align: left;
+    transition: border-color .15s, background .15s;
+}
+.mo-card:hover { border-color: #93c5fd; background: #f8fafc; }
+.mo-card.active { border-color: #2563eb; background: #eff6ff; }
+.mo-card__t { font-size: 14px; font-weight: 600; color: #0f172a; }
+.mo-card__go { font-size: 11px; font-weight: 700; color: #2563eb; text-transform: uppercase; }
+
+/* ── Resumen final ──────────────────────────────────── */
+.mo-conf {
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    margin-bottom: 10px;
+    overflow: hidden;
+}
+.mo-conf__h {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: #f8fafc;
+    border-bottom: 1px solid #e2e8f0;
+    font-size: 12px;
+}
+.mo-conf__e {
+    background: none;
+    border: 0;
+    padding: 0;
+    color: #2563eb;
+    font: inherit;
+    cursor: pointer;
+}
+.mo-conf__b { padding: 10px 12px; font-size: 13px; color: #334155; }
+.mo-conf__l { display: flex; justify-content: space-between; padding: 2px 0; }
+.mo-conf__tot {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px dashed #e2e8f0;
+    font-size: 14px;
+}
+.mo-muted { color: #94a3b8; }
+
+.mo-foot { display: flex; justify-content: space-between; }
+
 .mo-sec {
     margin: 18px 0 8px;
     font-size: 13px;
