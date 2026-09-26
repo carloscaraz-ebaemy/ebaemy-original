@@ -192,6 +192,40 @@ class UbigeoSearchTest extends TestCase
         }
     }
 
+    /**
+     * El reverso de `test_talara_encuentra_su_provincia_y_sus_distritos`.
+     *
+     * Arrastrar los distritos de la provincia existe para que «Talara» no sea
+     * un callejon sin salida: ninguno se llama asi. Pero «Piura» SI tiene un
+     * distrito homonimo, y ese ya contesta la pregunta: arrastrar entonces a
+     * Castilla convierte la busqueda en una lista de cosas que nadie pidio.
+     *
+     * Se reporto asi en produccion: escribir «ICA» devolvia Tate, Salas,
+     * Parcona y ocho mas, y el operador lo leyo como «no filtra nada».
+     */
+    public function test_una_provincia_con_distrito_homonimo_no_arrastra_a_sus_hermanos(): void
+    {
+        $nombres = $this->nombres('piura');
+
+        $this->assertSame('Piura', $nombres[0]);
+        $this->assertNotContains(
+            'Castilla',
+            $nombres,
+            'Castilla solo puede salir si se la busca a ella, no por ser vecina de Piura.'
+        );
+    }
+
+    /** Y el arrastre sigue vivo donde hace falta: Talara no tiene homonimo. */
+    public function test_la_provincia_sin_homonimo_sigue_arrastrando(): void
+    {
+        $nombres = $this->nombres('talara');
+
+        // Los nombres salen normalizados por `buildCatalog()`: el catalogo
+        // real mezcla `PARIÑAS` y `Los Organos` y el servicio los empareja.
+        $this->assertContains('Pariñas', $nombres);
+        $this->assertContains('Mancora', $nombres);
+    }
+
     public function test_la_coincidencia_exacta_gana_a_la_que_solo_contiene(): void
     {
         // «San Martín» exacto por delante de «San Martín de Porres».

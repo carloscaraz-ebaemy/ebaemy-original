@@ -2033,6 +2033,114 @@ class OrderController extends Controller
      *
      * No encontrar nada NO es un error: el cliente nuevo es el caso normal.
      */
+    /**
+     * A donde le hemos mandado antes a este cliente.
+     *
+     * Un cliente que repite no tiene por que volver a dictar su ciudad, su
+     * agencia y la oficina donde recoge: ya lo hizo, y esta guardado en sus
+     * envios. Y si tiene mas de un destino —la casa y el trabajo, su ciudad y
+     * la de su madre— la eleccion es suya, no una adivinanza del sistema:
+     * por eso se devuelven TODOS los distintos y no solo el ultimo.
+     *
+     * Se buscan por el documento y no por `person_id`: el envio guarda el DNI
+     * en su propia columna, y hay envios de clientes que nunca llegaron a
+     * enlazarse a la cartera [[project_manual_order_shipping]].
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function enviosAnterioresDe(string $doc): array
+    {
+        if ($doc === '' || !\App\Models\Tenant\ShippingRequest::moduleInstalled()) {
+            return [];
+        }
+
+        $filas = \App\Models\Tenant\ShippingRequest::query()
+            ->whereRaw("REPLACE(REPLACE(dni, ' ', ''), '-', '') = ?", [$doc])
+            ->whereNotNull('district_id')
+            // Un envio anulado sigue diciendo a donde queria ir el cliente,
+            // pero lo que se ofrece como «lo de siempre» tiene que ser algo
+            // que de verdad se entrego o esta en curso.
+            ->where(function ($q) {
+                $q->whereNull('status')
+                  ->orWhere('status', '!=', \App\Models\Tenant\ShippingRequest::STATUS_ANULADO);
+            })
+            ->orderByDesc('id')
+            ->limit(30)
+            ->get([
+                'id', 'delivery_type', 'full_name', 'phone', 'alternate_phone',
+                'district_id', 'province_id', 'department_id', 'destination_city',
+                'shipping_agency', 'reference', 'shipping_destination',
+                'pickup_person_name', 'pickup_person_dni', 'created_at',
+            ]);
+
+        if ($filas->isEmpty()) {
+            return [];
+        }
+
+        // Los nombres legibles del ubigeo, en UNA consulta para todos.
+        $nombres = \DB::connection('tenant')->table('districts')
+            ->join('provinces', 'districts.province_id', '=', 'provinces.id')
+            ->join('departments', 'provinces.department_id', '=', 'departments.id')
+            ->whereIn('districts.id', $filas->pluck('district_id')->filter()->unique())
+            ->pluck(
+                \DB::raw("CONCAT(districts.description, '|', provinces.description, '|', departments.description)"),
+                'districts.id'
+            );
+
+        $vistos = [];
+        $salida = [];
+
+        foreach ($filas as $f) {
+            // Dos envios al mismo sitio son UN destino. Sin esto, un cliente
+            // con doce pedidos a su casa veria doce veces la misma fila.
+            $clave = mb_strtolower(implode('|', [
+                $f->district_id,
+                trim((string) $f->shipping_agency),
+                trim((string) $f->reference),
+                trim((string) $f->shipping_destination),
+            ]));
+
+            if (isset($vistos[$clave])) {
+                $salida[$vistos[$clave]]['veces']++;
+                continue;
+            }
+
+            $partes = explode('|', (string) ($nombres[$f->district_id] ?? ''));
+
+            $vistos[$clave] = count($salida);
+
+            $salida[] = [
+                'delivery_type'        => $f->delivery_type,
+                'district_id'          => $f->district_id,
+                'province_id'          => $f->province_id,
+                'department_id'        => $f->department_id,
+                'destination_city'     => $f->destination_city ?: ($partes[0] ?? null),
+                'shipping_agency'      => $f->shipping_agency,
+                'reference'            => $f->reference,
+                'shipping_destination' => $f->shipping_destination,
+                'alternate_phone'      => $f->alternate_phone,
+                'phone'                => $f->phone,
+                'pickup_person_name'   => $f->pickup_person_name,
+                'pickup_person_dni'    => $f->pickup_person_dni,
+                // Para que la pantalla no tenga que recomponer el rotulo.
+                'ciudad'               => $partes[0] ?? ($f->destination_city ?: ''),
+                'contexto'             => trim(implode(', ', array_filter([
+                    $partes[1] ?? null,
+                    $partes[2] ?? null,
+                ]))),
+                'ultima_vez'           => optional($f->created_at)->format('d/m/Y'),
+                'veces'                => 1,
+            ];
+
+            // Mas de cuatro deja de ser «elige el tuyo» y vuelve a ser buscar.
+            if (count($salida) >= 4) {
+                break;
+            }
+        }
+
+        return $salida;
+    }
+
     public function searchCustomer(Request $request)
     {
         $doc = preg_replace('/\D+/', '', (string) $request->input('document_number', ''));
@@ -2040,6 +2148,11 @@ class OrderController extends Controller
         if ($doc === '') {
             return response()->json(['found' => false]);
         }
+
+        // Se resuelven SIEMPRE, encuentre o no al cliente en la cartera: el
+        // envio guarda el documento por su cuenta, asi que puede haber
+        // destinos anteriores de alguien que nunca llego a la cartera.
+        $anteriores = $this->enviosAnterioresDe($doc);
 
         $persona = \App\Models\Tenant\Person::where('number', $doc)
             ->where('type', 'customers')
@@ -2054,6 +2167,7 @@ class OrderController extends Controller
                     'phone' => $persona->telephone,
                     'email' => $persona->email,
                 ],
+                'shipments' => $anteriores,
             ]);
         }
 
@@ -2062,7 +2176,7 @@ class OrderController extends Controller
         $tipo = strlen($doc) === 11 ? 'ruc' : (strlen($doc) === 8 ? 'dni' : null);
 
         if (!$tipo) {
-            return response()->json(['found' => false]);
+            return response()->json(['found' => false, 'shipments' => $anteriores]);
         }
 
         try {
@@ -2075,15 +2189,17 @@ class OrderController extends Controller
             );
 
             return response()->json([
-                'found'   => false,
-                'message' => 'No se pudo consultar ' . strtoupper($tipo) . '. Escribe los datos a mano.',
+                'found'     => false,
+                'message'   => 'No se pudo consultar ' . strtoupper($tipo) . '. Escribe los datos a mano.',
+                'shipments' => $anteriores,
             ]);
         }
 
         if (empty($res['success'])) {
             return response()->json([
-                'found'   => false,
-                'message' => $res['message'] ?? null,
+                'found'     => false,
+                'message'   => $res['message'] ?? null,
+                'shipments' => $anteriores,
             ]);
         }
 
@@ -2095,6 +2211,7 @@ class OrderController extends Controller
                 'phone' => null,
                 'email' => null,
             ],
+            'shipments' => $anteriores,
         ]);
     }
 

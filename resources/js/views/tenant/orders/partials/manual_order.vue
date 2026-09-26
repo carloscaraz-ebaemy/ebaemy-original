@@ -175,6 +175,46 @@
                 <p class="mo-sub">La ciudad y la agencia por la que lo recogerá.</p>
             </div>
 
+            <!-- Un cliente que repite ya dicto su ciudad, su agencia y la
+                 oficina donde recoge. Volver a pedirselo es hacerle el trabajo
+                 dos veces, y cada vez que se redicta es una ocasion mas de
+                 escribirlo distinto.
+
+                 Se ofrecen TODOS sus destinos distintos, no solo el ultimo: la
+                 casa y el trabajo, su ciudad y la de su madre. Cual toca hoy
+                 lo sabe el, no el sistema. -->
+            <div v-if="anteriores.length" class="mo-prev">
+                <p class="mo-prev-t">
+                    Ya le hemos enviado antes. ¿Va al mismo sitio?
+                </p>
+                <div class="mo-prev-list">
+                    <button
+                        v-for="(a, i) in anteriores"
+                        :key="i"
+                        type="button"
+                        class="mo-prev-c"
+                        :class="{ active: anteriorElegido === i }"
+                        @click="usarAnterior(i)"
+                    >
+                        <span class="mo-prev-city">{{ a.ciudad }}</span>
+                        <span class="mo-prev-ctx">{{ a.contexto }}</span>
+                        <span class="mo-prev-ag">
+                            {{ a.shipping_agency || "Sin agencia" }}<template v-if="a.reference"> · {{ a.reference }}</template>
+                        </span>
+                        <span v-if="a.shipping_destination" class="mo-prev-dir">
+                            A domicilio: {{ a.shipping_destination }}
+                        </span>
+                        <span class="mo-prev-meta">
+                            <template v-if="a.veces > 1">{{ a.veces }} envíos</template>
+                            <template v-else-if="a.ultima_vez">Último: {{ a.ultima_vez }}</template>
+                        </span>
+                    </button>
+                </div>
+                <small class="mo-hint">
+                    O rellena abajo si esta vez va a otro sitio.
+                </small>
+            </div>
+
             <div class="mo-grid">
                 <div class="mo-f mo-f--full">
                     <label class="mo-lbl req">Ciudad de destino</label>
@@ -449,6 +489,9 @@ export default {
             // chocar con el nombre de una agencia de verdad.
             OTRA_AGENCIA: "__otra__",
             agenciaModo: "lista",
+            // Los destinos a los que ya se le ha enviado a este documento.
+            anteriores: [],
+            anteriorElegido: null,
             canales: [],
             // Lo que puede hacer ESTE usuario y lo que tiene ESTE negocio.
             // Los dos los decide el servidor: aqui solo se reflejan, y el
@@ -683,6 +726,8 @@ export default {
                 items: [],
             };
             this.agenciaModo = "lista";
+            this.anteriores = [];
+            this.anteriorElegido = null;
             this.envio = {
                 district_id: "",
                 province_id: "",
@@ -858,17 +903,23 @@ export default {
             this.form.alternate_phone = (envio.alternate_phone || "").replace(/\D+/g, "");
 
             if (envio.district_id) {
+                // Un destino anterior trae ademas `ciudad` y `contexto` ya
+                // resueltos por el servidor; el de `record` no, y ahi hay que
+                // conformarse con `destination_city`.
+                const ciudad = envio.ciudad || envio.destination_city || envio.district_id;
+                const ctx = envio.contexto || "";
+
                 this.ubigeoResults = [
                     {
                         district_id: envio.district_id,
-                        name: envio.destination_city || envio.district_id,
+                        name: ciudad,
                         province_name: "",
                         department_name: "",
-                        context: "Destino guardado",
+                        context: ctx || "Destino guardado",
                     },
                 ];
                 this.envio.district_id = envio.district_id;
-                this.destinoElegido = envio.destination_city || "";
+                this.destinoElegido = ctx ? ciudad + " — " + ctx : ciudad;
             }
         },
 
@@ -887,6 +938,33 @@ export default {
             );
 
             this.agenciaModo = estaEnLaLista ? "lista" : "otra";
+        },
+
+        /**
+         * Copia un destino anterior al formulario.
+         *
+         * Se reusa `pintarEnvio()`, que es quien ya sabe sembrar la fila del
+         * ubigeo para que el desplegable remoto pueda pintar su etiqueta, y
+         * ajustar el modo de la agencia cuando no esta en la lista. Escribir
+         * los campos a mano aqui habria sido una segunda copia de esa logica.
+         */
+        usarAnterior(i) {
+            const a = this.anteriores[i];
+            if (!a) return;
+
+            this.anteriorElegido = i;
+            this.pintarEnvio(a);
+
+            // `pintarEnvio` guarda lo que llega como «lo que ya estaba» para
+            // no reescribir el envio sin cambios. Aqui es al reves: esto es un
+            // destino NUEVO para este pedido y si hay que guardarlo.
+            this.envioOriginal = null;
+
+            // El telefono del envio anterior solo se pone si no hay uno: lo
+            // que el operador acaba de escribir manda sobre lo historico.
+            if (!this.form.phone && a.phone) {
+                this.form.phone = String(a.phone).replace(/\D+/g, "");
+            }
         },
 
         alElegirAgencia(valor) {
@@ -1034,6 +1112,11 @@ export default {
             this.estadoDoc = "";
             this.estadoEsAviso = false;
             this.docConsultado = "";
+            // Los destinos eran de la persona ANTERIOR. Se sueltan aqui, no
+            // cuando llegue la respuesta, o la pantalla pasaria un segundo
+            // ofreciendo la direccion de otro cliente.
+            this.anteriores = [];
+            this.anteriorElegido = null;
         },
 
         /**
@@ -1064,6 +1147,19 @@ export default {
 
                     const d = r.data || {};
                     this.docConsultado = doc;
+
+                    // Llegan encuentre o no al cliente en la cartera: el envio
+                    // guarda el documento por su cuenta.
+                    this.anteriores = d.shipments || [];
+                    this.anteriorElegido = null;
+
+                    // Con un solo destino no hay nada que elegir: se pone. Con
+                    // varios se pregunta, que es justo lo que no se puede
+                    // adivinar. En una EDICION no se toca nada: el pedido ya
+                    // tiene su destino y no es esto quien debe cambiarlo.
+                    if (!this.editando && this.anteriores.length === 1) {
+                        this.usarAnterior(0);
+                    }
 
                     if (!d.found) {
                         // Que no figure no puede dejar el nombre bloqueado y
@@ -1536,6 +1632,68 @@ export default {
     cursor: pointer;
     margin: 0;
     flex: none;
+}
+
+/* Destinos anteriores del cliente */
+.mo-prev {
+    margin-bottom: 16px;
+}
+.mo-prev-t {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink);
+    margin: 0 0 8px;
+}
+.mo-prev-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+    gap: 10px;
+}
+.mo-prev-c {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    text-align: left;
+    padding: 10px 12px;
+    border: 1.5px solid var(--line);
+    border-radius: 12px;
+    background: #fff;
+    cursor: pointer;
+    transition: 0.15s;
+    min-width: 0;
+}
+.mo-prev-c:hover {
+    border-color: #cbd5e1;
+    background: #f8fafc;
+}
+.mo-prev-c.active {
+    border-color: var(--brand);
+    background: #eff6ff;
+}
+.mo-prev-city {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--ink);
+}
+.mo-prev-ctx,
+.mo-prev-ag,
+.mo-prev-dir {
+    font-size: 12px;
+    color: var(--muted);
+    /* Una direccion larga no puede ensanchar la tarjeta y con ella la
+       rejilla: se corta con puntos suspensivos y el titulo la completa. */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.mo-prev-ag {
+    color: #475569;
+    font-weight: 600;
+}
+.mo-prev-meta {
+    font-size: 11px;
+    color: #94a3b8;
+    margin-top: 3px;
 }
 
 /* Subsecciones dentro de un bloque: «Del sistema» / «Escrito a mano» */

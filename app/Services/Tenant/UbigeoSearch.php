@@ -114,6 +114,21 @@ class UbigeoSearch
                 continue;
             }
 
+            // Arrastrar los distritos de la provincia existe para que «Talara»
+            // no sea un callejon sin salida: es una provincia, ningun distrito
+            // se llama asi, y sin el arrastre la busqueda no ofrecia nada
+            // elegible.
+            //
+            // Pero cuando la provincia SI tiene un distrito con su mismo
+            // nombre, ese ya ha entrado por la puerta principal y la pregunta
+            // esta contestada. Arrastrar entonces a sus hermanos convierte
+            // «Ica» en «Ica, Tate, Salas, Parcona, Pueblo Nuevo…»: once filas
+            // que el operador no ha pedido y que no se parecen a lo que
+            // escribio. Se reporto justo asi — «no me esta filtrando nada».
+            if (self::homonimoYaEncontrado($children, $p, $hits)) {
+                continue;
+            }
+
             foreach ($children as $d) {
                 // Hereda el puntaje de su provincia, por debajo de una
                 // coincidencia directa; la capital homonima sube.
@@ -214,6 +229,27 @@ class UbigeoSearch
         }
 
         return $bonus;
+    }
+
+    /**
+     * ¿El distrito que se llama igual que su provincia ya esta en la lista?
+     *
+     * Si lo esta, la coincidencia de provincia no aporta nada nuevo: el
+     * operador escribio «Ica» y ya tiene Ica delante.
+     *
+     * @param  array<int, array>         $children
+     * @param  array<string, mixed>      $province
+     * @param  array<string, array>      $hits      indexado por district_id
+     */
+    private static function homonimoYaEncontrado(array $children, array $province, array $hits): bool
+    {
+        foreach ($children as $d) {
+            if ($d['norm'] === $province['norm'] && isset($hits[$d['id']])) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static function keepBest(array &$hits, array $row): void
