@@ -1170,6 +1170,40 @@ class MarketplaceListingSyncService
     /**
      * Logo: se resuelve desde companies.logo.
      */
+    /**
+     * Refresca SOLO el nombre y el logo de la tienda en sus anuncios ya
+     * publicados, sin volver a sincronizar el catalogo entero.
+     *
+     * Hace falta porque `tenant_name` se copia en el momento de publicar y no
+     * se vuelve a mirar: si el vendedor configura su nombre comercial despues
+     * --o lo corrige-- el marketplace sigue enseñando el viejo. Se han visto
+     * tiendas anunciadas con la razon social del titular y hasta con el
+     * "Facturación Electrónica" de fabrica.
+     *
+     * @return array{nombre: string, cambiados: int}
+     */
+    public function refreshBranding(string $fqdn, Client $client): array
+    {
+        [$nombre, $logoUrl] = $this->resolveTenantBranding($fqdn, $client);
+
+        $cambiados = DB::connection('system')->table('marketplace_listings')
+            ->where('tenant_fqdn', $fqdn)
+            ->where(function ($q) use ($nombre, $logoUrl) {
+                $q->where('tenant_name', '!=', $nombre)
+                  ->orWhere(function ($q2) use ($logoUrl) {
+                      $q2->where('tenant_logo_url', '!=', $logoUrl)
+                         ->orWhereNull('tenant_logo_url');
+                  });
+            })
+            ->update([
+                'tenant_name'     => $nombre,
+                'tenant_logo_url' => $logoUrl,
+                'updated_at'      => now(),
+            ]);
+
+        return ['nombre' => $nombre, 'cambiados' => $cambiados];
+    }
+
     private function resolveTenantBranding(string $fqdn, Client $client): array
     {
         $name = null;
