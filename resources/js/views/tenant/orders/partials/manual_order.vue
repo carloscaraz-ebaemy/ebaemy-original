@@ -296,12 +296,20 @@
             </template>
 
             <!-- == Qué lleva el pedido =====================================
-                 Una linea es una VENTA: lleva `item_id`, precio y reserva de
-                 stock, y alimenta la nota de venta. Por eso no hay campo de
-                 texto libre: lo que no esta en el catalogo se CREA. -->
+                 Dos formas de contestarlo, y no son la misma cosa:
+
+                 - **Del sistema**: una linea del catalogo es una VENTA. Lleva
+                   `item_id`, precio y reserva de stock, y alimenta la nota de
+                   venta —donde `sale_note_items.item_id` es NOT NULL—.
+                 - **A mano**: texto que se imprime en el rotulo para que la
+                   agencia sepa que lleva la caja. No tiene precio, no mueve
+                   stock y no se factura, y por eso vive en el ENVIO.
+
+                 Lo segundo NO sustituye a lo primero: un pedido cobrado con
+                 solo texto libre no se podria documentar. -->
             <div class="mo-head mo-head--2">
                 <h2 class="mo-h">Qué lleva el pedido</h2>
-                <p class="mo-sub">Busca por nombre o código. El disponible es el mismo que valida el guardado.</p>
+                <p class="mo-sub">Del catálogo, o escrito a mano para el rótulo.</p>
             </div>
 
             <div v-if="!lineasEditables" class="mo-frozen">
@@ -310,12 +318,34 @@
                 contenido, anúlalo y crea uno nuevo.
             </div>
 
+            <h4 class="mo-sec">Del sistema</h4>
+            <p class="mo-sub mo-sub--2">
+                Busca por nombre o código. Descuentan stock y salen en el comprobante.
+            </p>
+
             <product-lines
                 v-model="form.items"
                 :channel-id="form.channel_id"
                 :disabled="!lineasEditables"
                 :can-edit-price="puedeEditarPrecio"
             ></product-lines>
+
+            <!-- Sin modulo de Envios no hay rotulo donde imprimir esto, y el
+                 campo se tragaria lo que le escribieran. -->
+            <template v-if="shippingModule">
+                <h4 class="mo-sec mo-sec--2">Escrito a mano</h4>
+                <p class="mo-sub mo-sub--2">
+                    Un renglón por cosa. Se imprime en el rótulo del envío:
+                    no suma al total ni descuenta stock.
+                </p>
+                <el-input
+                    v-model="packageContent"
+                    type="textarea"
+                    :rows="4"
+                    :disabled="bloqueado"
+                    placeholder="2 polos talla M&#10;1 gorra azul"
+                ></el-input>
+            </template>
         </div>
 
         <span slot="footer">
@@ -424,6 +454,10 @@ export default {
             // reescribir el envio —ni dejar una linea en su bitacora— cuando
             // el operador solo vino a corregir un telefono.
             envioOriginal: null,
+            // El texto del rotulo. Vive en el ENVIO, no en el pedido, asi que
+            // viaja dentro de `payloadEnvio()` y no del alta.
+            packageContent: "",
+            packageContentOriginal: "",
         };
     },
     computed: {
@@ -480,7 +514,10 @@ export default {
             return (
                 !!this.envioOriginal ||
                 !!this.envio.district_id ||
-                !!(this.envio.shipping_agency || "").trim()
+                !!(this.envio.shipping_agency || "").trim() ||
+                // Escribir el rotulo exige tener rotulo: sin envio no hay
+                // donde imprimirlo, asi que hay que dar tambien el destino.
+                this.packageContent !== this.packageContentOriginal
             );
         },
         sePuedeGuardar() {
@@ -624,6 +661,8 @@ export default {
             this.guardando = false;
             this.problemas = [];
             this.envioOriginal = null;
+            this.packageContent = "";
+            this.packageContentOriginal = "";
             this.lineasEditables = true;
             this.teniaLineas = true;
             this.bloqueado = false;
@@ -713,6 +752,14 @@ export default {
                     }));
 
                     this.teniaLineas = this.form.items.length > 0;
+
+                    // `null` = el pedido no tiene envio todavia. Como
+                    // cadena vacia se compara igual y no falsea un cambio.
+                    this.packageContent =
+                        d.package_content === null || d.package_content === undefined
+                            ? ""
+                            : String(d.package_content);
+                    this.packageContentOriginal = this.packageContent;
 
                     this.pintarEnvio(d.shipping);
                 })
@@ -976,7 +1023,7 @@ export default {
          * pide mapa, distancia y precio de reparto—.
          */
         payloadEnvio() {
-            return {
+            const p = {
                 delivery_type: "agencia",
                 full_name: (this.form.name || "").trim(),
                 phone: this.form.phone,
@@ -999,6 +1046,22 @@ export default {
                 pickup_person_name: this.envio.pickup_person_name || null,
                 pickup_person_dni: this.envio.pickup_person_dni || null,
             };
+
+            // El rotulo vacio se OMITE en un alta, no se manda como null:
+            // `OrderShipmentLinker::prefill()` arma un resumen con los
+            // productos del pedido, y `ensure()` hace
+            // `array_merge(prefill, overrides)` — un null explicito ganaria y
+            // dejaria el rotulo en blanco teniendo de que llenarlo.
+            //
+            // Vaciarlo A PROPOSITO al editar si se respeta: ahi el null es
+            // una decision del operador, no un campo que nadie toco.
+            if (this.packageContent !== this.packageContentOriginal) {
+                p.package_content = this.packageContent || null;
+            } else if (this.packageContent) {
+                p.package_content = this.packageContent;
+            }
+
+            return p;
         },
 
         /**
@@ -1019,7 +1082,10 @@ export default {
                 "alternate_phone",
                 "pickup_person_name",
                 "pickup_person_dni",
-            ].some(k => (this.envioOriginal[k] || null) !== (payload[k] || null));
+            ].some(k => (this.envioOriginal[k] || null) !== (payload[k] || null))
+                // `envioOriginal` viene de `shipping`, que no trae el texto
+                // del bulto: se compara aparte o no se guardaria nunca.
+                || this.packageContent !== this.packageContentOriginal;
         },
 
         guardar() {
@@ -1377,6 +1443,24 @@ export default {
     cursor: pointer;
     margin: 0;
     flex: none;
+}
+
+/* Subsecciones dentro de un bloque: «Del sistema» / «Escrito a mano» */
+.mo-sec {
+    font-size: 15px;
+    font-weight: 800;
+    margin: 0 0 2px;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+}
+.mo-sec--2 {
+    margin-top: 22px;
+    padding-top: 18px;
+    border-top: 1px solid var(--line);
+}
+.mo-sub--2 {
+    font-size: 12.5px;
+    margin-bottom: 10px;
 }
 
 /* Avisos del servidor y carga */
