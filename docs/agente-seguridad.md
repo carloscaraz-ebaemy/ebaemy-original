@@ -65,13 +65,28 @@ ls -l /usr/local/openresty/nginx/logs/access.log
 ls -l /var/log/openresty/access.log
 ```
 
-Ponla en `web_attacks.access_log_paths` (la primera de la lista que exista y sea legible es la que se usa) y asegúrate de que el usuario que corre PHP pueda leerla:
+En producción es `/var/log/nginx/access.log`, formato `combined`, propiedad de `www-data:adm` con permisos `640`. Ya está en la lista por defecto, pero **el scheduler corre como `ebaemy`, que no pertenece a `adm`**, así que hay que darle el grupo:
 
 ```bash
-sudo usermod -aG adm www-data     # o el grupo dueño del log
+sudo usermod -aG adm ebaemy       # el usuario que corre el cron, no www-data
 ```
 
 Mientras no la encuentre, el agente emite una alerta MEDIA diciéndolo — no falla en silencio.
+
+#### El log anota la IP del proxy, no la del visitante
+
+nginx registra `$remote_addr`, que aquí es el contenedor que tiene delante: **todo el tráfico externo aparece como `172.17.0.3`**, incluidos los crawlers. La aplicación no tiene ese problema — `TrustProxies` está en `'*'` y lee `X-Forwarded-For`, así que `login_events.ip_address` y `orders.ip_address` guardan IPs públicas reales.
+
+Eso deja ciegas sólo las reglas de **volumen por IP** del módulo 3. Cuando el agente lo detecta (80 % o más de IPs privadas) emite `log_sin_ip_real` y **omite** `escaneo_4xx`, `fuerza_bruta_login_web` y `trafico_excesivo`, en vez de contar el tráfico entero del sitio y acusar al proxy. Lo que sí sigue detectando es *qué* se intentó: inyecciones, rutas sensibles y escáneres conocidos.
+
+Para arreglarlo de raíz, en nginx:
+
+```nginx
+set_real_ip_from 172.17.0.0/16;
+real_ip_header   X-Forwarded-For;
+```
+
+Con eso `$remote_addr` pasa a ser el visitante real y las tres reglas vuelven solas.
 
 ### 4. Usuario de base de datos de sólo lectura (recomendado)
 

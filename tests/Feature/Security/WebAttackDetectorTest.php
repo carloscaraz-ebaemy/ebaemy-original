@@ -187,6 +187,64 @@ class WebAttackDetectorTest extends TestCase
         $this->assertFalse($state->isDuplicate('system:web_attacks:sql_injection:203.0.113.10', 24, $now->addHours(25)));
     }
 
+    /**
+     * Si nginx anota la IP del proxy en vez de la del visitante, las reglas de
+     * volumen por IP contarian el trafico entero del sitio y acusarian al
+     * proxy. Paso en produccion: todo el trafico llegaba como 172.17.0.3, la
+     * IP del contenedor, incluido un crawler externo.
+     */
+    public function test_avisa_cuando_el_log_trae_la_ip_del_proxy_y_omite_las_reglas_por_volumen(): void
+    {
+        file_put_contents($this->logPath, $this->proxyLog());
+
+        $alerts = $this->scan();
+        $types  = array_map(fn (Alert $a) => $a->type, $alerts);
+
+        $this->assertContains('log_sin_ip_real', $types);
+        $this->assertNotContains('escaneo_4xx', $types, 'Contaria el trafico entero del sitio');
+        $this->assertNotContains('trafico_excesivo', $types);
+        $this->assertNotContains('fuerza_bruta_login_web', $types);
+
+        // Lo que SI se puede saber sin la IP real se sigue detectando.
+        $this->assertContains('rutas_sensibles', $types);
+
+        $aviso = $this->firstOfType($alerts, 'log_sin_ip_real');
+        $this->assertSame(Severity::MEDIA, $aviso->severity);
+        $this->assertStringContainsString('real_ip_header', $aviso->recommendation);
+    }
+
+    public function test_con_la_ip_del_proxy_no_recomienda_bloquearla(): void
+    {
+        file_put_contents($this->logPath, $this->proxyLog());
+
+        $alert = $this->firstOfType($this->scan(), 'rutas_sensibles');
+
+        $this->assertStringContainsString('No bloquees', $alert->recommendation);
+    }
+
+    /** Todo el trafico con la IP interna del contenedor, como en produccion. */
+    private function proxyLog(): string
+    {
+        $log = '';
+
+        foreach (['/.env', '/.git/config', '/phpmyadmin/index.php'] as $path) {
+            $log .= $this->line('172.17.0.3', 'GET', $path, 404, 'Mozilla/5.0');
+        }
+
+        // Volumen de sobra para disparar las tres reglas por IP, si no se omitieran.
+        for ($i = 0; $i < 40; $i++) {
+            $log .= $this->line('172.17.0.3', 'GET', "/no-existe/{$i}", 404, 'Mozilla/5.0');
+        }
+        for ($i = 0; $i < 25; $i++) {
+            $log .= $this->line('172.17.0.3', 'POST', '/login', 302, 'Mozilla/5.0');
+        }
+        for ($i = 0; $i < 320; $i++) {
+            $log .= $this->line('172.17.0.3', 'GET', "/ecommerce/producto/{$i}", 200, 'Mozilla/5.0');
+        }
+
+        return $log;
+    }
+
     // ── Apoyo ─────────────────────────────────────────────────────────────────
 
     /** @return Alert[] */

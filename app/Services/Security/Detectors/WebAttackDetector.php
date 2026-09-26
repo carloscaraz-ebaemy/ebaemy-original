@@ -65,6 +65,9 @@ class WebAttackDetector implements DetectorModule
         'command_injection' => 'Inyeccion de comandos',
     ];
 
+    /** El access log registra la IP del proxy, no la del visitante. */
+    private bool $behindProxy = false;
+
     public function key(): string   { return 'web_attacks'; }
     public function label(): string { return 'Ciberseguridad del servidor'; }
     public function scope(): string { return 'system'; }
@@ -118,11 +121,26 @@ class WebAttackDetector implements DetectorModule
             return $alerts;
         }
 
-        return array_merge(
+        // ¿El log guarda la IP del cliente o la del proxy que tiene delante?
+        $this->behindProxy = $this->logHidesClientIp($entries);
+
+        $alerts = array_merge(
             $alerts,
+            $this->proxyAlert($context, $entries),
             $this->payloadAlerts($context, $entries),
             $this->sensitivePathAlerts($context, $entries),
             $this->scannerAgentAlerts($context, $entries),
+        );
+
+        // Las reglas de VOLUMEN por IP no tienen sentido si todas las peticiones
+        // llegan con la misma IP interna: contarian el trafico entero del sitio
+        // y acusarian al proxy. Se omiten hasta que el log traiga la IP real.
+        if ($this->behindProxy) {
+            return $alerts;
+        }
+
+        return array_merge(
+            $alerts,
             $this->scanning4xxAlerts($context, $entries),
             $this->loginBruteForceAlerts($context, $entries),
             $this->rateLimitAlerts($context, $entries),
@@ -172,8 +190,8 @@ class WebAttackDetector implements DetectorModule
                 severity: $critical ? Severity::CRITICA : Severity::ALTA,
                 title: sprintf('%s: %d intento(s) desde %s%s', $label, $hit['count'], $hit['ip'], $critical ? ' CON respuesta 2xx/3xx' : ''),
                 recommendation: $critical
-                    ? "El servidor respondio sin error a un payload de {$label}. Bloquea {$hit['ip']} en el firewall AHORA, revisa `laravel.log` de esa franja, valida que no se hayan exfiltrado datos y confirma la integridad del codigo (el agente ya vigila los hashes del checkout)."
-                    : "Bloquea {$hit['ip']} en el firewall. Los intentos fueron rechazados, pero es sondeo dirigido: revisa que las rutas tocadas validen sus parametros.",
+                    ? "El servidor respondio sin error a un payload de {$label}. " . $this->blockAdvice($hit['ip']) . ' Revisa `laravel.log` de esa franja, valida que no se hayan exfiltrado datos y confirma la integridad del codigo (el agente ya vigila los hashes del checkout).'
+                    : $this->blockAdvice($hit['ip']) . ' Los intentos fueron rechazados, pero es sondeo dirigido: revisa que las rutas tocadas validen sus parametros.',
                 evidence: [
                     'ip'        => $hit['ip'],
                     'intentos'  => $hit['count'],
@@ -227,8 +245,8 @@ class WebAttackDetector implements DetectorModule
                     $exposed ? ' y alguna RESPONDIO con exito' : ''
                 ),
                 recommendation: $exposed
-                    ? "Una ruta que deberia estar cerrada devolvio 2xx/3xx. Cierrala en nginx de inmediato, rota TODAS las credenciales de .env (base de datos, Culqi, MercadoPago, tokens de marketplaces) y bloquea {$ip}."
-                    : "Bloquea {$ip}. El sondeo fue rechazado, pero confirma en nginx que /.env, /.git y /phpmyadmin devuelven 404 y no 403 con contenido.",
+                    ? 'Una ruta que deberia estar cerrada devolvio 2xx/3xx. Cierrala en nginx de inmediato y rota TODAS las credenciales de .env (base de datos, Culqi, MercadoPago, tokens de marketplaces). ' . $this->blockAdvice($ip)
+                    : $this->blockAdvice($ip) . ' El sondeo fue rechazado, pero confirma en nginx que /.env, /.git y /phpmyadmin devuelven 404 y no 403 con contenido.',
                 evidence: [
                     'ip'     => $ip,
                     'rutas'  => array_slice(array_unique($hit['paths']), 0, 10),
@@ -275,7 +293,7 @@ class WebAttackDetector implements DetectorModule
                 type: 'escaner_conocido',
                 severity: Severity::ALTA,
                 title: "La herramienta de escaneo «{$hit['tool']}» esta analizando el sitio desde {$hit['ip']}",
-                recommendation: "Bloquea {$hit['ip']} en el firewall. Nadie navega con {$hit['tool']}: es reconocimiento previo a un ataque. Si el escaneo es tuyo (auditoria contratada), agrega esa IP a `web_attacks.whitelist_ips`.",
+                recommendation: $this->blockAdvice($hit['ip']) . " Nadie navega con {$hit['tool']}: es reconocimiento previo a un ataque. Si el escaneo es tuyo (auditoria contratada), agrega esa IP a `web_attacks.whitelist_ips`.",
                 evidence: [
                     'ip'          => $hit['ip'],
                     'herramienta' => $hit['tool'],
@@ -464,6 +482,62 @@ class WebAttackDetector implements DetectorModule
         }
 
         return $alerts;
+    }
+
+    /**
+     * ¿Casi todas las peticiones vienen de una IP privada? Entonces nginx esta
+     * anotando el peer inmediato (un contenedor, un proxy) y no al visitante.
+     * La aplicacion si resuelve la IP real, porque TrustProxies lee
+     * X-Forwarded-For, pero el `log_format combined` no incluye ese header.
+     */
+    private function logHidesClientIp(array $entries): bool
+    {
+        if (count($entries) < 20) {
+            return false;
+        }
+
+        $private = 0;
+
+        foreach ($entries as $entry) {
+            if (!filter_var($entry['ip'], FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
+                $private++;
+            }
+        }
+
+        return $private / count($entries) >= 0.8;
+    }
+
+    private function proxyAlert(ScanContext $context, array $entries): array
+    {
+        if (!$this->behindProxy) {
+            return [];
+        }
+
+        $ips = array_slice(array_keys(array_count_values(array_column($entries, 'ip'))), 0, 5);
+
+        return [new Alert(
+            module: $this->key(),
+            type: 'log_sin_ip_real',
+            severity: Severity::MEDIA,
+            title: 'El access log anota la IP del proxy, no la del visitante',
+            recommendation: 'Sin la IP real no se puede detectar escaneo por volumen, fuerza bruta ni scraping, y ninguna alerta sirve para bloquear a nadie. Arreglalo en nginx con el modulo realip: `set_real_ip_from 172.17.0.0/16;` y `real_ip_header X-Forwarded-For;`. Mientras tanto el agente sigue detectando QUE se intento (inyecciones, rutas sensibles, escaneres), pero no DESDE DONDE, y omite las reglas por volumen para no acusar al proxy.',
+            evidence: [
+                'ips_registradas'  => $ips,
+                'peticiones'       => count($entries),
+                'reglas_omitidas'  => ['escaneo_4xx', 'fuerza_bruta_login_web', 'trafico_excesivo'],
+                'nota'             => 'La aplicacion SI graba la IP real en login_events y orders: TrustProxies lee X-Forwarded-For. Esto afecta solo al log de nginx.',
+            ],
+            tenant: null,
+            dedupeKey: 'system:web_attacks:proxy_ip',
+        )];
+    }
+
+    /** Lo que se recomienda hacer con una IP que quizas no es del atacante. */
+    private function blockAdvice(string $ip): string
+    {
+        return $this->behindProxy
+            ? "No bloquees {$ip}: es la IP del proxy, no la del atacante (ver la alerta «El access log anota la IP del proxy»). Corrige primero el log para poder identificar al origen."
+            : "Bloquea {$ip} en el firewall.";
     }
 
     /** Decodifica la URL dos veces: los escaneres codifican el payload doble. */
