@@ -127,14 +127,23 @@
                      pedidos. Estaba escondido en el cajon de filtros como un
                      desplegable de tres valores donde tienda, link y marketplace
                      caian todos en «Otros pedidos». -->
-                <div class="ord-orig">
-                    <div class="ord-orig-grp">
+                <!-- Origen y estado en UNA franja, separados por una linea.
+                     Eran dos filas de pastillas casi iguales, una debajo de la
+                     otra, las dos empezando por «Todos 73»: el mismo numero dos
+                     veces y ninguna pista de que filtraban cosas distintas.
+                     Ahora se lee de izquierda a derecha —de donde viene | en que
+                     punto esta— y los botones de origen no repiten el total: el
+                     chip «Todos» de la derecha ya lo dice. Ninguno hundido
+                     significa los dos, que es lo que hacia ese boton. -->
+                <div class="ord-franja">
+                    <div class="ord-orig-grp" role="group" aria-label="Origen del pedido">
                         <button
                             v-for="g in gruposOrigen"
                             :key="g.key"
                             class="ord-origb"
-                            :class="{ active: orderSource === g.key }"
+                            :class="{ active: orderSource === g.key, vacio: g.n === 0 }"
                             :title="g.hint"
+                            :disabled="g.n === 0"
                             @click="elegirOrigen(g.key)"
                         >
                             <i :class="g.icon"></i>
@@ -143,71 +152,79 @@
                         </button>
                     </div>
 
-                    <div v-if="canalesDelGrupo.length" class="ord-orig-sub">
+                    <span class="ord-franja-sep" aria-hidden="true"></span>
+
+                    <!-- Cuatro chips y un cajon, no trece botones en fila.
+                         Los trece estaban todos al mismo nivel, asi que para
+                         encontrar uno habia que leerlos enteros cada vez. Arriba
+                         se quedan los que se pulsan a diario; el resto sigue a un
+                         clic y con su contador, no desaparece. -->
+                    <div class="ord-chips">
                         <button
-                            class="ord-origc"
-                            :class="{ active: !channelFilter }"
-                            @click="elegirCanal(null)"
+                            v-for="chip in chipsVisibles"
+                            :key="chip.key"
+                            class="ord-chip"
+                            :class="{ active: mpFilter === chip.key }"
+                            @click="applyMpFilter(chip.key)"
                         >
-                            Todos
+                            {{ chip.label }}
+                            <span
+                                v-if="chipCounts[chip.key] !== undefined"
+                                class="ord-chip-n"
+                                >{{ chipCounts[chip.key] }}</span
+                            >
                         </button>
-                        <button
-                            v-for="c in canalesDelGrupo"
-                            :key="c.channel_id"
-                            class="ord-origc"
-                            :class="{ active: channelFilter === c.channel_id }"
-                            @click="elegirCanal(c.channel_id)"
+
+                        <el-dropdown
+                            v-if="chipsOcultos.length"
+                            trigger="click"
+                            @command="applyMpFilter"
                         >
-                            {{ c.name }}
-                            <span class="ord-origc-n">{{ c.count }}</span>
-                        </button>
+                            <button class="ord-chip ord-chip-more">
+                                Más estados
+                                <span v-if="totalOcultos" class="ord-chip-n">{{ totalOcultos }}</span>
+                                <i class="el-icon-arrow-down"></i>
+                            </button>
+                            <el-dropdown-menu slot="dropdown">
+                                <el-dropdown-item
+                                    v-for="chip in chipsOcultos"
+                                    :key="chip.key"
+                                    :command="chip.key"
+                                >
+                                    {{ chip.label }}
+                                    <span v-if="chipCounts[chip.key] !== undefined" class="ord-chip-n">{{
+                                        chipCounts[chip.key]
+                                    }}</span>
+                                </el-dropdown-item>
+                            </el-dropdown-menu>
+                        </el-dropdown>
                     </div>
                 </div>
 
-                <!-- Cuatro chips y un cajon, no trece botones en fila.
-                     Los trece estaban todos al mismo nivel, asi que para
-                     encontrar uno habia que leerlos enteros cada vez. Arriba
-                     se quedan los que se pulsan a diario; el resto sigue a un
-                     clic y con su contador, no desaparece. -->
-                <div class="ord-chips">
+                <!-- Segundo nivel: el canal exacto dentro del grupo elegido.
+                     Aparece solo cuando hay grupo, y sin un «Todos» propio —el
+                     grupo ya lo es—: pulsar un canal lo acota, volver a pulsarlo
+                     lo suelta. -->
+                <div v-if="canalesDelGrupo.length" class="ord-orig-sub">
+                    <span class="ord-orig-lbl">Canal:</span>
                     <button
-                        v-for="chip in chipsVisibles"
-                        :key="chip.key"
-                        class="ord-chip"
-                        :class="{ active: mpFilter === chip.key }"
-                        @click="applyMpFilter(chip.key)"
+                        v-for="c in canalesDelGrupo"
+                        :key="c.channel_id"
+                        class="ord-origc"
+                        :class="{ active: channelFilter === c.channel_id }"
+                        @click="elegirCanal(c.channel_id)"
                     >
-                        {{ chip.label }}
-                        <span
-                            v-if="chipCounts[chip.key] !== undefined"
-                            class="ord-chip-n"
-                            >{{ chipCounts[chip.key] }}</span
-                        >
+                        {{ c.name }}
+                        <span class="ord-origc-n">{{ c.count }}</span>
                     </button>
-
-                    <el-dropdown
-                        v-if="chipsOcultos.length"
-                        trigger="click"
-                        @command="applyMpFilter"
+                    <button
+                        v-if="channelFilter"
+                        class="ord-origc ord-origc-x"
+                        title="Ver todos los canales de este grupo"
+                        @click="elegirCanal(null)"
                     >
-                        <button class="ord-chip ord-chip-more">
-                            Más estados
-                            <span v-if="totalOcultos" class="ord-chip-n">{{ totalOcultos }}</span>
-                            <i class="el-icon-arrow-down"></i>
-                        </button>
-                        <el-dropdown-menu slot="dropdown">
-                            <el-dropdown-item
-                                v-for="chip in chipsOcultos"
-                                :key="chip.key"
-                                :command="chip.key"
-                            >
-                                {{ chip.label }}
-                                <span v-if="chipCounts[chip.key] !== undefined" class="ord-chip-n">{{
-                                    chipCounts[chip.key]
-                                }}</span>
-                            </el-dropdown-item>
-                        </el-dropdown-menu>
-                    </el-dropdown>
+                        <i class="el-icon-close"></i> Quitar
+                    </button>
                 </div>
                 <!-- Barra de filtros. Antes era una caja titulada "Gestión de
                      pedidos para facturar" (de Saga) con los controles
@@ -2681,12 +2698,27 @@
    son «en que punto esta el pedido» y esto es «de donde viene». Con la misma
    forma de pastilla, los once controles de la cabecera se volvian una sola
    mancha y no se sabia cual acotaba cual. */
-.ord-orig {
+.ord-franja {
     display: flex;
     align-items: center;
     flex-wrap: wrap;
-    gap: 8px 14px;
-    margin-bottom: 10px;
+    gap: 10px 14px;
+    margin-bottom: 12px;
+}
+/* La linea que separa «de donde viene» de «en que punto esta». Sin ella los
+   dos grupos de botones se leen como una sola tira de once filtros iguales. */
+.ord-franja-sep {
+    width: 1px;
+    align-self: stretch;
+    min-height: 26px;
+    background: #e2e8f0;
+}
+/* Dentro de la franja los chips ya no ponen su propio margen ni se llevan el
+   ancho entero: conviven con el segmentado a su izquierda. */
+.ord-franja .ord-chips {
+    margin-bottom: 0;
+    flex: 1 1 auto;
+    min-width: 0;
 }
 .ord-orig-grp {
     display: inline-flex;
@@ -2728,6 +2760,16 @@
 .ord-origb.active > i {
     color: #4f46e5;
 }
+/* Un grupo sin pedidos no es un boton: pulsarlo solo vacia la tabla. Se deja
+   visible —el cero es informacion— pero apagado. */
+.ord-origb.vacio {
+    opacity: 0.45;
+    cursor: default;
+}
+.ord-origb.vacio:hover {
+    background: transparent;
+    color: #475569;
+}
 .ord-origb-n {
     min-width: 18px;
     text-align: center;
@@ -2749,6 +2791,24 @@
     align-items: center;
     flex-wrap: wrap;
     gap: 6px;
+    margin: -4px 0 12px;
+}
+.ord-orig-lbl {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #94a3b8;
+    margin-right: 2px;
+}
+.ord-origc-x {
+    border-style: solid;
+    border-color: #e2e8f0;
+    color: #94a3b8;
+}
+.ord-origc-x:hover {
+    border-color: #fecaca;
+    color: #dc2626;
 }
 .ord-origc {
     border: 1px dashed #d6dee8;
@@ -3343,8 +3403,13 @@
        medias: en el movil son el primer control de la pantalla y el pulgar
        llega a los dos sin apuntar. El desglose de canales sigue debajo, en
        una fila que se arrastra como los chips. */
-    .orders .ord-orig {
+    .orders .ord-franja {
         gap: 8px;
+    }
+    /* La linea divisoria no aporta nada cuando los dos bloques se apilan:
+       en vertical la separacion ya la da el salto de fila. */
+    .orders .ord-franja-sep {
+        display: none;
     }
     .orders .ord-orig-grp {
         display: flex;
@@ -4082,7 +4147,7 @@ export default {
         },
 
         /**
-         * Los botones de origen. «Todos» primero porque es el estado de partida.
+         * Los dos botones de origen.
          *
          * El contador es `null` —y no 0— mientras no ha llegado la respuesta:
          * un cero pintado donde todavia no se ha contado nada se lee como «no
@@ -4092,14 +4157,10 @@ export default {
             const c = this.sourceCounts || {};
             const n = k => (c[k] === undefined ? null : c[k]);
 
+            // Sin «Todos»: era el mismo numero que el chip «Todos» de los
+            // estados, pegado a el y con la misma forma. Ninguno de los dos
+            // hundido ya significa todos, y soltar el activo vuelve ahi.
             return [
-                {
-                    key: "all",
-                    label: "Todos",
-                    icon: "fas fa-layer-group",
-                    hint: "Todos los pedidos, de donde sea",
-                    n: n("all"),
-                },
                 {
                     key: "system",
                     label: "Del sistema",
