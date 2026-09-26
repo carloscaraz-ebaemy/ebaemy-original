@@ -50,12 +50,14 @@ class UbigeoSearch
     /**
      * Por debajo de esto una fila es relleno.
      *
+     * Se compara contra `calidad`, no contra `score`: `score` ya lleva los
+     * bonus sumados —capital, Lima, longitud— y esos premian a un candidato
+     * frente a otro, no dicen si se parece a lo que se escribio.
+     *
      * La escala la fija `score()`: exacto 100, empieza-por 60, prefijo de
      * palabra 35, subcadena suelta 10. El corte en 30 deja pasar las tres
      * primeras —que son las que el operador reconoce como «lo que escribi»—
      * y descarta la ultima, que es la que llenaba el desplegable de ruido.
-     * Los distritos arrastrados por su provincia heredan `base - 20`, y desde
-     * una coincidencia de provincia decente siguen quedando por encima.
      */
     private const UMBRAL_RELEVANTE = 30;
 
@@ -107,7 +109,7 @@ class UbigeoSearch
             if ($base === null) {
                 continue;
             }
-            self::keepBest($hits, self::districtRow($d, $base + self::districtBonus($d)));
+            self::keepBest($hits, self::districtRow($d, $base + self::districtBonus($d), null, $base));
         }
 
         // -- Nivel 2: provincias. La fila de provincia no basta: lo que el
@@ -120,7 +122,7 @@ class UbigeoSearch
             }
 
             $children = $catalog['byProvince'][$p['id']] ?? [];
-            $groups[] = self::provinceRow($p, $catalog, $base + 15, count($children));
+            $groups[] = self::provinceRow($p, $catalog, $base + 15, count($children)) + ['calidad' => round($base, 2)];
 
             if (count($children) > self::INLINE_EXPAND_MAX) {
                 continue;
@@ -146,7 +148,9 @@ class UbigeoSearch
                 // coincidencia directa; la capital homonima sube.
                 $inherited = $base - 20 + self::districtBonus($d)
                     + ($d['norm'] === $p['norm'] ? 18 : 0);
-                self::keepBest($hits, self::districtRow($d, $inherited, $p['name']));
+                // La calidad que se hereda es la de la PROVINCIA: el
+                // distrito no coincide con nada, esta ahi por su padre.
+                self::keepBest($hits, self::districtRow($d, $inherited, $p['name'], $base));
             }
         }
 
@@ -157,7 +161,7 @@ class UbigeoSearch
             if ($base === null) {
                 continue;
             }
-            $groups[] = self::departmentRow($dep, $catalog, $base + 10);
+            $groups[] = self::departmentRow($dep, $catalog, $base + 10) + ['calidad' => round($base, 2)];
         }
 
         $rows = $withGroups
@@ -266,7 +270,7 @@ class UbigeoSearch
         $hayBuena = false;
 
         foreach ($rows as $r) {
-            if ($r['score'] >= self::UMBRAL_RELEVANTE) {
+            if (($r['calidad'] ?? $r['score']) >= self::UMBRAL_RELEVANTE) {
                 $hayBuena = true;
                 break;
             }
@@ -278,7 +282,7 @@ class UbigeoSearch
 
         return array_values(array_filter(
             $rows,
-            fn ($r) => $r['score'] >= self::UMBRAL_RELEVANTE
+            fn ($r) => ($r['calidad'] ?? $r['score']) >= self::UMBRAL_RELEVANTE
         ));
     }
 
@@ -315,10 +319,20 @@ class UbigeoSearch
     // Filas
     // -----------------------------------------------------------------
 
-    private static function districtRow(array $d, float $score, ?string $viaProvince = null): array
-    {
+    private static function districtRow(
+        array $d,
+        float $score,
+        ?string $viaProvince = null,
+        float $calidad = 0
+    ): array {
         return [
             'type'          => 'district',
+            // Lo bien que coincide con lo tecleado, ANTES de los bonus.
+            // `score` mezcla las dos cosas y por eso no sirve para filtrar:
+            // Huancavelica contiene «ica» de casualidad (calidad 10) pero
+            // suma +37 por ser capital homonima de su provincia y se colaba
+            // por encima del umbral como si fuera una coincidencia buena.
+            'calidad'       => round($calidad, 2),
             'district_id'   => $d['id'],
             'province_id'   => $d['province_id'],
             'department_id' => $d['department_id'],
