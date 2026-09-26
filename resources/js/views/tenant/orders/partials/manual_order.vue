@@ -1,53 +1,130 @@
 <template>
     <!-- Alta manual de pedido: se esta rehaciendo desde cero.
-         De momento solo el documento del cliente, que trae su nombre.
-         El resto del formulario anterior esta en el historial
-         (git show <commit>:resources/js/views/tenant/orders/partials/manual_order.vue).
-         Contrato con orders/index.vue: showDialog (.sync), orderId, created. -->
+         De momento solo el bloque del cliente. El resto (canal, productos,
+         entrega y el guardado) esta por reconstruir; el formulario anterior
+         completo esta en el historial de este archivo.
+         Contrato con orders/index.vue: showDialog (.sync), orderId, created.
+
+         El diseño es el del formulario publico de envios, con sus mismas
+         medidas y colores, pero COMPACTADO: alli cada campo ocupa una fila
+         porque se llena en un movil y una sola vez en la vida; aqui lo usa un
+         operador en pantalla ancha y todo el dia, asi que los cuatro campos
+         caben en dos filas y se ve el bloque entero de un vistazo. -->
     <el-dialog
         :close-on-click-modal="false"
         :visible="showDialog"
         :title="titulo"
-        top="5vh"
-        width="70%"
+        top="6vh"
+        width="760px"
         @close="cerrar"
     >
-        <div class="mo-doc">
-            <label class="mo-doc__lbl">Documento del cliente</label>
-
-            <el-input
-                v-model="documento"
-                placeholder="DNI o RUC"
-                maxlength="11"
-                class="mo-doc__input"
-                @input="alEscribir"
-                @keyup.enter.native="buscar(true)"
-            >
-                <el-button
-                    slot="append"
-                    icon="el-icon-search"
-                    :loading="buscando"
-                    @click="buscar(true)"
-                ></el-button>
-            </el-input>
-
-            <p class="mo-doc__hint">
-                Con 8 dígitos (DNI) u 11 (RUC) la búsqueda sale sola.
-            </p>
-
-            <!-- El resultado es SOLO el nombre. Telefono y correo los devuelve
-                 el endpoint, pero aqui no se pintan: esta pantalla identifica
-                 a la persona, no lista su ficha. -->
-            <div v-if="cliente" class="mo-res">
-                <div class="mo-res__fila">
-                    <span class="mo-res__lbl">Nombre</span>
-                    <strong>{{ cliente.name || "—" }}</strong>
-                </div>
-                <small v-if="origen" class="mo-res__origen">{{ origen }}</small>
+        <div class="mo">
+            <!-- Completitud: la misma barra del publico, aqui mas fina porque
+                 acompaña, no protagoniza. -->
+            <div class="mo-prog" :class="{ 'is-done': pct === 100 }">
+                <div class="mo-prog__bar"><span :style="{ width: pct + '%' }"></span></div>
+                <small>{{ pct === 100 ? "Datos del cliente completos" : "Datos del cliente " + pct + "% completos" }}</small>
             </div>
 
-            <div v-else-if="sinResultado" class="mo-res mo-res--vacio">
-                {{ sinResultado }}
+            <div class="mo-head">
+                <h2 class="mo-h">Tus datos</h2>
+                <p class="mo-sub">Para saber a nombre de quién va el pedido y cómo avisarle.</p>
+            </div>
+
+            <!-- Tipo de documento: chips, no desplegable. Es lo que decide si
+                 el nombre se puede consultar o hay que escribirlo. -->
+            <label class="mo-lbl">Documento</label>
+            <div class="mo-doctypes">
+                <label v-for="t in tiposDoc" :key="t.v" class="mo-doctype">
+                    <input type="radio" :value="t.v" v-model="docType" @change="alCambiarTipo" />
+                    <span>{{ t.l }}</span>
+                </label>
+            </div>
+
+            <div class="mo-grid">
+                <!-- Documento y nombre juntos: el primero rellena al segundo, y
+                     verlos en la misma linea hace evidente de donde sale. -->
+                <div class="mo-f">
+                    <label class="mo-lbl" for="mo-doc">Número</label>
+                    <div class="mo-input-wrap">
+                        <input
+                            id="mo-doc"
+                            ref="doc"
+                            v-model="documento"
+                            type="text"
+                            class="mo-input"
+                            :maxlength="consultable ? 11 : 20"
+                            :inputmode="consultable ? 'numeric' : 'text'"
+                            autocomplete="off"
+                            :placeholder="consultable ? '8 dígitos (DNI) u 11 (RUC)' : 'Número de documento'"
+                            @input="alEscribir"
+                            @keydown.enter.prevent="buscar(true)"
+                        />
+                        <i v-if="buscando" class="mo-spin el-icon-loading"></i>
+                    </div>
+                    <small v-if="estadoDoc" class="mo-hint" :class="{ 'is-warn': estadoEsAviso }">
+                        {{ estadoDoc }}
+                    </small>
+                    <small v-else-if="consultable" class="mo-hint">
+                        Con 8 u 11 dígitos se consulta solo.
+                    </small>
+                </div>
+
+                <div class="mo-f">
+                    <label class="mo-lbl req" for="mo-name">Nombre completo</label>
+                    <input
+                        id="mo-name"
+                        ref="name"
+                        v-model="form.name"
+                        type="text"
+                        class="mo-input"
+                        :class="{ 'is-auto': nombreBloqueado }"
+                        :readonly="nombreBloqueado"
+                        maxlength="160"
+                        :placeholder="nombreBloqueado ? 'Se completa con el documento' : 'Nombre o razón social'"
+                    />
+                    <!-- La salida del callejon sin salida, igual que en el
+                         publico: si el documento no figura o el servicio no
+                         responde, el campo no puede quedarse vacio, bloqueado
+                         y obligatorio a la vez. -->
+                    <small v-if="nombreBloqueado" class="mo-hint">
+                        🔒 Se completa al ingresar el documento.
+                        <button type="button" class="mo-link" @click="escribirAMano">Escribirlo a mano</button>
+                    </small>
+                </div>
+
+                <div class="mo-f">
+                    <label class="mo-lbl req" for="mo-phone">Celular (WhatsApp)</label>
+                    <input
+                        id="mo-phone"
+                        ref="phone"
+                        v-model="form.phone"
+                        type="tel"
+                        class="mo-input"
+                        maxlength="9"
+                        inputmode="numeric"
+                        placeholder="999 999 999"
+                        @input="soloDigitosEn('phone')"
+                    />
+                    <small v-if="errorPhone" class="mo-err">{{ errorPhone }}</small>
+                </div>
+
+                <div class="mo-f">
+                    <label class="mo-lbl" for="mo-phone2">
+                        Teléfono adicional <span class="mo-opt">(opcional)</span>
+                    </label>
+                    <input
+                        id="mo-phone2"
+                        v-model="form.alternate_phone"
+                        type="tel"
+                        class="mo-input"
+                        maxlength="9"
+                        inputmode="numeric"
+                        placeholder="999 999 999"
+                        @input="soloDigitosEn('alternate_phone')"
+                    />
+                    <small class="mo-hint">A quién llamar si el primero no contesta.</small>
+                </div>
             </div>
         </div>
 
@@ -65,10 +142,21 @@ export default {
     },
     data() {
         return {
+            // Mismos valores que ShippingRequest::DOC_TYPES, para que el dia
+            // que esto guarde no haya que traducir nada.
+            tiposDoc: [
+                { v: "dni", l: "DNI / RUC" },
+                { v: "ce", l: "C. Extranjería" },
+                { v: "pasaporte", l: "Pasaporte" },
+            ],
+            docType: "dni",
             documento: "",
-            cliente: null,
+            form: { name: "", phone: "", alternate_phone: "" },
+            nombreManual: false,
+            nombreTraido: "",
             origen: "",
-            sinResultado: "",
+            estadoDoc: "",
+            estadoEsAviso: false,
             buscando: false,
             timerDoc: null,
             // Corregir un digito lanza otra consulta antes de que vuelva la
@@ -85,10 +173,54 @@ export default {
         titulo() {
             return this.editando ? "Editar pedido" : "Nuevo pedido";
         },
+        /** Solo DNI y RUC se consultan: carne y pasaporte no estan en RENIEC. */
+        consultable() {
+            return this.docType === "dni";
+        },
+        nombreBloqueado() {
+            return this.consultable && !this.nombreManual;
+        },
+        errorPhone() {
+            const p = this.form.phone || "";
+            // Avisar mientras se teclea seria regañar por no haber terminado:
+            // el error solo sale cuando ya hay 9 digitos y aun asi no cuadran.
+            if (p.length < 9) return "";
+            if (!/^9\d{8}$/.test(p)) return "Un celular peruano tiene 9 dígitos y empieza por 9.";
+            return "";
+        },
+        pct() {
+            const hechos = [
+                !!(this.form.name || "").trim(),
+                /^9\d{8}$/.test(this.form.phone || ""),
+            ].filter(Boolean).length;
+            return Math.round((hechos / 2) * 100);
+        },
     },
     methods: {
         cerrar() {
             this.$emit("update:showDialog", false);
+        },
+
+        alCambiarTipo() {
+            clearTimeout(this.timerDoc);
+            this.documento = "";
+            this.estadoDoc = "";
+            this.estadoEsAviso = false;
+            this.origen = "";
+            this.docConsultado = "";
+            this.nombreTraido = "";
+            // Con carne o pasaporte no hay a quien consultar: el nombre se
+            // escribe siempre, y dejarlo bloqueado seria un callejon sin salida.
+            this.nombreManual = !this.consultable;
+        },
+
+        escribirAMano() {
+            this.nombreManual = true;
+            this.$nextTick(() => this.$refs.name && this.$refs.name.focus());
+        },
+
+        soloDigitosEn(campo) {
+            this.form[campo] = (this.form[campo] || "").replace(/\D+/g, "");
         },
 
         /**
@@ -98,14 +230,17 @@ export default {
          * dispararia once consultas y las diez primeras se pagan para nada.
          */
         alEscribir() {
+            if (!this.consultable) return;
+
+            this.documento = (this.documento || "").replace(/\D+/g, "");
             clearTimeout(this.timerDoc);
 
-            const doc = this.soloDigitos();
+            const doc = this.documento;
 
             // El documento cambio: lo que trajo la consulta anterior ya no es
             // de esta persona. Se suelta ahora, no cuando llegue la respuesta,
             // para que la pantalla no quede un segundo mostrando al anterior.
-            if (doc !== this.docConsultado) this.limpiarResultado();
+            if (doc !== this.docConsultado) this.soltarTraido();
 
             if (doc.length !== 8 && doc.length !== 11) return;
 
@@ -113,21 +248,37 @@ export default {
         },
 
         /**
-         * `manual` = lo pidió el operador con el botón o con Enter, y entonces
-         * sí se le responde aunque no haya nada. En la búsqueda automática se
-         * calla: el cliente nuevo es un caso normal, no un error que avisar.
+         * Suelta el nombre SOLO si sigue siendo el que puso la consulta. Si el
+         * operador lo corrigio a mano, su correccion vale mas que el servicio.
+         */
+        soltarTraido() {
+            if (this.nombreTraido && this.form.name === this.nombreTraido) {
+                this.form.name = "";
+            }
+            this.nombreTraido = "";
+            this.origen = "";
+            this.estadoDoc = "";
+            this.estadoEsAviso = false;
+            this.docConsultado = "";
+        },
+
+        /**
+         * `manual` = lo pidió el operador con Enter, y entonces sí se le
+         * responde aunque no haya nada. En la búsqueda automática se calla: el
+         * cliente nuevo es un caso normal, no un error que avisar.
          */
         buscar(manual) {
-            clearTimeout(this.timerDoc);
+            if (!this.consultable) return;
 
-            const doc = this.soloDigitos();
+            clearTimeout(this.timerDoc);
+            const doc = (this.documento || "").replace(/\D+/g, "");
 
             if (!doc) {
                 if (manual) this.$message.warning("Ingresa el documento a buscar.");
                 return;
             }
 
-            this.limpiarResultado();
+            this.soltarTraido();
 
             const peticion = ++this.peticion;
             this.buscando = true;
@@ -141,88 +292,243 @@ export default {
                     this.docConsultado = doc;
 
                     if (!d.found) {
-                        this.sinResultado =
-                            d.message || "Sin datos para ese documento.";
+                        // Que no figure no puede dejar el nombre bloqueado y
+                        // vacio: se abre a mano en el acto.
+                        this.nombreManual = true;
+                        this.estadoDoc = d.message || "Sin datos para ese documento: escribe el nombre.";
+                        this.estadoEsAviso = true;
                         return;
                     }
 
-                    this.cliente = d.customer || {};
+                    const c = d.customer || {};
+
+                    if (c.name) {
+                        this.form.name = c.name;
+                        this.nombreTraido = c.name;
+                        this.nombreManual = false;
+                    } else {
+                        this.nombreManual = true;
+                    }
+
+                    this.estadoEsAviso = false;
                     this.origen =
                         {
                             cartera: "Cliente de tu cartera.",
                             dni: "Datos traídos de RENIEC.",
                             ruc: "Datos traídos de SUNAT.",
                         }[d.source] || "";
+                    this.estadoDoc = this.origen;
                 })
                 .catch(() => {
                     if (peticion !== this.peticion) return;
-                    this.sinResultado = "No se pudo consultar el documento.";
+                    this.nombreManual = true;
+                    this.estadoDoc = "No se pudo consultar: escribe el nombre a mano.";
+                    this.estadoEsAviso = true;
                 })
                 .then(() => {
                     if (peticion === this.peticion) this.buscando = false;
                 });
-        },
-
-        soloDigitos() {
-            return (this.documento || "").replace(/\D+/g, "");
-        },
-        limpiarResultado() {
-            this.cliente = null;
-            this.origen = "";
-            this.sinResultado = "";
-            this.docConsultado = "";
         },
     },
 };
 </script>
 
 <style scoped>
-.mo-doc {
-    padding: 8px 0 24px;
-}
-.mo-doc__lbl {
-    display: block;
-    font-weight: 600;
-    margin-bottom: 6px;
-}
-.mo-doc__input {
-    max-width: 320px;
-}
-.mo-doc__hint {
-    margin: 6px 0 0;
-    font-size: 12px;
-    color: #909399;
-}
-.mo-res {
-    margin-top: 16px;
-    padding: 12px 14px;
-    border: 1px solid #ebeef5;
-    border-radius: 6px;
-    background: #fafafa;
-    max-width: 480px;
-}
-.mo-res--vacio {
-    color: #909399;
-}
-.mo-res__fila {
-    display: flex;
-    gap: 12px;
-    padding: 4px 0;
-}
-.mo-res__lbl {
-    min-width: 84px;
-    color: #909399;
-}
-.mo-res__origen {
-    display: block;
-    margin-top: 6px;
-    color: #909399;
+/* Mismas variables que el formulario publico de envios, para que las dos
+   pantallas se reconozcan como la misma casa. */
+.mo {
+    --brand: #2563eb;
+    --brand-d: #1d4ed8;
+    --ink: #0f172a;
+    --line: #e5e7eb;
+    --muted: #6b7280;
+    color: var(--ink);
 }
 
-/* Movil: el input a todo el ancho, que 320px sobran en una pantalla de 360. */
-@media (max-width: 575px) {
-    .mo-doc__input {
-        max-width: 100%;
+/* Completitud */
+.mo-prog {
+    margin-bottom: 14px;
+}
+.mo-prog__bar {
+    height: 4px;
+    border-radius: 999px;
+    background: #e8edf5;
+    overflow: hidden;
+}
+.mo-prog__bar span {
+    display: block;
+    height: 100%;
+    background: var(--brand);
+    border-radius: 999px;
+    transition: width 0.25s ease;
+}
+.mo-prog small {
+    display: block;
+    margin-top: 5px;
+    font-size: 12px;
+    color: var(--muted);
+}
+.mo-prog.is-done .mo-prog__bar span {
+    background: #16a34a;
+}
+
+/* Cabecera del bloque */
+.mo-head {
+    margin: 2px 0 14px;
+}
+.mo-h {
+    font-size: 19px;
+    font-weight: 800;
+    margin: 0 0 2px;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+}
+.mo-sub {
+    font-size: 13.5px;
+    color: var(--muted);
+    margin: 0;
+    line-height: 1.45;
+}
+
+/* Campos */
+.mo-lbl {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    margin: 0 0 5px;
+    color: var(--ink);
+}
+.mo-lbl.req::after {
+    content: " *";
+    color: #dc2626;
+}
+.mo-opt {
+    font-weight: 400;
+    color: #64748b;
+}
+.mo-input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1.5px solid var(--line);
+    border-radius: 12px;
+    font-size: 14.5px;
+    background: #fff;
+    color: var(--ink);
+    transition: 0.15s;
+    box-sizing: border-box;
+}
+.mo-input:focus {
+    outline: none;
+    border-color: var(--brand);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+.mo-input.is-auto {
+    background: #f8fafc;
+    font-weight: 600;
+    cursor: not-allowed;
+}
+.mo-input.is-auto:focus {
+    border-color: var(--line);
+    box-shadow: none;
+}
+.mo-input-wrap {
+    position: relative;
+}
+.mo-spin {
+    position: absolute;
+    right: 11px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--brand);
+    font-size: 15px;
+}
+.mo-hint {
+    display: block;
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 3px;
+    line-height: 1.4;
+}
+.mo-hint.is-warn {
+    color: #b45309;
+}
+.mo-err {
+    display: block;
+    font-size: 12px;
+    color: #dc2626;
+    margin-top: 3px;
+}
+.mo-link {
+    background: none;
+    border: 0;
+    padding: 0 0 0 4px;
+    color: var(--brand);
+    font: inherit;
+    font-size: 12px;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+/* Tipo de documento */
+.mo-doctypes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 14px;
+}
+.mo-doctype {
+    position: relative;
+    margin: 0;
+}
+.mo-doctype input {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+.mo-doctype span {
+    display: inline-block;
+    padding: 7px 14px;
+    border: 1.5px solid var(--line);
+    border-radius: 11px;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: #475569;
+    background: #fff;
+    cursor: pointer;
+    transition: 0.15s;
+}
+.mo-doctype span:hover {
+    border-color: #cbd5e1;
+}
+.mo-doctype input:checked + span {
+    border-color: var(--brand);
+    background: #eff6ff;
+    color: var(--brand-d);
+}
+.mo-doctype input:focus-visible + span {
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+/* La compactacion: cuatro campos en dos filas. El nombre se lleva el resto
+   del ancho porque es el unico que puede ser largo de verdad. */
+.mo-grid {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    gap: 14px 16px;
+    align-items: start;
+}
+.mo-f {
+    min-width: 0;
+}
+
+/* Movil: una columna, como el formulario publico. */
+@media (max-width: 767px) {
+    .mo-grid {
+        grid-template-columns: 1fr;
+    }
+    .mo-h {
+        font-size: 17px;
     }
 }
 </style>
