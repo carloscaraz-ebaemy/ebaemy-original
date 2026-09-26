@@ -22,7 +22,35 @@
 
                 {{-- ══════════ PASO 0: Tipo de entrega ══════════ --}}
                 <div class="step fade-in" data-step="0">
-                    <div class="dtype">
+                    {{-- Primero A DONDE, despues COMO.
+
+                         Antes se elegia la modalidad de entrada, sin que el
+                         sistema supiera todavia donde vive el cliente: se le
+                         ofrecian las tres --moto, agencia y recojo-- y era el
+                         quien tenia que saber cual le corresponde. Quien vive
+                         en provincia podia elegir moto, que no llega alli.
+
+                         Con la ciudad puesta el sistema ya sabe cual aplica y
+                         ofrece solo esa: reparto propio si esta en la zona de
+                         la tienda, agencia si no. El recojo en tienda se ofrece
+                         siempre, porque no depende de donde viva. --}}
+                    <div class="dest-first">
+                        <label class="req">¿A dónde va tu pedido?</label>
+                        <div class="ubigeo-field" data-ubigeo-group="{{ $ubGroup }}">
+                            <div class="ubigeo-display" tabindex="0">Busca ciudad, provincia o distrito…</div>
+                            <input type="hidden" name="department_id" data-ub="department">
+                            <input type="hidden" name="province_id"   data-ub="province">
+                            <input type="hidden" name="district_id"   data-ub="district">
+                            <div class="ubigeo-pop" hidden>
+                                <div class="ubigeo-col" data-col="dep"></div>
+                                <div class="ubigeo-col" data-col="prov"></div>
+                                <div class="ubigeo-col" data-col="dist"></div>
+                            </div>
+                        </div>
+                        <small class="hint">Con tu ciudad te mostramos solo las formas de entrega que llegan hasta ti.</small>
+                    </div>
+
+                    <div class="dtype" hidden>
                         <button type="button" class="dcard moto" data-type="domicilio">
                             <div class="ic">🏍️</div>
                             <div class="tx"><b>Entrega a domicilio &mdash; LIMA</b><span>Un motorizado lleva tu pedido hasta tu dirección. Ubicación por mapa.</span></div>
@@ -214,17 +242,12 @@
 
                     {{-- ─────── Rama AGENCIA (ubigeo) ─────── --}}
                     <div class="branch-agencia" hidden>
-                        <label class="req">¿A dónde enviamos el paquete?</label>
-                        <div class="ubigeo-field" data-ubigeo-group="{{ $ubGroup }}">
-                            <div class="ubigeo-display" tabindex="0">Busca ciudad, provincia o distrito…</div>
-                            <input type="hidden" name="department_id" data-ub="department">
-                            <input type="hidden" name="province_id"   data-ub="province">
-                            <input type="hidden" name="district_id"   data-ub="district">
-                            <div class="ubigeo-pop" hidden>
-                                <div class="ubigeo-col" data-col="dep"></div>
-                                <div class="ubigeo-col" data-col="prov"></div>
-                                <div class="ubigeo-col" data-col="dist"></div>
-                            </div>
+                        {{-- El destino ya se eligio en el primer paso: aqui solo se
+                             recuerda, con un enlace para cambiarlo. Preguntarlo dos
+                             veces era lo que obligaba a elegir la modalidad a ciegas. --}}
+                        <div class="dest-eco">
+                            <span>Envío a <b id="{{ $p }}dest_eco_txt">—</b></span>
+                            <button type="button" class="dest-eco__b" data-edit-step="0">Cambiar</button>
                         </div>
 
                         <label>Agencia de transporte <span style="color:#dc2626;">*</span></label>

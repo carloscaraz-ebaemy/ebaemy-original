@@ -3326,6 +3326,29 @@ class ShipmentController extends Controller
      *                            abre desde su enlace. Vacío = alta suelta
      *                            clásica, que sigue funcionando igual.
      */
+    /**
+     * Provincia donde esta la TIENDA, para decidir que modalidades ofrecer.
+     *
+     * No se codifica «Lima» aunque hoy los 19 tenants esten ahi: el dia que
+     * entre uno de provincia, su reparto propio es en SU ciudad y no en la
+     * capital, y una constante con 1501 se lo romperia en silencio. Sale del
+     * ubigeo del establecimiento, que ya existe.
+     *
+     * Null = no se sabe donde esta la tienda. Entonces se ofrecen TODAS las
+     * modalidades, que es como funcionaba antes: sin el dato no se recorta
+     * nada, porque recortar a ciegas es peor que no recortar.
+     */
+    private function provinciaTienda(): ?string
+    {
+        try {
+            $e = \App\Models\Tenant\Establishment::first();
+
+            return ($e && $e->province_id) ? (string) $e->province_id : null;
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
     public function publicForm(array $orderContext = [])
     {
         $company = Company::first();
@@ -3344,6 +3367,9 @@ class ShipmentController extends Controller
             'sentShipment' => $sentShipment,
             'ordersWa'     => $store->orders_wa,
             'departments'  => Department::orderBy('description')->get(['id', 'description']),
+            // Provincia de la tienda: decide que modalidades se ofrecen segun
+            // donde viva el cliente. Ver provinciaTienda().
+            'provTienda'   => $this->provinciaTienda(),
             'mapsKey'      => config('services.google_maps.key'),
             'storeLat'     => $store->store_latitude,
             'storeLng'     => $store->store_longitude,
