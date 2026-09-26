@@ -1582,8 +1582,87 @@ class OrderController extends Controller
             // sirve desde aqui, y no se copia en el Vue, porque `AGENCIES` es
             // la unica lista: duplicarla en el front significa que el dia que
             // se añada una transportista, una de las dos pantallas no la tenga.
-            'agencies'        => \App\Models\Tenant\ShippingRequest::AGENCIES,
+            //
+            // Va MERGEADO con las que este negocio usa de verdad: el catalogo
+            // son 12 nombres nacionales y cada tienda trabaja con las suyas.
+            'agencies'        => $this->agenciasDisponibles(),
+            // Las suyas, aparte y por uso, para poder ofrecerlas primero.
+            'agencies_used'   => $this->agenciasUsadas(),
         ]);
+    }
+
+    /**
+     * Las agencias que ESTE negocio ha usado de verdad, las mas usadas primero.
+     *
+     * El catalogo `AGENCIES` son 12 transportistas nacionales, y no es con lo
+     * que trabaja una tienda: en alasitas hay 15 agencias en uso y solo 4 son
+     * del catalogo. «Espinoza», «Transportes Cueva» o «Huapaya express» se
+     * habian escrito a mano una vez y volvian a escribirse a mano cada vez,
+     * con una grafia distinta cada vez —«marvisur», «shalom - winchanzao»—.
+     *
+     * Se normaliza por minusculas para no ofrecer la misma agencia dos veces,
+     * y se conserva la grafia de la fila mas reciente: es la que el operador
+     * reconoce.
+     *
+     * @return array<int, string>
+     */
+    private function agenciasUsadas(): array
+    {
+        $conexion = \DB::connection('tenant');
+
+        // Un GROUP BY sin indice en cada apertura del dialogo. Son pocas filas
+        // hoy, pero el que mas crece es justo `shipping_requests`.
+        return \Illuminate\Support\Facades\Cache::remember(
+            'orders_agencias_usadas_' . $conexion->getDatabaseName(),
+            600,
+            function () use ($conexion) {
+                $filas = $conexion->table('shipping_requests')
+                    ->whereNotNull('shipping_agency')
+                    ->where('shipping_agency', '!=', '')
+                    ->selectRaw('shipping_agency, COUNT(*) AS usos, MAX(id) AS ultimo')
+                    ->groupBy('shipping_agency')
+                    ->orderByDesc('usos')
+                    ->limit(40)
+                    ->get();
+
+                $porClave = [];
+
+                foreach ($filas as $fila) {
+                    $nombre = trim((string) $fila->shipping_agency);
+                    $clave  = mb_strtolower($nombre);
+
+                    // La primera que llega es la mas usada: esa grafia gana.
+                    if ($nombre !== '' && !isset($porClave[$clave])) {
+                        $porClave[$clave] = $nombre;
+                    }
+                }
+
+                return array_values($porClave);
+            }
+        );
+    }
+
+    /**
+     * Catalogo + lo que el negocio usa, sin repetir.
+     *
+     * El orden importa: primero lo suyo, que es lo que va a elegir el 95% de
+     * las veces, y detras el catalogo nacional.
+     *
+     * @return array<int, string>
+     */
+    private function agenciasDisponibles(): array
+    {
+        $usadas = $this->agenciasUsadas();
+        $vistas = array_map('mb_strtolower', $usadas);
+        $salida = $usadas;
+
+        foreach (\App\Models\Tenant\ShippingRequest::AGENCIES as $agencia) {
+            if (!in_array(mb_strtolower($agencia), $vistas, true)) {
+                $salida[] = $agencia;
+            }
+        }
+
+        return $salida;
     }
 
     /**

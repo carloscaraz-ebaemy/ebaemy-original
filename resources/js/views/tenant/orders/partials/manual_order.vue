@@ -210,19 +210,49 @@
 
                 <div class="mo-f">
                     <label class="mo-lbl req">Agencia de transporte</label>
-                    <!-- `allow-create` porque el catalogo son 12 nombres, no una
-                         tabla: si el cliente pide una que no esta, se escribe. -->
+
+                    <!-- Dos grupos y no una lista sola: el catalogo son 12
+                         transportistas nacionales, y no es con lo que trabaja
+                         una tienda. Las que este negocio ya ha usado van
+                         primero porque son las que va a elegir casi siempre.
+
+                         Y «Otros» explicito: antes esto era `allow-create` a
+                         secas, que funciona pero no se ve. Quien no sabia que
+                         podia escribir encima del desplegable daba por hecho
+                         que su agencia no se podia poner. -->
                     <el-select
+                        v-if="agenciaModo === 'lista'"
                         v-model="envio.shipping_agency"
                         class="mo-sel"
                         filterable
-                        allow-create
                         clearable
-                        default-first-option
                         placeholder="— Selecciona —"
+                        @change="alElegirAgencia"
                     >
-                        <el-option v-for="a in agencias" :key="a" :label="a" :value="a" />
+                        <el-option-group v-if="agenciasUsadas.length" label="Las que usas">
+                            <el-option v-for="a in agenciasUsadas" :key="'u-' + a" :label="a" :value="a" />
+                        </el-option-group>
+                        <el-option-group v-if="agenciasCatalogo.length" label="Catálogo">
+                            <el-option v-for="a in agenciasCatalogo" :key="'c-' + a" :label="a" :value="a" />
+                        </el-option-group>
+                        <el-option label="Otros (escribirla a mano)" :value="OTRA_AGENCIA" />
                     </el-select>
+
+                    <template v-else>
+                        <input
+                            ref="agencia"
+                            v-model="envio.shipping_agency"
+                            type="text"
+                            class="mo-input"
+                            maxlength="120"
+                            placeholder="Nombre de la agencia"
+                        />
+                        <small class="mo-hint">
+                            <button type="button" class="mo-link" @click="volverALaLista">
+                                Elegir una de la lista
+                            </button>
+                        </small>
+                    </template>
                 </div>
 
                 <div class="mo-f">
@@ -412,6 +442,13 @@ export default {
                 pickup_person_dni: "",
             },
             agencias: [],
+            // Las que este negocio ya ha usado, por uso. Subconjunto de
+            // `agencias`: de ahi sale el grupo «Las que usas».
+            agenciasUsadas: [],
+            // Centinela del desplegable. Empieza por `__` para que no pueda
+            // chocar con el nombre de una agencia de verdad.
+            OTRA_AGENCIA: "__otra__",
+            agenciaModo: "lista",
             canales: [],
             // Lo que puede hacer ESTE usuario y lo que tiene ESTE negocio.
             // Los dos los decide el servidor: aqui solo se reflejan, y el
@@ -488,6 +525,19 @@ export default {
          * dos. Si aqui no coincidiera, el formulario dejaria guardar algo que
          * el servidor rechaza despues.
          */
+        /**
+         * Lo que queda del catalogo una vez quitadas las que ya usa.
+         *
+         * El servidor manda `agencias` ya mergeadas y `agenciasUsadas` aparte;
+         * aqui solo se resta, para no pintar la misma agencia en los dos
+         * grupos. La comparacion es en minusculas porque en produccion
+         * conviven «marvisur» y «Marvisur».
+         */
+        agenciasCatalogo() {
+            const usadas = this.agenciasUsadas.map(a => a.toLowerCase());
+
+            return this.agencias.filter(a => usadas.indexOf(a.toLowerCase()) === -1);
+        },
         esEmpresa() {
             return this.docType === "dni" && (this.documento || "").length === 11;
         },
@@ -632,6 +682,7 @@ export default {
                 channel_id: canalUnico,
                 items: [],
             };
+            this.agenciaModo = "lista";
             this.envio = {
                 district_id: "",
                 province_id: "",
@@ -680,7 +731,13 @@ export default {
                 .then(r => {
                     const d = r.data || {};
                     this.agencias = d.agencies || [];
+                    this.agenciasUsadas = d.agencies_used || [];
                     this.canales = d.channels || [];
+
+                    // Un pedido viejo puede llevar una agencia que ya no esta
+                    // en ninguna lista. Se abre en modo «a mano» para que se
+                    // vea, en vez de quedar en blanco y borrarla al guardar.
+                    this.ajustarModoAgencia();
                     this.puedeEditarPrecio = !!d.can_edit_prices;
                     this.shippingModule = !!d.shipping_module;
 
@@ -695,7 +752,9 @@ export default {
                     // deja escribir la agencia a mano. Peor seria un desplegable
                     // vacio que no admite nada.
                     this.agencias = [];
+                    this.agenciasUsadas = [];
                     this.canales = [];
+                    this.ajustarModoAgencia();
                 });
         },
 
@@ -788,6 +847,9 @@ export default {
             this.envio.province_id = envio.province_id || "";
             this.envio.destination_city = envio.destination_city || "";
             this.envio.shipping_agency = envio.shipping_agency || "";
+            // `cargarCatalogos()` y `cargar()` corren en paralelo: gane quien
+            // gane, el que llega segundo deja el modo bien.
+            this.ajustarModoAgencia();
             this.envio.reference = envio.reference || "";
             this.envio.shipping_destination = envio.shipping_destination || "";
             this.envio.a_domicilio = !!(envio.shipping_destination || "").trim();
@@ -808,6 +870,37 @@ export default {
                 this.envio.district_id = envio.district_id;
                 this.destinoElegido = envio.destination_city || "";
             }
+        },
+
+        /**
+         * Si la agencia guardada no esta en la lista, el campo tiene que
+         * abrirse escrito a mano. Un desplegable que no puede representar su
+         * propio valor lo muestra vacio, y el siguiente guardado lo borra.
+         */
+        ajustarModoAgencia() {
+            const a = (this.envio.shipping_agency || "").trim();
+
+            if (!a) return;
+
+            const estaEnLaLista = this.agencias.some(
+                x => x.toLowerCase() === a.toLowerCase()
+            );
+
+            this.agenciaModo = estaEnLaLista ? "lista" : "otra";
+        },
+
+        alElegirAgencia(valor) {
+            if (valor !== this.OTRA_AGENCIA) return;
+
+            // El centinela no es una agencia: no puede quedarse en el campo.
+            this.envio.shipping_agency = "";
+            this.agenciaModo = "otra";
+            this.$nextTick(() => this.$refs.agencia && this.$refs.agencia.focus());
+        },
+
+        volverALaLista() {
+            this.envio.shipping_agency = "";
+            this.agenciaModo = "lista";
         },
 
         /**
