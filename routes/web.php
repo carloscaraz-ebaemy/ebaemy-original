@@ -326,6 +326,7 @@ if ($hostname) {
             Route::get('orders/columns', 'Tenant\OrderController@columns');
             Route::get('orders/stats', 'Tenant\OrderController@stats');
             Route::get('orders/status-counts', 'Tenant\OrderController@statusCounts');
+            Route::get('orders/source-counts', 'Tenant\OrderController@sourceCounts');
             Route::get('orders/channels', 'Tenant\OrderController@channels');
             Route::get('orders/channel-report', 'Tenant\OrderController@channelReport');
             Route::get('orders/search-items', 'Tenant\OrderController@searchItems');

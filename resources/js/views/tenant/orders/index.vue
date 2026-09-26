@@ -116,6 +116,54 @@
                     No se pudieron cargar los contadores: {{ countsError }}
                     <button class="ord-counts-retry" @click="loadChipCounts">Reintentar</button>
                 </div>
+                <!-- De donde viene el pedido, en DOS botones.
+                     El operador trabaja con esa division y no con los once
+                     canales: «lo mio» —el link de envio que se comparte a los
+                     clientes, la tienda virtual, el marketplace de ebaemy.com y
+                     el alta manual— y «lo de fuera», que llega de Saga,
+                     MercadoLibre o TikTok y lleva su propio ciclo de vida.
+                     El canal exacto es el SEGUNDO nivel: aparece solo cuando ya
+                     se eligio un grupo, y solo con los canales que tienen
+                     pedidos. Estaba escondido en el cajon de filtros como un
+                     desplegable de tres valores donde tienda, link y marketplace
+                     caian todos en «Otros pedidos». -->
+                <div class="ord-orig">
+                    <div class="ord-orig-grp">
+                        <button
+                            v-for="g in gruposOrigen"
+                            :key="g.key"
+                            class="ord-origb"
+                            :class="{ active: orderSource === g.key }"
+                            :title="g.hint"
+                            @click="elegirOrigen(g.key)"
+                        >
+                            <i :class="g.icon"></i>
+                            {{ g.label }}
+                            <span v-if="g.n !== null" class="ord-origb-n">{{ g.n }}</span>
+                        </button>
+                    </div>
+
+                    <div v-if="canalesDelGrupo.length" class="ord-orig-sub">
+                        <button
+                            class="ord-origc"
+                            :class="{ active: !channelFilter }"
+                            @click="elegirCanal(null)"
+                        >
+                            Todos
+                        </button>
+                        <button
+                            v-for="c in canalesDelGrupo"
+                            :key="c.channel_id"
+                            class="ord-origc"
+                            :class="{ active: channelFilter === c.channel_id }"
+                            @click="elegirCanal(c.channel_id)"
+                        >
+                            {{ c.name }}
+                            <span class="ord-origc-n">{{ c.count }}</span>
+                        </button>
+                    </div>
+                </div>
+
                 <!-- Cuatro chips y un cajon, no trece botones en fila.
                      Los trece estaban todos al mismo nivel, asi que para
                      encontrar uno habia que leerlos enteros cada vez. Arriba
@@ -456,15 +504,6 @@
                                     <el-option label="Pago parcial" value="parcial"></el-option>
                                     <el-option label="Pagado" value="pagado"></el-option>
                                     <el-option label="Cobrado por el canal" value="canal"></el-option>
-                                </el-select>
-                            </section>
-
-                            <section class="ord-fd-sec">
-                                <h5>Origen</h5>
-                                <el-select v-model="orderSource" size="small" @change="applyOrderSource">
-                                    <el-option label="Todos los pedidos" value="all"></el-option>
-                                    <el-option label="Solo Saga Falabella" value="saga"></el-option>
-                                    <el-option label="Otros pedidos" value="other"></el-option>
                                 </el-select>
                             </section>
 
@@ -2636,6 +2675,112 @@
     background: rgba(255, 255, 255, 0.25);
 }
 /* ══════════════════════════════════════════════════════════════════
+   Origen del pedido: dos botones y su desglose
+   ══════════════════════════════════════════════════════════════════ */
+/* Va ENCIMA de los chips de estado y se lee distinto a proposito: los chips
+   son «en que punto esta el pedido» y esto es «de donde viene». Con la misma
+   forma de pastilla, los once controles de la cabecera se volvian una sola
+   mancha y no se sabia cual acotaba cual. */
+.ord-orig {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px 14px;
+    margin-bottom: 10px;
+}
+.ord-orig-grp {
+    display: inline-flex;
+    /* Segmentado, no tres botones sueltos: son excluyentes, y pegados se lee
+       que elegir uno suelta el otro. */
+    border: 1px solid #dbe2ea;
+    border-radius: 9px;
+    background: #f8fafc;
+    padding: 3px;
+    gap: 2px;
+}
+.ord-origb {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    border: 0;
+    background: transparent;
+    border-radius: 7px;
+    padding: 6px 13px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #475569;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+}
+.ord-origb > i {
+    font-size: 12px;
+    color: #94a3b8;
+}
+.ord-origb:hover {
+    background: #eef2f7;
+    color: #334155;
+}
+.ord-origb.active {
+    background: #fff;
+    color: #0f172a;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.12);
+}
+.ord-origb.active > i {
+    color: #4f46e5;
+}
+.ord-origb-n {
+    min-width: 18px;
+    text-align: center;
+    background: #e8edf4;
+    border-radius: 999px;
+    padding: 1px 7px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #475569;
+}
+.ord-origb.active .ord-origb-n {
+    background: #eef2ff;
+    color: #4338ca;
+}
+/* Segundo nivel: mas discreto que el primero, porque es un detalle DENTRO de
+   lo ya elegido. Si pesara lo mismo, los dos niveles competirian. */
+.ord-orig-sub {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+.ord-origc {
+    border: 1px dashed #d6dee8;
+    background: #fff;
+    border-radius: 999px;
+    padding: 4px 11px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #64748b;
+    cursor: pointer;
+}
+.ord-origc:hover {
+    border-style: solid;
+    border-color: #c7d2fe;
+    color: #4f46e5;
+}
+.ord-origc.active {
+    border-style: solid;
+    background: #eef2ff;
+    border-color: #c7d2fe;
+    color: #3730a3;
+}
+.ord-origc-n {
+    margin-left: 5px;
+    font-size: 11px;
+    color: #94a3b8;
+}
+.ord-origc.active .ord-origc-n {
+    color: #6366f1;
+}
+
+/* ══════════════════════════════════════════════════════════════════
    Barra de filtros
    ══════════════════════════════════════════════════════════════════ */
 .ord-bar {
@@ -3194,6 +3339,38 @@
        Nada se quita: lo que se apilaba en siete filas ahora se recorre de
        lado, que es como se navegan las pestanas en un movil. ── */
 
+    /* Los dos botones de origen ocupan el ancho entero y se reparten a
+       medias: en el movil son el primer control de la pantalla y el pulgar
+       llega a los dos sin apuntar. El desglose de canales sigue debajo, en
+       una fila que se arrastra como los chips. */
+    .orders .ord-orig {
+        gap: 8px;
+    }
+    .orders .ord-orig-grp {
+        display: flex;
+        width: 100%;
+    }
+    .orders .ord-origb {
+        flex: 1 1 0;
+        justify-content: center;
+        padding: 8px 6px;
+        font-size: 12.5px;
+    }
+    .orders .ord-origb > i {
+        display: none;
+    }
+    .orders .ord-orig-sub {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        scrollbar-width: none;
+        width: 100%;
+        padding: 2px;
+    }
+    .orders .ord-orig-sub::-webkit-scrollbar { display: none; }
+    .orders .ord-origc {
+        flex: 0 0 auto;
+    }
+
     /* Los chips en UNA fila que se arrastra. Trece elementos envueltos
        ocupaban siete renglones; asi ocupan uno. */
     .orders .ord-chips {
@@ -3547,6 +3724,13 @@ export default {
             mpFilter: "all",
             // Evita mezclar la cola de facturacion de Saga con pedidos propios.
             orderSource: "all",
+            // Segundo nivel: el canal concreto dentro del grupo elegido. Es el
+            // filtro `channel_id` que el backend ya aceptaba y que no tenia
+            // ningun control en pantalla.
+            channelFilter: null,
+            // { all, system, external, channels: [...] } — ver
+            // `OrderController::sourceCounts`.
+            sourceCounts: {},
             // Rango que se usa para seleccionar el lote de pedidos a facturar.
             invoiceDateRange: [],
             chipCounts: {},
@@ -3835,6 +4019,7 @@ export default {
         });
         this.loadChipCounts();
         this.loadStats();
+        this.loadSourceCounts();
         this.events();
     },
     computed: {
@@ -3894,6 +4079,59 @@ export default {
         etiquetaDateType() {
             const opt = this.dateTypeOptions.find(o => o.value === this.dateType);
             return opt ? opt.label : "";
+        },
+
+        /**
+         * Los botones de origen. «Todos» primero porque es el estado de partida.
+         *
+         * El contador es `null` —y no 0— mientras no ha llegado la respuesta:
+         * un cero pintado donde todavia no se ha contado nada se lee como «no
+         * hay pedidos de este origen».
+         */
+        gruposOrigen() {
+            const c = this.sourceCounts || {};
+            const n = k => (c[k] === undefined ? null : c[k]);
+
+            return [
+                {
+                    key: "all",
+                    label: "Todos",
+                    icon: "fas fa-layer-group",
+                    hint: "Todos los pedidos, de donde sea",
+                    n: n("all"),
+                },
+                {
+                    key: "system",
+                    label: "Del sistema",
+                    icon: "fas fa-store",
+                    hint: "Link de envio, tienda virtual, marketplace ebaemy y altas manuales",
+                    n: n("system"),
+                },
+                {
+                    key: "external",
+                    label: "Otros canales",
+                    icon: "fas fa-shop",
+                    hint: "Saga Falabella, MercadoLibre, TikTok Shop: el portal manda su estado",
+                    n: n("external"),
+                },
+            ];
+        },
+
+        /**
+         * Canales del grupo elegido, para el segundo nivel.
+         *
+         * Vacio mientras el grupo es «Todos»: seria la lista entera de canales y
+         * el segundo nivel dejaria de significar «dentro de esto». Vacio tambien
+         * con los valores heredados `saga`/`other`, que no son grupos.
+         */
+        canalesDelGrupo() {
+            if (this.orderSource !== "system" && this.orderSource !== "external") {
+                return [];
+            }
+
+            return (this.sourceCounts.channels || []).filter(
+                c => c.group === this.orderSource
+            );
         },
 
         /**
@@ -3963,10 +4201,23 @@ export default {
             }
 
             if (this.orderSource !== "all") {
+                const etiquetas = {
+                    system: "Del sistema",
+                    external: "Otros canales",
+                    saga: "Solo Saga",
+                    other: "Sin Saga",
+                };
                 chips.push({
                     key: "orderSource",
-                    label: this.orderSource === "saga" ? "Solo Saga" : "Sin Saga",
+                    label: etiquetas[this.orderSource] || this.orderSource,
                 });
+            }
+
+            if (this.channelFilter) {
+                const canal = (this.sourceCounts.channels || []).find(
+                    c => c.channel_id === this.channelFilter
+                );
+                chips.push({ key: "channelFilter", label: canal ? canal.name : "Un canal" });
             }
 
             if (this.dateRange) chips.push({ key: "dateRange", label: et(this.rangeOptions, this.dateRange) });
@@ -3981,6 +4232,7 @@ export default {
             return (
                 !!this.dateRange ||
                 this.dateType !== "order" ||
+                !!this.channelFilter ||
                 !!this.deliveryTypeFilter ||
                 !!this.agingFilter ||
                 this.orderSource !== "all" ||
@@ -4019,6 +4271,7 @@ export default {
             // su cuenta y antes dejaba los tres numeros desincronizados.
             this.loadChipCounts();
             this.loadStats();
+            this.loadSourceCounts();
         },
         toggleAll(e) {
             if (e.target.checked) {
@@ -5754,6 +6007,7 @@ export default {
                 date_from: custom ? (this.invoiceDateRange || [])[0] || null : null,
                 date_to: custom ? (this.invoiceDateRange || [])[1] || null : null,
                 order_source: this.orderSource,
+                channel_id: this.channelFilter || null,
                 delivery_type: this.deliveryTypeFilter || null,
                 aging: this.agingFilter || null,
             };
@@ -5855,6 +6109,7 @@ export default {
             this.deliveryTypeFilter = "";
             this.agingFilter = "";
             this.orderSource = "all";
+            this.channelFilter = null;
             this.q = "";
             this.estadoPago = "";
             this.orden = "fecha";
@@ -6082,6 +6337,7 @@ export default {
                 q: "",
                 estadoPago: "",
                 orderSource: "all",
+                channelFilter: null,
                 dateRange: "",
                 dateType: "order",
                 deliveryTypeFilter: "",
@@ -6096,6 +6352,10 @@ export default {
             // seguirian filtrando sin que nada lo diga.
             if (clave === "dateRange") this.invoiceDateRange = [];
 
+            // Y quitar el grupo se lleva el canal: el segundo nivel no existe
+            // sin el primero, y quedaria filtrando un canal invisible.
+            if (clave === "orderSource") this.channelFilter = null;
+
             this.pushFilters();
         },
 
@@ -6105,6 +6365,54 @@ export default {
         },
         applyOrderSource() {
             this.pushFilters();
+        },
+
+        /**
+         * Cambia de grupo de origen.
+         *
+         * Pulsar el grupo que ya esta activo lo suelta y vuelve a «Todos»: es lo
+         * que el operador espera de un boton que se queda hundido, y evita tener
+         * que buscar «Todos» para deshacer.
+         */
+        elegirOrigen(clave) {
+            this.orderSource = this.orderSource === clave && clave !== "all" ? "all" : clave;
+            // El canal pertenece al grupo: al cambiar de grupo deja de aplicar.
+            this.channelFilter = null;
+            this.pushFilters();
+        },
+
+        /** Segundo nivel: un canal concreto del grupo, o todos (null). */
+        elegirCanal(id) {
+            this.channelFilter = this.channelFilter === id ? null : id;
+            this.pushFilters();
+        },
+
+        /**
+         * Contadores de los botones de origen.
+         *
+         * Se piden SIN `order_source` ni `channel_id`: los numeros tienen que
+         * decir cuantos pedidos hay en cada origen con los demas filtros puestos,
+         * no cuantos quedan del origen ya elegido —eso dejaria el otro boton a
+         * cero, que se lee como «aqui no hay nada». El backend tambien ignora
+         * `order_source` por si acaso; la doble guarda es barata.
+         */
+        loadSourceCounts() {
+            const params = Object.assign({}, this.countsParams());
+            delete params.order_source;
+            delete params.channel_id;
+
+            this.$http
+                .get(`/orders/source-counts`, { params })
+                .then(response => {
+                    this.sourceCounts = response.data || {};
+                })
+                .catch(error => {
+                    // Los botones siguen funcionando sin contador: lo que no se
+                    // puede hacer es dejarlos con el numero anterior, que
+                    // afirmaria algo falso sobre los filtros de ahora.
+                    this.sourceCounts = {};
+                    console.error("[pedidos] fallo al contar los origenes", error);
+                });
         },
         canDownloadLabel(row) {
             // Solo pedidos de Saga ya despachables tienen rótulo en Saga.

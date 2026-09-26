@@ -21,6 +21,7 @@ use App\Models\Tenant\SalesChannel;
 use App\Models\Tenant\Catalogs\DocumentType;
 use App\Services\Tenant\OrderService;
 use App\Services\Tenant\OrderDocuments;
+use App\Services\Tenant\OrderOrigin;
 use App\Services\Tenant\BillingDocumentResolver;
 use App\Services\Tenant\PaymentVerification;
 use App\Models\Tenant\OrderStatusLog;
@@ -746,7 +747,17 @@ class OrderController extends Controller
         }
 
         if ($request->channel_id) {
-            $query->where('channel_id', $request->channel_id);
+            // `none` aisla los pedidos que no declaran canal — en produccion son
+            // 20 en alasitas, antiguos y sin dato del que deducirlo. Sin esta
+            // rama, el valor entraba como id y MySQL lo casteaba a 0: cero filas
+            // con HTTP 200, el mismo patron que ya paso con `warehouse_id=all`.
+            if ($request->channel_id === 'none') {
+                $query->whereNull('channel_id');
+            } elseif (is_numeric($request->channel_id)) {
+                $query->where('channel_id', (int) $request->channel_id);
+            } else {
+                abort(422, 'Canal de venta inválido.');
+            }
         }
 
         // El DataTable manda SIEMPRE `warehouse_id`, y por defecto vale la
@@ -1364,12 +1375,33 @@ class OrderController extends Controller
         return [null, null];
     }
 
-    /** Delimita el tablero al canal que el operador está gestionando. */
+    /**
+     * Valores que acepta el filtro de origen.
+     *
+     * `system` y `external` son los dos botones del listado (ver `OrderOrigin`).
+     * `saga` y `other` se conservan porque viajan en URLs ya compartidas y en el
+     * estado guardado del panel: quitarlos devolvería un 422 a quien tenga el
+     * enlace, y `other` no es sinónimo de `system` —un pedido de MercadoLibre no
+     * es de Saga, pero tampoco es del sistema—, así que siguen resolviéndose por
+     * plataforma como antes.
+     */
+    private const ORDER_SOURCES = ['all', 'system', 'external', 'saga', 'other'];
+
+    /** Delimita el tablero al grupo de origen que el operador está gestionando. */
     private function applyOrderSource($query, Request $request)
     {
         $source = $request->input('order_source', 'all');
-        if (!in_array($source, ['all', 'saga', 'other'], true)) {
+        if (!in_array($source, self::ORDER_SOURCES, true)) {
             abort(422, 'Origen de pedido inválido.');
+        }
+
+        if ($source === 'all') {
+            return $query;
+        }
+
+        // Los dos grupos: la regla la pone `OrderOrigin`, no una copia aquí.
+        if (in_array($source, OrderOrigin::GRUPOS, true)) {
+            return OrderOrigin::aplicarGrupo($query, $source);
         }
 
         // Sin la tabla, ningún pedido es de Saga: «saga» no devuelve nada y
@@ -1392,6 +1424,85 @@ class OrderController extends Controller
         }
 
         return $query;
+    }
+
+    /**
+     * GET /orders/source-counts — cuántos pedidos hay en cada grupo de origen y
+     * en cada canal, con los MISMOS filtros que la tabla menos el de origen.
+     *
+     * Menos el de origen a propósito: si el grupo elegido acotara los conteos,
+     * el botón del otro grupo mostraría cero y parecería que ahí no hay nada.
+     * Es el mismo criterio que `countsParams()` aplica al chip activo.
+     *
+     * Los canales se devuelven con su grupo para que el segundo nivel de botones
+     * no necesite una tabla de equivalencias en el Vue. Solo los que TIENEN
+     * pedidos: un canal a cero es un botón que no lleva a ninguna parte.
+     */
+    public function sourceCounts(Request $request)
+    {
+        // El request se copia con `order_source = all`: `buildOrdersQuery` lo
+        // aplica por dentro y no admite omitirlo.
+        $sinOrigen = clone $request;
+        $sinOrigen->merge(['order_source' => 'all']);
+
+        $base = $this->buildOrdersQuery($sinOrigen, false, false);
+
+        // `reorder()` obligatorio: `buildOrdersQuery` arrastra `latest()` y un
+        // ORDER BY fuera del GROUP BY revienta con ONLY_FULL_GROUP_BY.
+        $porCanal = (clone $base)->reorder()
+            ->selectRaw('channel_id, COUNT(*) as total')
+            ->groupBy('channel_id')
+            ->pluck('total', 'channel_id');
+
+        $canales = SalesChannel::whereIn('id', $porCanal->keys()->filter()->all())
+            ->get(['id', 'name', 'code', 'type'])
+            ->map(fn ($c) => [
+                'channel_id' => $c->id,
+                'name'       => $c->name,
+                'code'       => $c->code,
+                'group'      => OrderOrigin::esCanalExterno($c)
+                    ? OrderOrigin::GRUPO_EXTERNO
+                    : OrderOrigin::GRUPO_SISTEMA,
+                'count'      => (int) ($porCanal[$c->id] ?? 0),
+            ])
+            ->sortByDesc('count')
+            ->values();
+
+        // Los pedidos sin canal no tienen fila en `sales_channels`, asi que no
+        // saldrian en el desglose y el grupo mostraria mas de lo que sus canales
+        // suman. Se anaden como pseudo-canal: el filtro los aisla con `none`.
+        // Se cuenta con la consulta y DENTRO del grupo sistema: un pedido con
+        // `channel_id` nulo pero con fila en `marketplace_orders` es externo, y
+        // contarlo aqui haria que el desglose del sistema sumara mas que su
+        // propio boton.
+        $sinCanal = (clone $base)->whereNull('channel_id')
+            ->where(fn ($q) => OrderOrigin::aplicarGrupo($q, OrderOrigin::GRUPO_SISTEMA))
+            ->count();
+        if ($sinCanal > 0) {
+            $canales = $canales->push([
+                'channel_id' => 'none',
+                'name'       => 'Sin origen declarado',
+                'code'       => null,
+                'group'      => OrderOrigin::GRUPO_SISTEMA,
+                'count'      => $sinCanal,
+            ])->sortByDesc('count')->values();
+        }
+
+        // Los grupos se cuentan con la consulta, no sumando los canales: un
+        // pedido de Saga con `channel_id` nulo pero con fila en
+        // `marketplace_orders` es externo, y sumando canales caería en «sistema».
+        $externos = (clone $base)->where(
+            fn ($q) => OrderOrigin::aplicarGrupo($q, OrderOrigin::GRUPO_EXTERNO)
+        )->count();
+
+        $total = (int) $porCanal->sum();
+
+        return response()->json([
+            'all'      => $total,
+            'external' => (int) $externos,
+            'system'   => $total - (int) $externos,
+            'channels' => $canales,
+        ]);
     }
 
     /**

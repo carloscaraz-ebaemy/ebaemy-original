@@ -316,17 +316,18 @@
          */
         public function isExternalChannel(): bool
         {
-            // `marketplaceOrder` es una relacion, no una columna: se mira solo
-            // si ya viene cargada. Sin esta guarda seria una consulta por fila
-            // en un listado de veinte, y el codigo de canal ya resuelve el caso
-            // —los 720 pedidos de Saga en produccion tienen MKP_FALABELLA—.
-            if ($this->relationLoaded('marketplaceOrder') && $this->marketplaceOrder) {
-                return true;
-            }
+            // La regla vive en UN sitio — `OrderOrigin` — y es la misma que
+            // cuentan los botones del listado y que filtra la consulta. Aqui
+            // habia una copia que solo miraba el prefijo `MKP_`, y un tenant con
+            // el canal de Falabella sembrado a mano como `SAGA` dejaba anular el
+            // pedido desde EBAEMY.
+            return \App\Services\Tenant\OrderOrigin::esExterno($this);
+        }
 
-            $code = (string) optional($this->channel)->code;
-
-            return $code !== '' && \Illuminate\Support\Str::startsWith($code, 'MKP_');
+        /** Grupo de origen: `system` o `external`. Ver `OrderOrigin`. */
+        public function origenGrupo(): string
+        {
+            return \App\Services\Tenant\OrderOrigin::grupoDe($this);
         }
 
         /** Estado ANULADO. Constante y no un 5 suelto repartido por el codigo. */
