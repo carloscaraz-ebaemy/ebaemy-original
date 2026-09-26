@@ -2078,14 +2078,21 @@ class OrderController extends Controller
         }
 
         // Los nombres legibles del ubigeo, en UNA consulta para todos.
+        //
+        // Con alias explicitos y `keyBy`, no con `pluck(DB::raw(CONCAT(...)))`:
+        // a `pluck` hay que darle un NOMBRE de columna, y con una expresion
+        // cruda se queda buscando una propiedad que el resultado no tiene
+        // («Undefined property: stdClass::$description»).
         $nombres = \DB::connection('tenant')->table('districts')
             ->join('provinces', 'districts.province_id', '=', 'provinces.id')
             ->join('departments', 'provinces.department_id', '=', 'departments.id')
-            ->whereIn('districts.id', $filas->pluck('district_id')->filter()->unique())
-            ->pluck(
-                \DB::raw("CONCAT(districts.description, '|', provinces.description, '|', departments.description)"),
-                'districts.id'
-            );
+            ->whereIn('districts.id', $filas->pluck('district_id')->filter()->unique()->all())
+            ->selectRaw(
+                'districts.id AS did, districts.description AS distrito, '
+                . 'provinces.description AS provincia, departments.description AS departamento'
+            )
+            ->get()
+            ->keyBy('did');
 
         $vistos = [];
         $salida = [];
@@ -2105,7 +2112,7 @@ class OrderController extends Controller
                 continue;
             }
 
-            $partes = explode('|', (string) ($nombres[$f->district_id] ?? ''));
+            $ubigeo = $nombres[$f->district_id] ?? null;
 
             $vistos[$clave] = count($salida);
 
@@ -2114,7 +2121,7 @@ class OrderController extends Controller
                 'district_id'          => $f->district_id,
                 'province_id'          => $f->province_id,
                 'department_id'        => $f->department_id,
-                'destination_city'     => $f->destination_city ?: ($partes[0] ?? null),
+                'destination_city'     => $f->destination_city ?: ($ubigeo->distrito ?? null),
                 'shipping_agency'      => $f->shipping_agency,
                 'reference'            => $f->reference,
                 'shipping_destination' => $f->shipping_destination,
@@ -2123,10 +2130,10 @@ class OrderController extends Controller
                 'pickup_person_name'   => $f->pickup_person_name,
                 'pickup_person_dni'    => $f->pickup_person_dni,
                 // Para que la pantalla no tenga que recomponer el rotulo.
-                'ciudad'               => $partes[0] ?? ($f->destination_city ?: ''),
+                'ciudad'               => $ubigeo->distrito ?? ($f->destination_city ?: ''),
                 'contexto'             => trim(implode(', ', array_filter([
-                    $partes[1] ?? null,
-                    $partes[2] ?? null,
+                    $ubigeo->provincia ?? null,
+                    $ubigeo->departamento ?? null,
                 ]))),
                 'ultima_vez'           => optional($f->created_at)->format('d/m/Y'),
                 'veces'                => 1,

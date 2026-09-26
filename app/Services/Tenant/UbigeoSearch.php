@@ -47,6 +47,18 @@ class UbigeoSearch
      */
     private const INLINE_EXPAND_MAX = 14;
 
+    /**
+     * Por debajo de esto una fila es relleno.
+     *
+     * La escala la fija `score()`: exacto 100, empieza-por 60, prefijo de
+     * palabra 35, subcadena suelta 10. El corte en 30 deja pasar las tres
+     * primeras —que son las que el operador reconoce como «lo que escribi»—
+     * y descarta la ultima, que es la que llenaba el desplegable de ruido.
+     * Los distritos arrastrados por su provincia heredan `base - 20`, y desde
+     * una coincidencia de provincia decente siguen quedando por encima.
+     */
+    private const UMBRAL_RELEVANTE = 30;
+
     private const CACHE_TTL = 86400;
 
     /**
@@ -152,6 +164,8 @@ class UbigeoSearch
             ? array_merge($groups, array_values($hits))
             : array_values($hits);
 
+        $rows = self::sinRellenoDebil($rows);
+
         usort($rows, function ($a, $b) {
             return ($b['score'] <=> $a['score']) ?: strcmp($a['name'], $b['name']);
         });
@@ -229,6 +243,43 @@ class UbigeoSearch
         }
 
         return $bonus;
+    }
+
+    /**
+     * Quita las coincidencias por SUBCADENA cuando ya hay alguna buena.
+     *
+     * Escribir «ica» traia Huancavelica, Ricardo Palma, Caicay, Sicaya y
+     * Tarica detras de Ica: todas contienen «ica» en alguna parte, asi que no
+     * son un error del buscador, pero rellenan el desplegable con sitios que
+     * nadie estaba buscando y hacen que la respuesta buena se pierda entre
+     * ellas. Es el mismo problema que «hua» devolviendo Ahuac, en otra forma.
+     *
+     * Solo se descartan cuando hay algo MEJOR: si nadie supera el umbral, la
+     * subcadena es lo unico que hay y quitarla convertiria la busqueda en
+     * «sin resultados». Asi «cana» sigue encontrando Chulucanas.
+     *
+     * @param  array<int, array>  $rows
+     * @return array<int, array>
+     */
+    private static function sinRellenoDebil(array $rows): array
+    {
+        $hayBuena = false;
+
+        foreach ($rows as $r) {
+            if ($r['score'] >= self::UMBRAL_RELEVANTE) {
+                $hayBuena = true;
+                break;
+            }
+        }
+
+        if (!$hayBuena) {
+            return $rows;
+        }
+
+        return array_values(array_filter(
+            $rows,
+            fn ($r) => $r['score'] >= self::UMBRAL_RELEVANTE
+        ));
     }
 
     /**

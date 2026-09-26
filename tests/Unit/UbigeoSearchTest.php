@@ -226,6 +226,30 @@ class UbigeoSearchTest extends TestCase
         $this->assertContains('Mancora', $nombres);
     }
 
+    /**
+     * «ica» traia Huancavelica, Ricardo Palma, Caicay, Sicaya y Tarica detras
+     * de Ica. Todas contienen «ica», asi que no eran un error, pero rellenan
+     * el desplegable con sitios que nadie buscaba.
+     */
+    public function test_la_subcadena_suelta_no_acompana_a_una_coincidencia_buena(): void
+    {
+        // «Chilca» contiene «ilca» pero no «ica»; el catalogo de prueba tiene
+        // «Anco_Huallo», que contiene «llo», y «Castilla», que contiene «til».
+        $nombres = $this->nombres('til');
+        $this->assertContains('Castilla', $nombres, 'sin nada mejor, la subcadena es lo unico que hay');
+
+        // Con una coincidencia fuerte delante, el relleno se va.
+        $nombres = $this->nombres('lima');
+        $this->assertSame('Lima', $nombres[0]);
+        foreach ($nombres as $n) {
+            $this->assertStringStartsWith(
+                'Lima',
+                $n,
+                "«{$n}» solo contiene «lima» por dentro: no compite con Lima."
+            );
+        }
+    }
+
     public function test_la_coincidencia_exacta_gana_a_la_que_solo_contiene(): void
     {
         // «San Martín» exacto por delante de «San Martín de Porres».
