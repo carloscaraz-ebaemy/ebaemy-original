@@ -147,8 +147,11 @@
                     </div>
 
                     <div class="row-btns">
+                        {{-- Este paso ya no termina aqui: la entrega va debajo, en la
+                             misma pantalla. Eran dos pasos separados y el cliente
+                             tenia que pulsar Continuar en medio de lo que, para el,
+                             es una sola cosa: decir quien es y a donde va. --}}
                         <button type="button" class="btn btn-ghost" id="backStep0">&larr; Volver</button>
-                        <button type="button" class="btn" id="toStepDest">Continuar &rarr;</button>
                     </div>
                 </div>
 
@@ -335,7 +338,6 @@
                     </div>
 
                     <div class="row-btns">
-                        <button type="button" class="btn btn-ghost" id="backStepDatos">&larr; Volver</button>
                         <button type="button" class="btn" id="toStep2">Continuar &rarr;</button>
                     </div>
                 </div>

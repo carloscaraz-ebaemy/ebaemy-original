@@ -54,7 +54,7 @@
 
             // Evitar que campos ocultos "required" bloqueen el submit del navegador.
             syncRequired();
-            hide(step0); show(step1); step1.classList.add('fade-in');
+            hide(step0); show(step1); show(stepD); step1.classList.add('fade-in');
             setStep(2);
             ajustarPasoDestino();
             progreso();
@@ -119,7 +119,7 @@
     syncOfficeLabel();
 
     var back0 = document.getElementById('backStep0');
-    if (back0) back0.addEventListener('click', function () { hide(step1); show(step0); setStep(1); });
+    if (back0) back0.addEventListener('click', function () { hide(step1); hide(stepD); show(step0); setStep(1); });
 
     // ── Consulta DNI/RUC (RENIEC/SUNAT) + cliente existente ──
     var LOOKUP = '{{ url("envio/consulta") }}', CLIENT = '{{ url("envio/cliente") }}';
@@ -595,43 +595,45 @@
         }
     }
 
-    // Datos -> A donde llega
-    var toDest = document.getElementById('toStepDest');
-    if (toDest) toDest.addEventListener('click', function () {
-        if (!validDatos(false)) return;
-        hide(step1); show(stepD); stepD.classList.add('fade-in');
-        setStep(3);
-        guardarBorrador();
-        // El mapa se mide mal si se inicializa mientras su contenedor esta
-        // oculto: hasta ahora el paso estaba siempre visible y no hacia falta.
-        if (selectedType === DTYPE.DOM && window.__initShipMapIfReady) window.__initShipMapIfReady();
-    });
-
-    var backDatos = document.getElementById('backStepDatos');
-    if (backDatos) backDatos.addEventListener('click', function () {
-        hide(stepD); show(step1); setStep(2);
+    // Datos y entrega son UN paso: el mapa se inicializa al abrirlo, no al
+    // pasar de uno a otro, porque ese salto ya no existe. Se mide mal si su
+    // contenedor esta oculto, de ahi el retardo.
+    document.querySelectorAll('.dcard').forEach(function (c) {
+        c.addEventListener('click', function () {
+            if (selectedType === DTYPE.DOM && window.__initShipMapIfReady) {
+                setTimeout(window.__initShipMapIfReady, 60);
+            }
+        });
     });
 
     // A donde llega -> Revisa
     var toStep2 = document.getElementById('toStep2');
     if (toStep2) toStep2.addEventListener('click', function () {
+        // Se validan los DOS bloques: ahora son el mismo paso, y dejar pasar
+        // uno a medias mandaria al resumen con huecos.
+        if (!validDatos(false)) return;
         if (!validDestino(false)) return;
         buildConfirm();
-        hide(stepD); show(step2); step2.classList.add('fade-in');
-        setStep(4);
+        hide(step1); hide(stepD); show(step2); step2.classList.add('fade-in');
+        setStep(3);
         guardarBorrador();
     });
 
     var back1 = document.getElementById('backStep1');
-    if (back1) back1.addEventListener('click', function () { hide(step2); show(stepD); setStep(3); });
+    if (back1) back1.addEventListener('click', function () { hide(step2); show(step1); show(stepD); setStep(2); });
 
     // «Editar» de cada seccion del resumen: vuelve al paso que la llena.
     document.querySelectorAll('.conf-edit').forEach(function (b) {
         b.addEventListener('click', function () {
+            // Las dos secciones del resumen viven en el mismo paso; lo que
+            // cambia es a donde se lleva el foco, no a donde se navega.
             var destino = b.getAttribute('data-edit-step');
             hide(step2);
-            if (destino === '1') { show(step1); setStep(2); }
-            else { show(stepD); setStep(3); }
+            show(step1); show(stepD); setStep(2);
+            var ancla = destino === '1'
+                ? document.getElementById('{{ $p }}full_name')
+                : (stepD.querySelector('input, select') || stepD);
+            if (ancla && ancla.scrollIntoView) ancla.scrollIntoView({ behavior: 'smooth', block: 'center' });
         });
     });
 

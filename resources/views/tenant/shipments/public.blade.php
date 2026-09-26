@@ -262,13 +262,9 @@
         <div class="stepper" id="stepper">
             <div class="st {{ $sent ? 'done' : 'active' }}" data-n="1"><div class="dot">1</div><div class="t">Tipo</div></div>
             <div class="st-line {{ $sent ? 'done' : '' }}"></div>
-            <div class="st {{ $sent ? 'done' : '' }}" data-n="2"><div class="dot">2</div><div class="t">Datos</div></div>
+            <div class="st {{ $sent ? 'done' : '' }}" data-n="2"><div class="dot">2</div><div class="t">Tus datos</div></div>
             <div class="st-line {{ $sent ? 'done' : '' }}"></div>
-            <div class="st {{ $sent ? 'done' : '' }}" data-n="3"><div class="dot">3</div><div class="t">Entrega</div></div>
-            <div class="st-line {{ $sent ? 'done' : '' }}"></div>
-            <div class="st {{ $sent ? 'done' : '' }}" data-n="4"><div class="dot">4</div><div class="t">Revisa</div></div>
-            <div class="st-line {{ $sent ? 'done' : '' }}"></div>
-            <div class="st {{ $sent ? 'active' : '' }}" data-n="5"><div class="dot">5</div><div class="t">Listo</div></div>
+            <div class="st {{ $sent ? 'done' : '' }}" data-n="3"><div class="dot">3</div><div class="t">Revisa</div></div>
         </div>
 
         {{-- Cuanto le falta al cliente. El porcentaje sale de los campos que de
