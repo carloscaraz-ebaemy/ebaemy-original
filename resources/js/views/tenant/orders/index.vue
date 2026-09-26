@@ -1390,6 +1390,18 @@
             @created="onManualCreated"
         ></manual-order>
 
+        <!-- Solo el detalle: lo que lleva la caja, del catalogo o escrito a
+             mano. Lo abre el chip de la columna Pedido. La `:key` fuerza una
+             instancia nueva por pedido, que es lo que permite cargar en
+             `created()` en vez de en un watcher. -->
+        <order-detail
+            v-if="showDetalleDialog"
+            :key="'det-' + detalleOrderId"
+            :showDialog.sync="showDetalleDialog"
+            :orderId="detalleOrderId"
+            @saved="onDetalleGuardado"
+        ></order-detail>
+
         <!-- Guía de la agencia: el comprobante de que el paquete salió. -->
         <shipment-guide
             :showDialog.sync="showGuideDialog"
@@ -3475,6 +3487,7 @@ import ShipmentForm from "./partials/shipment_form.vue";
 import OrderTimeline from "./partials/order_timeline.vue";
 import RecordPayments from "../partials/record_payments.vue";
 import ManualOrder from "./partials/manual_order.vue";
+import OrderDetail from "./partials/order_detail.vue";
 import ShipmentGuide from "./partials/shipment_guide.vue";
 import BillingType from "./partials/billing_type.vue";
 import SaleNoteGenerate from "../sale_notes/partials/option_documents.vue";
@@ -3508,6 +3521,7 @@ export default {
         OrderDrawer,
         PaymentVerification,
         ManualOrder,
+        OrderDetail,
         DataTable,
         OptionsForm,
         DocumentForm,
@@ -3756,6 +3770,9 @@ export default {
             billingData: null,
             // null = alta; con id, el mismo dialogo edita ese pedido.
             manualOrderId: null,
+            // El modal de «solo el detalle» que abre la caja del listado.
+            showDetalleDialog: false,
+            detalleOrderId: null,
             // A donde apunta el panel de pagos. Un encargo logistico cobra
             // contra su ENVIO (shipping_payments); el resto, contra el pedido.
             paymentsResource: "order_payments",
@@ -6295,10 +6312,32 @@ export default {
                 && !this.isSagaOrder(row);
         },
 
-        /** Clic en la caja: abre el formulario donde se agregan productos. */
+        /**
+         * Clic en la caja: abre SOLO el detalle del pedido.
+         *
+         * Antes llevaba al formulario completo —canal, cliente, destino,
+         * productos—, que es mucho formulario para responder una sola
+         * pregunta: el operador venia a decir que hay dentro de la caja y se
+         * encontraba pidiendole otra vez el documento del cliente.
+         *
+         * El editor completo no se pierde: sigue en el menu de la fila y en
+         * el drawer, que es donde se va cuando hay que cambiar algo mas.
+         *
+         * El guard va DENTRO del metodo: la caja es un `span` con `@click`,
+         * no pasa por `runAction()`, y dejarlo fuera seria dejarlo sin poner.
+         */
         editarProductos(row) {
             if (!this.puedeEditarLineas(row)) return;
-            this.editarPedido(row.id);
+
+            this.detalleOrderId = row.id;
+            this.showDetalleDialog = true;
+        },
+
+        /** El detalle cambio: la fila tiene que repintarse con lo nuevo. */
+        onDetalleGuardado(id) {
+            this.detalleOrderId = null;
+            this.recargar(id);
+            this.loadStats();
         },
 
         /**

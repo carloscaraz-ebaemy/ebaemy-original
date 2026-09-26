@@ -310,133 +310,12 @@
                 contenido, anúlalo y crea uno nuevo.
             </div>
 
-            <div class="mo-f mo-f--full">
-                <el-select
-                    v-model="buscado"
-                    class="mo-sel"
-                    filterable
-                    remote
-                    reserve-keyword
-                    clearable
-                    :disabled="!lineasEditables"
-                    placeholder="Busca por nombre o código y elige para agregarlo"
-                    :remote-method="buscarProductos"
-                    :loading="buscandoItems"
-                    @change="agregar"
-                >
-                    <el-option
-                        v-for="op in opciones"
-                        :key="op.key"
-                        :label="op.label"
-                        :value="op.key"
-                        :disabled="op.agotado"
-                    >
-                        <span class="mo-op-name">{{ op.label }}</span>
-                        <span class="mo-op-stock" :class="{ 'is-off': op.agotado }">{{ op.stockText }}</span>
-                    </el-option>
-
-                    <!-- Un fallo de red pintado como «no existe» es un problema
-                         que no se arregla buscando otra cosa: se distingue. -->
-                    <div v-if="errorBusqueda" slot="empty" class="mo-crear">
-                        <p class="mo-busqueda-error">{{ errorBusqueda }}</p>
-                        <el-button size="mini" plain @click="buscarProductos(termino)">Reintentar</el-button>
-                    </div>
-                    <div v-else-if="puedeCrear" slot="empty" class="mo-crear">
-                        <p>«{{ termino }}» no está en el catálogo.</p>
-                        <el-button size="mini" type="primary" plain :loading="creando" @click="crearProducto">
-                            Crearlo y agregarlo
-                        </el-button>
-                        <small>Se crea como servicio: no controla stock.</small>
-                    </div>
-                </el-select>
-            </div>
-
-            <div class="mo-scroll">
-                <table class="mo-table">
-                    <thead>
-                        <tr>
-                            <th>Producto</th>
-                            <th class="num">Disponible</th>
-                            <th class="num">Cantidad</th>
-                            <th class="num">Precio</th>
-                            <th v-if="puedeEditarPrecio" class="num">Descuento</th>
-                            <th class="num">Subtotal</th>
-                            <th></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr v-if="!form.items.length">
-                            <td :colspan="puedeEditarPrecio ? 7 : 6" class="mo-empty">
-                                Todavía no hay productos. Búscalos arriba.
-                            </td>
-                        </tr>
-                        <tr v-for="(l, i) in form.items" :key="l.key">
-                            <td>
-                                {{ l.name }}
-                                <div v-if="l.code" class="mo-code">{{ l.code }}</div>
-                            </td>
-                            <td class="num">
-                                <!-- Tres estados que no se pueden confundir:
-                                     `undefined` = no se ha mirado en este almacen,
-                                     `null` = el producto no controla stock,
-                                     numero = lo que hay. -->
-                                <span v-if="l.available === undefined" class="mo-muted" title="Se comprueba al guardar.">—</span>
-                                <span v-else-if="l.available === null" class="mo-muted">sin control</span>
-                                <span v-else :class="{ 'mo-over': l.quantity > l.available }">{{ l.available }}</span>
-                            </td>
-                            <td class="num">
-                                <el-input-number
-                                    v-model="l.quantity"
-                                    :min="1"
-                                    :step="1"
-                                    size="mini"
-                                    controls-position="right"
-                                    :disabled="!lineasEditables"
-                                ></el-input-number>
-                            </td>
-                            <td class="num">
-                                <el-input-number
-                                    v-if="puedeEditarPrecio"
-                                    v-model="l.unit_price"
-                                    :min="0"
-                                    :precision="2"
-                                    size="mini"
-                                    controls-position="right"
-                                    :disabled="!lineasEditables"
-                                ></el-input-number>
-                                <span v-else title="No tienes permiso para cambiar precios: se cobra el del catálogo.">
-                                    {{ money(l.unit_price) }}
-                                </span>
-                            </td>
-                            <td v-if="puedeEditarPrecio" class="num">
-                                <el-input-number
-                                    v-model="l.discount"
-                                    :min="0"
-                                    :max="l.quantity * l.unit_price"
-                                    :precision="2"
-                                    size="mini"
-                                    controls-position="right"
-                                    :disabled="!lineasEditables"
-                                ></el-input-number>
-                            </td>
-                            <td class="num mo-neto">S/ {{ money(neto(l)) }}</td>
-                            <td class="num">
-                                <el-button type="text" class="mo-del" :disabled="!lineasEditables" @click="quitar(i)">
-                                    <i class="fas fa-trash"></i>
-                                </el-button>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-
-            <div class="mo-total">
-                <span v-if="descuentoTotal > 0" class="mo-desc">
-                    Descuento aplicado: −S/ {{ money(descuentoTotal) }}
-                </span>
-                <span>Total</span>
-                <strong>S/ {{ money(total) }}</strong>
-            </div>
+            <product-lines
+                v-model="form.items"
+                :channel-id="form.channel_id"
+                :disabled="!lineasEditables"
+                :can-edit-price="puedeEditarPrecio"
+            ></product-lines>
         </div>
 
         <span slot="footer">
@@ -454,7 +333,10 @@
 </template>
 
 <script>
+import ProductLines from "./product_lines.vue";
+
 export default {
+    components: { ProductLines },
     props: {
         showDialog: { type: Boolean, default: false },
         orderId: { default: null },
@@ -534,18 +416,6 @@ export default {
             peticion: 0,
             docConsultado: "",
 
-            // ── Productos ────────────────────────────────────────────────
-            buscado: null,
-            opciones: [],
-            termino: "",
-            buscandoItems: false,
-            errorBusqueda: "",
-            creando: false,
-            // El mismo descarte de respuestas tardias que el buscador de
-            // documentos: teclear rapido lanza varias consultas y la lenta
-            // llegaba la ultima, dejando en pantalla media palabra.
-            peticionItems: 0,
-
             // ── Carga y guardado ─────────────────────────────────────────
             cargando: false,
             guardando: false,
@@ -586,19 +456,6 @@ export default {
          */
         esEmpresa() {
             return this.docType === "dni" && (this.documento || "").length === 11;
-        },
-        /** Se ofrece crear lo que no esta, pero no con dos letras sueltas. */
-        puedeCrear() {
-            return this.lineasEditables && (this.termino || "").trim().length >= 3;
-        },
-        descuentoTotal() {
-            return this.form.items.reduce(
-                (a, l) => a + Math.min(Number(l.discount || 0), this.bruto(l)),
-                0
-            );
-        },
-        total() {
-            return this.form.items.reduce((a, l) => a + this.neto(l), 0);
         },
         /**
          * Cuando el destino es obligatorio.
@@ -763,13 +620,6 @@ export default {
             this.buscando = false;
             this.docConsultado = "";
 
-            this.buscado = null;
-            this.opciones = [];
-            this.termino = "";
-            this.buscandoItems = false;
-            this.errorBusqueda = "";
-            this.creando = false;
-
             this.cargando = false;
             this.guardando = false;
             this.problemas = [];
@@ -779,9 +629,10 @@ export default {
             this.bloqueado = false;
 
             // Las respuestas en vuelo son del pedido ANTERIOR: se descartan
-            // subiendo el contador, o llegarian a pintar sobre el nuevo.
+            // subiendo el contador, o llegarian a pintar sobre el nuevo. El
+            // buscador de productos hace lo suyo: `product-lines` se
+            // reconstruye con el `form.items` vacio.
             this.peticion++;
-            this.peticionItems++;
         },
 
         cargarCatalogos() {
@@ -918,7 +769,6 @@ export default {
          * viejo seria peor que no enseñar ninguno.
          */
         alCambiarCanal() {
-            this.opciones = [];
             this.form.items.forEach(l => {
                 this.$set(l, "available", undefined);
             });
@@ -1112,202 +962,6 @@ export default {
                 .then(() => {
                     if (peticion === this.peticion) this.buscando = false;
                 });
-        },
-
-        // ── Productos ───────────────────────────────────────
-        buscarProductos(q) {
-            const termino = typeof q === "string" ? q : "";
-            this.termino = termino;
-            this.errorBusqueda = "";
-
-            if (termino.length < 2) {
-                this.opciones = [];
-                return;
-            }
-
-            const peticion = ++this.peticionItems;
-            this.buscandoItems = true;
-
-            this.$http
-                .get("/orders/search-items", {
-                    params: { q: termino, channel_id: this.form.channel_id },
-                })
-                .then(r => {
-                    if (peticion !== this.peticionItems) return;
-                    this.opciones = this.aOpciones(r.data || []);
-                })
-                .catch(() => {
-                    if (peticion !== this.peticionItems) return;
-                    // Vaciar la lista aqui seria decir «ese producto no
-                    // existe» cuando lo que ha pasado es que la consulta
-                    // fallo. Son dos problemas distintos y el segundo no se
-                    // arregla buscando otra cosa.
-                    this.opciones = [];
-                    this.errorBusqueda =
-                        "No se pudo buscar en el catálogo. Revisa la conexión e inténtalo otra vez.";
-                })
-                .then(() => {
-                    if (peticion === this.peticionItems) this.buscandoItems = false;
-                });
-        },
-
-        /**
-         * Un producto con variantes se ofrece SOLO por sus variantes: el stock
-         * vive ahi, y dejar elegir el padre seria vender algo que no existe
-         * como tal.
-         */
-        aOpciones(items) {
-            const out = [];
-
-            items.forEach(it => {
-                // Los dados de baja se muestran para explicar por que no
-                // estan, no para venderlos. El servidor los rechaza igual.
-                const baja = it.active === false;
-
-                if (it.variants && it.variants.length) {
-                    it.variants.forEach(v => {
-                        out.push({
-                            key: `${it.id}:${v.id}`,
-                            item_id: it.id,
-                            variant_id: v.id,
-                            label: `${it.name} — ${v.name}`,
-                            code: it.code,
-                            price: v.price,
-                            available: v.available,
-                            stockText: baja ? "dado de baja" : this.stockText(v.available),
-                            agotado: baja || (v.available !== null && v.available <= 0),
-                        });
-                    });
-                    return;
-                }
-
-                out.push({
-                    key: `${it.id}:`,
-                    item_id: it.id,
-                    variant_id: null,
-                    label: it.name,
-                    code: it.code,
-                    price: it.price,
-                    available: it.available,
-                    stockText: baja ? "dado de baja" : this.stockText(it.available),
-                    agotado: baja || (it.available !== null && it.available <= 0),
-                });
-            });
-
-            return out;
-        },
-
-        stockText(disp) {
-            if (disp === null || disp === undefined) return "sin control";
-            return disp > 0 ? `${disp} disp.` : "agotado";
-        },
-
-        agregar(key) {
-            if (!key) return;
-
-            const op = this.opciones.find(o => o.key === key);
-            this.buscado = null;
-            if (!op) return;
-
-            // Elegir dos veces el mismo producto es pedir dos unidades, no
-            // dos lineas iguales que despues hay que sumar a ojo.
-            const ya = this.form.items.find(l => l.key === key);
-            if (ya) {
-                ya.quantity += 1;
-                return;
-            }
-
-            this.form.items.push({
-                key: op.key,
-                item_id: op.item_id,
-                variant_id: op.variant_id,
-                name: op.label,
-                code: op.code,
-                available: op.available,
-                quantity: 1,
-                unit_price: Number(op.price || 0),
-                discount: 0,
-            });
-        },
-
-        quitar(i) {
-            this.form.items.splice(i, 1);
-        },
-
-        /**
-         * Crea el producto que falta y lo agrega a la linea.
-         *
-         * Pide el precio ANTES de crearlo: un producto en el catalogo con
-         * precio 0 es una trampa para la siguiente venta, que lo encontraria y
-         * lo cobraria a nada.
-         *
-         * El servidor lo devuelve con la MISMA forma que el buscador, asi que
-         * a partir de ahi la linea es una mas: se reserva igual y se factura
-         * igual, sin ningun caso especial que arrastrar.
-         */
-        crearProducto() {
-            const nombre = (this.termino || "").trim();
-            if (nombre.length < 3) return;
-
-            this.$prompt("Precio de venta de «" + nombre + "» (S/)", "Crear producto", {
-                confirmButtonText: "Crear",
-                cancelButtonText: "Cancelar",
-                inputPlaceholder: "0.00",
-                inputValidator: v =>
-                    (v !== null && v !== "" && !isNaN(Number(v)) && Number(v) >= 0) ||
-                    "Escribe un precio válido.",
-            })
-                .then(({ value }) => {
-                    this.creando = true;
-
-                    return this.$http
-                        .post("/orders/producto-rapido", { nombre: nombre, precio: Number(value) })
-                        .then(r => {
-                            const d = r.data || {};
-                            if (!d.success || !d.item) {
-                                this.$message.error(d.message || "No se pudo crear.");
-                                return;
-                            }
-
-                            this.$message.success(d.message);
-                            this.opciones = this.aOpciones([d.item]);
-
-                            // Se agrega solo: crearlo y tener que buscarlo otra
-                            // vez seria pedir el mismo trabajo dos veces.
-                            if (this.opciones.length) this.agregar(this.opciones[0].key);
-                        })
-                        .catch(e => {
-                            const d = (e.response && e.response.data) || {};
-                            const porCampo = d.errors
-                                ? Object.values(d.errors).map(x => x[0]).join(" ")
-                                : null;
-                            this.$message.error(porCampo || d.message || "No se pudo crear.");
-                        })
-                        .then(() => {
-                            this.creando = false;
-                        });
-                })
-                .catch(() => {});
-        },
-
-        bruto(l) {
-            return Number(l.quantity || 0) * Number(l.unit_price || 0);
-        },
-
-        /**
-         * Lo que se cobra por la linea. El descuento se limita al importe: uno
-         * mayor seria un pedido que devuelve dinero, y eso es una nota de
-         * credito. El servidor aplica el mismo tope.
-         */
-        neto(l) {
-            return Math.max(0, this.bruto(l) - Math.min(Number(l.discount || 0), this.bruto(l)));
-        },
-
-        money(v) {
-            return Number(v || 0).toLocaleString("es-PE", {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-            });
         },
 
         // ── Guardar ─────────────────────────────────────────
@@ -1761,116 +1415,6 @@ export default {
     line-height: 1.5;
 }
 
-/* Opciones del buscador: el disponible a la derecha, donde se compara. */
-.mo-op-stock {
-    float: right;
-    color: #16a34a;
-    font-size: 12px;
-    margin-left: 14px;
-}
-.mo-op-stock.is-off {
-    color: #b91c1c;
-}
-.mo-crear {
-    padding: 14px;
-    text-align: center;
-    color: var(--muted);
-    font-size: 13px;
-}
-.mo-crear p {
-    margin: 0 0 8px;
-}
-.mo-crear small {
-    display: block;
-    margin-top: 7px;
-    font-size: 11.5px;
-}
-.mo-busqueda-error {
-    color: #b91c1c;
-}
-
-/* Tabla de lineas. `mo-scroll` porque en movil no cabe: se desplaza ella,
-   no la pagina. Un hijo sin min-width empujaria el dialogo entero. */
-.mo-scroll {
-    margin-top: 12px;
-    overflow-x: auto;
-    min-width: 0;
-}
-.mo-table {
-    width: 100%;
-    min-width: 560px;
-    border-collapse: collapse;
-    font-size: 13px;
-}
-.mo-table th,
-.mo-table td {
-    padding: 8px 10px;
-    border-bottom: 1px solid var(--line);
-    text-align: left;
-    vertical-align: middle;
-}
-.mo-table th {
-    font-size: 11.5px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
-    color: var(--muted);
-    border-bottom-width: 1.5px;
-}
-.mo-table .num {
-    text-align: right;
-    white-space: nowrap;
-}
-.mo-empty {
-    text-align: center;
-    color: var(--muted);
-    padding: 22px 10px;
-}
-.mo-code {
-    font-size: 11.5px;
-    color: var(--muted);
-    margin-top: 2px;
-}
-.mo-muted {
-    color: var(--muted);
-}
-/* Pedir mas de lo que hay: se ve antes de guardar, no en el 422. */
-.mo-over {
-    color: #b91c1c;
-    font-weight: 700;
-}
-.mo-neto {
-    font-weight: 600;
-}
-.mo-del {
-    color: #b91c1c;
-    padding: 0;
-}
-
-/* Total */
-.mo-total {
-    display: flex;
-    align-items: baseline;
-    justify-content: flex-end;
-    gap: 10px;
-    margin-top: 14px;
-    padding-top: 12px;
-    border-top: 1.5px solid var(--line);
-    font-size: 14px;
-    color: var(--muted);
-}
-.mo-total strong {
-    font-size: 21px;
-    font-weight: 800;
-    color: var(--ink);
-    letter-spacing: -0.02em;
-}
-.mo-desc {
-    margin-right: auto;
-    color: #16a34a;
-    font-size: 12.5px;
-}
-
 /* Aviso de cliente empresa */
 .mo-empresa-aviso {
     background: #eff6ff;
@@ -1889,9 +1433,6 @@ export default {
     }
     .mo-h {
         font-size: 17px;
-    }
-    .mo-total strong {
-        font-size: 19px;
     }
 }
 </style>
