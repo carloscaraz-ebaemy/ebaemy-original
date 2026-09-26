@@ -116,9 +116,14 @@
                     No se pudieron cargar los contadores: {{ countsError }}
                     <button class="ord-counts-retry" @click="loadChipCounts">Reintentar</button>
                 </div>
+                <!-- Cuatro chips y un cajon, no trece botones en fila.
+                     Los trece estaban todos al mismo nivel, asi que para
+                     encontrar uno habia que leerlos enteros cada vez. Arriba
+                     se quedan los que se pulsan a diario; el resto sigue a un
+                     clic y con su contador, no desaparece. -->
                 <div class="ord-chips">
                     <button
-                        v-for="chip in orderChips"
+                        v-for="chip in chipsVisibles"
                         :key="chip.key"
                         class="ord-chip"
                         :class="{ active: mpFilter === chip.key }"
@@ -131,6 +136,30 @@
                             >{{ chipCounts[chip.key] }}</span
                         >
                     </button>
+
+                    <el-dropdown
+                        v-if="chipsOcultos.length"
+                        trigger="click"
+                        @command="applyMpFilter"
+                    >
+                        <button class="ord-chip ord-chip-more">
+                            Más estados
+                            <span v-if="totalOcultos" class="ord-chip-n">{{ totalOcultos }}</span>
+                            <i class="el-icon-arrow-down"></i>
+                        </button>
+                        <el-dropdown-menu slot="dropdown">
+                            <el-dropdown-item
+                                v-for="chip in chipsOcultos"
+                                :key="chip.key"
+                                :command="chip.key"
+                            >
+                                {{ chip.label }}
+                                <span v-if="chipCounts[chip.key] !== undefined" class="ord-chip-n">{{
+                                    chipCounts[chip.key]
+                                }}</span>
+                            </el-dropdown-item>
+                        </el-dropdown-menu>
+                    </el-dropdown>
                 </div>
                 <!-- Barra de filtros. Antes era una caja titulada "Gestión de
                      pedidos para facturar" (de Saga) con los controles
@@ -2548,6 +2577,13 @@
     font-size: 12px;
     cursor: pointer;
 }
+.ord-chip-more {
+    border-style: dashed;
+}
+.ord-chip-more .el-icon-arrow-down {
+    margin-left: 4px;
+    font-size: 11px;
+}
 .ord-chips {
     display: flex;
     flex-wrap: wrap;
@@ -3530,16 +3566,20 @@ export default {
             // Chips = preguntas de trabajo, en el orden del flujo real:
             // confirmar → preparar → imprimir → embalar → despachar → tránsito
             // → entregar. Los tres últimos son de control, no de cola.
+            // `diario: true` = se queda arriba, a la vista. El resto entra en
+            // «Mas estados». Eran TRECE botones en fila, cada uno con su
+            // contador: para encontrar uno habia que leerlos todos, y los que
+            // de verdad se pulsan cada dia son cuatro.
             orderChips: [
-                { key: "all", label: "Todos" },
+                { key: "all", label: "Todos", diario: true },
                 // «Nuevos» es el buzon de entrada: el cliente acaba de
                 // registrar su envio y nadie lo ha revisado. Es la misma
                 // pestaña que abre por defecto el panel de Envios, y no tenia
                 // equivalente aqui: «Por confirmar» suena parecido pero filtra
                 // por el PAGO sin verificar, que es otra cosa.
-                { key: "nuevos", label: "Nuevos" },
+                { key: "nuevos", label: "Nuevos", diario: true },
                 { key: "por_confirmar", label: "Por confirmar" },
-                { key: "por_preparar", label: "Por preparar" },
+                { key: "por_preparar", label: "Por preparar", diario: true },
                 { key: "por_imprimir", label: "Por imprimir" },
                 { key: "por_embalar", label: "Por embalar" },
                 { key: "por_despachar", label: "Por despachar" },
@@ -3548,7 +3588,7 @@ export default {
                 { key: "entregados", label: "Entregados" },
                 { key: "anulados", label: "Anulados" },
                 { key: "sin_envio", label: "Sin envío" },
-                { key: "no_invoice", label: "Falta emitir" },
+                { key: "no_invoice", label: "Falta emitir", diario: true },
             ],
             // Filtros logísticos de la barra superior.
             deliveryTypeFilter: "",
@@ -3781,6 +3821,33 @@ export default {
         this.events();
     },
     computed: {
+        /**
+         * Los chips que se quedan arriba: los de uso diario, mas el que este
+         * activo aunque no lo sea.
+         *
+         * Esa excepcion no es un adorno: si el operador filtra por «Anulados»
+         * --que vive en el desplegable-- y arriba no se ve nada activo, la
+         * pantalla parece estar mostrando todo cuando no lo esta. Lo que se
+         * filtra tiene que verse siempre.
+         */
+        chipsVisibles() {
+            return this.orderChips.filter(
+                c => c.diario || c.key === this.mpFilter
+            );
+        },
+        /** El resto, detras de «Mas estados», con su contador. */
+        chipsOcultos() {
+            return this.orderChips.filter(
+                c => !c.diario && c.key !== this.mpFilter
+            );
+        },
+        /** Cuantos pedidos hay en los estados que quedaron guardados. */
+        totalOcultos() {
+            return this.chipsOcultos.reduce(
+                (a, c) => a + (Number(this.chipCounts[c.key]) || 0), 0
+            );
+        },
+
         /**
          * Columnas por grupo para el panel.
          *
