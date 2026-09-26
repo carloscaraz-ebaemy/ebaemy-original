@@ -176,19 +176,43 @@ class UnauthorizedAccessDetectorTest extends TestCase
         $this->assertSame('intruso@externo.com', $alert->evidence['email']);
     }
 
-    public function test_un_usuario_bloqueado_en_la_tabla_cuenta_como_no_autorizado(): void
+    /**
+     * `users.locked` NO es una cuenta suspendida: marca la cuenta protegida que
+     * el tenant no puede editar, o sea la del dueno. Filtrar por locked=0
+     * convertia el ingreso del propio dueno en una alerta CRITICA de intruso.
+     * Ocurrio en produccion con las cuentas de alasitas, lia e
+     * importacionesdeywa antes de corregirlo.
+     */
+    public function test_el_usuario_protegido_con_locked_sigue_estando_autorizado(): void
     {
         $this->useWhitelist = false;
 
         DB::connection(self::CONNECTION)->table('users')
             ->where('email', 'ventas@ebaemy.com')->update(['locked' => 1]);
 
-        $emails = array_map(
+        $emails = $this->unauthorizedEmails();
+
+        $this->assertNotContains('ventas@ebaemy.com', $emails, 'El dueno del tenant no es un intruso');
+        $this->assertContains('intruso@externo.com', $emails, 'El intruso de verdad sigue detectandose');
+    }
+
+    public function test_un_usuario_desactivado_si_cuenta_como_no_autorizado(): void
+    {
+        $this->useWhitelist = false;
+
+        DB::connection(self::CONNECTION)->table('users')
+            ->where('email', 'ventas@ebaemy.com')->update(['active' => 0]);
+
+        $this->assertContains('ventas@ebaemy.com', $this->unauthorizedEmails());
+    }
+
+    /** @return string[] correos senalados como no autorizados */
+    private function unauthorizedEmails(): array
+    {
+        return array_map(
             fn (Alert $a) => $a->evidence['email'],
             array_values(array_filter($this->scan(), fn (Alert $a) => $a->type === 'usuario_no_autorizado'))
         );
-
-        $this->assertContains('ventas@ebaemy.com', $emails);
     }
 
     // ── Apoyo ─────────────────────────────────────────────────────────────────

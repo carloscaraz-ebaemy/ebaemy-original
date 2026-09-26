@@ -107,8 +107,19 @@ class UnauthorizedAccessDetector implements DetectorModule
 
     /**
      * Lista blanca efectiva. Si el operador no configuro ninguna, se usa la
-     * tabla `users`: cualquier usuario activo y no bloqueado vale. Devuelve
-     * null solo si no hay forma de saberlo (entonces no se alerta).
+     * tabla `users`: cualquier usuario ACTIVO vale. Devuelve null solo si no
+     * hay forma de saberlo (entonces no se alerta).
+     *
+     * OJO con `users.locked`: en este sistema NO significa "cuenta suspendida".
+     * Marca la cuenta protegida que el tenant no puede editar ni borrar, o sea
+     * justamente la del dueno. El unico bloqueo que impide entrar es
+     * `configuration.locked_tenant`, que es del tenant entero y ni siquiera
+     * llega a generar un evento de login.
+     *
+     * Filtrar por `locked = 0` excluia precisamente al administrador principal
+     * de cada tenant y convertia su propio ingreso en una alerta CRITICA de
+     * intruso. Paso en produccion: 7 falsos positivos en 4 dias, tres de ellos
+     * sobre las cuentas dueñas de alasitas, lia e importacionesdeywa.
      */
     private function authorizedEmails(ScanContext $context): ?array
     {
@@ -122,7 +133,6 @@ class UnauthorizedAccessDetector implements DetectorModule
             $rows = $this->connection($context)
                 ->table('users')
                 ->where('active', 1)
-                ->where(function ($q) { $q->where('locked', 0)->orWhereNull('locked'); })
                 ->pluck('email');
 
             return $rows->map(fn ($e) => strtolower((string) $e))->filter()->values()->all();
