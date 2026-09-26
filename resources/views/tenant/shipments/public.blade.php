@@ -49,6 +49,12 @@
         input.is-auto:focus { border-color:var(--line); box-shadow:none; }
         .js-name-manual { background:none; border:0; padding:0 0 0 4px; color:var(--brand); font:inherit; font-size:12px; text-decoration:underline; cursor:pointer; }
         .hint.is-warn { color:#b45309; }
+        .dest-first { margin-bottom:18px; }
+        .dest-eco { display:flex; align-items:center; justify-content:space-between; gap:10px;
+                    background:#f8fafc; border:1px solid var(--line); border-radius:10px;
+                    padding:10px 12px; font-size:13.5px; margin-bottom:12px; }
+        .dest-eco__b { background:none; border:0; color:var(--brand); font:inherit;
+                       font-size:12.5px; text-decoration:underline; cursor:pointer; }
         .hint.is-warn .js-name-manual { color:#b45309; }
 
         .btn { width:100%; padding:14px; border:none; border-radius:14px; background:var(--brand); color:#fff; font-size:16px; font-weight:700; cursor:pointer; transition:.15s; }
