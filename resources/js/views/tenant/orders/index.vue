@@ -5316,13 +5316,17 @@ export default {
          * la pagina 3.
          */
         /**
-         * El pedido manual ya existe. Si el operador dijo que lleva envio, se
-         * encadena con el formulario de envio DEL MODULO —el mismo que abre
-         * «Configurar envio»— en vez de pedir el destino dentro del modal de
-         * alta: los datos de entrega tienen un unico sitio donde se registran.
+         * El pedido manual ya existe.
          *
-         * Sin este encadenado el pedido nacia sin envio y solo aparecia en
-         * Envios si alguien se acordaba de volver a abrirlo.
+         * El alta rehecha pregunta el destino DENTRO de su propio formulario y
+         * lo guarda ella contra `POST /orders/{order}/envio` —el mismo
+         * endpoint, el mismo buscador de ubigeo y el mismo catalogo de
+         * agencias que «Configurar envio», no una segunda forma de
+         * registrarlo—, asi que llega con `envio` en null y no hay nada que
+         * encadenar.
+         *
+         * El parametro se conserva porque otros caminos si lo usan: un pedido
+         * creado sin destino se sigue pudiendo mandar a ese formulario.
          */
         onManualCreated(id = null, envio = null) {
             this.manualOrderId = null;

@@ -2237,21 +2237,63 @@ class OrderController extends Controller
         ]);
     }
 
-    /** Texto del bulto del envio vigente, o null si el pedido no tiene envio. */
-    private function contenidoDelPaquete(Order $order): ?string
+    /** Envio vigente del pedido, o null si no tiene o el modulo no esta. */
+    private function envioVigente(Order $order): ?\App\Models\Tenant\ShippingRequest
     {
         if (!\App\Models\Tenant\ShippingRequest::moduleInstalled()) {
             return null;
         }
 
-        $envio = app(\App\Services\Tenant\OrderShipmentLinker::class)->current($order);
+        return app(\App\Services\Tenant\OrderShipmentLinker::class)->current($order);
+    }
 
-        return $envio ? (string) $envio->package_content : null;
+    /**
+     * Datos de entrega que el alta manual pinta en su bloque de destino.
+     *
+     * El formulario pregunta a donde va el paquete, asi que al reabrirlo tiene
+     * que poder responderse. Antes `record()` solo devolvia cliente y lineas:
+     * el operador editaba un pedido y veia el destino en blanco, que es
+     * indistinguible de un pedido sin envio. Corregia el telefono, guardaba, y
+     * el bloque vacio se enviaba encima del destino bueno.
+     *
+     * Se devuelven los MISMOS nombres de campo que acepta
+     * `POST /orders/{order}/envio`, para que el formulario no traduzca nada
+     * entre lo que lee y lo que escribe.
+     *
+     * `null` significa «este pedido no tiene envio todavia», que no es lo
+     * mismo que tenerlo vacio: con null el formulario deja el bloque limpio y
+     * lo crea al guardar; con datos, lo corrige.
+     */
+    private function datosDeEnvio(?\App\Models\Tenant\ShippingRequest $envio): ?array
+    {
+        if (!$envio) {
+            return null;
+        }
+
+        return [
+            'delivery_type'        => $envio->delivery_type,
+            'district_id'          => $envio->district_id,
+            'province_id'          => $envio->province_id,
+            'department_id'        => $envio->department_id,
+            'destination_city'     => $envio->destination_city,
+            'shipping_agency'      => $envio->shipping_agency,
+            'reference'            => $envio->reference,
+            'shipping_destination' => $envio->shipping_destination,
+            'alternate_phone'      => $envio->alternate_phone,
+            // Quien recoge: obligatorio cuando el cliente es un RUC. Sin
+            // devolverlo, reabrir el pedido lo borraba del formulario y el
+            // guardado lo mandaba vacio encima del bueno.
+            'pickup_person_name'   => $envio->pickup_person_name,
+            'pickup_person_dni'    => $envio->pickup_person_dni,
+        ];
     }
 
     public function record(Order $order)
     {
         $cliente = (array) ($order->customer ?? []);
+        // Una sola vez: `datosDeEnvio()` y el contenido del bulto salen del
+        // MISMO envio, y resolverlo dos veces son dos consultas para lo mismo.
+        $envio   = $this->envioVigente($order);
 
         $lineas = collect(is_array($order->items) ? $order->items : [])
             ->map(function ($fila) {
@@ -2290,8 +2332,13 @@ class OrderController extends Controller
             // Contenido del bulto: texto libre que vive en el ENVIO, no una
             // linea de venta. El editor de productos lo muestra al lado del
             // catalogo para que agregar a mano y agregar del sistema sean la
-            // misma ficha. Null = el pedido no tiene envio donde escribirlo.
-            'package_content' => $this->contenidoDelPaquete($order),
+            // misma ficha. `null` solo cuando NO hay envio donde escribirlo:
+            // con envio y sin texto va cadena vacia, que es distinto, y la
+            // pantalla decide con eso si pinta la seccion o no.
+            'package_content' => $envio ? (string) $envio->package_content : null,
+            // A donde va el paquete, para que el bloque de destino del alta
+            // manual pueda repintarse al reabrir el pedido.
+            'shipping'        => $this->datosDeEnvio($envio),
         ]);
     }
 
@@ -2419,12 +2466,7 @@ class OrderController extends Controller
 
                 $order->fill([
                     'person_id' => $persona?->id ?: $order->person_id,
-                    'customer'  => [
-                        'apellidos_y_nombres_o_razon_social' => $request->customer['name'],
-                        'correo_electronico' => $request->customer['email'] ?? null,
-                        'telefono'           => $request->customer['phone'] ?? null,
-                        'numero_documento'   => $request->customer['document_number'] ?? null,
-                    ],
+                    'customer'  => $this->clienteParaGuardar($order, $request),
                     'items'          => $calculo['items'],
                     'total'          => $calculo['total'],
                     'subtotal'       => $calculo['subtotal'],
@@ -2490,6 +2532,38 @@ class OrderController extends Controller
     }
 
     /** Cliente del pedido, sin tocar lineas, totales ni stock. */
+    /**
+     * El bloque `customer` de un pedido que se edita.
+     *
+     * Existe porque los dos caminos de la edicion —el completo y el de «solo
+     * el cliente», cuando el pedido ya esta en preparacion— lo escribian por
+     * separado, y bastaba tocar uno para que el mismo pedido quedara distinto
+     * segun por donde se hubiera guardado.
+     *
+     * `customer` es un JSON que se reescribe ENTERO: todo lo que el editor no
+     * pregunta hay que reponerlo aqui o se borra en silencio. Ese fue el caso
+     * de la direccion, que el formulario no pide y desaparecia al corregir un
+     * telefono.
+     *
+     * Se llama ANTES de `fill()`: `$order->customer` todavia tiene el valor
+     * viejo, que es justo de donde sale lo que se conserva.
+     *
+     * @return array<string, mixed>
+     */
+    private function clienteParaGuardar(Order $order, Request $request): array
+    {
+        $previo = (array) $order->customer;
+
+        return [
+            'apellidos_y_nombres_o_razon_social' => $request->customer['name'],
+            'correo_electronico' => $request->customer['email'] ?? null,
+            'telefono'           => $request->customer['phone'] ?? null,
+            'numero_documento'   => $request->customer['document_number'] ?? null,
+            'direccion'          => $request->customer['address']
+                ?? data_get($previo, 'direccion'),
+        ];
+    }
+
     private function guardarCliente(Order $order, Request $request): void
     {
         $persona = \App\Models\Tenant\Person::resolveCustomer(
@@ -2503,12 +2577,7 @@ class OrderController extends Controller
 
         $order->fill([
             'person_id' => $persona?->id ?: $order->person_id,
-            'customer'  => [
-                'apellidos_y_nombres_o_razon_social' => $request->customer['name'],
-                'correo_electronico' => $request->customer['email'] ?? null,
-                'telefono'           => $request->customer['phone'] ?? null,
-                'numero_documento'   => $request->customer['document_number'] ?? null,
-            ],
+            'customer'  => $this->clienteParaGuardar($order, $request),
         ])->save();
     }
 
