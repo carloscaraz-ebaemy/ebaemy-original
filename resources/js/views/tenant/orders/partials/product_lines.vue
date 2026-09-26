@@ -53,16 +53,16 @@
         </div>
 
         <div class="pl-scroll">
-            <table class="pl-table">
+            <table class="pl-table" :class="{ 'is-sin-desc': !canEditPrice }">
                 <thead>
                     <tr>
-                        <th>Producto</th>
-                        <th class="num">Disponible</th>
-                        <th class="num">Cantidad</th>
-                        <th class="num">Precio</th>
-                        <th v-if="canEditPrice" class="num">Descuento</th>
-                        <th class="num">Subtotal</th>
-                        <th></th>
+                        <th class="c-prod">Producto</th>
+                        <th class="num c-disp">Disp.</th>
+                        <th class="num c-cant">Cantidad</th>
+                        <th class="num c-prec">Precio</th>
+                        <th v-if="canEditPrice" class="num c-desc">Descuento</th>
+                        <th class="num c-sub">Subtotal</th>
+                        <th class="c-acc"></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -72,11 +72,11 @@
                         </td>
                     </tr>
                     <tr v-for="(l, i) in lineas" :key="l.key">
-                        <td>
-                            {{ l.name }}
+                        <td class="c-prod">
+                            <div class="pl-name" :title="l.name">{{ l.name }}</div>
                             <div v-if="l.code" class="pl-code">{{ l.code }}</div>
                         </td>
-                        <td class="num">
+                        <td class="num c-disp">
                             <!-- Tres estados que no se pueden confundir:
                                  `undefined` = no se ha mirado en este almacen,
                                  `null` = el producto no controla stock,
@@ -85,7 +85,7 @@
                             <span v-else-if="l.available === null" class="pl-muted">sin control</span>
                             <span v-else :class="{ 'pl-over': l.quantity > l.available }">{{ l.available }}</span>
                         </td>
-                        <td class="num">
+                        <td class="num c-cant">
                             <el-input-number
                                 v-model="l.quantity"
                                 :min="1"
@@ -96,7 +96,7 @@
                                 @change="emitir"
                             ></el-input-number>
                         </td>
-                        <td class="num">
+                        <td class="num c-prec">
                             <el-input-number
                                 v-if="canEditPrice"
                                 v-model="l.unit_price"
@@ -111,7 +111,7 @@
                                 {{ money(l.unit_price) }}
                             </span>
                         </td>
-                        <td v-if="canEditPrice" class="num">
+                        <td v-if="canEditPrice" class="num c-desc">
                             <el-input-number
                                 v-model="l.discount"
                                 :min="0"
@@ -123,8 +123,8 @@
                                 @change="emitir"
                             ></el-input-number>
                         </td>
-                        <td class="num pl-neto">S/ {{ money(neto(l)) }}</td>
-                        <td class="num">
+                        <td class="num pl-neto c-sub">S/ {{ money(neto(l)) }}</td>
+                        <td class="num c-acc">
                             <el-button type="text" class="pl-del" :disabled="disabled" @click="quitar(i)">
                                 <i class="fas fa-trash"></i>
                             </el-button>
@@ -456,9 +456,50 @@ export default {
 }
 .pl-table {
     width: 100%;
-    min-width: 560px;
+    /* Tiene que caber lo que hay dentro, no lo que sobra.
+       200 producto + 60 disp + 96 cantidad + 104 precio + 104 descuento
+       + 84 subtotal + 30 papelera = 678, que entra en el ancho util del
+       dialogo (720-760px menos su padding) sin pedir scroll.
+
+       Por debajo de eso la tabla se APLASTABA en vez de desplazarse: las
+       columnas de numeros no ceden —llevan un `el-input-number` dentro—
+       asi que todo el recorte caia sobre la del producto, que acababa
+       partiendo las palabras por la mitad («Arbol Cerez / o AMA / RILLO»).
+       Cuando no quepa —en movil—, se desplaza `pl-scroll`. */
+    min-width: 678px;
+    table-layout: fixed;
     border-collapse: collapse;
     font-size: 13px;
+}
+/* Sin permiso de precios no hay columna de descuento: 104px menos. */
+.pl-table.is-sin-desc {
+    min-width: 574px;
+}
+
+.pl-table .c-prod { width: auto; min-width: 200px; }
+.pl-table .c-disp { width: 60px; }
+.pl-table .c-cant { width: 96px; }
+.pl-table .c-prec { width: 104px; }
+.pl-table .c-desc { width: 104px; }
+.pl-table .c-sub  { width: 84px; }
+.pl-table .c-acc  { width: 30px; }
+
+/* El nombre puede ocupar dos lineas, pero no partir una palabra: cortar
+   «AMARILLO» en «AMA / RILLO» hace ilegible justo el dato que se lee. */
+.pl-name {
+    word-break: normal;
+    overflow-wrap: break-word;
+    line-height: 1.35;
+}
+
+/* Los controles de Element traen 130px propios y no caben en la celda. */
+.pl-table .el-input-number {
+    width: 100%;
+}
+/* Y su relleno esta pensado para esos 130px: en 96 recortaba el numero. */
+.pl-table .el-input-number ::v-deep .el-input__inner {
+    padding-left: 6px;
+    padding-right: 26px;
 }
 .pl-table th,
 .pl-table td {
@@ -474,10 +515,25 @@ export default {
     letter-spacing: 0.03em;
     color: var(--muted);
     border-bottom-width: 1.5px;
+    /* «PRODUCTO» partido en «PROD / UCTO» no es una cabecera, es ruido. */
+    white-space: nowrap;
 }
 .pl-table .num {
     text-align: right;
     white-space: nowrap;
+}
+/* Con poco sitio, el control se queda en su celda y no la desborda. */
+.pl-table td.num {
+    padding-left: 6px;
+    padding-right: 6px;
+}
+/* «sin control» no cabe en una linea de 60px, y con `nowrap` se salia de
+   la celda por encima de la siguiente. Aqui si puede partirse: son dos
+   palabras, y romper entre ellas no hace ilegible ninguna. */
+.pl-table td.c-disp {
+    white-space: normal;
+    font-size: 11.5px;
+    line-height: 1.3;
 }
 .pl-empty {
     text-align: center;
