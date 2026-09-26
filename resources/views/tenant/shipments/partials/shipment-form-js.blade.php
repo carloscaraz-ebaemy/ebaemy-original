@@ -48,7 +48,7 @@
     var PROV_TIENDA = @json($provTienda ?? null);
 
     function provinciaElegida() {
-        var el = document.querySelector('[data-ubigeo-group="{{ $ubGroup }}"] [data-ub="province"]');
+        var el = document.querySelector('[data-ubigeo-group="{{ $ubGroup ?? rtrim($p, '_') }}"] [data-ub="province"]');
         return el && el.value ? String(el.value) : '';
     }
 
@@ -85,13 +85,13 @@
 
         // El eco del paso de entrega: a donde va, sin volver a preguntarlo.
         var eco = document.getElementById('{{ $p }}dest_eco_txt');
-        var disp = document.querySelector('[data-ubigeo-group="{{ $ubGroup }}"] .ubigeo-display');
+        var disp = document.querySelector('[data-ubigeo-group="{{ $ubGroup ?? rtrim($p, '_') }}"] .ubigeo-display');
         if (eco && disp) eco.textContent = (disp.textContent || '').trim();
     }
 
     // El cascader escribe en los hidden; se vigila el de provincia.
     (function () {
-        var campo = document.querySelector('[data-ubigeo-group="{{ $ubGroup }}"]');
+        var campo = document.querySelector('[data-ubigeo-group="{{ $ubGroup ?? rtrim($p, '_') }}"]');
         if (!campo) return;
         campo.addEventListener('change', aplicarCobertura);
         campo.addEventListener('click', function () { setTimeout(aplicarCobertura, 60); });
