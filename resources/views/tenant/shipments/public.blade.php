@@ -266,7 +266,7 @@
 
         {{-- ── Barra de progreso ── --}}
         <div class="stepper" id="stepper">
-            <div class="st {{ $sent ? 'done' : 'active' }}" data-n="1"><div class="dot">1</div><div class="t">Tipo</div></div>
+            <div class="st {{ $sent ? 'done' : 'active' }}" data-n="1"><div class="dot">1</div><div class="t">Destino</div></div>
             <div class="st-line {{ $sent ? 'done' : '' }}"></div>
             <div class="st {{ $sent ? 'done' : '' }}" data-n="2"><div class="dot">2</div><div class="t">Datos</div></div>
             <div class="st-line {{ $sent ? 'done' : '' }}"></div>
