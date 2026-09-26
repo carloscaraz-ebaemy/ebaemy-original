@@ -126,6 +126,101 @@
                     <small class="mo-hint">A quién llamar si el primero no contesta.</small>
                 </div>
             </div>
+
+            <!-- ══ A dónde va el paquete ═══════════════════════════════════
+                 El buscador de ubigeo y el catalogo de agencias son los MISMOS
+                 que usa el formulario de envio: `/orders/ubigeo/buscar` y
+                 `ShippingRequest::AGENCIES` servido por `/orders/channels`. No
+                 hay una segunda lista ni un segundo buscador que mantener. -->
+            <div class="mo-head mo-head--2">
+                <h2 class="mo-h">A dónde enviamos el pedido</h2>
+                <p class="mo-sub">La ciudad y la agencia por la que lo recogerá.</p>
+            </div>
+
+            <div class="mo-grid">
+                <div class="mo-f mo-f--full">
+                    <label class="mo-lbl req">Ciudad de destino</label>
+                    <!-- Antes de esto eran tres selectores encadenados y habia
+                         que saber Piura → Talara → Pariñas para poder elegir.
+                         Se escribe el nombre que se conoce y el buscador hace
+                         el resto, tildes incluidas. -->
+                    <el-select
+                        v-model="envio.district_id"
+                        class="mo-sel"
+                        filterable
+                        remote
+                        clearable
+                        :remote-method="buscarUbigeo"
+                        :loading="ubigeoLoading"
+                        placeholder="Busca ciudad, provincia o distrito…"
+                        :no-data-text="ubigeoQuery.length < 2 ? 'Escribe al menos 2 letras' : 'No encontramos «' + ubigeoQuery + '». Revisa la escritura.'"
+                        no-match-text="Sin coincidencias"
+                        @change="alElegirUbigeo"
+                    >
+                        <el-option
+                            v-for="r in ubigeoResults"
+                            :key="r.district_id"
+                            :label="r.name + ' — ' + r.province_name + ', ' + r.department_name"
+                            :value="r.district_id"
+                        >
+                            <span class="mo-ub-name">{{ r.name }}</span>
+                            <span class="mo-ub-ctx">{{ r.context }}</span>
+                        </el-option>
+                    </el-select>
+                    <small v-if="destinoElegido" class="mo-hint">{{ destinoElegido }}</small>
+                </div>
+
+                <div class="mo-f">
+                    <label class="mo-lbl req">Agencia de transporte</label>
+                    <!-- `allow-create` porque el catalogo son 12 nombres, no una
+                         tabla: si el cliente pide una que no esta, se escribe. -->
+                    <el-select
+                        v-model="envio.shipping_agency"
+                        class="mo-sel"
+                        filterable
+                        allow-create
+                        clearable
+                        default-first-option
+                        placeholder="— Selecciona —"
+                    >
+                        <el-option v-for="a in agencias" :key="a" :label="a" :value="a" />
+                    </el-select>
+                </div>
+
+                <div class="mo-f">
+                    <label class="mo-lbl">
+                        Oficina donde recoge <span class="mo-opt">(opcional)</span>
+                    </label>
+                    <input
+                        v-model="envio.reference"
+                        type="text"
+                        class="mo-input"
+                        maxlength="255"
+                        placeholder="Ej. Terminal Terrestre, Av. Aviación 123…"
+                    />
+                    <small class="mo-hint">Si no se sabe, en blanco: la agencia lo indica.</small>
+                </div>
+
+                <!-- El paquete normalmente solo viaja hasta la agencia y la
+                     direccion no la usa nadie. Solo se pide si hay reparto. -->
+                <div class="mo-f mo-f--full">
+                    <label class="mo-chk">
+                        <input type="checkbox" v-model="envio.a_domicilio" />
+                        <span>La agencia lleva el paquete hasta el domicilio</span>
+                    </label>
+                </div>
+
+                <div v-if="envio.a_domicilio" class="mo-f mo-f--full">
+                    <label class="mo-lbl req">Dirección de reparto</label>
+                    <input
+                        v-model="envio.shipping_destination"
+                        type="text"
+                        class="mo-input"
+                        maxlength="255"
+                        placeholder="Av./Jr./Calle y número"
+                    />
+                </div>
+            </div>
         </div>
 
         <span slot="footer">
@@ -152,6 +247,24 @@ export default {
             docType: "dni",
             documento: "",
             form: { name: "", phone: "", alternate_phone: "" },
+            // Mismos nombres de campo que `shipping_requests`: `reference` es
+            // la oficina de la agencia y `shipping_destination` la direccion
+            // de reparto, tal como los guarda el modulo de Envios.
+            envio: {
+                district_id: "",
+                province_id: "",
+                department_id: "",
+                destination_city: "",
+                shipping_agency: "",
+                reference: "",
+                a_domicilio: false,
+                shipping_destination: "",
+            },
+            agencias: [],
+            destinoElegido: "",
+            ubigeoResults: [],
+            ubigeoQuery: "",
+            ubigeoLoading: false,
             nombreManual: false,
             nombreTraido: "",
             origen: "",
@@ -189,14 +302,93 @@ export default {
             return "";
         },
         pct() {
-            const hechos = [
+            const req = [
                 !!(this.form.name || "").trim(),
                 /^9\d{8}$/.test(this.form.phone || ""),
-            ].filter(Boolean).length;
-            return Math.round((hechos / 2) * 100);
+                !!this.envio.district_id,
+                !!(this.envio.shipping_agency || "").trim(),
+            ];
+            // La direccion solo cuenta cuando se ha pedido reparto: si no,
+            // exigirla dejaria la barra clavada al 80% sin nada que falte.
+            if (this.envio.a_domicilio) {
+                req.push(!!(this.envio.shipping_destination || "").trim());
+            }
+            const hechos = req.filter(Boolean).length;
+            return Math.round((hechos / req.length) * 100);
         },
     },
+    /** Las agencias son catalogo del servidor, no una copia en el front. */
+    created() {
+        this.cargarCatalogos();
+    },
     methods: {
+        cargarCatalogos() {
+            this.$http
+                .get("/orders/channels")
+                .then(r => {
+                    this.agencias = (r.data && r.data.agencies) || [];
+                })
+                .catch(() => {
+                    // Sin catalogo el campo sigue siendo usable: `allow-create`
+                    // deja escribir la agencia a mano. Peor seria un desplegable
+                    // vacio que no admite nada.
+                    this.agencias = [];
+                });
+        },
+
+        /**
+         * El buscador de ubigeo ya existe y es el mismo de Envios: busca por
+         * distrito, provincia y departamento, y aguanta las tildes. No se
+         * reimplementa aqui.
+         */
+        buscarUbigeo(q) {
+            this.ubigeoQuery = (q || "").trim();
+
+            if (this.ubigeoQuery.length < 2) {
+                this.ubigeoResults = [];
+                return;
+            }
+
+            this.ubigeoLoading = true;
+            this.$http
+                .get("/orders/ubigeo/buscar", { params: { q: this.ubigeoQuery } })
+                .then(r => {
+                    this.ubigeoResults = r.data || [];
+                })
+                .catch(() => {
+                    // Un fallo de red pintado como «no hay resultados» es un
+                    // problema que no se arregla buscando otra cosa.
+                    this.ubigeoResults = [];
+                    this.$message.error("No se pudo buscar la ciudad. Reintenta.");
+                })
+                .then(() => {
+                    this.ubigeoLoading = false;
+                });
+        },
+
+        /**
+         * Provincia y departamento se derivan del distrito. El servidor lo
+         * repite al guardar, pero el formulario tiene que quedar coherente YA
+         * o el resumen miente hasta entonces.
+         */
+        alElegirUbigeo(districtId) {
+            if (!districtId) {
+                this.envio.province_id = "";
+                this.envio.department_id = "";
+                this.envio.destination_city = "";
+                this.destinoElegido = "";
+                return;
+            }
+
+            const r = (this.ubigeoResults || []).find(x => x.district_id === districtId);
+            if (!r) return;
+
+            this.envio.province_id = r.province_id || "";
+            this.envio.department_id = r.department_id || "";
+            this.envio.destination_city = r.name || "";
+            this.destinoElegido = r.name + " — " + r.province_name + ", " + r.department_name;
+        },
+
         cerrar() {
             this.$emit("update:showDialog", false);
         },
@@ -520,6 +712,75 @@ export default {
 }
 .mo-f {
     min-width: 0;
+}
+/* La ciudad, el checkbox y la direccion cruzan las dos columnas: son una
+   decision sola, no media fila. */
+.mo-f--full {
+    grid-column: 1 / -1;
+}
+
+/* El bloque de destino, separado del de datos sin una linea de por medio:
+   el aire ya dice que empieza otra cosa. */
+.mo-head--2 {
+    margin-top: 22px;
+}
+
+/* Element UI dentro del bloque: se le fuerzan las medidas de los inputs de
+   arriba, o conviven dos alturas y dos radios en la misma rejilla. */
+.mo-sel {
+    width: 100%;
+}
+.mo .mo-sel >>> .el-input__inner {
+    height: auto;
+    padding: 10px 12px;
+    border: 1.5px solid var(--line);
+    border-radius: 12px;
+    font-size: 14.5px;
+    line-height: 1.3;
+    color: var(--ink);
+}
+.mo .mo-sel >>> .el-input__inner:focus {
+    border-color: var(--brand);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+.mo .mo-sel >>> .el-input__icon {
+    line-height: 42px;
+}
+.mo-ub-name {
+    font-weight: 600;
+}
+.mo-ub-ctx {
+    margin-left: 8px;
+    font-size: 12px;
+    color: var(--muted);
+}
+
+/* Checkbox nativo: el de Element trae su propio tamaño de letra y su propio
+   azul, y aqui desentona con los chips. */
+.mo-chk {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    margin: 2px 0 0;
+    padding: 10px 12px;
+    border: 1.5px solid var(--line);
+    border-radius: 12px;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: #475569;
+    cursor: pointer;
+    transition: 0.15s;
+}
+.mo-chk:hover {
+    border-color: #cbd5e1;
+}
+.mo-chk input {
+    width: 17px;
+    height: 17px;
+    accent-color: var(--brand);
+    cursor: pointer;
+    margin: 0;
+    flex: none;
 }
 
 /* Movil: una columna, como el formulario publico. */

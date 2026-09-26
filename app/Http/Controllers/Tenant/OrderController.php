@@ -1467,6 +1467,11 @@ class OrderController extends Controller
             // pedido manual solo elige cual, y el formulario de envio —que ya
             // existe— es quien pide sus datos.
             'delivery_types'  => \App\Models\Tenant\ShippingRequest::DELIVERY_TYPES,
+            // El mismo catalogo de agencias que usa el formulario de envio. Se
+            // sirve desde aqui, y no se copia en el Vue, porque `AGENCIES` es
+            // la unica lista: duplicarla en el front significa que el dia que
+            // se añada una transportista, una de las dos pantallas no la tenga.
+            'agencies'        => \App\Models\Tenant\ShippingRequest::AGENCIES,
         ]);
     }
 
