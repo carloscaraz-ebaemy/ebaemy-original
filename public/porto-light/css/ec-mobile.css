@@ -1,0 +1,263 @@
+/* ==========================================================================
+   Tienda en el celular — capa correctiva
+   --------------------------------------------------------------------------
+   Se carga la ULTIMA, despues del tema por rubro, y solo corrige dos cosas
+   que ninguna pantalla de escritorio delata:
+
+   1. Los campos con letra de menos de 16px. Safari de iPhone hace ZOOM al
+      enfocarlos, y al volver el usuario se queda con la pagina desplazada y
+      mas ancha que la pantalla. No es una preferencia estetica: 16px es el
+      umbral exacto por debajo del cual iOS amplia. Medido en la tienda: el
+      orden y la categoria a 13.5px, el rango de precios a 14, el buscador de
+      alasitas a 15, el ubigeo del calculo de envio a 13.
+
+   2. Las zonas de toque de menos de 44px. Apple pide 44x44 y Google 48x48;
+      en la home habia 77 elementos por debajo, entre ellos el boton del menu
+      (31x41), el del buscador (40x30), el corazon de favoritos (34x34) y la
+      X de los filtros (26x26). Se agranda el AREA, no el icono: los botones
+      se centran con flex y conservan su dibujo, asi que la tienda se ve igual
+      y deja de fallar el dedo.
+
+   Lo que aqui NO hay: nada de maquetacion. El layout de la tienda ya responde
+   bien —medido con un iPhone 12 emulado, 390px: la home, la ficha y el
+   carrito no producen scroll horizontal—, y tocarlo seria arreglar lo que no
+   esta roto.
+   ========================================================================== */
+
+@media (max-width: 991.98px) {
+
+    /* ── 1. Campos que no disparan el zoom de iOS ──────────────────────── */
+
+    .ec-filter-select,
+    .ec-range-input,
+    .ec-newsletter-bar__input,
+    .ec-error-search-input,
+    .ec-shipping-calc__select,
+    .ec-qty-input,
+    #ec-search-input,
+    #ec-mob-search-input,
+    .form-control,
+    input[type="text"],
+    input[type="search"],
+    input[type="email"],
+    input[type="tel"],
+    input[type="number"],
+    input[type="password"],
+    select,
+    textarea {
+        font-size: 16px;
+    }
+
+    /* Los de la ficha de producto no los alcanzaba la regla de arriba: su CSS
+       va en un @push de la propia vista, que se inserta DESPUES de esta hoja,
+       y ademas apunta por id. Se repite el id con su clase —(1,1,0) contra
+       (1,0,0)— en vez de recurrir a !important, que dejaria el archivo sin
+       forma de ajustarse desde el tema. */
+    #ec-ship-dept.ec-shipping-calc__select,
+    #ec-ship-prov.ec-shipping-calc__select,
+    #ec-ship-dist.ec-shipping-calc__select,
+    #ec-search-input.tech-header__search-input {
+        font-size: 16px;
+    }
+
+    /* El campo de cantidad es el unico que necesita !important: su regla de
+       `styles_ecommerce.css` ya lo lleva (`font-size: 1.2rem !important`, que
+       con la base de Porto son 15px). No hay forma de ganarle por
+       especificidad. */
+    #ec-qty-input.ec-qty-input {
+        font-size: 16px !important;
+    }
+
+    /* El alto lo daba la letra. Al subirla, estos dos crecerian de golpe:
+       se compensa con el padding para que la franja de filtros siga midiendo
+       lo mismo. */
+    .ec-filter-select,
+    .ec-range-input {
+        padding-top: 6px;
+        padding-bottom: 6px;
+    }
+
+    /* ── 2. Zonas de toque de 44px ─────────────────────────────────────── */
+
+    /* Cabecera: menu, buscador, cuenta y carrito. Son los cuatro controles
+       que se pulsan en cada visita y los cuatro estaban por debajo. */
+    .mobile-menu-toggler,
+    .mobile-search-btn,
+    #ec-mob-search-btn,
+    #ec-cart-link,
+    .header .dropdown-toggle,
+    .tech-header__action,
+    .tech-header__search-go {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 44px;
+        min-height: 44px;
+    }
+
+    /* El logo tambien es un enlace: si mide 25px de alto, la mitad de los
+       toques para volver al inicio caen fuera. */
+    .header .logo,
+    .ec-mmenu__logo,
+    .tech-header__logo {
+        display: inline-flex;
+        align-items: center;
+        min-height: 44px;
+    }
+
+    /* Menu lateral: cerrar, entrar, registrarse y el WhatsApp. */
+    .ec-mmenu__close,
+    .mobile-menu-close {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 44px;
+        min-height: 44px;
+    }
+
+    .ec-mmenu__login-btn,
+    .ec-mmenu__register-btn,
+    .ec-mmenu__wa,
+    .ec-catmenu__item {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        /* Tambien de ancho: el menu de categorias va en horizontal y una
+           palabra corta como «Macetas» dejaba un blanco de 38px. */
+        min-width: 44px;
+        min-height: 44px;
+    }
+
+    /* Listado: cerrar el cajon de filtros, cambiar de vista, favoritos,
+       vista rapida y comparar. Iconos pequenos sobre la tarjeta, todos
+       alrededor de 30px. */
+    .ec-filter-drawer-close,
+    .ec-view-btn,
+    .pcard__wish,
+    .pcard__quickview,
+    .pcard__compare-mini {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 44px;
+        min-height: 44px;
+    }
+
+    /* Los tres de la tarjeta van superpuestos a la imagen: al agrandarlos se
+       les quita el fondo extra para que el circulo visible no crezca con el
+       area. El dibujo sigue midiendo lo de antes. */
+    .pcard__wish,
+    .pcard__quickview,
+    .pcard__compare-mini {
+        background-clip: content-box;
+        padding: 5px;
+    }
+
+    /* El boton de comprar, que es el que mas importa. */
+    .pcard__cta,
+    .ec-newsletter-bar__btn {
+        min-height: 44px;
+    }
+
+    /* Cantidad en la ficha: los signos - y + son el control mas usado de la
+       pagina y el mas facil de fallar. */
+    .ec-qty-btn,
+    .ec-qty__btn {
+        min-width: 44px;
+        min-height: 44px;
+    }
+
+    /* Paginacion y flechas de los carruseles. */
+    .page-link,
+    .owl-prev,
+    .owl-next,
+    .ec-wp-navbtn,
+    .swiper-button-next,
+    .swiper-button-prev {
+        min-width: 44px;
+        min-height: 44px;
+    }
+
+    .page-link {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    /* Pie: son enlaces de una linea, de 26px de alto y pegados unos a otros
+       —politicas, iniciar sesion, libro de reclamaciones—. Se separan con
+       alto, no con margen, para no estirar el pie mas de lo necesario. */
+    .ec-footer-links a,
+    .ec-footer-links__reclamaciones,
+    .login-link {
+        display: inline-flex;
+        align-items: center;
+        min-height: 44px;
+    }
+
+    /* Comparar, y los botones del panel de vistos recientemente. */
+    .ec-compare-bar__open,
+    .ec-wp-card__btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 44px;
+    }
+
+    /* Telefono y correo del pie. En un celular no son texto: son la llamada y
+       el correo a la tienda, y median 14px de alto. */
+    a[href^="tel:"],
+    a[href^="mailto:"] {
+        display: inline-flex;
+        align-items: center;
+        min-height: 44px;
+    }
+
+    /* Enlaces que viven DENTRO de una linea de texto —la miga de pan, la
+       categoria bajo el titulo, el nombre en la tarjeta de vistos—. Aqui 44px
+       no aplica: estirarlos rompe el renglon y la propia norma los exime
+       (WCAG 2.5.8 excluye el enlace en linea). Se les da el minimo de 24px,
+       que es el umbral AA, con padding y sin tocar el interlineado. */
+    .breadcrumb-item a,
+    .product-category a,
+    .ec-wp-card__name {
+        display: inline-block;
+        padding-top: 4px;
+        padding-bottom: 4px;
+        min-height: 24px;
+    }
+
+    /* Los enlaces del pie del tema de nicho van en <li> pelados, sin clase,
+       y median 17px: Catalogo, Terminos, Rastrear pedido, Libro de
+       Reclamaciones… Son navegacion, no texto corrido. */
+    .footer li > a,
+    footer li > a,
+    .tech-footer__links > li > a,
+    .ec-footer-links > li > a {
+        /* `flex` y no `inline-flex`: en una lista en columna el enlace ocupa
+           el ancho del renglon, asi que el dedo acierta aunque la palabra sea
+           corta («Envios» mide 39px de ancho). */
+        display: flex;
+        align-items: center;
+        min-height: 44px;
+    }
+
+    /* El WhatsApp flotante y las redes del menu lateral. El flotante es el
+       contacto mas usado de la tienda y su enlace medía 28x17. */
+    .btn-whatsapp-floating,
+    .ec-mmenu__social-link {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 44px;
+        min-height: 44px;
+    }
+
+    /* El gris que Android pinta sobre lo que se toca tapa el estado propio
+       del boton y se ve como un parpadeo sucio. */
+    a,
+    button,
+    [role="button"] {
+        -webkit-tap-highlight-color: rgba(0, 0, 0, 0.04);
+    }
+}

@@ -183,6 +183,11 @@
         <link rel="stylesheet" href="{{ asset($__themeFile) }}">
     @endif
 
+    {{-- Capa movil: va la ULTIMA a proposito, para ganar tanto al CSS base
+         como al del tema por rubro. Solo corrige tamano de letra en campos
+         (el zoom de iOS) y zonas de toque; no toca maquetacion. --}}
+    <link rel="stylesheet" href="{{ asset('porto-light/css/ec-mobile.css') }}">
+
     {{-- ── Color primario del cliente: inyectado server-side para evitar flash ── --}}
     @include('ecommerce::layouts.partials_ecommerce.theme_tokens', ['config' => $seo])
     <!-- Vue debe cargarse ANTES del header (que usa new Vue) -->
