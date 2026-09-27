@@ -128,14 +128,9 @@
         min-height: 44px;
     }
 
-    /* Listado: cerrar el cajon de filtros, cambiar de vista, favoritos,
-       vista rapida y comparar. Iconos pequenos sobre la tarjeta, todos
-       alrededor de 30px. */
+    /* Listado: cerrar el cajon de filtros y cambiar de vista. */
     .ec-filter-drawer-close,
-    .ec-view-btn,
-    .pcard__wish,
-    .pcard__quickview,
-    .pcard__compare-mini {
+    .ec-view-btn {
         display: inline-flex;
         align-items: center;
         justify-content: center;
@@ -143,14 +138,31 @@
         min-height: 44px;
     }
 
-    /* Los tres de la tarjeta van superpuestos a la imagen: al agrandarlos se
-       les quita el fondo extra para que el circulo visible no crezca con el
-       area. El dibujo sigue midiendo lo de antes. */
+    /* Los tres iconos que van SOBRE la foto del producto —favoritos, vista
+       rapida y comparar— se tratan distinto: son circulos blancos de 34px
+       encima de la imagen, y agrandar el boton agranda el circulo. Queda un
+       lunar blanco enorme tapando el producto, que es peor que el problema
+       que se venia a resolver (se probo, y se veia mal).
+
+       Lo que se agranda es el AREA, con un pseudo-elemento invisible que
+       sobresale 5px por lado: 34 + 5 + 5 = 44. El circulo se ve igual que
+       siempre y el dedo acierta. */
     .pcard__wish,
     .pcard__quickview,
     .pcard__compare-mini {
-        background-clip: content-box;
-        padding: 5px;
+        position: relative;
+    }
+
+    .pcard__wish::after,
+    .pcard__quickview::after,
+    .pcard__compare-mini::after {
+        content: "";
+        position: absolute;
+        top: -5px;
+        right: -5px;
+        bottom: -5px;
+        left: -5px;
+        /* Sin fondo: solo captura el toque. */
     }
 
     /* El boton de comprar, que es el que mas importa. */
