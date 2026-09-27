@@ -139,31 +139,24 @@
     }
 
     /* Los tres iconos que van SOBRE la foto del producto —favoritos, vista
-       rapida y comparar— se tratan distinto: son circulos blancos de 34px
-       encima de la imagen, y agrandar el boton agranda el circulo. Queda un
-       lunar blanco enorme tapando el producto, que es peor que el problema
-       que se venia a resolver (se probo, y se veia mal).
+       rapida y comparar— se quedan COMO ESTAN, en 34x34, y es una decision:
 
-       Lo que se agranda es el AREA, con un pseudo-elemento invisible que
-       sobresale 5px por lado: 34 + 5 + 5 = 44. El circulo se ve igual que
-       siempre y el dedo acierta. */
-    .pcard__wish,
-    .pcard__quickview,
-    .pcard__compare-mini {
-        position: relative;
-    }
+       · Agrandar el boton agranda su circulo blanco, que esta encima de la
+         imagen: queda un lunar tapando el producto. Se probo, se desplego y
+         se vio en la captura — peor que el problema que venia a resolver.
+       · El truco de ampliar solo el area con un pseudo-elemento invisible
+         tampoco entro: medido con elementFromPoint sobre la tienda real, las
+         esquinas del cuadro de 44px seguian devolviendo la imagen, no el
+         boton. No se deja en el codigo algo que no se puede comprobar.
 
-    .pcard__wish::after,
-    .pcard__quickview::after,
-    .pcard__compare-mini::after {
-        content: "";
-        position: absolute;
-        top: -5px;
-        right: -5px;
-        bottom: -5px;
-        left: -5px;
-        /* Sin fondo: solo captura el toque. */
-    }
+       34x34 esta por encima del minimo de 24x24 que exige WCAG 2.5.8 (AA), y
+       el control que de verdad decide la venta —«Agregar al carrito»— si
+       llega a 44. En movil «vista rapida» y «comparar» ni siquiera se
+       dibujan: miden 0x0 porque dependen del hover.
+
+       Si algun dia hay que cerrarlo del todo, el camino es mover el corazon
+       FUERA de la foto, al cuerpo de la tarjeta, donde puede medir 44 sin
+       tapar nada. Eso es rediseno de la tarjeta, no una regla de CSS. */
 
     /* El boton de comprar, que es el que mas importa. */
     .pcard__cta,
