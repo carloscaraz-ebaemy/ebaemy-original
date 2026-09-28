@@ -533,6 +533,153 @@
 
         .sh-head__t { font-size:1rem; }
     }
+
+    /* ══ Móvil: la tabla deja de ser una tabla ════════════════════════════
+       Ocho columnas con `min-width:940px` dentro de una pantalla de 390: el
+       encargado veía envío, cliente y media ciudad, y el estado y las
+       acciones —que es a lo que entra— quedaban detrás de un arrastre
+       horizontal dentro de la caja. Medido con un iPhone 12 emulado antes de
+       tocar nada: la tabla ocupaba 942px.
+
+       Cada fila pasa a ser una tarjeta, con la misma disposición que ya usa
+       Pedidos: las dos pantallas muestran el mismo negocio y el operador
+       salta de una a otra. Lo que no cambia es el HTML de las celdas — el
+       `data-label` las coloca, no las reescribe—, así que escritorio queda
+       intacto. */
+    @media (max-width:768px) {
+
+        /* El `min-width:940px` va en un `style=` de la propia tabla: sin
+           !important no hay forma de ganarle. */
+        #shipmentsApp .table-responsive { overflow-x:visible; }
+        #shipmentsApp table.table { min-width:0 !important; }
+        #shipmentsApp table.table thead { display:none; }
+
+        #shipmentsApp table.table tbody,
+        #shipmentsApp table.table tbody tr,
+        #shipmentsApp table.table tbody td { display:block; width:auto; }
+
+        #shipmentsApp table.table tbody tr {
+            display:grid;
+            /* Las acciones NO caben al lado: son tres botones («ojo»,
+               «Subir guía», «...») que suman unos 290px y aplastaban la
+               columna del medio hasta partir el código ENV-2026… en vertical,
+               una letra por renglón. Van en su propia fila, al final, que es
+               además el orden en que se leen: qué envío, de quién, a dónde,
+               en qué estado, y entonces qué hago con él. */
+            grid-template-columns:auto 1fr auto;
+            grid-template-areas:
+                "chk envio envio"
+                "chk cli   cli"
+                "ciu ciu   fec"
+                "agn agn   agn"
+                "est est   est"
+                "act act   act";
+            column-gap:8px;
+            row-gap:3px;
+            align-items:start;
+            border:1px solid var(--sh-line);
+            border-radius:12px;
+            margin-bottom:9px;
+            padding:10px 12px;
+            background:var(--sh-surface);
+            box-shadow:0 1px 2px rgba(15,23,42,.05);
+        }
+
+        #shipmentsApp table.table tbody td {
+            border:none !important;
+            padding:0;
+            text-align:left !important;
+            min-width:0;
+        }
+
+        #shipmentsApp td[data-label="Sel"]      { grid-area:chk; padding-top:2px; }
+        /* `break-word` y no `anywhere`: con `anywhere` el navegador parte por
+           donde sea y «CORREGIDO» salia como CORR/EGID/O. Asi solo se parte
+           lo que de verdad no cabe, y el codigo lo hace por sus guiones. */
+        #shipmentsApp td[data-label="Envío"]    { grid-area:envio; overflow-wrap:break-word; }
+        /* El codigo cabe entero en un renglon si se le deja: ENV-20260918-000297
+           son 19 caracteres y a .8rem ocupan menos que la columna. Partido en
+           tres lineas obligaba a recomponerlo mentalmente para compararlo con
+           el rotulo pegado en la caja. */
+        #shipmentsApp td[data-label="Envío"] .sh-code { white-space:nowrap; font-size:.8rem; }
+        #shipmentsApp td[data-label="Cliente"]  { grid-area:cli; overflow-wrap:break-word; }
+
+        /* El bloque del cliente es un flex (avatar + texto). Sin `min-width:0`
+           el texto no puede encogerse y empuja: es el fallo de siempre. */
+        #shipmentsApp td[data-label="Cliente"] .sh-cli,
+        #shipmentsApp td[data-label="Cliente"] .sh-cli > span { min-width:0; }
+        #shipmentsApp td[data-label="Ciudad"]   { grid-area:ciu; margin-top:6px; }
+        #shipmentsApp td[data-label="Agencia"]  { grid-area:agn; margin-top:5px; }
+        #shipmentsApp td[data-label="Estado"]   { grid-area:est; margin-top:8px; }
+        #shipmentsApp td[data-label="Estado"] .sh-status-select,
+        #shipmentsApp td[data-label="Estado"] select { width:100%; }
+        /* La fecha baja a la altura del estado. Arriba, junto al código, se
+           comía media tarjeta —con el sello de antigüedad, «6 d háb ·
+           Vencido», son unos 150px— y dejaba al código dos opciones malas:
+           partirse en tres renglones o, con nowrap, montarse encima de la
+           propia fecha. Va a la altura de la ciudad, que es corta («EL
+           ALTO») y deja sitio de sobra; el estado se queda con el ancho
+           entero, porque es un desplegable y cortado decía «Pendiente de
+           r». */
+        #shipmentsApp td[data-label="Fecha"]    { grid-area:fec; justify-self:end; align-self:center;
+            text-align:right !important; white-space:normal !important; }
+        #shipmentsApp td[data-label="Fecha"] .sh-age { white-space:normal; }
+        #shipmentsApp td[data-label="Acciones"] { grid-area:act; margin-top:10px; text-align:left !important;
+            white-space:normal !important; display:flex; flex-wrap:wrap; gap:6px; }
+
+        /* La ciudad es un nombre suelto —«EL ALTO»— y sin la cabecera de la
+           tabla no se sabe si es la ciudad o la agencia. Lleva su etiqueta;
+           las demás celdas se explican solas por su forma (código, avatar,
+           insignia, fecha). */
+        #shipmentsApp td[data-label="Ciudad"]::before {
+            content:"Ciudad: ";
+            color:var(--sh-muted, #64748b);
+            font-size:.72rem;
+            font-weight:600;
+        }
+
+        /* La franja de color por estado y antigüedad vivía en las celdas. En
+           tarjeta la que tiene fondo es la fila, y tintar celda a celda deja
+           el color a parches. */
+        #shipmentsApp table.table tbody tr > td { background:transparent !important; }
+
+        /* La fila vacía ocupa las tres columnas del grid. */
+        #shipmentsApp table.table tbody td[colspan] { grid-column:1 / -1; text-align:center !important; }
+
+        /* ── Campos: 16px o iOS amplía la página al enfocar ──────────────
+           Mismo umbral que en la tienda. Aquí estaban el buscador a 13.6px y
+           los dos desplegables a 14 y 12.5. */
+        #shipmentsApp .sh-search input,
+        #shipmentsApp select,
+        #shipmentsApp input[type="text"],
+        #shipmentsApp input[type="search"],
+        #shipmentsApp input[type="date"],
+        #shipmentsApp input[type="number"],
+        #shipmentsApp .form-select,
+        #shipmentsApp .form-control { font-size:16px; }
+
+        /* Al subir la letra, estos dos crecerían de golpe. */
+        #shipmentsApp .form-select-sm,
+        #shipmentsApp #shPerPage { padding-top:4px; padding-bottom:4px; }
+
+        /* ── Zonas de toque de 44px ──────────────────────────────────────
+           Las acciones de la fila median 33x29 y la paginación 30x30. */
+        #shipmentsApp .sh-act,
+        #shipmentsApp .sh-pg,
+        #shipmentsApp .close-btn,
+        #shipmentsApp .sh-chip,
+        #shipmentsApp .sh-tab {
+            min-height:44px;
+            display:inline-flex;
+            align-items:center;
+            justify-content:center;
+        }
+        #shipmentsApp .sh-act { min-width:44px; }
+
+        /* La casilla de seleccionar es el control mas pequeño de la fila y el
+           que mas se usa para imprimir en lote. */
+        #shipmentsApp .form-check-input { width:22px; height:22px; }
+    }
 </style>
 @endpush
 
@@ -1019,12 +1166,12 @@
                             $labelWhy = $s->labelBlockReason(true);
                             $payPend  = ($requirePayment ?? false) && !$s->payment_confirmed;
                         @endphp
-                        <td><input type="checkbox" class="form-check-input sh-check" value="{{ $s->id }}"
+                        <td data-label="Sel"><input type="checkbox" class="form-check-input sh-check" value="{{ $s->id }}"
                                    data-printable="{{ $labelWhy === null ? '1' : '0' }}"
                                    data-paypend="{{ $payPend ? '1' : '0' }}"
                                    data-dtype="{{ $s->delivery_type ?: \App\Models\Tenant\ShippingRequest::DELIVERY_AGENCIA }}"
                                    @if($labelWhy !== null) data-why="{{ $labelWhy }}" @endif></td>
-                        <td>
+                        <td data-label="Envío">
                             <span class="sh-code">{{ $s->shipment_code }}</span>
                             @if($peekContent)
                                 {{-- Señal de que la fila tiene detalle: si no, el
@@ -1032,7 +1179,7 @@
                                 <div class="sh-peek-tag">📦 {{ count($peekContent) }} {{ count($peekContent) === 1 ? 'ítem' : 'ítems' }}</div>
                             @endif
                         </td>
-                        <td>
+                        <td data-label="Cliente">
                             @php
                                 $ini = collect(preg_split('/\s+/', trim($s->full_name)))
                                     ->filter()->take(2)
@@ -1047,8 +1194,8 @@
                                 </span>
                             </div>
                         </td>
-                        <td>{{ $s->destination_city ?: '—' }}</td>
-                        <td>
+                        <td data-label="Ciudad">{{ $s->destination_city ?: '—' }}</td>
+                        <td data-label="Agencia">
                             @if($s->is_domicilio)
                                 <span class="badge" style="background:#f3e8ff;color:#7c3aed;">🏍️ Domicilio</span>
                                 @if($s->distance_km)<div><small class="fw-bold" style="color:#3730a3;">🛵 {{ $s->distance_text ?: ($s->distance_km.' km') }}@if($s->duration_text) · ~{{ $s->duration_text }}@endif</small></div>@endif
@@ -1110,7 +1257,7 @@
                                 </span>
                             </div>
                         </td>
-                        <td>
+                        <td data-label="Estado">
                             @if($s->is_cancelled)
                                 <span class="badge bg-dark">Anulado</span>
                             @else
@@ -1199,7 +1346,7 @@
                                 @endif
                             @endif
                         </td>
-                        <td class="text-nowrap">
+                        <td data-label="Fecha" class="text-nowrap">
                             @if($s->created_at)
                                 <div class="sh-date">{{ $s->created_at->format('d/m/Y') }}</div>
                                 <span class="sh-time">{{ $s->created_at->format('H:i') }}</span>
@@ -1214,7 +1361,7 @@
                                 <span class="text-muted">—</span>
                             @endif
                         </td>
-                        <td class="text-end text-nowrap">
+                        <td data-label="Acciones" class="text-end text-nowrap">
                             <div class="sh-actions">
                                 <button type="button" class="sh-act sh-act--ghost js-view-shipment" title="Ver todo lo que registró el cliente"
                                         data-bs-toggle="modal" data-bs-target="#modalVerEnvio"
