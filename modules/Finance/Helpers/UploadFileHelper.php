@@ -15,6 +15,56 @@ class UploadFileHelper
 { 
     
     /**
+     * Por que no llego el archivo.
+     *
+     * Dos motivos posibles y el operador no puede distinguirlos solo: o pesa
+     * mas de lo que PHP admite —y entonces hay que decirle CUANTO pesa y cual
+     * es el tope, no «error»—, o de verdad no selecciono nada.
+     *
+     * El tamaño se lee de `CONTENT_LENGTH` porque `$_FILES` ya viene vacio: es
+     * el unico rastro que queda del archivo que el navegador si envio.
+     */
+    private static function motivoArchivoAusente($request): string
+    {
+        $enviado = (int) $request->server('CONTENT_LENGTH', 0);
+        $tope    = self::bytesDeIni(ini_get('upload_max_filesize'));
+        $topePost = self::bytesDeIni(ini_get('post_max_size'));
+        $limite  = ($tope > 0 && $topePost > 0) ? min($tope, $topePost) : max($tope, $topePost);
+
+        if ($limite > 0 && $enviado > $limite) {
+            return sprintf(
+                'La imagen pesa %s y el maximo que admite el servidor es %s. '
+                . 'Reduce la foto o subela desde la galeria en vez de la camara.',
+                self::enMegas($enviado),
+                self::enMegas($limite)
+            );
+        }
+
+        return 'No llego ninguna imagen. Vuelve a elegirla e intentalo otra vez.';
+    }
+
+    /** «20M» → bytes. */
+    private static function bytesDeIni($valor): int
+    {
+        $valor = trim((string) $valor);
+        if ($valor === '') return 0;
+
+        $n = (int) $valor;
+        switch (strtolower(substr($valor, -1))) {
+            case 'g': return $n * 1024 * 1024 * 1024;
+            case 'm': return $n * 1024 * 1024;
+            case 'k': return $n * 1024;
+        }
+
+        return $n;
+    }
+
+    private static function enMegas(int $bytes): string
+    {
+        return round($bytes / 1024 / 1024, 1) . ' MB';
+    }
+
+    /**
      * 
      * Validar archivos
      *
@@ -27,6 +77,18 @@ class UploadFileHelper
     public static function validateUploadFile($request, $column = 'file', $mimes = 'jpg,jpeg,png,gif,svg,pdf,xlsx', $is_image = true)
     {
         
+        // El archivo puede NO estar aunque el formulario lo mandara: si pesa mas
+        // que `upload_max_filesize`, PHP lo descarta y deja `$_FILES` vacio sin
+        // avisar a nadie. Sin esta guarda, la linea de mas abajo llamaba
+        // `getClientOriginalExtension()` sobre null y el operador recibia un 500
+        // mudo — que es como se reporto: «desde Android me sale error».
+        if (!$request->hasFile($column)) {
+            return [
+                'success' => false,
+                'message' => self::motivoArchivoAusente($request),
+            ];
+        }
+
         $validator = Validator::make($request->all(), [
             $column => 'mimes:'.$mimes
         ]);
