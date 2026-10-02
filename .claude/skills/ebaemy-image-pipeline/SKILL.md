@@ -93,6 +93,51 @@ export default {
 Y en el backend, donde se consume la respuesta del upload, usar `processed_filename`
 en vez de `temp_path` (ItemController::store ya lo soporta).
 
+## Límites de subida: míralos ANTES de depurar el código
+
+Un «no puedo subir la foto» casi nunca es el pipeline. La cadena tiene **tres topes** y el más
+bajo manda:
+
+| Dónde | Valor (2026-10-02) | Qué pasa al superarlo |
+|---|---|---|
+| nginx-proxy-manager (Docker, puertos 80/443) | **8 MB** | **413** antes de llegar a PHP |
+| PHP-FPM `upload_max_filesize` / `post_max_size` | 20M / 24M | `$_FILES` vacío, SIN aviso |
+| `ImageProcessingService::MAX_INPUT_BYTES` | 15 MB | Mensaje claro del service |
+
+**El 2026-10-02 `upload_max_filesize` estaba en 2M** y esa era la causa de «desde Android me sale
+error, desde iPhone no»: el HEIC del iPhone se convierte y acaba en ~150 KB, mientras que la foto
+de Android, cuando el canvas no podía con ella, se subía cruda (3-12 MB) y PHP la descartaba.
+Corregido a 20M; copia en `/etc/php/8.3/fpm/php.ini.bak-20261002`.
+
+Comprobar el tope real, sin suponer (desde el servidor):
+
+```bash
+for mb in 1 3 7 9 25; do
+  head -c $((mb*1024*1024)) /dev/urandom > /tmp/t.bin
+  printf "%sMB -> %s
+" "$mb" "$(curl -s -o /dev/null -w '%{http_code}'     -X POST -F 'file=@/tmp/t.bin' https://alasitas.ebaemy.com/items/upload)"
+done   # 302 = llegó a Laravel · 413 = lo cortó el proxy
+```
+
+Ojo: `php -i` en consola muestra el ini **de CLI**, que aquí sigue en 2M y NO es el que sirve la
+web. El que cuenta es `/etc/php/8.3/fpm/php.ini` (y que no haya `php_admin_value` en
+`pool.d/www.conf` pisándolo).
+
+## Android no es iPhone: lo que rompe la compresión del cliente
+
+`imageCompressor.beforeUpload` falla en Android por dos motivos que iOS no tiene:
+
+- **Memoria**: `readAsDataURL` carga la foto como base64 (1,37x su peso). Una de 50 MP tumba un
+  teléfono modesto. Por eso ahora se decodifica con `createImageBitmap`, y el camino viejo queda
+  de respaldo.
+- **Área de canvas**: Chrome Android corta sobre ~16,7 M de píxeles — devuelve un canvas en
+  blanco o un `toBlob` null. Se acota por megapíxeles ANTES de dibujar (`MAX_PIXELES_CANVAS`).
+
+Y la regla que faltaba: **si la compresión falla, no subir el original a ciegas**. Si cabe, se
+sube; si no, se avisa con el peso y el tope antes de gastar la subida.
+
+Medido con un Galaxy S23 emulado: 12 MP → 0,13 MB · 24 MP → 0,11 MB · 50 MP → 0,10 MB.
+
 ## Reglas duras
 
 ❌ **NUNCA** escribas directo a `items.image`, `item_images.image` o `item_variants.image` sin pasar por `ImageProcessingService::processAndStore` (excepto cuando el filename ya viene de un `ProcessUploadedImageJob` completado — ahí ya pasó por el service).
