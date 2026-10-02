@@ -1136,19 +1136,14 @@ export default {
         },
 
         // ── Imagen por variante ──────────────────────────────────────────
-        async beforeVariantImage(file) {
-            const ALLOWED = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp', 'image/bmp', 'image/heic', 'image/heif']
-            if (!ALLOWED.includes(file.type)) {
-                this.$message.error('Formato no soportado. Usa JPG, PNG, WEBP o HEIC.')
-                return false
-            }
-            const sizeMB = file.size / 1024 / 1024
-            if (sizeMB > 15) {
-                this.$message.error(`La imagen es demasiado grande (${sizeMB.toFixed(1)} MB). Máximo 15 MB.`)
-                return false
-            }
-            const processed = await this.beforeUpload(file)
-            return processed || file
+        /**
+         * Misma puerta que el resto del panel. Antes decidia por `file.type`,
+         * que en Android llega vacio a menudo, y rechazaba fotos buenas; y si
+         * la compresion fallaba devolvia el original (`processed || file`),
+         * que es justo lo que el servidor luego no admitia.
+         */
+        beforeVariantImage(file) {
+            return this.prepararImagen(file)
         },
 
         onVariantImageSuccess(variant, response) {

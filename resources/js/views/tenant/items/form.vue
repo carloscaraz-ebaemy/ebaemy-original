@@ -933,7 +933,7 @@
                                            :before-upload="beforeImageUpload"
                                            :on-change="onFileChange"
                                            :show-file-list="false"
-                                           accept="image/jpeg,image/jpg,image/png,image/gif,image/webp,image/bmp"
+                                           accept="image/jpeg,image/jpg,image/png,image/gif,image/webp,image/bmp,image/heic,image/heif"
                                            class="avatar-uploader">
                                     <img v-if="form.image_url"
                                          :src="form.image_url"
@@ -1556,9 +1556,11 @@ import {ItemOptionDescription, ItemSlotTooltip} from "../../../helpers/modal_ite
 // un unico campo (items.mp_notes) y debe editarse igual en los dos modulos.
 import ClassicEditor from '@ckeditor/ckeditor5-build-classic';
 import VueCkeditor from 'vue-ckeditor5';
+import { imageCompressor } from '../../../mixins/imageCompressor';
 
 
 export default {
+    mixins: [imageCompressor],
     props: [
         'showDialog',
         'recordId',
@@ -2063,22 +2065,17 @@ export default {
         },
         // Validación del lado del cliente antes de enviar al servidor.
         // Permite cualquier nombre de archivo — no se valida el nombre, solo peso y tipo.
+        /**
+         * Esta pantalla subia la foto TAL CUAL: validaba y devolvia `true`, sin
+         * comprimir. Desde un telefono eso son 3-12 MB por foto, que es lo que
+         * hacia fallar las subidas de Android. Y validaba por `file.type`, que
+         * en Android llega vacio con frecuencia: un JPG de la galeria recibia
+         * «Solo se permiten imagenes JPG, PNG…».
+         *
+         * Ahora pasa por la misma puerta que la Tienda Virtual y las variantes.
+         */
         beforeImageUpload(file) {
-            const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/bmp']
-            const MAX_MB        = 15
-
-            if (!ALLOWED_TYPES.includes(file.type)) {
-                this.$message.error('Solo se permiten imágenes JPG, PNG, GIF, WEBP o BMP.')
-                return false
-            }
-
-            const sizeMB = file.size / 1024 / 1024
-            if (sizeMB > MAX_MB) {
-                this.$message.error(`La imagen es demasiado grande (${sizeMB.toFixed(1)} MB). Máximo ${MAX_MB} MB.`)
-                return false
-            }
-
-            return true
+            return this.prepararImagen(file)
         },
 
         onSuccess(response, file, fileList) {

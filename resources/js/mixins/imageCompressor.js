@@ -72,6 +72,59 @@ export const imageCompressor = {
             // y activamos fallback sync antes.
             return this._isMobileClient() ? 35000 : ASYNC_TIMEOUT_MS
         },
+        /**
+         * LA puerta de entrada de cualquier imagen del panel: valida y comprime.
+         *
+         * Existe porque habia tres validaciones distintas —una por formulario—
+         * y las tres se equivocaban en lo mismo: decidian por `file.type`. En
+         * Android eso no se puede: segun de donde salga la foto (galeria,
+         * Google Fotos, un gestor de archivos, WhatsApp) el navegador entrega
+         * el File con `type` vacio o `application/octet-stream`, y el
+         * formulario contestaba «Solo se permiten imagenes JPG, PNG…» sobre un
+         * JPG perfectamente valido.
+         *
+         * Aqui se acepta por tipo O por extension, y quien decide de verdad es
+         * el servidor, que mira los bytes con finfo (`ImageProcessingService`).
+         * El cliente solo filtra lo obvio para no gastar una subida.
+         *
+         * Devuelve el File listo, o `false` — que es lo que `el-upload` entiende
+         * como «no subas esto».
+         */
+        async prepararImagen(file) {
+            if (!file) return false
+
+            const tipo = (file.type || '').toLowerCase()
+            const nombre = (file.name || '').toLowerCase()
+            const porTipo = tipo.startsWith('image/') && !/svg/.test(tipo)
+            const porExtension = /\.(jpe?g|png|gif|webp|bmp|heic|heif)$/i.test(nombre)
+
+            // Lo que NO es imagen de ninguna de las dos formas, fuera.
+            if (!porTipo && !porExtension) {
+                this.$message && this.$message.error(
+                    'Ese archivo no parece una imagen. Usa JPG, PNG, WEBP, GIF o HEIC.'
+                )
+
+                return false
+            }
+
+            // SVG nunca: se puede meter javascript dentro.
+            if (/svg/.test(tipo) || /\.svgz?$/i.test(nombre)) {
+                this.$message && this.$message.error('Los archivos SVG no se admiten.')
+
+                return false
+            }
+
+            try {
+                const listo = await this.beforeUpload(file)
+
+                return listo || false
+            } catch (e) {
+                // `beforeUpload` ya aviso con el motivo (pesa mas de lo que
+                // admite el servidor y no se pudo reducir).
+                return false
+            }
+        },
+
         async beforeUpload(file) {
             if (!file) return file
 
@@ -80,8 +133,16 @@ export const imageCompressor = {
                 file = await convertHeicToJpegFile(file)
             }
 
-            // Si después de la conversión sigue sin ser una imagen, devolvemos tal cual
-            if (!file.type.startsWith('image/')) return file
+            // Si despues de la conversion sigue sin parecer una imagen, tal cual.
+            //
+            // Mirando el tipo Y el nombre: Android entrega muchas fotos con
+            // `type` vacio o `application/octet-stream` segun de donde salgan
+            // (galeria, Google Fotos, WhatsApp, un gestor de archivos). Con la
+            // comprobacion antigua esas se saltaban la compresion y se subian
+            // CRUDAS — justo las que luego el servidor rechazaba.
+            const pareceImagen = (file.type || '').startsWith('image/')
+                || /\.(jpe?g|png|gif|webp|bmp)$/i.test(file.name || '')
+            if (!pareceImagen) return file
 
             // 2) Compresión adaptativa: en móvil reducimos resolución y
             //    calidad para acelerar la subida sobre redes celulares.

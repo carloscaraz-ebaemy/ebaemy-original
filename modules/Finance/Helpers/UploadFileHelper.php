@@ -24,7 +24,7 @@ class UploadFileHelper
      * El tamaño se lee de `CONTENT_LENGTH` porque `$_FILES` ya viene vacio: es
      * el unico rastro que queda del archivo que el navegador si envio.
      */
-    private static function motivoArchivoAusente($request): string
+    public static function motivoArchivoAusente($request): string
     {
         $enviado = (int) $request->server('CONTENT_LENGTH', 0);
         $tope    = self::bytesDeIni(ini_get('upload_max_filesize'));

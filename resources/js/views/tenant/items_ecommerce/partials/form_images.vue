@@ -18,7 +18,7 @@
                             :on-remove="handleRemove"
                             accept="image/jpeg,image/jpg,image/png,image/gif,image/webp,image/bmp,image/heic,image/heif"
                             capture="environment"
-                            :before-upload="beforeUpload" >
+                            :before-upload="prepararImagen" >
                             <i class="el-icon-plus"></i>
                         </el-upload>
                         <div v-if="processingMsg" class="vt-async-status">

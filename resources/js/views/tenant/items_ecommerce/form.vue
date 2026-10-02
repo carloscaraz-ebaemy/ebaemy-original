@@ -733,7 +733,7 @@
                                                     :headers="headers"
                                                     :on-success="onSuccess"
                                                     :on-error="onUploadError"
-                                                    :before-upload="beforeUpload"
+                                                    :before-upload="prepararImagen"
                                                     :on-change="onFileChange"
                                                     :show-file-list="false"
                                                     accept="image/jpeg,image/jpg,image/png,image/gif,image/webp,image/bmp,image/heic,image/heif"

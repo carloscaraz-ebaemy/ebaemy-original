@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Tenant;
 
+use Modules\Finance\Helpers\UploadFileHelper;
 use App\Http\Controllers\Controller;
 use App\Models\Tenant\Item;
 use App\Models\Tenant\ItemOption;
@@ -520,6 +521,16 @@ class ItemVariantController extends Controller
     public function uploadImage(Request $request, Item $item, ItemVariant $variant): JsonResponse
     {
         abort_if($variant->item_id !== $item->id, 404);
+
+        // Si la foto pesa mas que `upload_max_filesize`, PHP la descarta y aqui
+        // no llega nada: `required` responderia «El campo file es obligatorio»,
+        // que al operador no le dice ni que paso ni que hacer.
+        if (!$request->hasFile('file')) {
+            return response()->json([
+                'success' => false,
+                'message' => UploadFileHelper::motivoArchivoAusente($request),
+            ], 422);
+        }
 
         $request->validate([
             // HEIC/HEIF aceptados como red de seguridad cuando el iPhone no
