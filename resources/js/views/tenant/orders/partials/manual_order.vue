@@ -46,7 +46,8 @@
             <div class="mo-f mo-f--full mo-canal">
                 <label class="mo-lbl req">¿Por dónde entró el pedido?</label>
                 <el-select
-                    v-model="form.channel_id"
+                    ref="canal"
+                        v-model="form.channel_id"
                     class="mo-sel"
                     filterable
                     :disabled="editando"
@@ -223,6 +224,7 @@
                          Se escribe el nombre que se conoce y el buscador hace
                          el resto, tildes incluidas. -->
                     <el-select
+                        ref="ciudad"
                         v-model="envio.district_id"
                         class="mo-sel"
                         filterable
@@ -330,6 +332,7 @@
                     <div class="mo-f">
                         <label class="mo-lbl req">Quién recoge</label>
                         <input
+                            ref="recogeNombre"
                             v-model="envio.pickup_person_name"
                             type="text"
                             class="mo-input"
@@ -341,6 +344,7 @@
                     <div class="mo-f">
                         <label class="mo-lbl req">DNI de quien recoge</label>
                         <input
+                            ref="recogeDni"
                             v-model="envio.pickup_person_dni"
                             type="text"
                             class="mo-input"
@@ -355,6 +359,7 @@
                 <div v-if="envio.a_domicilio" class="mo-f mo-f--full">
                     <label class="mo-lbl req">Dirección de reparto</label>
                     <input
+                        ref="domicilio"
                         v-model="envio.shipping_destination"
                         type="text"
                         class="mo-input"
@@ -394,6 +399,7 @@
             </p>
 
             <product-lines
+                ref="productos"
                 v-model="form.items"
                 :channel-id="form.channel_id"
                 :disabled="!lineasEditables"
@@ -420,13 +426,22 @@
 
         <span slot="footer">
             <el-button @click="cerrar">Cancelar</el-button>
+            <!-- El boton NO se apaga por campos sin llenar.
+                 Apagado no explicaba nada: el operador llegaba al final, lo
+                 veia gris y no tenia forma de saber cual de los nueve
+                 requisitos faltaba. Ahora se pulsa siempre y, si falta algo,
+                 lo dice y lleva el cursor al campo. Solo sigue bloqueado
+                 mientras guarda o carga, que es cuando pulsarlo otra vez
+                 crearia el pedido dos veces. -->
             <el-button
                 type="primary"
                 :loading="guardando"
-                :disabled="!sePuedeGuardar || cargando"
+                :disabled="guardando || cargando || bloqueado"
+                :title="queFalta.length ? 'Falta: ' + queFalta.map(x => x.texto).join(' ') : ''"
                 @click="guardar"
             >
                 {{ editando ? "Guardar cambios" : "Crear pedido" }}
+                <span v-if="queFalta.length" class="mo-falta-n">{{ queFalta.length }}</span>
             </el-button>
         </span>
     </el-dialog>
@@ -613,11 +628,26 @@ export default {
                 this.packageContent !== this.packageContentOriginal
             );
         },
-        sePuedeGuardar() {
-            if (this.guardando || this.cargando || this.bloqueado) return false;
-            if (!this.form.channel_id) return false;
-            if (!(this.form.name || "").trim()) return false;
-            if (!/^9\d{8}$/.test(this.form.phone || "")) return false;
+        /**
+         * QUE falta para poder guardar, con su nombre y donde esta.
+         *
+         * Es la UNICA lista: `sePuedeGuardar` se deriva de aqui. Antes eran
+         * nueve `return false` seguidos y el boton se apagaba sin decir nada:
+         * el operador veia un boton gris, no sabia cual de los nueve le
+         * faltaba, y lo reportaba —con razon— como «el boton guardar no
+         * funciona». Dos listas habrian divergido al primer campo nuevo.
+         */
+        queFalta() {
+            const f = [];
+            const pide = (cond, texto, donde) => { if (cond) f.push({ texto, donde }); };
+
+            pide(!this.form.channel_id, "Elige el canal de venta.", "canal");
+            pide(!(this.form.name || "").trim(), "Falta el nombre del cliente.", "name");
+            pide(
+                !/^9\d{8}$/.test(this.form.phone || ""),
+                "El celular tiene que ser de 9 dígitos y empezar por 9.",
+                "phone"
+            );
 
             // Vaciar un pedido no es editarlo: para eso esta anular, que
             // conserva el historico. El servidor lo rechaza igual.
@@ -626,23 +656,45 @@ export default {
             // —lo que lleva la caja se escribe a mano en el envio—, y exigirle
             // una linea dejaba su ficha imposible de guardar: ni para
             // corregirle el telefono al cliente.
-            if (!this.form.items.length && !(this.editando && !this.teniaLineas)) {
-                return false;
-            }
+            pide(
+                !this.form.items.length && !(this.editando && !this.teniaLineas),
+                "Agrega al menos un producto, del catálogo o escrito a mano.",
+                "productos"
+            );
 
             if (this.destinoRequerido) {
-                if (!this.envio.district_id) return false;
-                if (!(this.envio.shipping_agency || "").trim()) return false;
-                if (this.envio.a_domicilio && !(this.envio.shipping_destination || "").trim()) {
-                    return false;
-                }
+                pide(!this.envio.district_id, "Falta la ciudad de destino.", "ciudad");
+                pide(
+                    !(this.envio.shipping_agency || "").trim(),
+                    "Falta la agencia de transporte.",
+                    "agencia"
+                );
+                pide(
+                    this.envio.a_domicilio && !(this.envio.shipping_destination || "").trim(),
+                    "Marcaste que la agencia lleva el paquete a domicilio: escribe la dirección.",
+                    "domicilio"
+                );
                 if (this.esEmpresa) {
-                    if (!(this.envio.pickup_person_name || "").trim()) return false;
-                    if ((this.envio.pickup_person_dni || "").length < 8) return false;
+                    pide(
+                        !(this.envio.pickup_person_name || "").trim(),
+                        "El documento es un RUC: la agencia no entrega a una razón social. Escribe quién recoge.",
+                        "recogeNombre"
+                    );
+                    pide(
+                        (this.envio.pickup_person_dni || "").length < 8,
+                        "Falta el DNI de quien recoge (8 dígitos).",
+                        "recogeDni"
+                    );
                 }
             }
 
-            return true;
+            return f;
+        },
+
+        sePuedeGuardar() {
+            if (this.guardando || this.cargando || this.bloqueado) return false;
+
+            return this.queFalta.length === 0;
         },
         pct() {
             const req = [
@@ -1277,7 +1329,52 @@ export default {
                 || this.packageContent !== this.packageContentOriginal;
         },
 
+        /**
+         * Lleva la vista y el cursor al campo que falta.
+         *
+         * El modal tiene scroll propio y el aviso se pinta ARRIBA del todo:
+         * sin esto, decir «falta la ciudad de destino» obligaba a buscarla a
+         * mano en un formulario de cinco bloques.
+         */
+        irA(donde) {
+            this.$nextTick(() => {
+                const r = this.$refs[donde];
+                if (!r) return;
+
+                const el = r.$el || r;
+                if (el && el.scrollIntoView) {
+                    el.scrollIntoView({ behavior: "smooth", block: "center" });
+                }
+
+                // `el-select` y `el-input` enfocan por metodo; un <input>
+                // pelado, por el suyo. Y el de product-lines no enfoca nada:
+                // su buscador vive dentro del hijo.
+                if (r.focus) {
+                    r.focus();
+                } else if (el && el.querySelector) {
+                    const dentro = el.querySelector("input, textarea");
+                    if (dentro) dentro.focus();
+                }
+            });
+        },
+
         guardar() {
+            // Primero lo que falta. Antes esto no existia porque el boton
+            // estaba apagado hasta que todo estuviera: el precio era que nadie
+            // sabia QUE faltaba.
+            const falta = this.queFalta;
+            if (falta.length) {
+                this.problemas = falta.map(x => x.texto);
+                this.$message.warning(
+                    falta.length === 1
+                        ? falta[0].texto
+                        : "Faltan " + falta.length + " datos para crear el pedido."
+                );
+                this.irA(falta[0].donde);
+
+                return;
+            }
+
             this.guardando = true;
             this.problemas = [];
 
@@ -1715,6 +1812,24 @@ export default {
 }
 
 /* Avisos del servidor y carga */
+/* Cuantos datos faltan, en el propio boton. Un numero pequeno no asusta y
+   evita el otro extremo: una lista de nueve avisos nada mas abrir el modal,
+   cuando todavia no se ha escrito nada y «faltar» es lo normal. */
+.mo-falta-n {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    margin-left: 7px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.28);
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1;
+}
+
 .mo-alert {
     background: #fef2f2;
     border: 1px solid #fecaca;
