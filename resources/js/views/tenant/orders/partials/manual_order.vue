@@ -233,7 +233,7 @@
                         :remote-method="buscarUbigeo"
                         :loading="ubigeoLoading"
                         placeholder="Busca ciudad, provincia o distrito…"
-                        :no-data-text="ubigeoQuery.length < 2 ? 'Escribe al menos 2 letras' : 'No encontramos «' + ubigeoQuery + '». Revisa la escritura.'"
+                        :no-data-text="ubigeoFallo || (ubigeoQuery.length < 2 ? 'Escribe al menos 2 letras' : 'No encontramos «' + ubigeoQuery + '». Revisa la escritura.')"
                         no-match-text="Sin coincidencias"
                         @change="alElegirUbigeo"
                     >
@@ -528,6 +528,9 @@ export default {
             ubigeoResults: [],
             ubigeoQuery: "",
             ubigeoLoading: false,
+            // Por que no hay resultados, cuando el motivo NO es «no existe esa
+            // ciudad». Se pinta dentro del propio desplegable.
+            ubigeoFallo: "",
             nombreManual: false,
             nombreTraido: "",
             origen: "",
@@ -795,6 +798,7 @@ export default {
 
             this.destinoElegido = "";
             this.ubigeoResults = [];
+            this.ubigeoFallo = "";
             this.ubigeoQuery = "";
             this.ubigeoLoading = false;
             this.nombreManual = false;
@@ -1058,16 +1062,40 @@ export default {
             }
 
             this.ubigeoLoading = true;
+            this.ubigeoFallo = "";
             this.$http
                 .get("/orders/ubigeo/buscar", { params: { q: this.ubigeoQuery } })
                 .then(r => {
-                    this.ubigeoResults = r.data || [];
+                    // La respuesta TIENE que ser una lista. Si llega otra cosa
+                    // —lo tipico es el HTML del login cuando la sesion caduco,
+                    // que axios entrega con un 200 porque siguio el redirect—,
+                    // asignarla dejaba el desplegable vacio y MUDO: ni un
+                    // resultado, ni un error, ni una pista. Es exactamente lo
+                    // que se reporto como «escribo y no sale ninguna lista».
+                    if (!Array.isArray(r.data)) {
+                        this.ubigeoResults = [];
+                        this.ubigeoFallo =
+                            "Tu sesión caducó. Recarga la página (Ctrl+F5) y vuelve a entrar.";
+                        this.$message.error(this.ubigeoFallo);
+
+                        return;
+                    }
+
+                    this.ubigeoResults = r.data;
                 })
-                .catch(() => {
+                .catch(e => {
                     // Un fallo de red pintado como «no hay resultados» es un
                     // problema que no se arregla buscando otra cosa.
                     this.ubigeoResults = [];
-                    this.$message.error("No se pudo buscar la ciudad. Reintenta.");
+
+                    const code = (e.response && e.response.status) || 0;
+                    this.ubigeoFallo =
+                        code === 401 || code === 419
+                            ? "Tu sesión caducó. Recarga la página (Ctrl+F5)."
+                            : code === 404
+                            ? "El buscador de ciudades no está disponible en esta tienda."
+                            : "No se pudo buscar la ciudad" + (code ? " (error " + code + ")" : "") + ". Reintenta.";
+                    this.$message.error(this.ubigeoFallo);
                 })
                 .then(() => {
                     this.ubigeoLoading = false;
