@@ -115,13 +115,32 @@ class MarketplaceListingTest extends TestCase
     {
         $sql = MarketplaceListing::textRelevanceSql('polo');
 
-        // Empieza por el token → 4; palabra que empieza por el token → 3.
-        $this->assertStringContainsString("search_text LIKE 'polo%' ", $sql);
-        $this->assertStringContainsString("THEN 4", $sql);
+        // El titulo manda: empieza por el token → 6, palabra del titulo → 5.
+        $this->assertStringContainsString("WHEN title LIKE 'polo%'", $sql);
+        $this->assertStringContainsString('THEN 6', $sql);
+        $this->assertStringContainsString("title LIKE '% polo%'", $sql);
+        $this->assertStringContainsString('THEN 5', $sql);
+        // El texto indexado (descripcion + marca + categoria) va por debajo.
+        $this->assertStringContainsString("search_text LIKE 'polo%'", $sql);
+        $this->assertStringContainsString('THEN 4', $sql);
         $this->assertStringContainsString("search_text LIKE '% polo%'", $sql);
-        $this->assertStringContainsString("THEN 3", $sql);
+        $this->assertStringContainsString('THEN 3', $sql);
         // Y el substring suelto (el caso "espolon") se queda en el suelo.
         $this->assertStringContainsString('ELSE 1 END', $sql);
+    }
+
+    public function test_text_relevance_pone_el_titulo_por_encima_de_la_categoria()
+    {
+        $sql = MarketplaceListing::textRelevanceSql('zapatilla');
+
+        // Una palabra del TITULO (5) debe puntuar mas que una palabra del
+        // texto indexado (3), donde vive la categoria "calzado" — sinonimo.
+        $titulo = strpos($sql, "title LIKE '% zapatilla%'");
+        $texto  = strpos($sql, "search_text LIKE '% calzado%'");
+
+        $this->assertNotFalse($titulo);
+        $this->assertNotFalse($texto);
+        $this->assertLessThan($texto, $titulo, 'El titulo debe evaluarse antes que la categoria');
     }
 
     public function test_text_relevance_incluye_los_sinonimos_del_token()
@@ -133,10 +152,25 @@ class MarketplaceListingTest extends TestCase
 
     public function test_text_relevance_suma_un_termino_por_token()
     {
-        $sql = MarketplaceListing::textRelevanceSql('polo rojo');
+        $uno = MarketplaceListing::textRelevanceSql('polo');
+        $dos = MarketplaceListing::textRelevanceSql('polo rojo');
 
-        $this->assertSame(2, substr_count($sql, 'CASE WHEN'));
-        $this->assertStringContainsString(') + (', $sql);
+        // Dos CASE por token: la bonificacion de exactitud + los tramos.
+        $this->assertSame(2, substr_count($uno, 'CASE WHEN'));
+        $this->assertSame(4, substr_count($dos, 'CASE WHEN'));
+        $this->assertStringContainsString(') + (', $dos);
+    }
+
+    public function test_text_relevance_bonifica_el_token_exacto_sobre_el_sinonimo()
+    {
+        $sql = MarketplaceListing::textRelevanceSql('zapatilla');
+
+        // Termino aparte que solo mira la palabra tecleada: asi una zapatilla
+        // adelanta a un zapato cuando ambos casan en el titulo.
+        $this->assertStringContainsString(
+            "(CASE WHEN title LIKE 'zapatilla%' OR title LIKE '% zapatilla%' THEN 1 ELSE 0 END)",
+            $sql
+        );
     }
 
     public function test_text_relevance_es_null_sin_query_util()

@@ -228,12 +228,22 @@ class MarketplaceListing extends Model
      * Sin esto, scopeSearch filtra con LIKE '%token%' — que tambien casa a
      * MITAD de palabra — y el orden se decide solo por destacados/vistas: al
      * buscar "polo" el primer resultado era "esPOLOn calcaneo" porque tenia
-     * mas vistas que cualquier polo real. Aqui puntuamos cada token:
+     * mas vistas que cualquier polo real. Aqui puntuamos cada token, y el
+     * TITULO pesa mas que el resto del texto indexado: `search_text` mezcla
+     * descripcion + marca + categoria, asi que casar por CATEGORIA no puede
+     * valer lo mismo que casar por nombre (al buscar "zapatilla", una
+     * plantilla de categoria "calzado" empataba con "malla para lavado de
+     * ZAPATILLAS" y le ganaba por vistas):
      *
-     *   4 → el texto EMPIEZA por el token           ("polo manga corta")
-     *   3 → alguna PALABRA empieza por el token      ("camiseta polo")
-     *   2 → casa en el titulo (sin frontera)         tolerancia de respaldo
-     *   1 → solo casa a mitad de palabra             ("espolon")
+     *   6 → el TITULO empieza por el token            ("Polo manga corta")
+     *   5 → una PALABRA del titulo empieza por el      ("Camiseta polo")
+     *   4 → el texto indexado empieza por el token
+     *   3 → una palabra del texto indexado empieza     (marca, categoria)
+     *   2 → casa en el titulo a mitad de palabra       tolerancia de respaldo
+     *   1 → solo casa a mitad de palabra en el resto   ("esPOLOn")
+     *
+     * El titulo se compara tal cual: la colacion utf8mb4_unicode_ci ya ignora
+     * tildes y mayusculas. `search_text` lo normaliza el indexador.
      *
      * La puntuacion de los tokens se suma, asi una query de varias palabras
      * premia al que acierta en todas. Los sinonimos de SearchSynonyms puntuan
@@ -262,19 +272,32 @@ class MarketplaceListing extends Model
             $plain = static::sanitizeSqlLiteral($tok);
             if (empty($variants) && $plain === '') continue;
 
-            $startsWith = [];
-            $wordStart  = [];
+            $titleStart = [];
+            $titleWord  = [];
+            $textStart  = [];
+            $textWord   = [];
             foreach ($variants as $v) {
-                $startsWith[] = "search_text LIKE '{$v}%'";
-                $wordStart[]  = "search_text LIKE '% {$v}%'";
+                $titleStart[] = "title LIKE '{$v}%'";
+                $titleWord[]  = "title LIKE '% {$v}%'";
+                $textStart[]  = "search_text LIKE '{$v}%'";
+                $textWord[]   = "search_text LIKE '% {$v}%'";
             }
-            if (empty($startsWith)) continue;
+            if (empty($textStart)) continue;
 
             $titleHit = $plain !== '' ? "title LIKE '%{$plain}%'" : '1 = 0';
 
+            // Bonificacion de +1 cuando acierta la palabra EXACTA que se
+            // tecleo, no un sinonimo: buscando "zapatilla", una zapatilla
+            // debe ir antes que un zapato, aunque ambos casen en el titulo.
+            if ($plain !== '') {
+                $terms[] = "(CASE WHEN title LIKE '{$plain}%' OR title LIKE '% {$plain}%' THEN 1 ELSE 0 END)";
+            }
+
             $terms[] = '(CASE'
-                . ' WHEN ' . implode(' OR ', $startsWith) . ' THEN 4'
-                . ' WHEN ' . implode(' OR ', $wordStart) . ' THEN 3'
+                . ' WHEN ' . implode(' OR ', $titleStart) . ' THEN 6'
+                . ' WHEN ' . implode(' OR ', $titleWord) . ' THEN 5'
+                . ' WHEN ' . implode(' OR ', $textStart) . ' THEN 4'
+                . ' WHEN ' . implode(' OR ', $textWord) . ' THEN 3'
                 . " WHEN {$titleHit} THEN 2"
                 . ' ELSE 1 END)';
         }
