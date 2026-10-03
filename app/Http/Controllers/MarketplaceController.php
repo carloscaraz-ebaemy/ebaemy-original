@@ -50,6 +50,13 @@ class MarketplaceController extends Controller
                 $q        = $priceIntent['remaining'] ?: null;
             }
         }
+        // Lo que busca queda en sesion para poder ordenar los escaparates por
+        // su interes (ofertas del dia). Se guarda despues del intent de precio
+        // para no registrar el '50 soles' que ya no es busqueda textual.
+        if (!empty($q)) {
+            app(\App\Services\Marketplace\ShopperAffinityService::class)->pushQuery($q);
+        }
+
         // Filtro por tienda — el sidebar lo expone como ?shop=<subdomain>.
         // Resolvemos contra hostnames.fqdn (subdomain.ebaemy.com).
         $shopSubdomain = $request->input('shop');
@@ -197,11 +204,14 @@ class MarketplaceController extends Controller
                   && $priceMin === null && $priceMax === null;
         $dailyOffers = collect();
         if ($isHome) {
-            // Cache bump v2: cambia el algoritmo a 'diversity-first' — tomamos
-            // hasta 30 ofertas candidatas y filtramos client-side a max 2 por
-            // tenant. Asi el carrusel se ve como marketplace de N tiendas, no
-            // como showcase de una sola tienda con muchas ofertas.
-            $dailyOffers = Cache::remember('mp_daily_offers_v4', 1800, function () {
+            // v5: 'diversity-first' + ROTACION por franja de 6h. El reparto
+            // por tienda ya funcionaba, pero con pocas tiendas en oferta el
+            // rail mostraba SIEMPRE las dos mismas ofertas de cada una, y en
+            // movil (donde caben ~2 cards) parecia el escaparate de una sola
+            // tienda. La franja cambia que ofertas de cada tienda salen, sin
+            // tocar el reparto ni perder el cache.
+            $rotSlot = (int) (now()->dayOfYear * 4 + intdiv((int) now()->hour, 6));
+            $dailyOffers = Cache::remember('mp_daily_offers_v5_' . $rotSlot, 1800, function () use ($rotSlot) {
                 // Pool amplio de candidatos: si una sola tienda concentra las
                 // ofertas de mayor descuento, un limit pequeño (30) la dejaba
                 // monopolizar el top y el cap de 2/tienda recortaba el carrusel
@@ -224,18 +234,38 @@ class MarketplaceController extends Controller
                     $byTenant[$c->hostname_id][] = $c;
                 }
 
-                // Intercalar tiendas (round-robin): ronda 0 toma la mejor
-                // oferta de CADA tienda, ronda 1 la segunda, etc. Así el
-                // carrusel alterna tiendas (tienda A, B, C, D, A, B…) en vez
-                // de agrupar las 2 ofertas de cada una juntas. Cap 2/tienda,
-                // máximo 15 cards.
-                $perTenantCap = 2;
+                // Cuantas menos tiendas tengan oferta, mas ofertas por tienda
+                // hacen falta para que el rail no quede corto. Con 4 tiendas
+                // (el caso real hoy) salen 16 cards en vez de 8.
+                $tenantCount  = count($byTenant);
+                $perTenantCap = $tenantCount >= 8 ? 2 : ($tenantCount >= 5 ? 3 : 4);
+                $maxCards     = 18;
+
+                // Rotar el punto de partida DENTRO de cada tienda: la franja
+                // decide por donde se empieza, y el desfase por hostname evita
+                // que todas las tiendas salten a la vez. La tienda con 141
+                // ofertas deja de mostrar eternamente las mismas dos.
+                foreach ($byTenant as $hid => $offers) {
+                    $n = count($offers);
+                    if ($n > $perTenantCap) {
+                        $start = ($rotSlot + (int) $hid) % $n;
+                        $byTenant[$hid] = array_merge(
+                            array_slice($offers, $start),
+                            array_slice($offers, 0, $start)
+                        );
+                    }
+                }
+
+                // Intercalar tiendas (round-robin): ronda 0 toma una oferta de
+                // CADA tienda, ronda 1 la siguiente, etc. Así el carrusel
+                // alterna tiendas (tienda A, B, C, D, A, B…) en vez de
+                // agrupar las ofertas de cada una juntas.
                 $diverse = collect();
                 for ($round = 0; $round < $perTenantCap; $round++) {
                     foreach ($byTenant as $offers) {
                         if (isset($offers[$round])) {
                             $diverse->push($offers[$round]);
-                            if ($diverse->count() >= 15) break 2;
+                            if ($diverse->count() >= $maxCards) break 2;
                         }
                     }
                 }
@@ -308,6 +338,15 @@ class MarketplaceController extends Controller
             if ($recentlyViewed->isNotEmpty()) {
                 $this->decorateListingsWithVariantData($recentlyViewed);
             }
+        }
+
+        // Ofertas del dia ordenadas por afinidad del visitante: lo buscado en
+        // esta sesion + lo que vio. Reutiliza $recentlyViewed para no repetir
+        // la consulta. Solo reordena, no filtra: las 4 tiendas en oferta
+        // siguen todas presentes.
+        if ($dailyOffers->isNotEmpty()) {
+            $dailyOffers = app(\App\Services\Marketplace\ShopperAffinityService::class)
+                ->rankOffers($dailyOffers, $recentlyViewed);
         }
 
         // Cupones del comprador prximos a vencer (<=72h). Item 8 del
