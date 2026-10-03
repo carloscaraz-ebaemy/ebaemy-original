@@ -40,7 +40,11 @@ class RobotsController extends Controller
             $content = $this->centralRules();
         }
 
-        return response($content, 200)
+        // Un heredoc no incluye el salto final. robots.txt se compara y se
+        // diffea a menudo, y la version estatica que esto sustituye lo tenia.
+        return response(rtrim($content, "
+") . "
+", 200)
             ->header('Content-Type', 'text/plain; charset=UTF-8');
     }
 

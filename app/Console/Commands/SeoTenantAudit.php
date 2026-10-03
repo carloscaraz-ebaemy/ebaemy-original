@@ -102,6 +102,14 @@ class SeoTenantAudit extends Command
                 $estado = 'INCOMPLETO';
                 $criticos++;
             }
+            // Sin nombre comercial no hay nada con que sustituir la razon social:
+            // «MONZON ANDERSON LIA AURORA - Tienda online» no mejora a
+            // «MONZON ANDERSON LIA AURORA», solo publica el nombre del titular
+            // con mas palabras. Se marca aparte porque lo tiene que resolver el
+            // vendedor, no este comando.
+            if ($tituloEsLegal && $comercial === '') {
+                $estado = 'FALTA NOMBRE COMERCIAL';
+            }
             if (!(bool) ($seo->indexable ?? true)) {
                 $estado = 'noindex';
             }
@@ -115,21 +123,33 @@ class SeoTenantAudit extends Command
                 $seo = new ConfigurationEcommerce();
             }
 
-            $nombre  = $comercial !== '' ? $comercial : $legal;
             $cambios = [];
+            $cats    = $descGenerica ? $this->categoriasConProducto(3) : '';
 
-            if ($nombre !== '' && ($tituloEsLegal || trim((string) ($seo->seo_title ?? '')) === '')) {
-                $cambios['seo_title'] = $this->recortar($nombre . ' - Tienda online', 60);
+            // El titulo solo se escribe con nombre comercial. Nunca con la razon
+            // social: es el nombre del titular y no es lo que la tienda quiere
+            // que se lea en Google.
+            if ($comercial !== '' && ($tituloEsLegal || trim((string) ($seo->seo_title ?? '')) === '')) {
+                $cambios['seo_title'] = $this->recortar($comercial . ' - Tienda online', 60);
             }
 
-            if ($nombre !== '' && $descGenerica) {
-                $cats = $this->categoriasConProducto(3);
-                $cambios['seo_description'] = $this->recortar(
-                    $cats !== ''
-                        ? 'Tienda online de ' . $nombre . ': ' . $cats . '. Mira el catalogo y compra desde tu celular.'
-                        : 'Tienda online de ' . $nombre . '. Mira el catalogo y compra desde tu celular.',
-                    155
-                );
+            if ($descGenerica) {
+                if ($comercial !== '') {
+                    $cambios['seo_description'] = $this->recortar(
+                        $cats !== ''
+                            ? 'Tienda online de ' . $comercial . ': ' . $cats . '. Mira el catalogo y compra desde tu celular.'
+                            : 'Tienda online de ' . $comercial . '. Mira el catalogo y compra desde tu celular.',
+                        155
+                    );
+                } elseif ($cats !== '') {
+                    // Sin nombre comercial, la descripcion se construye solo con
+                    // las categorias: sigue siendo distinta de la del vecino y no
+                    // mete el nombre del titular donde no toca.
+                    $cambios['seo_description'] = $this->recortar(
+                        'Catalogo de ' . $cats . '. Compra online desde tu celular.',
+                        155
+                    );
+                }
             }
 
             // og_* alimentan lo que se ve al compartir por WhatsApp. Si estan
@@ -176,6 +196,8 @@ class SeoTenantAudit extends Command
         $this->table(['dominio', 'estado', 'titulo que publica', 'catalogo', 'verificacion'], $filas);
         $this->newLine();
 
+        $sinComercial = count(array_filter($filas, fn ($f) => $f[1] === 'FALTA NOMBRE COMERCIAL'));
+
         if ($fix) {
             $this->info('Tiendas actualizadas: ' . $escritos);
             $this->line('Queda pegar a mano el token de Search Console en cada tienda con «GSC: NO»');
@@ -183,6 +205,13 @@ class SeoTenantAudit extends Command
         } else {
             $this->warn('Tiendas con SEO incompleto: ' . $criticos . ' de ' . count($filas));
             $this->line('Corre el mismo comando con --fix para rellenar titulo y descripcion.');
+        }
+
+        if ($sinComercial) {
+            $this->newLine();
+            $this->warn($sinComercial . ' tienda(s) publican la razon social como titulo y no tienen');
+            $this->line('nombre comercial configurado. Eso no lo puede arreglar este comando: hay que');
+            $this->line('poner «Nombre comercial» en los datos de la empresa, o un seo_title a mano.');
         }
 
         return self::SUCCESS;
