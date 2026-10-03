@@ -42,6 +42,7 @@ Cualquier agente puede leer este fichero cuando necesite el mapa completo.
 | A18 | QA y Regresión | controlada | — |
 | A19 | Plataforma y Despliegue | crítica | — |
 | A20 | Imágenes | controlada | — |
+| A21 | Crecimiento (SEO y publicidad) | controlada | — |
 
 ---
 
