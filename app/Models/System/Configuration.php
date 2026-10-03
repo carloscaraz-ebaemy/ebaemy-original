@@ -69,6 +69,7 @@ class Configuration extends Model
         'auto_approve_sellers' => 'boolean',
         'seller_default_plan_id' => 'integer',
         'seller_requires_active_ruc' => 'boolean',
+        'marketplace_ads_enabled' => 'boolean',
     ];
 
 

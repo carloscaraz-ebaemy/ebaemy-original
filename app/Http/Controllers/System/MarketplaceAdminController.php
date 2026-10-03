@@ -373,6 +373,21 @@ class MarketplaceAdminController extends Controller
             'marketplace_instagram_url'  => 'nullable|url|max:500',
             'marketplace_whatsapp_url'   => 'nullable|url|max:500',
             'marketplace_tiktok_url'     => 'nullable|url|max:500',
+            // Medicion de publicidad. Los IDs se validan por forma: un pixel
+            // de Meta son digitos, el de TikTok es alfanumerico y el de GA4
+            // empieza por G-. Un ID mal pegado no da error en ninguna parte,
+            // simplemente no mide nunca.
+            'marketplace_ads_enabled'      => 'nullable|boolean',
+            'marketplace_meta_pixel_id'    => 'nullable|string|max:40|regex:/^[0-9]+$/',
+            'marketplace_meta_capi_token'  => 'nullable|string|max:1000',
+            'marketplace_tiktok_pixel_id'  => 'nullable|string|max:60|regex:/^[A-Za-z0-9]+$/',
+            'marketplace_tiktok_capi_token'=> 'nullable|string|max:1000',
+            'marketplace_ga4_id'           => 'nullable|string|max:40|regex:/^G-[A-Za-z0-9]+$/',
+            'marketplace_ads_test_code'    => 'nullable|string|max:80',
+        ], [
+            'marketplace_meta_pixel_id.regex'   => 'El ID del pixel de Meta son solo digitos.',
+            'marketplace_tiktok_pixel_id.regex' => 'El ID del pixel de TikTok es alfanumerico, sin espacios.',
+            'marketplace_ga4_id.regex'          => 'El ID de GA4 empieza por G- (ej. G-ABC123XYZ).',
         ]);
 
         $config = \App\Models\System\Configuration::firstOrCreate(['id' => 1]);
@@ -383,6 +398,16 @@ class MarketplaceAdminController extends Controller
         $config->marketplace_instagram_url  = $request->input('marketplace_instagram_url');
         $config->marketplace_whatsapp_url   = $request->input('marketplace_whatsapp_url');
         $config->marketplace_tiktok_url     = $request->input('marketplace_tiktok_url');
+
+        // Medicion. El interruptor llega como checkbox: hay un hidden en 0
+        // delante, asi que desmarcado llega '0' y no se queda pegado en true.
+        $config->marketplace_ads_enabled       = (bool) $request->boolean('marketplace_ads_enabled');
+        $config->marketplace_meta_pixel_id     = $request->input('marketplace_meta_pixel_id');
+        $config->marketplace_meta_capi_token   = $request->input('marketplace_meta_capi_token');
+        $config->marketplace_tiktok_pixel_id   = $request->input('marketplace_tiktok_pixel_id');
+        $config->marketplace_tiktok_capi_token = $request->input('marketplace_tiktok_capi_token');
+        $config->marketplace_ga4_id            = $request->input('marketplace_ga4_id');
+        $config->marketplace_ads_test_code     = $request->input('marketplace_ads_test_code');
 
         if ($request->hasFile('og_image')) {
             $file = $request->file('og_image');

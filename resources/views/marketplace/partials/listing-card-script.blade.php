@@ -256,6 +256,24 @@ mpBindGallery(document);
             btn.classList.add('is-added');
             btn.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
             if (window.mpCartBadgeUpdate) window.mpCartBadgeUpdate(data.summary);
+
+            /* AddToCart del quick-add. El payload sale de data.line, que es la
+               linea que acaba de confirmar el servidor: asi el precio medido es
+               el que se cobro y no el que la card tenia pintado. El content_id
+               es mp_{listing_id}, el mismo <g:id> del feed. */
+            if (window.mpTrack && data.line) {
+                window.mpTrack({
+                    event: 'add_to_cart',
+                    currency: 'PEN',
+                    value: Math.round((data.line.price || 0) * (data.line.quantity || 1) * 100) / 100,
+                    items: [{
+                        content_id: 'mp_' + data.line.listing_id,
+                        content_name: data.line.title || '',
+                        quantity: data.line.quantity || 1,
+                        price: data.line.price || 0
+                    }]
+                });
+            }
             setTimeout(function () {
                 btn.classList.remove('is-added');
                 btn.innerHTML = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';

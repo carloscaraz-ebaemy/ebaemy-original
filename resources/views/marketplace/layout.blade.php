@@ -915,6 +915,11 @@ window.mpCouponTenantIds = []; // hostname_ids donde el user tiene cupn
      NO duplicar este markup en vistas individuales. --}}
 @include('marketplace.partials.product-sheet')
 
+{{-- Medición de publicidad (píxeles de Meta/TikTok/GA4) + banner de cookies.
+     Único sitio del marketplace que carga píxeles: las vistas sólo llaman a
+     window.mpTrack(). No duplicar en vistas individuales. --}}
+@include('marketplace.partials.tracking')
+
 {{-- ════════ Toast post-login: cupones disponibles (item 5 roadmap) ════════
      Cuando el user se loggea y tiene cupones disponibles, MarketplaceAuthController
      flashea mkt_coupons_toast con el count. Lo mostramos como toast flotante

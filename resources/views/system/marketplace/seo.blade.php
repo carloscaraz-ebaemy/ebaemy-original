@@ -104,6 +104,91 @@
                 </div>
             </div>
 
+            {{-- ═════════ Medición de publicidad ═════════ --}}
+            <div class="card mt-3">
+                <div class="card-body">
+                    <h6 class="mb-1" style="font-weight:700">📡 Medición de publicidad</h6>
+                    <p class="small text-muted">
+                        Sin esto, TikTok y Meta no saben qué anuncio generó la venta: optimizan hacia
+                        clics en vez de hacia compradores. Los campos vacíos no emiten nada.
+                    </p>
+
+                    <div class="form-check form-switch mb-3">
+                        <input type="hidden" name="marketplace_ads_enabled" value="0">
+                        <input class="form-check-input" type="checkbox" role="switch"
+                               id="adsEnabled" name="marketplace_ads_enabled" value="1"
+                               {{ old('marketplace_ads_enabled', $config->marketplace_ads_enabled ?? false) ? 'checked' : '' }}>
+                        <label class="form-check-label" for="adsEnabled">
+                            <strong>Medición activa</strong>
+                            <small class="text-muted d-block">
+                                Interruptor maestro. Apagado no se emite nada, aunque los IDs estén puestos.
+                            </small>
+                        </label>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">ID del píxel de Meta <small class="text-muted">(Facebook / Instagram)</small></label>
+                        <input type="text" name="marketplace_meta_pixel_id" class="form-control"
+                               value="{{ old('marketplace_meta_pixel_id', $config->marketplace_meta_pixel_id ?? '') }}"
+                               placeholder="1234567890123456">
+                        <small class="text-muted">Commerce Manager → Orígenes de datos → tu píxel.</small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Token de la Conversions API de Meta</label>
+                        <input type="password" name="marketplace_meta_capi_token" class="form-control"
+                               autocomplete="new-password"
+                               value="{{ old('marketplace_meta_capi_token', $config->marketplace_meta_capi_token ?? '') }}"
+                               placeholder="EAAG...">
+                        <small class="text-muted">
+                            Es lo que permite medir la compra cuando el navegador no la reporta (iOS, bloqueadores).
+                            Sin token, se pierde parte de las ventas en el informe.
+                        </small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">ID del píxel de TikTok</label>
+                        <input type="text" name="marketplace_tiktok_pixel_id" class="form-control"
+                               value="{{ old('marketplace_tiktok_pixel_id', $config->marketplace_tiktok_pixel_id ?? '') }}"
+                               placeholder="CXXXXXXXXXXXXXXXXXXX">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Access Token de la Events API de TikTok</label>
+                        <input type="password" name="marketplace_tiktok_capi_token" class="form-control"
+                               autocomplete="new-password"
+                               value="{{ old('marketplace_tiktok_capi_token', $config->marketplace_tiktok_capi_token ?? '') }}"
+                               placeholder="—">
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">ID de Google Analytics 4 <small class="text-muted">(opcional)</small></label>
+                        <input type="text" name="marketplace_ga4_id" class="form-control"
+                               value="{{ old('marketplace_ga4_id', $config->marketplace_ga4_id ?? '') }}"
+                               placeholder="G-XXXXXXXXXX">
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Código de prueba de Meta <small class="text-muted">(test_event_code)</small></label>
+                        <input type="text" name="marketplace_ads_test_code" class="form-control"
+                               value="{{ old('marketplace_ads_test_code', $config->marketplace_ads_test_code ?? '') }}"
+                               placeholder="TEST12345">
+                        <small class="text-danger">
+                            Mientras esté puesto, los eventos aparecen en «Eventos de prueba» pero
+                            <strong>NO cuentan como conversiones</strong>. Vaciar al terminar de probar.
+                        </small>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">💾 Guardar</button>
+
+                    <div class="alert alert-light border mt-3 mb-0 small">
+                        <strong>Para comprobar que funciona:</strong> instalá la extensión
+                        Meta Pixel Helper o TikTok Pixel Helper y abrí <em>tres</em> páginas — la ficha
+                        de un producto, el carrito y la confirmación de un pedido. En el servidor,
+                        <code>php artisan ads:check</code> valida la configuración y manda un evento
+                        de prueba verificando que la plataforma lo recibe.
+                    </div>
+                </div>
+            </div>
+
             <div class="alert alert-warning mt-3">
                 <h6 class="mb-2">⚠️ Importante: caché de WhatsApp/Facebook</h6>
                 <p class="small mb-2">

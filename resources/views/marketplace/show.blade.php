@@ -94,6 +94,22 @@
         $breadcrumbItems[] = ['@type' => 'ListItem', 'position' => 2, 'name' => $listing->title];
     }
     $breadcrumb = ['@context' => 'https://schema.org', '@type' => 'BreadcrumbList', 'itemListElement' => $breadcrumbItems];
+
+    // Medicion de publicidad. El content_id lo construye AdsTracking y es el
+    // mismo <g:id> que emite el feed (mp_{listing_id}): si no coincide, Meta y
+    // TikTok reportan 0 % de coincidencia de catalogo.
+    $adsItem = [[
+        'content_id'   => \App\Services\Marketplace\AdsTracking::contentId($listing->id),
+        'content_name' => $listing->title,
+        'quantity'     => 1,
+        'price'        => round((float) $listing->display_price, 2),
+    ]];
+    $adsViewPayload = \App\Services\Marketplace\AdsTracking::payload(
+        'view_content', $adsItem, (float) $listing->display_price
+    );
+    $adsCartPayload = \App\Services\Marketplace\AdsTracking::payload(
+        'add_to_cart', $adsItem, (float) $listing->display_price
+    );
 @endphp
 
 @section('title', $seoTitle)
@@ -1041,6 +1057,9 @@
                     btn.onclick = function () { window.location = @json(route('marketplace.cart')); };
                     btn.disabled = false;
                     if (window.mpCartBadgeUpdate) window.mpCartBadgeUpdate(data.summary);
+                    /* AddToCart: solo tras confirmar el servidor. Emitirlo al
+                       pulsar contaria carritos que nunca existieron. */
+                    if (window.mpTrack) window.mpTrack({!! json_encode($adsCartPayload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!});
                 })
                 .catch(function () {
                     btn.innerHTML = original; btn.disabled = false;
@@ -1721,6 +1740,13 @@
 @endif
 
 @include('marketplace.partials.recently-viewed', ['recentlyViewed' => $recentlyViewed ?? collect()])
+
+{{-- Vista de ficha. mpTrack solo existe si la medicion esta activa y el
+     comprador acepto las cookies; mientras no la haya, el evento se queda en
+     la cola del partial y se emite en cuanto acepte. --}}
+<script>
+if (window.mpTrack) window.mpTrack({!! json_encode($adsViewPayload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!});
+</script>
 
 @endsection
 

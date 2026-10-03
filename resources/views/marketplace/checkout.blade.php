@@ -930,6 +930,11 @@ input.mp-co-invalid, select.mp-co-invalid, textarea.mp-co-invalid {
         });
     })();
 })();
+
+/* InitiateCheckout: el comprador llego al formulario con el carrito lleno.
+   Es el evento que Meta y TikTok usan para optimizar hacia gente que de
+   verdad empieza a comprar, no solo hacia quien mira. */
+if (window.mpTrack) window.mpTrack({!! json_encode($adsCheckoutPayload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!});
 </script>
 @endpush
 

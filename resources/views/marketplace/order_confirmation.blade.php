@@ -187,4 +187,14 @@
     @endif
 </div>
 
+{{-- Purchase del navegador. Lleva el mismo event_id que el envio server-side
+     (sembrado con el numero de pedido), para que Meta y TikTok deduplican en
+     vez de contar la venta dos veces. Si el comprador recarga esta pagina, el
+     event_id es identico y la plataforma lo descarta — que es lo correcto. --}}
+@isset($adsPurchasePayload)
+<script>
+if (window.mpTrack) window.mpTrack({!! json_encode($adsPurchasePayload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!});
+</script>
+@endisset
+
 @endsection

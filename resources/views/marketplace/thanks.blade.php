@@ -51,4 +51,13 @@
             </a>
         </div>
     </div>
+
+    {{-- Conversion Lead. Solo si se llega aqui desde el POST del formulario:
+         $adsLeadPayload viene en flash, asi que una visita directa a esta URL
+         no emite nada. Mismo event_id que el envio server-side. --}}
+    @isset($adsLeadPayload)
+    <script>
+    if (window.mpTrack) window.mpTrack({!! json_encode($adsLeadPayload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!});
+    </script>
+    @endisset
 @endsection

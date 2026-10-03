@@ -35,6 +35,16 @@ class MarketplaceLead extends Model
         'source_ip',
         'source_ua',
         'retry_count',
+        // Atribucion de campana. Sin estas claves en fillable, create() las
+        // descarta SIN error y el lead queda sin origen.
+        'utm_source',
+        'utm_medium',
+        'utm_campaign',
+        'utm_content',
+        'utm_term',
+        'click_id_fb',
+        'click_id_tt',
+        'click_id_google',
     ];
 
     protected $casts = [

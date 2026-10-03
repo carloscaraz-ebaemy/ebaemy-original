@@ -61,6 +61,10 @@ class Kernel extends HttpKernel
      * @var array
      */
     protected $routeMiddleware = [
+        // Origen del visitante (utm_*, fbclid, ttclid, gclid) en la sesión.
+        // Va sólo en las rutas públicas del marketplace que son destino de
+        // anuncios — no en el grupo web, que lo pagarían también los tenants.
+        'mp.attribution' => \App\Http\Middleware\CaptureMarketplaceAttribution::class,
         'auth' => \App\Http\Middleware\Authenticate::class,
         'auth.basic' => \Illuminate\Auth\Middleware\AuthenticateWithBasicAuth::class,
         'bindings' => \Illuminate\Routing\Middleware\SubstituteBindings::class,

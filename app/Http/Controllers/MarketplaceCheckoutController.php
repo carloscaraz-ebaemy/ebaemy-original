@@ -66,9 +66,20 @@ class MarketplaceCheckoutController extends Controller
             }
         }
 
+        // InitiateCheckout. Se arma aqui y no en la vista para que el
+        // content_id salga de AdsTracking y no pueda divergir del <g:id> del
+        // feed. Sin event_id: este evento solo vive en el navegador.
+        $adsCheckoutPayload = \App\Services\Marketplace\AdsTracking::payload(
+            'initiate_checkout',
+            $stores->flatMap(fn ($store) => collect($store['items'] ?? [])
+                ->map(fn ($line) => \App\Services\Marketplace\AdsTracking::itemFromCartLine($line)))
+                ->values()->all(),
+            (float) ($summary['total'] ?? 0)
+        );
+
         return view('marketplace.checkout', compact(
             'stores', 'summary', 'appliedCoupons',
-            'platformCoupons', 'platformDiscountTotal'
+            'platformCoupons', 'platformDiscountTotal', 'adsCheckoutPayload'
         ));
     }
 
@@ -248,6 +259,31 @@ class MarketplaceCheckoutController extends Controller
                 ->withErrors($result['errors'] ?? ['Error procesando el pedido.']);
         }
 
+        // Atribución: de qué campaña vino este pedido. Se escribe una sola
+        // vez, al crearlo, con lo que el middleware mp.attribution guardó en
+        // la primera visita. Si no hay origen (tráfico directo) no se escribe
+        // nada en vez de rellenar con nulls.
+        $attribution = \App\Services\Marketplace\AdsTracking::attributionColumns();
+        if (!empty($attribution)) {
+            try {
+                $result['order']->forceFill($attribution)->save();
+            } catch (\Throwable $e) {
+                // Un fallo de atribución no puede tumbar un pedido ya cobrado.
+                \Log::warning('Atribución del pedido no guardada', [
+                    'order' => $result['order']->order_number,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        // Purchase server-side. Sólo si el pedido NO pasa por MercadoPago: con
+        // init_point todavía no hay pago, y medir ahí contaría como venta un
+        // checkout abandonado en la pasarela. Ese caso lo cubre confirmation()
+        // cuando payment_status llega a 'paid'.
+        if (empty($result['init_point'])) {
+            $this->sendPurchaseConversion($result['order'], $request);
+        }
+
         // Persistimos los order_numbers que esta sesión pagó para que sólo
         // el comprador vea su propia confirmación (mitiga IDOR — los números
         // MP-* son secuenciales y enumerables).
@@ -385,6 +421,73 @@ class MarketplaceCheckoutController extends Controller
     }
 
     /**
+     * Encola el Purchase server-side de un pedido. Una sola vez por pedido.
+     *
+     * Por qué server-side además del píxel: el Purchase es el evento que más
+     * importa y el que más se pierde en el navegador (iOS/ATT, bloqueadores,
+     * pestañas que se cierran en la redirección de la pasarela). El navegador
+     * manda el optimista; esto manda la verdad, con el mismo `event_id` para
+     * que la plataforma deduplique.
+     *
+     * La guarda es `ads_purchase_sent_at`, no una bandera en sesión: hay tres
+     * caminos que llegan a "pedido pagado" (contra entrega, retorno de
+     * MercadoPago y webhook) y un Purchase duplicado infla el ROAS de la
+     * cuenta publicitaria sin posibilidad de corregirlo después.
+     *
+     * Todo lo que el worker necesita se recoge AQUÍ: dentro de la cola ya no
+     * hay request ni sesión del comprador, así que la IP, el user agent y los
+     * click ids no se podrían obtener.
+     */
+    private function sendPurchaseConversion(MarketplaceOrder $order, Request $request): void
+    {
+        if (!\App\Services\Marketplace\AdsTracking::serverEnabled()) {
+            return;
+        }
+
+        // Idempotencia con la fila bloqueada: dos peticiones simultáneas sobre
+        // la misma confirmación (doble tap en móvil) no pueden pasar las dos.
+        try {
+            $claimed = MarketplaceOrder::where('id', $order->id)
+                ->whereNull('ads_purchase_sent_at')
+                ->update(['ads_purchase_sent_at' => now()]);
+
+            if (!$claimed) {
+                return;
+            }
+        } catch (\Throwable $e) {
+            \Log::warning('No se pudo marcar ads_purchase_sent_at', [
+                'order' => $order->order_number,
+                'error' => $e->getMessage(),
+            ]);
+
+            return;
+        }
+
+        $payload = \App\Services\Marketplace\AdsTracking::payload(
+            'purchase',
+            $order->items->map(fn ($i) => [
+                'content_id'   => \App\Services\Marketplace\AdsTracking::contentId($i->listing_id),
+                'content_name' => (string) $i->title,
+                'quantity'     => (int) $i->quantity,
+                'price'        => round((float) $i->unit_price, 2),
+            ])->values()->all(),
+            (float) $order->total,
+            $order->order_number
+        );
+        $payload['url'] = $request->fullUrl();
+
+        \App\Jobs\Marketplace\SendAdsConversion::dispatch(
+            'purchase',
+            $payload,
+            \App\Services\Marketplace\AdsTracking::userDataFromRequest($request),
+            [
+                'email' => $order->customer_email,
+                'phone' => $order->customer_phone,
+            ]
+        );
+    }
+
+    /**
      * Inserta o actualiza el contacto en marketing_contacts con consent=true.
      * Idempotente: si ya existe por phone/email, actualiza datos pero respeta
      * un opted_out previo (no lo reactiva sin acción explícita del contacto).
@@ -463,6 +566,30 @@ class MarketplaceCheckoutController extends Controller
         $itemsByStore = $order->items->groupBy('hostname_id');
         $subOrders    = $order->tenantOrders->keyBy('hostname_id');
 
-        return view('marketplace.order_confirmation', compact('order', 'itemsByStore', 'subOrders'));
+        // Pagado por MercadoPago: el Purchase no se pudo mandar en store()
+        // porque entonces no había pago. Es idempotente, así que no dobla con
+        // el de contra entrega.
+        if (($order->payment_status ?? null) === 'paid') {
+            $this->sendPurchaseConversion($order, $request);
+        }
+
+        // Purchase del navegador. Lleva event_id sembrado con el número de
+        // pedido — el mismo que calcula el envío server-side — para que la
+        // plataforma deduplique en vez de contar la venta dos veces.
+        $adsPurchasePayload = \App\Services\Marketplace\AdsTracking::payload(
+            'purchase',
+            $order->items->map(fn ($i) => [
+                'content_id'   => \App\Services\Marketplace\AdsTracking::contentId($i->listing_id),
+                'content_name' => (string) $i->title,
+                'quantity'     => (int) $i->quantity,
+                'price'        => round((float) $i->unit_price, 2),
+            ])->values()->all(),
+            (float) $order->total,
+            $order->order_number
+        );
+
+        return view('marketplace.order_confirmation', compact(
+            'order', 'itemsByStore', 'subOrders', 'adsPurchasePayload'
+        ));
     }
 }

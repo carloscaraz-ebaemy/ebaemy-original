@@ -1640,7 +1640,12 @@ class MarketplaceController extends Controller
             'message'        => 'nullable|string|max:1000',
         ]);
 
-        $lead = MarketplaceLead::create([
+        // Atribucion del lead: de que campana vino. Mismas columnas que en
+        // marketplace_orders, para que el informe por campana pueda sumar
+        // pedidos y leads sin casos especiales.
+        $leadAttribution = \App\Services\Marketplace\AdsTracking::attributionColumns();
+
+        $lead = MarketplaceLead::create($leadAttribution + [
             'listing_id'     => $listing->id,
             'hostname_id'    => $listing->hostname_id,
             'tenant_fqdn'    => $listing->tenant_fqdn,
@@ -1679,11 +1684,39 @@ class MarketplaceController extends Controller
             \Log::warning('[MarketplaceController::lead] notify admin failed: ' . $e->getMessage());
         }
 
+        // Conversion Lead. El event_id se siembra con el id del lead para que
+        // el evento del navegador (en la pantalla de gracias) y el del
+        // servidor sean el MISMO y la plataforma deduplique.
+        $adsLeadPayload = \App\Services\Marketplace\AdsTracking::payload(
+            'lead',
+            [[
+                'content_id'   => \App\Services\Marketplace\AdsTracking::contentId($listing->id),
+                'content_name' => (string) $listing->title,
+                'quantity'     => (int) ($data['quantity'] ?? 1),
+                'price'        => round((float) $listing->display_price, 2),
+            ]],
+            (float) $listing->display_price * (int) ($data['quantity'] ?? 1),
+            'lead-' . $lead->id
+        );
+
+        if (\App\Services\Marketplace\AdsTracking::serverEnabled()) {
+            \App\Jobs\Marketplace\SendAdsConversion::dispatch(
+                'lead',
+                $adsLeadPayload + ['url' => $request->fullUrl()],
+                \App\Services\Marketplace\AdsTracking::userDataFromRequest($request),
+                [
+                    'email' => $data['customer_email'] ?? null,
+                    'phone' => $data['customer_phone'] ?? null,
+                ]
+            );
+        }
+
         return redirect()
             ->route('marketplace.thanks', ['slug' => $slug])
             ->with('lead_id', $lead->id)
             // dispatchLead() ya persistió el status en $lead, no recargamos de BD
-            ->with('lead_status', $lead->status);
+            ->with('lead_status', $lead->status)
+            ->with('ads_lead_payload', $adsLeadPayload);
     }
 
     public function thanks(string $slug)
@@ -1692,7 +1725,10 @@ class MarketplaceController extends Controller
         // acá desde su propio POST, no vale la pena ocultar la ficha de su compra.
         $listing = MarketplaceListing::where('slug', $slug)->firstOrFail();
         $leadStatus = session('lead_status');
-        return view('marketplace.thanks', compact('listing', 'leadStatus'));
+        // Solo existe cuando se llega aqui desde el POST del formulario: una
+        // visita directa a /gracias no debe emitir una conversion.
+        $adsLeadPayload = session('ads_lead_payload');
+        return view('marketplace.thanks', compact('listing', 'leadStatus', 'adsLeadPayload'));
     }
 
     /**

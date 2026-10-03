@@ -1611,7 +1611,11 @@ if ($hostname) {
         // ─── Marketplace público (ebaemy.com/marketplace) ────────────────────
         // Vitrina agregadora: productos de tenants opt-in. Redirige la compra
         // a un lead que se convierte en Order dentro del tenant.
-        Route::get('marketplace',                       'MarketplaceController@index')->name('marketplace.index');
+        // mp.attribution: estas cinco rutas son el destino de los anuncios.
+        // El middleware guarda en sesion de donde vino el visitante para
+        // poder atribuir despues el pedido a su campana.
+        Route::get('marketplace',                       'MarketplaceController@index')
+             ->middleware('mp.attribution')->name('marketplace.index');
         // PWA — pantalla offline servida por el service worker cuando no hay red
         Route::view('marketplace/offline', 'marketplace.offline')->name('marketplace.offline');
         // TWA Android — Digital Asset Links. Verifica que la app de Play Store
@@ -1636,6 +1640,10 @@ if ($hostname) {
              ->middleware('throttle:30,1')->name('marketplace.push.subscribe');
         Route::post('marketplace/push/unsubscribe','Marketplace\PushSubscriptionController@unsubscribe')
              ->middleware('throttle:30,1')->name('marketplace.push.unsubscribe');
+        // Consentimiento de cookies de medición. Hasta que esto devuelva
+        // 'granted' el partial de tracking no carga ningún píxel.
+        Route::post('marketplace/ads/consent', 'Marketplace\AdsTrackingController@consent')
+             ->middleware('throttle:30,1')->name('marketplace.ads.consent');
         // Autocomplete del search bar — devuelve JSON con top 8 listings que
         // matchean el query (título / category_name / tenant_name). Throttle
         // alto porque el front-end dispara con cada keystroke (300ms debounce).
@@ -1647,12 +1655,16 @@ if ($hostname) {
         // URL canónica de categoría oficial (Fase D). fullSlug puede contener slashes (p.ej. hogar/muebles/sillas).
         Route::get('marketplace/c/{fullSlug}',          'MarketplaceController@categoryOfficial')
              ->where('fullSlug', '[a-z0-9\-/]+')
+             ->middleware('mp.attribution')
              ->name('marketplace.category_official');
-        Route::get('marketplace/categoria/{categorySlug}', 'MarketplaceController@category')->name('marketplace.category');
+        Route::get('marketplace/categoria/{categorySlug}', 'MarketplaceController@category')
+             ->middleware('mp.attribution')->name('marketplace.category');
         Route::get('marketplace/tienda/{subdomain}',    'MarketplaceController@tenantPage')
              ->where('subdomain', '[a-z0-9][a-z0-9\-]{1,62}')
+             ->middleware('mp.attribution')
              ->name('marketplace.tenant');
-        Route::get('marketplace/item/{slug}',           'MarketplaceController@show')->name('marketplace.item');
+        Route::get('marketplace/item/{slug}',           'MarketplaceController@show')
+             ->middleware('mp.attribution')->name('marketplace.item');
         Route::get('marketplace/go/{slug}',       'MarketplaceController@go')->name('marketplace.go');
         Route::post('marketplace/item/{slug}/solicitar', 'MarketplaceController@lead')
              ->middleware('throttle:10,1')
