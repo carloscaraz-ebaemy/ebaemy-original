@@ -1897,17 +1897,18 @@ class MarketplaceController extends Controller
         ]);
     }
 
+    /**
+     * /robots.txt del dominio central.
+     *
+     * Delega en RobotsController, que es el dueno unico para todos los hosts y
+     * ramifica por tenant. Esta accion ya no construye su propio texto: era un
+     * stub de 4 reglas, mucho mas pobre que el `public/robots.txt` que servia
+     * nginx, y si el orden de registro de rutas cambiara y esta ganara,
+     * ebaemy.com perderia en silencio todas las reglas de /marketplace/*.
+     */
     public function robots()
     {
-        $lines = [
-            'User-agent: *',
-            'Allow: /marketplace',
-            'Disallow: /admin',
-            'Disallow: /login',
-            '',
-            'Sitemap: ' . url('/sitemap-marketplace.xml'),
-        ];
-        return response(implode("\n", $lines), 200, ['Content-Type' => 'text/plain']);
+        return app(\Modules\Ecommerce\Http\Controllers\RobotsController::class)->index();
     }
 
     /**
