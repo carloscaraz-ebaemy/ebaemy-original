@@ -237,14 +237,39 @@
                         no-match-text="Sin coincidencias"
                         @change="alElegirUbigeo"
                     >
+                        <!-- Volver: sin esto, entrar en una provincia era un
+                             viaje de ida. Borrar lo escrito para rehacer la
+                             busqueda no es una salida, es una penitencia. -->
+                        <el-option
+                            v-if="ubigeoRuta"
+                            key="__volver"
+                            value="__volver"
+                            label="Volver"
+                            disabled
+                            class="mo-ub-back"
+                            @click.native.stop="volverAlaBusqueda"
+                        >
+                            <span class="mo-ub-name">‹ Volver a «{{ ubigeoQuery }}»</span>
+                            <span class="mo-ub-ctx">{{ ubigeoRuta }}</span>
+                        </el-option>
+                        <!-- Provincia y departamento NO son elegibles —el
+                             envio guarda un distrito—, pero SI se abren: antes
+                             la lista solo traia distritos sueltos y los demas
+                             de esa provincia no habia forma de verlos. -->
                         <el-option
                             v-for="r in ubigeoResults"
-                            :key="r.district_id"
-                            :label="r.name + ' — ' + r.province_name + ', ' + r.department_name"
-                            :value="r.district_id"
+                            :key="r.type === 'district' ? 'd' + r.district_id : r.type + r.province_id + '-' + r.department_id"
+                            :label="r.type === 'district' ? r.name + ' — ' + r.province_name + ', ' + r.department_name : r.name"
+                            :value="r.type === 'district' ? r.district_id : '__g' + r.type + (r.province_id || '') + (r.department_id || '')"
+                            :disabled="r.type !== 'district'"
+                            :class="r.type !== 'district' ? 'mo-ub-grupo' : ''"
+                            @click.native.stop="r.type !== 'district' && abrirGrupo(r)"
                         >
                             <span class="mo-ub-name">{{ r.name }}</span>
-                            <span class="mo-ub-ctx">{{ r.context }}</span>
+                            <span class="mo-ub-ctx">
+                                {{ r.context }}{{ cuantosHay(r) }}
+                            </span>
+                            <span v-if="r.type !== 'district'" class="mo-ub-chev">›</span>
                         </el-option>
                     </el-select>
                     <small v-if="destinoElegido" class="mo-hint">{{ destinoElegido }}</small>
@@ -526,6 +551,9 @@ export default {
             teniaLineas: true,
             destinoElegido: "",
             ubigeoResults: [],
+            // Donde estamos cuando se ha entrado en una provincia o un
+            // departamento: vacio = lo que devolvio la busqueda.
+            ubigeoRuta: "",
             ubigeoQuery: "",
             ubigeoLoading: false,
             // Por que no hay resultados, cuando el motivo NO es «no existe esa
@@ -640,6 +668,23 @@ export default {
          * faltaba, y lo reportaba —con razon— como «el boton guardar no
          * funciona». Dos listas habrian divergido al primer campo nuevo.
          */
+        /**
+         * ¿El pedido dice QUE lleva?
+         *
+         * Por cualquiera de las dos vias, no solo por el catalogo. Un encargo
+         * logistico —una caja que se manda por agencia y cuyo contenido se
+         * escribe a mano en el rotulo— no tiene producto del sistema que
+         * agregar, y exigirselo obligaba a inventarse uno. Se reporto asi:
+         * «me condiciona a agregar un producto del sistema, no importa si
+         * esta escrito manualmente».
+         *
+         * Sin modulo de Envios no hay rotulo: ahi la unica via es el catalogo.
+         */
+        hayContenido() {
+            if (this.form.items.length) return true;
+
+            return this.shippingModule && !!(this.packageContent || "").trim();
+        },
         queFalta() {
             const f = [];
             const pide = (cond, texto, donde) => { if (cond) f.push({ texto, donde }); };
@@ -660,8 +705,10 @@ export default {
             // una linea dejaba su ficha imposible de guardar: ni para
             // corregirle el telefono al cliente.
             pide(
-                !this.form.items.length && !(this.editando && !this.teniaLineas),
-                "Agrega al menos un producto, del catálogo o escrito a mano.",
+                !this.hayContenido && !(this.editando && !this.teniaLineas),
+                this.shippingModule
+                    ? "Di qué lleva el pedido: un producto del catálogo, o escríbelo a mano para el rótulo."
+                    : "Agrega al menos un producto del catálogo.",
                 "productos"
             );
 
@@ -708,7 +755,7 @@ export default {
 
             // Ver `sePuedeGuardar`: al encargo logistico no se le piden.
             if (!(this.editando && !this.teniaLineas)) {
-                req.push(!!this.form.items.length);
+                req.push(this.hayContenido);
             }
 
             if (this.destinoRequerido) {
@@ -800,6 +847,7 @@ export default {
             this.ubigeoResults = [];
             this.ubigeoFallo = "";
             this.ubigeoQuery = "";
+            this.ubigeoRuta = "";
             this.ubigeoLoading = false;
             this.nombreManual = false;
             this.nombreTraido = "";
@@ -967,6 +1015,11 @@ export default {
 
                 this.ubigeoResults = [
                     {
+                        // El `type` no es decorativo: las filas que no son
+                        // distrito se pintan deshabilitadas, y sin el la fila
+                        // sembrada del destino guardado se dibujaba gris y no
+                        // se podia volver a elegir.
+                        type: "district",
                         district_id: envio.district_id,
                         name: ciudad,
                         province_name: "",
@@ -1055,6 +1108,7 @@ export default {
          */
         buscarUbigeo(q) {
             this.ubigeoQuery = (q || "").trim();
+            this.ubigeoRuta = "";
 
             if (this.ubigeoQuery.length < 2) {
                 this.ubigeoResults = [];
@@ -1064,7 +1118,13 @@ export default {
             this.ubigeoLoading = true;
             this.ubigeoFallo = "";
             this.$http
-                .get("/orders/ubigeo/buscar", { params: { q: this.ubigeoQuery } })
+                // `v=2` pide ademas las filas de provincia y departamento. Sin
+                // ellas la respuesta son distritos sueltos y punto: quien
+                // escribia «Piura» veia cuatro o cinco y no tenia por donde
+                // llegar a los demas de esa misma provincia. El servicio ya
+                // sabia devolverlas —las usa el formulario publico de envios—,
+                // esta pantalla simplemente no las pedia.
+                .get("/orders/ubigeo/buscar", { params: { q: this.ubigeoQuery, v: 2 } })
                 .then(r => {
                     // La respuesta TIENE que ser una lista. Si llega otra cosa
                     // —lo tipico es el HTML del login cuando la sesion caduco,
@@ -1100,6 +1160,103 @@ export default {
                 .then(() => {
                     this.ubigeoLoading = false;
                 });
+        },
+
+        /** «· 23 distritos» detras del contexto de una fila de grupo. */
+        cuantosHay(r) {
+            if (r.type === "province" && r.district_count) {
+                return " · " + r.district_count + " distritos";
+            }
+            if (r.type === "department" && r.province_count) {
+                return " · " + r.province_count + " provincias";
+            }
+
+            return "";
+        },
+
+        /**
+         * Abre una provincia (sus distritos) o un departamento (sus
+         * provincias) DENTRO del mismo desplegable.
+         *
+         * El buscador puntua y corta: de una provincia grande solo asoman los
+         * distritos que mas se parecen a lo tecleado, y de un departamento no
+         * asoma ninguno —Lima son 171—. Eso esta bien para no llenar la lista
+         * de ruido, pero dejaba sin camino al operador que busca un distrito
+         * cuyo nombre no se parece al de su ciudad: Pariñas en Talara, Veintiseis
+         * de Octubre en Piura. Se reporto como «no me filtra las demas
+         * provincias de ese destino».
+         *
+         * Son los MISMOS endpoints de la cascada de Envios: no hay un segundo
+         * catalogo que mantener.
+         */
+        abrirGrupo(r) {
+            if (!r || r.type === "district") return;
+
+            const esProvincia = r.type === "province";
+            const url = esProvincia
+                ? "/orders/ubigeo/distritos/" + r.province_id
+                : "/orders/ubigeo/provincias/" + r.department_id;
+
+            this.ubigeoLoading = true;
+            this.ubigeoFallo = "";
+            this.$http
+                .get(url)
+                .then(resp => {
+                    // Misma trampa que en la busqueda: la sesion caducada
+                    // llega como el HTML del login con un 200.
+                    if (!Array.isArray(resp.data)) {
+                        this.ubigeoFallo =
+                            "Tu sesión caducó. Recarga la página (Ctrl+F5) y vuelve a entrar.";
+                        this.$message.error(this.ubigeoFallo);
+
+                        return;
+                    }
+
+                    this.ubigeoResults = resp.data.map(x =>
+                        esProvincia
+                            ? {
+                                  type: "district",
+                                  district_id: x.id,
+                                  province_id: r.province_id,
+                                  department_id: r.department_id,
+                                  name: x.description,
+                                  province_name: r.province_name || r.name,
+                                  department_name: r.department_name,
+                                  context:
+                                      "Distrito · " +
+                                      (r.province_name || r.name) +
+                                      " · " +
+                                      r.department_name,
+                              }
+                            : {
+                                  type: "province",
+                                  district_id: null,
+                                  province_id: x.id,
+                                  department_id: r.department_id,
+                                  name: x.description,
+                                  province_name: x.description,
+                                  department_name: r.name,
+                                  context: "Provincia · " + r.name,
+                              }
+                    );
+
+                    this.ubigeoRuta = esProvincia
+                        ? "Distritos de " + r.name
+                        : "Provincias de " + r.name;
+                })
+                .catch(() => {
+                    this.ubigeoFallo =
+                        "No se pudo abrir " + r.name + ". Reintenta.";
+                    this.$message.error(this.ubigeoFallo);
+                })
+                .then(() => {
+                    this.ubigeoLoading = false;
+                });
+        },
+
+        /** Deshace el `abrirGrupo` sin obligar a reescribir la búsqueda. */
+        volverAlaBusqueda() {
+            this.buscarUbigeo(this.ubigeoQuery);
         },
 
         /**
@@ -1426,6 +1583,12 @@ export default {
                         unit_price: l.unit_price,
                         discount: l.discount || 0,
                     })),
+                    // El rotulo se guarda en el ENVIO, en la peticion de
+                    // despues. Viaja tambien aqui porque es lo que permite al
+                    // servidor aceptar un pedido sin lineas: sin el, un
+                    // encargo escrito a mano seria indistinguible de un pedido
+                    // vacio.
+                    package_content: (this.packageContent || "").trim() || null,
                 })
                 .then(r => {
                     const d = r.data || {};
@@ -1728,7 +1891,43 @@ export default {
 .mo-ub-ctx {
     margin-left: 8px;
     font-size: 12px;
-    color: var(--muted);
+    /* Literal: ver el comentario de abajo. El desplegable vive fuera de `.mo`
+       y `var(--muted)` no llegaba hasta aqui. */
+    color: #6b7280;
+}
+
+/* Las filas de provincia y departamento van deshabilitadas para que no se
+   puedan elegir —el envio guarda un distrito—, pero NO son filas muertas: se
+   abren. Element las pinta en gris de «aqui no hay nada», que es justamente lo
+   contrario de lo que hacen, asi que se les devuelve el color y se les pone un
+   chevron.
+
+   Sin prefijo `.mo` y con colores literales a proposito: el desplegable de
+   Element se cuelga del <body>, fuera del formulario, asi que ni un selector
+   descendiente ni las variables declaradas en `.mo` llegan hasta aqui. */
+.mo-ub-grupo.is-disabled,
+.mo-ub-back.is-disabled {
+    cursor: pointer;
+}
+.mo-ub-grupo.is-disabled .mo-ub-name,
+.mo-ub-back.is-disabled .mo-ub-name {
+    color: #2563eb;
+}
+.mo-ub-grupo.is-disabled .mo-ub-ctx,
+.mo-ub-back.is-disabled .mo-ub-ctx {
+    color: #6b7280;
+}
+.mo-ub-grupo.is-disabled:hover,
+.mo-ub-back.is-disabled:hover {
+    background: #eff6ff;
+}
+.mo-ub-back.is-disabled {
+    border-bottom: 1px solid #e5e7eb;
+}
+.mo-ub-chev {
+    float: right;
+    color: #2563eb;
+    font-weight: 700;
 }
 
 /* Checkbox nativo: el de Element trae su propio tamaño de letra y su propio

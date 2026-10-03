@@ -2245,16 +2245,41 @@ class OrderController extends Controller
             ->all();
     }
 
+    /**
+     * Alta manual de un pedido.
+     *
+     * Las lineas son `present` y no `required|min:1`: un encargo logistico es
+     * un pedido SIN lineas de catalogo —lo que lleva la caja se escribe a mano
+     * y solo se imprime en el rotulo—, y exigir un producto del sistema
+     * obligaba a inventarse uno para poder registrar el encargo. Es lo que se
+     * reporto como «me condiciona a agregar un producto del sistema aunque
+     * este escrito a mano».
+     *
+     * Lo que SI se exige es que el pedido diga QUE lleva, por una de las dos
+     * vias. Un pedido sin lineas y sin rotulo no es un encargo: es un pedido
+     * vacio, y nadie sabria que meter en la caja.
+     */
     public function storeManual(Request $request)
     {
         $request->validate([
             'channel_id' => 'required|integer',
             'customer' => 'required|array',
             'customer.name' => 'required|string',
-            'items' => 'required|array|min:1',
+            'items' => 'present|array',
             'items.*.item_id' => 'required|integer',
             'items.*.quantity' => 'required|integer|min:1',
+            // Viaja solo para esta comprobacion: quien lo escribe en el envio
+            // es `POST /orders/{order}/envio`, que corre despues.
+            'package_content' => 'nullable|string',
         ]);
+
+        if (!count($request->input('items', [])) && !trim((string) $request->input('package_content'))) {
+            return response()->json([
+                'success' => false,
+                'message' => 'El pedido no dice que lleva. Agrega un producto del '
+                    . 'catalogo o escribe a mano el contenido para el rotulo.',
+            ], 422);
+        }
 
         $channel     = SalesChannel::findOrFail($request->channel_id);
         $warehouseId = $request->warehouse_id ?? $channel->warehouse_id;
