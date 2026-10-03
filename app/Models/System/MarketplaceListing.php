@@ -201,6 +201,100 @@ class MarketplaceListing extends Model
     }
 
     /**
+     * Tokeniza una query igual que scopeSearch: colapsa espacios y descarta
+     * palabras de 1 caracter (ruido), salvo que sea la unica. Compartido por
+     * scopeSearch y textRelevanceSql para que filtrar y ordenar usen SIEMPRE
+     * los mismos tokens.
+     *
+     * @return array<int,string>
+     */
+    public static function searchTokens(?string $q): array
+    {
+        if (!$q) return [];
+        $q = trim(preg_replace('/\s+/', ' ', $q));
+        if ($q === '') return [];
+
+        $tokens = array_values(array_filter(
+            explode(' ', $q),
+            fn ($t) => mb_strlen($t) >= 2
+        ));
+
+        return $tokens ?: [$q];
+    }
+
+    /**
+     * Expresion SQL de RELEVANCIA TEXTUAL para ordenar resultados de busqueda.
+     *
+     * Sin esto, scopeSearch filtra con LIKE '%token%' — que tambien casa a
+     * MITAD de palabra — y el orden se decide solo por destacados/vistas: al
+     * buscar "polo" el primer resultado era "esPOLOn calcaneo" porque tenia
+     * mas vistas que cualquier polo real. Aqui puntuamos cada token:
+     *
+     *   4 → el texto EMPIEZA por el token           ("polo manga corta")
+     *   3 → alguna PALABRA empieza por el token      ("camiseta polo")
+     *   2 → casa en el titulo (sin frontera)         tolerancia de respaldo
+     *   1 → solo casa a mitad de palabra             ("espolon")
+     *
+     * La puntuacion de los tokens se suma, asi una query de varias palabras
+     * premia al que acierta en todas. Los sinonimos de SearchSynonyms puntuan
+     * como el token original: si "polo" trajo "camiseta", esa camiseta merece
+     * la misma frontera de palabra.
+     *
+     * Devuelve null si no hay query (el llamante omite el termino).
+     *
+     * Los literales van INLINE y no como bindings a proposito: esta expresion
+     * se reutiliza dentro de un window function en el SELECT y otra vez en el
+     * ORDER BY, y duplicar bindings en dos sitios rompe el COUNT de la
+     * paginacion. Por eso cada token se sanea antes a solo letras, digitos y
+     * espacio — nada que pueda cerrar la cadena ni inyectar SQL.
+     */
+    public static function textRelevanceSql(?string $q): ?string
+    {
+        $tokens = static::searchTokens($q);
+        if (empty($tokens)) return null;
+
+        $terms = [];
+        foreach (array_slice($tokens, 0, 5) as $tok) {
+            $variants = array_filter(array_map(
+                [static::class, 'sanitizeSqlLiteral'],
+                \App\Services\System\SearchSynonyms::expand($tok)
+            ));
+            $plain = static::sanitizeSqlLiteral($tok);
+            if (empty($variants) && $plain === '') continue;
+
+            $startsWith = [];
+            $wordStart  = [];
+            foreach ($variants as $v) {
+                $startsWith[] = "search_text LIKE '{$v}%'";
+                $wordStart[]  = "search_text LIKE '% {$v}%'";
+            }
+            if (empty($startsWith)) continue;
+
+            $titleHit = $plain !== '' ? "title LIKE '%{$plain}%'" : '1 = 0';
+
+            $terms[] = '(CASE'
+                . ' WHEN ' . implode(' OR ', $startsWith) . ' THEN 4'
+                . ' WHEN ' . implode(' OR ', $wordStart) . ' THEN 3'
+                . " WHEN {$titleHit} THEN 2"
+                . ' ELSE 1 END)';
+        }
+
+        return empty($terms) ? null : '(' . implode(' + ', $terms) . ')';
+    }
+
+    /**
+     * Deja solo letras (con tildes), digitos, espacio y guion: lo justo para
+     * un LIKE. Todo lo demas se cae, de modo que el resultado es seguro de
+     * interpolar entre comillas simples en SQL.
+     */
+    protected static function sanitizeSqlLiteral(string $token): string
+    {
+        $clean = preg_replace('/[^\p{L}\p{N} \-]+/u', '', $token);
+
+        return mb_substr(trim((string) $clean), 0, 60, 'UTF-8');
+    }
+
+    /**
      * Búsqueda tolerante: divide la query en palabras y exige que CADA
      * palabra aparezca en title/category/brand. Asi 'x 24' encuentra
      * 'x24 Hojas', 'planta artificial' encuentra 'planta de bambu artificial',
@@ -210,17 +304,10 @@ class MarketplaceListing extends Model
      */
     public function scopeSearch($query, ?string $q)
     {
-        if (!$q) return $query;
-        $q = trim(preg_replace('/\s+/', ' ', $q));
-        if ($q === '') return $query;
-
         // Tokenizar: cada palabra >=2 chars se exige presente. Tokens cortos
         // (1 char) suelen ser ruido — los ignoramos a menos que sea el unico.
-        $tokens = array_filter(
-            explode(' ', $q),
-            fn ($t) => mb_strlen($t) >= 2
-        );
-        if (empty($tokens)) $tokens = [$q]; // fallback: todo como un solo token
+        $tokens = static::searchTokens($q);
+        if (empty($tokens)) return $query;
 
         return $query->where(function ($w) use ($tokens) {
             foreach ($tokens as $tok) {

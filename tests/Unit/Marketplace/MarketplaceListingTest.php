@@ -91,4 +91,71 @@ class MarketplaceListingTest extends TestCase
         $this->assertSame('float', $casts['avg_rating']);
         $this->assertSame('float', $casts['mp_price']);
     }
+
+    // ───────── Tokenizado y relevancia textual del buscador ─────────
+
+    public function test_search_tokens_descarta_palabras_de_un_caracter()
+    {
+        $this->assertSame(['polo', 'manga'], MarketplaceListing::searchTokens('polo a manga'));
+    }
+
+    public function test_search_tokens_colapsa_espacios_y_devuelve_vacio_sin_query()
+    {
+        $this->assertSame(['polo', 'rojo'], MarketplaceListing::searchTokens('  polo   rojo '));
+        $this->assertSame([], MarketplaceListing::searchTokens(null));
+        $this->assertSame([], MarketplaceListing::searchTokens('   '));
+    }
+
+    public function test_search_tokens_conserva_el_token_de_un_caracter_si_es_el_unico()
+    {
+        $this->assertSame(['x'], MarketplaceListing::searchTokens('x'));
+    }
+
+    public function test_text_relevance_puntua_frontera_de_palabra_por_encima_del_substring()
+    {
+        $sql = MarketplaceListing::textRelevanceSql('polo');
+
+        // Empieza por el token → 4; palabra que empieza por el token → 3.
+        $this->assertStringContainsString("search_text LIKE 'polo%' ", $sql);
+        $this->assertStringContainsString("THEN 4", $sql);
+        $this->assertStringContainsString("search_text LIKE '% polo%'", $sql);
+        $this->assertStringContainsString("THEN 3", $sql);
+        // Y el substring suelto (el caso "espolon") se queda en el suelo.
+        $this->assertStringContainsString('ELSE 1 END', $sql);
+    }
+
+    public function test_text_relevance_incluye_los_sinonimos_del_token()
+    {
+        $sql = MarketplaceListing::textRelevanceSql('polo');
+
+        $this->assertStringContainsString("search_text LIKE 'camiseta%'", $sql);
+    }
+
+    public function test_text_relevance_suma_un_termino_por_token()
+    {
+        $sql = MarketplaceListing::textRelevanceSql('polo rojo');
+
+        $this->assertSame(2, substr_count($sql, 'CASE WHEN'));
+        $this->assertStringContainsString(') + (', $sql);
+    }
+
+    public function test_text_relevance_es_null_sin_query_util()
+    {
+        $this->assertNull(MarketplaceListing::textRelevanceSql(null));
+        $this->assertNull(MarketplaceListing::textRelevanceSql(''));
+        // Query sin letras ni digitos: no hay nada que puntuar.
+        $this->assertNull(MarketplaceListing::textRelevanceSql('!!'));
+    }
+
+    public function test_text_relevance_sanea_comillas_y_comodines_like()
+    {
+        // Los literales van inline en el SQL: nada que pueda cerrar la cadena
+        // ni convertirse en comodin debe sobrevivir.
+        $sql = MarketplaceListing::textRelevanceSql("o'brien 50%_x");
+
+        $this->assertStringNotContainsString("o'brien", $sql);
+        $this->assertStringContainsString('obrien', $sql);
+        $this->assertStringNotContainsString('%_', $sql);
+        $this->assertStringContainsString('50x', $sql);
+    }
 }

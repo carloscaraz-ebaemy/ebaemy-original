@@ -118,8 +118,16 @@ class MarketplaceController extends Controller
                 // de novedad va INLINE (no binding) a propósito: así no aparece en
                 // el SELECT/ORDER del COUNT de la paginación y no rompe el conteo.
                 $newCut = now()->subDays(14)->toDateTimeString();
+
+                // Con query de texto, la RELEVANCIA TEXTUAL manda sobre todo
+                // lo demas: no sirve que un destacado con muchas vistas se
+                // cuele arriba si solo casa a mitad de palabra (buscar "polo"
+                // devolvia "espolon calcaneo" primero). Ver
+                // MarketplaceListing::textRelevanceSql.
+                $textRelevance = MarketplaceListing::textRelevanceSql($q);
                 $relevanceOrder =
-                    "CASE WHEN is_featured = 1 AND (featured_until IS NULL OR featured_until > NOW()) THEN 1 ELSE 0 END DESC, "
+                    ($textRelevance ? "{$textRelevance} DESC, " : '')
+                    . "CASE WHEN is_featured = 1 AND (featured_until IS NULL OR featured_until > NOW()) THEN 1 ELSE 0 END DESC, "
                     . "featured_score DESC, "
                     . "CASE WHEN created_at >= '{$newCut}' THEN 1 ELSE 0 END DESC, "
                     . "sort_score DESC, "
@@ -128,8 +136,15 @@ class MarketplaceController extends Controller
                 $query->selectRaw(
                         "marketplace_listings.*, "
                         . "ROW_NUMBER() OVER (PARTITION BY hostname_id ORDER BY {$relevanceOrder}) AS tenant_rank"
-                    )
-                    ->orderBy('tenant_rank')            // round-robin entre tiendas
+                    );
+                // Con busqueda de texto: primero el grado de acierto, y la
+                // diversidad de tiendas intercala DENTRO de cada grado. Asi se
+                // conserva el round-robin (es intencional) sin que un match
+                // flojo de otra tienda adelante al producto que se buscaba.
+                if ($textRelevance) {
+                    $query->orderByRaw("{$textRelevance} DESC");
+                }
+                $query->orderBy('tenant_rank')          // round-robin entre tiendas
                     ->orderByDesc('tenant_verified')    // dentro de cada ronda, verificadas primero
                     ->orderByRaw($relevanceOrder);      // y luego por relevancia
         }
@@ -480,29 +495,21 @@ class MarketplaceController extends Controller
             return response()->json($this->suggestPopular());
         }
 
-        $cacheKey = 'mp_suggest_v3_' . md5(mb_strtolower($q));
+        $cacheKey = 'mp_suggest_v4_' . md5(mb_strtolower($q));
         $data = \Cache::remember($cacheKey, 60, function () use ($q) {
             $qNorm = trim(preg_replace('/\s+/', ' ', $q));
-            $tokens = array_filter(explode(' ', $qNorm), fn ($t) => mb_strlen($t) >= 2);
-            if (empty($tokens)) $tokens = [$qNorm];
+
+            // El filtro es el MISMO scopeSearch del listado — antes estaba
+            // duplicado aqui y las dos busquedas podian discrepar.
+            // Relevancia textual primero: el desplegable solo tiene 8 huecos,
+            // no puede gastarlos en coincidencias a mitad de palabra con
+            // muchas vistas. Puede venir null (query sin letras ni digitos,
+            // tipo '!!'): entonces se omite el termino.
+            $textRelevance = MarketplaceListing::textRelevanceSql($qNorm);
 
             $listings = MarketplaceListing::published()
-                ->where(function ($w) use ($tokens) {
-                    foreach ($tokens as $tok) {
-                        $like = '%' . $tok . '%';
-                        // Sinónimos + sin acentos (search_text) + SKU.
-                        $variants = \App\Services\System\SearchSynonyms::expand($tok);
-                        $w->where(function ($sub) use ($like, $variants) {
-                            foreach ($variants as $v) {
-                                $sub->orWhere('search_text', 'like', '%' . $v . '%');
-                            }
-                            $sub->orWhere('title', 'like', $like)
-                                ->orWhere('internal_id', 'like', $like)
-                                ->orWhere('brand_name', 'like', $like)
-                                ->orWhere('category_name', 'like', $like);
-                        });
-                    }
-                })
+                ->search($qNorm)
+                ->when($textRelevance, fn ($qb) => $qb->orderByRaw("{$textRelevance} DESC"))
                 ->orderByRaw('CASE WHEN is_featured = 1 AND (featured_until IS NULL OR featured_until > NOW()) THEN 1 ELSE 0 END DESC')
                 ->orderByDesc('view_count')
                 ->limit(8)

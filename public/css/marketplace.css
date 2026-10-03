@@ -140,7 +140,12 @@ button { font-family: inherit; cursor: pointer; }
     background: #fff;
     border: 1.5px solid var(--mp-line);
     border-radius: 12px;
-    overflow: hidden;
+    /* SIN overflow:hidden — el dropdown de sugerencias (#mpSearchSuggest) es
+       absolute con top:100%, o sea FUERA de esta caja: un overflow:hidden aqui
+       lo recorta por completo y el autocompletado deja de verse (obligando a
+       pulsar el boton Buscar). El redondeo de las esquinas se consigue
+       redondeando los hijos de los extremos, no recortando al padre. */
+    overflow: visible;
     transition: border-color .2s var(--mp-ease), box-shadow .2s var(--mp-ease);
     min-width: 0;
 }
@@ -182,7 +187,15 @@ button { font-family: inherit; cursor: pointer; }
     transition: filter .15s;
 }
 .mp-search-btn:hover { filter: brightness(1.07); }
-@media (min-width: 900px) { .mp-search-category { display: block; } }
+/* Esquinas del pill, ahora que el padre no recorta. */
+.mp-search-category { border-radius: 10.5px 0 0 10.5px; }
+.mp-search-input    { border-radius: 10.5px 0 0 10.5px; }
+.mp-search-btn      { border-radius: 0 10.5px 10.5px 0; }
+@media (min-width: 900px) {
+    .mp-search-category { display: block; }
+    /* Con el selector de categorias visible, el input ya no es el extremo. */
+    .mp-search-input { border-radius: 0; }
+}
 
 /* Nav right ─ */
 .mp-nav-actions {
