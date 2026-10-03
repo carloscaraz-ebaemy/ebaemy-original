@@ -1941,27 +1941,35 @@ button { font-family: inherit; cursor: pointer; }
     text-decoration: none;
 }
 .mp-search-suggest__seemore:hover { background: rgba(15,138,130,.10); }
-.mp-search-suggest__cats {
+.mp-search-suggest__header--row {
     display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    padding: 6px 14px 12px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding-right: 8px;
 }
-.mp-search-suggest__cat {
-    display: inline-block;
-    padding: 5px 12px;
-    border: 1px solid #e2e8f0;
-    border-radius: 999px;
-    font-size: 12.5px;
-    font-weight: 600;
+.mp-search-suggest__clear {
+    border: 0;
+    background: none;
+    padding: 4px 6px;
+    font: inherit;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: .5px;
+    text-transform: uppercase;
     color: var(--mp-primary-dark);
-    text-decoration: none;
-    background: #fff;
-    transition: all .15s;
+    cursor: pointer;
+    border-radius: 6px;
 }
-.mp-search-suggest__cat:hover {
-    background: rgba(15,138,130,.08);
-    border-color: var(--mp-primary);
+.mp-search-suggest__clear:hover { background: rgba(15,138,130,.10); }
+.mp-search-suggest__item--recent { padding: 10px 14px; }
+.mp-search-suggest__item--recent .mp-search-suggest__title {
+    font-size: 13.5px;
+    white-space: normal;
+}
+.mp-search-suggest__recent-icon {
+    flex-shrink: 0;
+    color: var(--mp-muted);
 }
 
 .mp-review-form-wrap {
@@ -2518,8 +2526,18 @@ button { font-family: inherit; cursor: pointer; }
     .mp-nav-link { padding: 8px 10px; }
     .mp-btn-sell { display: none; }
     .mp-search-btn { width: 48px; }
-    .mp-search-input { padding: 12px 14px; font-size: 14px; }
+    /* 16px o iOS hace zoom al enfocar el input. */
+    .mp-search-input { padding: 12px 14px; font-size: 16px; }
     .mp-search-category { display: none; }
+    .mp-search-suggest {
+        max-height: min(58vh, 420px);
+        -webkit-overflow-scrolling: touch;
+    }
+    .mp-search-suggest__item { padding: 11px 12px; min-height: 48px; }
+    .mp-search-suggest__item--recent { padding: 13px 12px; }
+    .mp-search-suggest__thumb { width: 38px; height: 38px; }
+    .mp-search-suggest__clear { padding: 8px 10px; }
+    .mp-search-suggest__price { font-size: 13px; }
 }
 
 /* ─ Section separator sutil ─ */

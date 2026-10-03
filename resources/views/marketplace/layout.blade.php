@@ -945,7 +945,11 @@ window.mpCouponTenantIds = []; // hostname_ids donde el user tiene cupn
 @endif
 
 {{-- ═══════════════════════ SEARCH AUTOCOMPLETE ═══════════════════════
-     Debounce 250ms; pega al endpoint searchSuggest (cache 60s server-side).
+     Al enfocar el buscador NO se muestran productos: o sale el historial
+     de lo que este navegador buscó antes, o no sale nada (primera visita).
+     Las sugerencias aparecen al teclear ≥2 caracteres (debounce 250ms,
+     endpoint searchSuggest con cache 60s). Sin bloque de categorías: el
+     drawer "Categorías" ya las cubre y aquí llenaban la pantalla.
      ↑/↓ navegan, Enter abre la suggestion activa o submitea el form. --}}
 <script>
 (function(){
@@ -956,6 +960,8 @@ window.mpCouponTenantIds = []; // hostname_ids donde el user tiene cupn
 
     const SUGGEST_URL = @json(route('marketplace.search.suggest'));
     const SEARCH_BASE = @json(route('marketplace.index'));
+    const HISTORY_KEY = 'mp_recent_searches';
+    const HISTORY_MAX = 6;
     let timer = null;
     let lastQ = '';
     let activeIdx = -1;
@@ -964,6 +970,30 @@ window.mpCouponTenantIds = []; // hostname_ids donde el user tiene cupn
     const esc = s => String(s).replace(/[&<>"']/g, c => ({
         '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
     }[c]));
+
+    /* Historial local: no sale de este navegador. */
+    function historyRead() {
+        try {
+            const raw = localStorage.getItem(HISTORY_KEY);
+            if (!raw) return [];
+            const arr = JSON.parse(raw);
+            return Array.isArray(arr)
+                ? arr.filter(t => typeof t === 'string' && t.trim()).slice(0, HISTORY_MAX)
+                : [];
+        } catch (e) { return []; } /* modo privado o storage bloqueado */
+    }
+    function historyPush(q) {
+        q = String(q || '').trim().replace(/\s+/g, ' ').slice(0, 60);
+        if (q.length < 2) return;
+        try {
+            const low = q.toLowerCase();
+            const next = [q, ...historyRead().filter(t => t.toLowerCase() !== low)].slice(0, HISTORY_MAX);
+            localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
+        } catch (e) { /* sin storage el buscador sigue funcionando */ }
+    }
+    function historyClear() {
+        try { localStorage.removeItem(HISTORY_KEY); } catch (e) {}
+    }
 
     function close() {
         dropdown.classList.remove('is-open');
@@ -995,28 +1025,28 @@ window.mpCouponTenantIds = []; // hostname_ids donde el user tiene cupn
             </a>`;
     }
 
-    // Bloques de populares + categorías (foco vacío y "sin resultados").
-    function popularBlocks(data) {
-        let html = '';
-        const popular = data.popular || [];
-        const cats = data.categories || [];
-        if (popular.length) {
-            html += '<div class="mp-search-suggest__section">';
-            html += '<div class="mp-search-suggest__header">Productos populares</div>';
-            popular.forEach((s, i) => { html += productItemHtml(s, i); });
-            html += '</div>';
-        }
-        if (cats.length) {
-            html += '<div class="mp-search-suggest__section">';
-            html += '<div class="mp-search-suggest__header">Categorías</div>';
-            html += '<div class="mp-search-suggest__cats">';
-            cats.forEach(c => {
-                const url = `${SEARCH_BASE}?q=${encodeURIComponent(c)}`;
-                html += `<a class="mp-search-suggest__cat" href="${url}">${esc(c)}</a>`;
-            });
-            html += '</div></div>';
-        }
-        return html;
+    /* Input vacío: sólo el historial. Sin historial el desplegable no se abre. */
+    function renderHistory() {
+        const hist = historyRead();
+        if (!hist.length) { close(); return false; }
+        let html = '<div class="mp-search-suggest__section">';
+        html += '<div class="mp-search-suggest__header mp-search-suggest__header--row">'
+             +  '<span>Tus búsquedas recientes</span>'
+             +  '<button type="button" class="mp-search-suggest__clear" data-clear="1">Borrar</button>'
+             +  '</div>';
+        hist.forEach((t, i) => {
+            html += `
+                <a class="mp-search-suggest__item mp-search-suggest__item--recent" data-idx="${i}" data-q="${esc(t)}" href="${SEARCH_BASE}?q=${encodeURIComponent(t)}">
+                    <svg class="mp-search-suggest__recent-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg>
+                    <span class="mp-search-suggest__title">${esc(t)}</span>
+                </a>`;
+        });
+        html += '</div>';
+        dropdown.innerHTML = html;
+        items = Array.from(dropdown.querySelectorAll('.mp-search-suggest__item'));
+        activeIdx = -1;
+        open();
+        return true;
     }
 
     function render(data, q) {
@@ -1024,41 +1054,34 @@ window.mpCouponTenantIds = []; // hostname_ids donde el user tiene cupn
         const shops = data.shops || [];
         let html = '';
 
-        if (sug.length || shops.length) {
-            if (sug.length) {
-                html += '<div class="mp-search-suggest__section">';
-                html += '<div class="mp-search-suggest__header">Productos</div>';
-                sug.forEach((s, i) => { html += productItemHtml(s, i); });
-                html += '</div>';
-            }
-            if (shops.length) {
-                html += '<div class="mp-search-suggest__section">';
-                html += '<div class="mp-search-suggest__header">Tiendas</div>';
-                shops.forEach(sh => {
-                    const url = SEARCH_BASE + '/tienda/' + encodeURIComponent(sh.subdomain || '');
-                    html += `
-                        <a class="mp-search-suggest__item" href="${url}">
-                            <div class="mp-search-suggest__thumb" style="display:flex;align-items:center;justify-content:center;font-size:18px">🏪</div>
-                            <div class="mp-search-suggest__info">
-                                <span class="mp-search-suggest__title">${esc(sh.name)}</span>
-                                <span class="mp-search-suggest__meta">${sh.products_count} productos</span>
-                            </div>
-                        </a>`;
-                });
-                html += '</div>';
-            }
+        if (sug.length) {
+            html += '<div class="mp-search-suggest__section">';
+            html += '<div class="mp-search-suggest__header">Productos</div>';
+            sug.forEach((s, i) => { html += productItemHtml(s, i); });
+            html += '</div>';
+        }
+        if (shops.length) {
+            html += '<div class="mp-search-suggest__section">';
+            html += '<div class="mp-search-suggest__header">Tiendas</div>';
+            shops.forEach(sh => {
+                const url = SEARCH_BASE + '/tienda/' + encodeURIComponent(sh.subdomain || '');
+                html += `
+                    <a class="mp-search-suggest__item" href="${url}">
+                        <div class="mp-search-suggest__thumb" style="display:flex;align-items:center;justify-content:center;font-size:18px">🏪</div>
+                        <div class="mp-search-suggest__info">
+                            <span class="mp-search-suggest__title">${esc(sh.name)}</span>
+                            <span class="mp-search-suggest__meta">${sh.products_count} productos</span>
+                        </div>
+                    </a>`;
+            });
+            html += '</div>';
+        }
+
+        if (html) {
             html += `<a class="mp-search-suggest__seemore" href="${SEARCH_BASE}?q=${encodeURIComponent(q)}">Ver todos los resultados →</a>`;
         } else {
-            // Sin resultados (q presente) o foco vacío (q vacío) → populares + categorías.
-            if (q) {
-                html += `<div class="mp-search-suggest__empty">Sin resultados para "${esc(q)}". Quizás te interese:</div>`;
-            }
-            const blocks = popularBlocks(data);
-            html += blocks;
-            if (!blocks && q) {
-                html = `<div class="mp-search-suggest__empty">Sin resultados para "${esc(q)}"</div>`;
-            }
-            if (!html) return; // nada que mostrar
+            /* Sin resultados se dice y nada más: no se rellena con populares. */
+            html = `<div class="mp-search-suggest__empty">Sin resultados para "${esc(q)}"</div>`;
         }
 
         dropdown.innerHTML = html;
@@ -1074,7 +1097,7 @@ window.mpCouponTenantIds = []; // hostname_ids donde el user tiene cupn
                 credentials: 'same-origin'
             });
             const data = await res.json();
-            if (q !== lastQ) return; // descartar respuestas viejas
+            if (q !== lastQ) return; /* descartar respuestas viejas */
             render(data, q);
         } catch (e) { /* silencio: red caída no debe romper UI */ }
     }
@@ -1083,7 +1106,7 @@ window.mpCouponTenantIds = []; // hostname_ids donde el user tiene cupn
         const q = input.value.trim();
         lastQ = q;
         clearTimeout(timer);
-        if (q.length < 2) { close(); return; }
+        if (q.length < 2) { renderHistory(); return; }
         timer = setTimeout(() => fetchSuggest(q), 250);
     });
 
@@ -1104,22 +1127,39 @@ window.mpCouponTenantIds = []; // hostname_ids donde el user tiene cupn
         } else if (e.key === 'Enter') {
             if (activeIdx >= 0 && items[activeIdx]) {
                 e.preventDefault();
-                window.location.href = items[activeIdx].href;
+                const el = items[activeIdx];
+                historyPush(el.dataset.q || input.value);
+                window.location.href = el.href;
             }
         } else if (e.key === 'Escape') {
             close();
         }
     });
 
-    // Cerrar al click fuera
+    /* Lo que se busca se guarda; lo que se elige del desplegable también. */
+    form.addEventListener('submit', () => historyPush(input.value));
+    dropdown.addEventListener('click', (e) => {
+        if (e.target.closest('[data-clear]')) {
+            e.preventDefault();
+            historyClear();
+            close();
+            input.focus();
+            return;
+        }
+        const recent = e.target.closest('.mp-search-suggest__item--recent');
+        if (recent) { historyPush(recent.dataset.q || ''); return; }
+        if (e.target.closest('.mp-search-suggest__item, .mp-search-suggest__seemore')) historyPush(input.value);
+    });
+
+    /* Cerrar al click fuera */
     document.addEventListener('click', (e) => {
         if (!form.contains(e.target)) close();
     });
     input.addEventListener('focus', () => {
         const q = input.value.trim();
         if (q.length >= 2 && dropdown.innerHTML) { open(); return; }
-        // Foco con input vacío → sugerencias populares + categorías.
-        if (q.length < 2) { lastQ = ''; fetchSuggest(''); }
+        /* Foco con el input vacío: historial o nada, y cero peticiones. */
+        if (q.length < 2) { lastQ = q; renderHistory(); }
     });
 })();
 </script>
