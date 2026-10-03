@@ -237,42 +237,84 @@
                         no-match-text="Sin coincidencias"
                         @change="alElegirUbigeo"
                     >
-                        <!-- Volver: sin esto, entrar en una provincia era un
-                             viaje de ida. Borrar lo escrito para rehacer la
-                             busqueda no es una salida, es una penitencia. -->
-                        <el-option
-                            v-if="ubigeoRuta"
-                            key="__volver"
-                            value="__volver"
-                            label="Volver"
-                            disabled
-                            class="mo-ub-back"
-                            @click.native.stop="volverAlaBusqueda"
+                        <!-- Tres secciones con titulo, y no una lista
+                             corrida de filas que hay que adivinar. La version
+                             anterior mezclaba lo que se elige con lo que se
+                             abre, distinguiendolos solo por un gris y un
+                             chevron: se reporto como «es muy confuso».
+
+                             Aqui cada seccion dice que es y cada fila dice que
+                             hace. Lo que se elige va primero, porque es lo que
+                             se busca el 90% de las veces. -->
+                        <el-option-group v-if="ubigeoRuta" :label="ubigeoRuta">
+                            <!-- Sin esto, entrar en una provincia era un viaje
+                                 de ida: borrar lo escrito para rehacer la
+                                 busqueda no es una salida, es una penitencia. -->
+                            <el-option
+                                key="__volver"
+                                value="__volver"
+                                label="Volver"
+                                disabled
+                                class="mo-ub-act"
+                                @click.native.stop="volverAlaBusqueda"
+                            >
+                                <span class="mo-ub-name">
+                                    ← Volver a los resultados de «{{ ubigeoQuery }}»
+                                </span>
+                            </el-option>
+                        </el-option-group>
+
+                        <el-option-group
+                            v-if="ubigeoDistritos.length"
+                            :label="ubigeoRuta ? 'Elige el distrito' : 'Elige la ciudad o distrito'"
                         >
-                            <span class="mo-ub-name">‹ Volver a «{{ ubigeoQuery }}»</span>
-                            <span class="mo-ub-ctx">{{ ubigeoRuta }}</span>
-                        </el-option>
-                        <!-- Provincia y departamento NO son elegibles —el
-                             envio guarda un distrito—, pero SI se abren: antes
-                             la lista solo traia distritos sueltos y los demas
-                             de esa provincia no habia forma de verlos. -->
-                        <el-option
-                            v-for="r in ubigeoResults"
-                            :key="r.type === 'district' ? 'd' + r.district_id : r.type + r.province_id + '-' + r.department_id"
-                            :label="r.type === 'district' ? r.name + ' — ' + r.province_name + ', ' + r.department_name : r.name"
-                            :value="r.type === 'district' ? r.district_id : '__g' + r.type + (r.province_id || '') + (r.department_id || '')"
-                            :disabled="r.type !== 'district'"
-                            :class="r.type !== 'district' ? 'mo-ub-grupo' : ''"
-                            @click.native.stop="r.type !== 'district' && abrirGrupo(r)"
+                            <el-option
+                                v-for="r in ubigeoDistritos"
+                                :key="'d' + r.district_id"
+                                :label="r.name + ' — ' + r.province_name + ', ' + r.department_name"
+                                :value="r.district_id"
+                            >
+                                <span class="mo-ub-name">{{ r.name }}</span>
+                                <span class="mo-ub-ctx">{{ r.context }}</span>
+                            </el-option>
+                        </el-option-group>
+
+                        <!-- Provincia y departamento NO se pueden elegir —el
+                             envio guarda un distrito—, pero SI se abren. Van
+                             en su propia seccion y escritos como lo que hacen
+                             («Ver los 6 distritos de Talara»), no como un
+                             nombre suelto que parecia elegible y no lo era. -->
+                        <el-option-group
+                            v-if="ubigeoZonas.length"
+                            :label="ubigeoRuta
+                                ? 'Elige la provincia'
+                                : '¿No está en la lista? Ábrela por aquí'"
                         >
-                            <span class="mo-ub-name">{{ r.name }}</span>
-                            <span class="mo-ub-ctx">
-                                {{ r.context }}{{ cuantosHay(r) }}
-                            </span>
-                            <span v-if="r.type !== 'district'" class="mo-ub-chev">›</span>
-                        </el-option>
+                            <el-option
+                                v-for="r in ubigeoZonas"
+                                :key="r.type + (r.province_id || '') + '-' + (r.department_id || '')"
+                                :label="r.name"
+                                :value="'__g' + r.type + (r.province_id || '') + (r.department_id || '')"
+                                disabled
+                                class="mo-ub-act"
+                                @click.native.stop="abrirGrupo(r)"
+                            >
+                                <span class="mo-ub-name">{{ textoZona(r) }}</span>
+                                <span class="mo-ub-ctx">{{ r.context }}</span>
+                                <span class="mo-ub-chev">›</span>
+                            </el-option>
+                        </el-option-group>
                     </el-select>
-                    <small v-if="destinoElegido" class="mo-hint">{{ destinoElegido }}</small>
+                    <!-- Que la lista se pueda abrir por provincia hay que
+                         DECIRLO: quien no lo sabe, cuando su distrito no sale
+                         a la primera, da por hecho que no esta. -->
+                    <small v-if="destinoElegido" class="mo-hint mo-hint--ok">
+                        Enviamos a {{ destinoElegido }}
+                    </small>
+                    <small v-else class="mo-hint">
+                        Escribe la ciudad. Si no sale la que buscas, abre su
+                        provincia desde la misma lista.
+                    </small>
                 </div>
 
                 <div class="mo-f">
@@ -668,6 +710,16 @@ export default {
          * faltaba, y lo reportaba —con razon— como «el boton guardar no
          * funciona». Dos listas habrian divergido al primer campo nuevo.
          */
+        /** Lo que se puede ELEGIR: el envio guarda un distrito. */
+        ubigeoDistritos() {
+            return (this.ubigeoResults || []).filter(r => r.type === "district");
+        },
+
+        /** Lo que se puede ABRIR: provincias y departamentos. */
+        ubigeoZonas() {
+            return (this.ubigeoResults || []).filter(r => r.type && r.type !== "district");
+        },
+
         /**
          * ¿El pedido dice QUE lleva?
          *
@@ -1162,16 +1214,24 @@ export default {
                 });
         },
 
-        /** «· 23 distritos» detras del contexto de una fila de grupo. */
-        cuantosHay(r) {
-            if (r.type === "province" && r.district_count) {
-                return " · " + r.district_count + " distritos";
-            }
-            if (r.type === "department" && r.province_count) {
-                return " · " + r.province_count + " provincias";
+        /**
+         * Lo que la fila HACE, escrito entero.
+         *
+         * Antes ponia solo el nombre («Talara») y se distinguia de un distrito
+         * por un gris y un chevron. Eso no se lee: parecia una opcion elegible
+         * que ademas estaba deshabilitada, que es justo lo contrario de lo que
+         * es. Con la cuenta delante tambien se sabe a que se entra.
+         */
+        textoZona(r) {
+            if (r.type === "province") {
+                return r.district_count
+                    ? "Ver los " + r.district_count + " distritos de " + r.name
+                    : "Ver los distritos de " + r.name;
             }
 
-            return "";
+            return r.province_count
+                ? "Ver las " + r.province_count + " provincias de " + r.name
+                : "Ver las provincias de " + r.name;
         },
 
         /**
@@ -1783,6 +1843,11 @@ export default {
 .mo-hint.is-warn {
     color: #b45309;
 }
+/* Despues de `.mo-hint` y no antes: misma especificidad, gana la ultima. */
+.mo-hint--ok {
+    color: #15803d;
+    font-weight: 600;
+}
 .mo-err {
     display: block;
     font-size: 12px;
@@ -1896,33 +1961,27 @@ export default {
     color: #6b7280;
 }
 
-/* Las filas de provincia y departamento van deshabilitadas para que no se
-   puedan elegir —el envio guarda un distrito—, pero NO son filas muertas: se
-   abren. Element las pinta en gris de «aqui no hay nada», que es justamente lo
-   contrario de lo que hacen, asi que se les devuelve el color y se les pone un
-   chevron.
+/* Las filas que se ABREN (volver, provincia, departamento) van deshabilitadas
+   para que no se puedan elegir —el envio guarda un distrito—, y Element las
+   pinta en el gris de «aqui no hay nada», que es justo lo contrario de lo que
+   hacen. Se les devuelve el color, el cursor y el peso.
 
    Sin prefijo `.mo` y con colores literales a proposito: el desplegable de
    Element se cuelga del <body>, fuera del formulario, asi que ni un selector
    descendiente ni las variables declaradas en `.mo` llegan hasta aqui. */
-.mo-ub-grupo.is-disabled,
-.mo-ub-back.is-disabled {
+.mo-ub-act.is-disabled {
     cursor: pointer;
+    background: #f8fafc;
 }
-.mo-ub-grupo.is-disabled .mo-ub-name,
-.mo-ub-back.is-disabled .mo-ub-name {
+.mo-ub-act.is-disabled .mo-ub-name {
     color: #2563eb;
+    font-weight: 600;
 }
-.mo-ub-grupo.is-disabled .mo-ub-ctx,
-.mo-ub-back.is-disabled .mo-ub-ctx {
+.mo-ub-act.is-disabled .mo-ub-ctx {
     color: #6b7280;
 }
-.mo-ub-grupo.is-disabled:hover,
-.mo-ub-back.is-disabled:hover {
+.mo-ub-act.is-disabled:hover {
     background: #eff6ff;
-}
-.mo-ub-back.is-disabled {
-    border-bottom: 1px solid #e5e7eb;
 }
 .mo-ub-chev {
     float: right;
