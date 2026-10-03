@@ -41,6 +41,7 @@ Cualquier agente puede leer este fichero cuando necesite el mapa completo.
 | A17 | Seguridad | crítica | — |
 | A18 | QA y Regresión | controlada | — |
 | A19 | Plataforma y Despliegue | crítica | — |
+| A20 | Imágenes | controlada | — |
 
 ---
 
