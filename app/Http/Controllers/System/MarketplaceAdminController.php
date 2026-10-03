@@ -296,13 +296,104 @@ class MarketplaceAdminController extends Controller
             ['stage' => 'Pedidos', 'value' => $kpis['orders'], 'rate' => $kpis['views'] > 0 ? round($kpis['orders'] / $kpis['views'] * 100, 2) : 0],
         ];
 
+        // ── Informe por campaña ────────────────────────────────────────────────
+        //
+        // De dónde vino cada pedido. Lo llena el middleware mp.attribution en
+        // el primer aterrizaje del visitante y se escribe al crear el pedido.
+        //
+        // Se lee de `marketplace_orders` (el pedido PADRE, que es donde vive la
+        // atribución), no de `tenant_marketplace_orders` como el KPI de arriba.
+        // Por eso los dos números no coinciden y no deben: un pedido con
+        // productos de tres tiendas es 1 aquí y 3 allá. La vista lo dice.
+        //
+        // Tampoco aplica el filtro de tienda: una campaña es del marketplace y
+        // un pedido padre puede repartirse entre varias tiendas, así que
+        // recortarlo por una sola daría un ingreso inflado.
+        $campaignOrders = $conn->table('marketplace_orders')
+            ->whereBetween('created_at', [$from . ' 00:00:00', $to . ' 23:59:59'])
+            ->selectRaw("COALESCE(NULLIF(utm_source, ''), '')   as source,
+                         COALESCE(NULLIF(utm_campaign, ''), '') as campaign,
+                         COALESCE(NULLIF(utm_medium, ''), '')   as medium,
+                         COUNT(*)                     as orders,
+                         COALESCE(SUM(total), 0)      as revenue")
+            // groupByRaw con la expresión repetida, no por alias: con
+            // sql_mode=only_full_group_by (el default de MySQL 8) agrupar por
+            // el alias da 1055 y el dashboard entero devuelve 500.
+            ->groupByRaw("COALESCE(NULLIF(utm_source, ''), ''),
+                          COALESCE(NULLIF(utm_campaign, ''), ''),
+                          COALESCE(NULLIF(utm_medium, ''), '')")
+            ->get();
+
+        $campaignLeads = $conn->table('marketplace_leads')
+            ->whereBetween('created_at', [$from . ' 00:00:00', $to . ' 23:59:59'])
+            ->selectRaw("COALESCE(NULLIF(utm_source, ''), '')   as source,
+                         COALESCE(NULLIF(utm_campaign, ''), '') as campaign,
+                         COUNT(*) as leads")
+            ->groupByRaw("COALESCE(NULLIF(utm_source, ''), ''),
+                          COALESCE(NULLIF(utm_campaign, ''), '')")
+            ->get()
+            ->keyBy(fn ($r) => $r->source . '|' . $r->campaign);
+
+        $byCampaign = $campaignOrders
+            ->map(function ($r) use ($campaignLeads) {
+                $key = $r->source . '|' . $r->campaign;
+                $orders  = (int) $r->orders;
+                $revenue = round((float) $r->revenue, 2);
+
+                return (object) [
+                    'source'   => $r->source ?: null,
+                    'campaign' => $r->campaign ?: null,
+                    'medium'   => $r->medium ?: null,
+                    'orders'   => $orders,
+                    'revenue'  => $revenue,
+                    'ticket'   => $orders > 0 ? round($revenue / $orders, 2) : 0.0,
+                    'leads'    => (int) (optional($campaignLeads->get($key))->leads ?? 0),
+                ];
+            })
+            ->sortByDesc('revenue')
+            ->values();
+
+        // Leads de campañas que todavía no trajeron ningún pedido: sin esto
+        // desaparecerían del informe y una campaña que genera interés pero no
+        // vende parecería no existir, que es justo la que hay que arreglar.
+        $campaignOrderKeys = $campaignOrders->map(fn ($r) => $r->source . '|' . $r->campaign)->all();
+        $leadOnly = $campaignLeads
+            ->reject(fn ($r, $key) => in_array($key, $campaignOrderKeys, true))
+            ->map(fn ($r) => (object) [
+                'source'   => $r->source ?: null,
+                'campaign' => $r->campaign ?: null,
+                'medium'   => null,
+                'orders'   => 0,
+                'revenue'  => 0.0,
+                'ticket'   => 0.0,
+                'leads'    => (int) $r->leads,
+            ])
+            ->sortByDesc('leads')
+            ->values();
+
+        $byCampaign = $byCampaign->concat($leadOnly);
+
+        // Cobertura: qué parte de los pedidos del rango trae origen conocido.
+        // Es el primer número a mirar — con cobertura 0 % el resto del informe
+        // no dice nada, y la causa suele ser que los anuncios no llevan UTM en
+        // la URL de destino.
+        $attributed   = (int) $byCampaign->filter(fn ($c) => $c->source || $c->campaign)->sum('orders');
+        $totalParent  = (int) $byCampaign->sum('orders');
+        $campaignStats = [
+            'orders_total'      => $totalParent,
+            'orders_attributed' => $attributed,
+            'coverage'          => $totalParent > 0 ? round($attributed / $totalParent * 100, 1) : 0.0,
+            'revenue_attributed'=> round((float) $byCampaign->filter(fn ($c) => $c->source || $c->campaign)->sum('revenue'), 2),
+            'campaigns'         => $byCampaign->filter(fn ($c) => $c->source || $c->campaign)->count(),
+        ];
+
         $filters = compact('from', 'to', 'sort', 'tenant', 'status', 'q', 'minViews', 'granularity') + ['category' => $categoryId];
 
         return view('system.marketplace.dashboard', compact(
             'rows', 'kpis', 'topByViews', 'champion', 'laggard',
             'trendSeries', 'trendIsHistorical', 'timelineSource', 'activitySeries', 'activityStats',
             'categories', 'filters', 'useFallback', 'trackingStart', 'spanDays', 'trendStats',
-            'byCategory', 'byTenant', 'funnel'
+            'byCategory', 'byTenant', 'funnel', 'byCampaign', 'campaignStats'
         ));
     }
 

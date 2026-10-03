@@ -97,8 +97,25 @@ grupo `web` — ahí lo pagarían también los 17 tenants. Guarda `utm_*` más `
 alguien llega por un anuncio, se va y vuelve a mano, la venta sigue siendo del
 anuncio. Un clic de campaña nueva sí reemplaza.
 
-De ahi salen las columnas de `marketplace_orders` y `marketplace_leads`. Dos trampas
-que ya mordieron:
+De ahi salen las columnas de `marketplace_orders` y `marketplace_leads`, y de ahi el
+**informe por campaña** del dashboard del SuperAdmin
+(`system/marketplace/partials/campaign-report.blade.php`, datos en
+`MarketplaceAdminController@dashboard`). Tres cosas que hay que saber antes de
+tocarlo:
+
+- **Lo primero que muestra es la cobertura**, no las campañas: cuántos pedidos del
+  rango traen origen conocido. Con cobertura 0 % el resto de la tabla no dice nada, y
+  la causa casi siempre es que las URLs de destino de los anuncios no llevan UTM — el
+  panel lo explica en pantalla en vez de mostrar una tabla vacía.
+- **Lee `marketplace_orders` (el pedido padre), no `tenant_marketplace_orders`** como
+  el KPI de pedidos de arriba. Los dos números **no coinciden y no deben**: un pedido
+  con productos de tres tiendas es 1 aquí y 3 allá. La nota al pie del panel lo dice,
+  y un test lo protege, porque si no se reporta como bug.
+- **No aplica el filtro de tienda**, a propósito: una campaña es del marketplace y su
+  pedido padre puede repartirse entre varias tiendas, así que recortarlo por una sola
+  daría un ingreso inflado.
+
+Y dos trampas que ya mordieron:
 
 - **`MarketplaceLead::create()` descarta en silencio** lo que no esté en `$fillable`.
   Las ocho columnas de atribución están añadidas; si se añade otra, va también ahi.
@@ -107,9 +124,6 @@ que ya mordieron:
 
 ### Lo que queda pendiente de la medición
 
-- **El informe por campaña**. Las columnas ya se llenan y están indexadas por
-  `utm_campaign`, pero `/admin/marketplace/dashboard` todavía no las lee. Es la
-  pregunta que el negocio va a hacer primero: cuánto se vendió por campaña.
 - **El `Purchase` del webhook de MercadoPago.** Hoy se cubre cuando el comprador ve
   la confirmación con `payment_status = 'paid'`. Si paga y nunca vuelve, el evento no
   sale. Enganchar el webhook es la red que falta — es idempotente, se puede llamar
@@ -159,6 +173,10 @@ Trabajo de negocio, no de código, pero el sistema lo habilita o lo bloquea:
   15, 512) ?>` y el archivo deja de parsear; con `{!! !!}` sale un `Unmatched '}'`.
   Pasó al escribir `partials/tracking.blade.php`: no nombres las directivas dentro de
   un `<script>`, descríbelas.
+- **`GROUP BY` por alias revienta con `only_full_group_by`**, que es el `sql_mode` por
+  defecto de este MySQL 8. Agrupar por el alias de un `COALESCE(...)` del `SELECT` da
+  error 1055 y el **dashboard entero devuelve 500**. Hay que repetir la expresión
+  completa en `groupByRaw`. Lo encontró ejecutar la query, no leerla.
 - **El precio puede venir `0`, no `null`** (Element UI). Un `Purchase` con `value: 0`
   envenena el ROAS de la cuenta publicitaria y no se puede borrar después.
 - **Un `curl` a una ruta con `auth` devuelve el login con 200.** Para verificar los
@@ -190,8 +208,9 @@ curl -s https://ebaemy.com/robots.txt
   el gotcha de arriba, y lo detecta en segundos.
 - `php artisan ads:check` — diagnóstico de configuración; con `--send`, manda un
   evento real y comprueba que la plataforma lo recibe.
-- `./vendor/bin/phpunit --filter AdsTrackingTest` — cubre el `content_id`, la
-  deduplicación y las reglas de atribución. 14 tests. (El repo arrastra 7
+- `./vendor/bin/phpunit --filter "AdsTrackingTest|MarketplaceCampaignReportTest"` —
+  cubre el `content_id`, la deduplicación, las reglas de atribución y el panel del
+  informe en sus casos borde. 21 tests. (El repo arrastra 7
   deprecaciones de PHPUnit en todos sus tests; no son de aquí.)
 - Píxel de navegador: Meta Pixel Helper / TikTok Pixel Helper, en la ficha, en el
   carrito y en la confirmación. **Las tres**, no sólo la home.

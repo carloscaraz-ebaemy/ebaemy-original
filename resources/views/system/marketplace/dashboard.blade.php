@@ -334,6 +334,8 @@
         </div>
     </div>
 
+    @include('system.marketplace.partials.campaign-report')
+
     {{-- ════════════ PROTAGONISTA: tabla de rendimiento ════════════ --}}
     <div class="mpd-panel mpd-panel--table">
         <div class="mpd-panel__head">
@@ -513,6 +515,31 @@
 .mpd-ctr.is-good { color: var(--mp-good); }
 .mpd-ctr.is-warn { color: var(--mp-warn); }
 .mpd-empty { text-align: center; color: var(--mp-muted); padding: 40px 16px !important; }
+
+/* Informe por campaña */
+.mpd-cov { padding: 12px 18px 4px; }
+.mpd-cov__bar { height: 6px; border-radius: 999px; background: var(--mp-line2); overflow: hidden; }
+.mpd-cov__fill { display: block; height: 100%; border-radius: 999px; background: var(--mp-accent); }
+.mpd-cov__txt { margin-top: 8px; font-size: 12.5px; color: var(--mp-muted); }
+.mpd-cov__txt strong { color: var(--mp-ink); font-variant-numeric: tabular-nums; }
+.mpd-cov__hint {
+    margin: 4px 18px 12px; padding: 10px 12px;
+    background: var(--mp-warn-soft); border: 1px solid #fde68a; border-radius: 10px;
+    font-size: 12.5px; color: var(--mp-warn); line-height: 1.5;
+}
+.mpd-cov__hint code {
+    background: #fff; border: 1px solid #fde68a; border-radius: 5px;
+    padding: 1px 5px; font-size: 11.5px; color: #92400e;
+    /* La URL de ejemplo es larga: que corte en vez de desbordar la tarjeta. */
+    word-break: break-all;
+}
+.mpd-tr--muted td { color: var(--mp-faint); }
+
+/* Móvil: la tabla de campañas se lee de un vistazo con menos aire. */
+@media (max-width: 640px) {
+    .mpd-cov { padding: 10px 14px 2px; }
+    .mpd-cov__hint { margin: 4px 14px 10px; }
+}
 
 /* Charts */
 .mpd-charts { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
