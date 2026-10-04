@@ -12,15 +12,15 @@
  * para forzar el refresh del cache en los clientes.
  */
 
-var CACHE_NAME  = 'mp-v1';
+var CACHE_NAME  = 'mp-v2';
 var OFFLINE_URL = '/marketplace/offline';
 
 var PRECACHE = [
     '/marketplace',
     '/css/design-tokens.css',
     '/css/marketplace.css',
-    '/images/icon-192.png',
-    '/images/icon-512.png',
+    '/images/mp-icon-192.png',
+    '/images/mp-icon-512.png',
 ];
 
 // ── Install ──────────────────────────────────────────────────────────────────
@@ -132,8 +132,8 @@ self.addEventListener('push', function (e) {
     var title = data.title || 'ebaemy Marketplace';
     var options = {
         body:  data.body || '',
-        icon:  data.icon || '/images/icon-192.png',
-        badge: '/images/icon-192.png',
+        icon:  data.icon || '/images/mp-icon-192.png',
+        badge: '/images/mp-icon-192.png',
         tag:   data.tag || 'ebaemy-mp',
         data:  { url: data.url || '/marketplace' },
         vibrate: [80, 40, 80],

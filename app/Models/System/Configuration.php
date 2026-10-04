@@ -155,6 +155,58 @@ class Configuration extends Model
         return asset('logo/logo.jpg') . '?v=' . $v;
     }
 
+    /**
+     * Dimensiones, peso y ratio REALES de la imagen de compartido del
+     * marketplace, o null si no se puede leer el archivo.
+     *
+     * Hace falta porque el layout declaraba `og:image:width` y `height` fijos
+     * en 1200x630 pase lo que pase. Cuando lo declarado no coincide con la
+     * imagen de verdad, WhatsApp y Facebook **descartan la preview** y el
+     * enlace sale sin foto. Verificado el 2026-10-03: la imagen subida era
+     * 1678x419 (ratio 4:1) y se anunciaba como 1200x630.
+     *
+     * Cacheado un dia: es un getimagesize() sobre disco y el archivo solo
+     * cambia cuando el SuperAdmin sube otro. La clave incluye el nombre, asi
+     * que al subir una imagen nueva la entrada vieja queda huerfana y expira
+     * sola, sin necesidad de invalidarla.
+     */
+    public function marketplaceOgImageMeta(): ?array
+    {
+        $relativo = $this->marketplace_og_image
+            ? 'app/public/uploads/system/' . $this->marketplace_og_image
+            : null;
+
+        $ruta = $relativo ? storage_path($relativo) : public_path('logo/logo.jpg');
+
+        return Cache::remember(
+            'mp_og_image_meta:' . ($this->marketplace_og_image ?: 'default'),
+            86400,
+            function () use ($ruta) {
+                if (!is_file($ruta)) {
+                    return null;
+                }
+
+                $info = @getimagesize($ruta);
+                if (!$info || empty($info[0]) || empty($info[1])) {
+                    return null;
+                }
+
+                [$ancho, $alto] = $info;
+
+                return [
+                    'width'  => (int) $ancho,
+                    'height' => (int) $alto,
+                    'bytes'  => (int) @filesize($ruta),
+                    'ratio'  => round($ancho / max(1, $alto), 2),
+                    // 1.91:1 es el formato de la tarjeta grande de WhatsApp y
+                    // Facebook. Fuera de ese margen la imagen se recorta.
+                    'ok'     => $ancho >= 600
+                                && abs(($ancho / max(1, $alto)) - 1.91) <= 0.25,
+                ];
+            }
+        );
+    }
+
     public function validationConfigNotify()
     {
         $errors = [

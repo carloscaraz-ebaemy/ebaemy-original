@@ -53,7 +53,11 @@
                     <div class="mb-3">
                         <label class="form-label fw-bold">Imagen Open Graph <small class="text-muted fw-normal">(1200×630 ideal, máx 2 MB)</small></label>
                         <input type="file" name="og_image" class="form-control" accept="image/jpeg,image/png,image/webp">
-                        <small class="text-muted">Formatos: JPG, PNG, WebP. Mínimo 600×300. Recomendado 1200×630.</small>
+                        <small class="text-muted">
+                            Formatos: JPG, PNG, WebP. <strong>Usá 1200×630</strong> con el logo
+                            centrado y aire alrededor: WhatsApp y Facebook arman la tarjeta con esa
+                            proporción y una imagen mucho más alargada o más cuadrada la recortan.
+                        </small>
                     </div>
 
                     <div class="mb-3">
@@ -246,6 +250,46 @@
                         Esta es una previsualización aproximada. WhatsApp/Facebook pueden
                         recortar la imagen distinto según el cliente.
                     </small>
+
+                    {{-- Diagnóstico de la imagen REAL. Lo que rompe la preview no se
+                         ve mirando la miniatura: es el desajuste entre la forma de la
+                         imagen y el formato de tarjeta que espera WhatsApp. --}}
+                    @php $ogMeta = $config ? $config->marketplaceOgImageMeta() : null; @endphp
+                    @if($ogMeta)
+                        <div class="mt-3 p-2 rounded border {{ $ogMeta['ok'] ? 'border-success-subtle bg-light' : 'border-warning' }}"
+                             style="font-size:12.5px">
+                            <div class="d-flex justify-content-between">
+                                <span class="text-muted">Tamaño real</span>
+                                <strong>{{ $ogMeta['width'] }}×{{ $ogMeta['height'] }} px</strong>
+                            </div>
+                            <div class="d-flex justify-content-between">
+                                <span class="text-muted">Proporción</span>
+                                <strong>{{ $ogMeta['ratio'] }}:1 <span class="text-muted fw-normal">(ideal 1.91:1)</span></strong>
+                            </div>
+                            <div class="d-flex justify-content-between">
+                                <span class="text-muted">Peso</span>
+                                <strong>{{ $ogMeta['bytes'] >= 1024 ? round($ogMeta['bytes'] / 1024) . ' KB' : $ogMeta['bytes'] . ' B' }}</strong>
+                            </div>
+
+                            @unless($ogMeta['ok'])
+                                <hr class="my-2">
+                                <div class="text-warning-emphasis">
+                                    <strong>Por esto el logo no sale al compartir.</strong>
+                                    WhatsApp y Facebook arman una tarjeta de
+                                    <strong>1200×630</strong> (proporción 1.91:1). Una imagen
+                                    @if($ogMeta['ratio'] > 2.2) mucho más alargada
+                                    @elseif($ogMeta['ratio'] < 1.6) más cuadrada
+                                    @else de otra proporción @endif
+                                    que eso se recorta o se descarta.
+                                    <br><br>
+                                    No se trata de un logo más grande ni más pequeño: subí un
+                                    <strong>lienzo de 1200×630</strong> con el logo
+                                    <strong>centrado y con aire alrededor</strong>, sobre fondo
+                                    liso. Así se ve entero aunque el cliente lo recorte un poco.
+                                </div>
+                            @endunless
+                        </div>
+                    @endif
                 </div>
             </div>
         </div>

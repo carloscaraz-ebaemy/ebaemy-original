@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Marketplace ebaemy">
+  <title>Marketplace ebaemy</title>
+  <!-- Icono propio del marketplace. No se comparte con el ERP ni con las
+       tiendas de los tenants: cada uno tiene el suyo. Teal #0f8a82 = el
+       theme_color del manifest del marketplace. -->
+  <rect width="64" height="64" rx="14" fill="#0f8a82"/>
+
+  <!-- Toldo. Trapecio mas ancho abajo, con franjas para que se lea como
+       toldo de tienda y no como un tejado cualquiera. -->
+  <path d="M17 14h30l6 11H11z" fill="#ffffff"/>
+  <path d="M26.6 14h4.2l-3 11h-4.6z" fill="#0f8a82" opacity=".82"/>
+  <path d="M37 14h4.2l4.2 11h-4.6z" fill="#0f8a82" opacity=".82"/>
+
+  <!-- Fachada. El hueco de 3 px sobre ella separa el toldo del cuerpo; sin
+       ese aire, a 16 px toldo y fachada se funden en una sola mancha. -->
+  <path d="M15 28h34v22a2 2 0 0 1-2 2H17a2 2 0 0 1-2-2z" fill="#ffffff"/>
+
+  <!-- Puerta -->
+  <path d="M26 36h12v16H26z" fill="#0f8a82"/>
+</svg>

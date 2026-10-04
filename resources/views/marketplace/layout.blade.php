@@ -12,6 +12,14 @@
     $mpOgDesc  = $mpCfg->marketplace_og_description
                 ?? 'Descubre productos de tiendas peruanas verificadas en un solo lugar. Envío a todo Perú, contacto directo con el vendedor.';
     $mpOgImage = $mpCfg ? $mpCfg->marketplace_og_image_url : asset('logo/logo.jpg');
+
+    // Dimensiones REALES de esa imagen, leidas del archivo. Antes se anunciaba
+    // 1200x630 pase lo que pase, y cuando no coincide con la imagen de verdad
+    // WhatsApp y Facebook descartan la preview: el enlace sale sin foto.
+    // Si no se puede leer el archivo, mejor no declarar nada que mentir.
+    $mpOgMeta = $mpCfg ? $mpCfg->marketplaceOgImageMeta() : null;
+    $mpOgW    = $mpOgMeta['width']  ?? null;
+    $mpOgH    = $mpOgMeta['height'] ?? null;
     $mpKeywords= $mpCfg->marketplace_meta_keywords
                 ?? 'marketplace peru, ebaemy, tiendas online verificadas, compra segura, productos peruanos';
 
@@ -81,7 +89,15 @@
          ecommerce del tenant (/manifest.json + /sw.js). --}}
     @unless($isEmbed)
     <link rel="manifest" href="{{ asset('manifest-marketplace.json') }}">
-    <link rel="apple-touch-icon" href="{{ asset('images/icon-192.png') }}">
+    {{-- Icono PROPIO del marketplace: una tienda, no el del ERP. Sin estas
+         etiquetas el navegador cae en /favicon.ico del dominio, que ademas
+         esta vacio (0 bytes), asi que la pestana salia sin icono.
+         Los PNG se regeneran con `php artisan marketplace:icons`; el SVG es
+         la fuente del diseno. No tocan images/icon-192.png, que lo comparten
+         el ERP y las tiendas de los tenants. --}}
+    <link rel="icon" type="image/svg+xml" href="{{ asset('images/mp-store-icon.svg') }}">
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ asset('images/mp-favicon-32.png') }}">
+    <link rel="apple-touch-icon" href="{{ asset('images/mp-icon-192.png') }}">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="ebaemy">
@@ -99,10 +115,14 @@
     <meta property="og:image"       content="@yield('og_image', $mpOgImage)">
     <meta property="og:image:secure_url" content="@yield('og_image', $mpOgImage)">
     {{-- Las dimensiones DEBEN coincidir con la imagen real o WhatsApp/Facebook
-         descartan el preview. El detalle de producto las sobreescribe a 1080x1080
-         (variante _mp cuadrada); el resto usa el banner 1200x630 por defecto. --}}
-    <meta property="og:image:width"  content="@yield('og_image_width', '1200')">
-    <meta property="og:image:height" content="@yield('og_image_height', '630')">
+         descartan el preview. La ficha de producto las sobreescribe a 1080x1080
+         (variante _mp cuadrada); el resto las lee del archivo. Si no se pueden
+         leer, se omiten a proposito: sin declararlas la plataforma descarga la
+         imagen y decide, mientras que declararlas mal la hace descartarla. --}}
+    @if(View::hasSection('og_image_width') || $mpOgW)
+    <meta property="og:image:width"  content="@yield('og_image_width', $mpOgW)">
+    <meta property="og:image:height" content="@yield('og_image_height', $mpOgH)">
+    @endif
     <meta property="og:url"         content="@yield('canonical', url()->current())">
 
     <meta name="twitter:card"        content="summary_large_image">
