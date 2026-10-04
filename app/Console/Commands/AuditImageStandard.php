@@ -210,9 +210,9 @@ class AuditImageStandard extends Command
         }
 
         foreach (self::VARIANTES as $sufijo => $para) {
-            $vr = $base . '/' . ImageProcessingService::variantFilename($filename, $sufijo);
+            $vr = $this->rutaVariante($disk, $base, $filename, $sufijo);
 
-            if (!$disk->exists($vr)) {
+            if ($vr === null) {
                 $fallos[] = 'falta la versión ' . $sufijo . ' (' . $para . ')';
                 continue;
             }
@@ -226,10 +226,51 @@ class AuditImageStandard extends Command
     }
 
     /**
+     * La ruta de una variante, o null si de verdad no existe.
+     *
+     * Mira las DOS nomenclaturas. La actual usa guion bajo (`_medium`), pero
+     * un generador anterior dejo archivos con guion (`-medium`) y siguen en
+     * disco y en uso. Buscando solo la nueva, el auditor daba por «faltante»
+     * una variante que estaba ahi: verificado en ebaemy_myka, que aparecia
+     * incumpliendo por `_medium` y `_small` mientras tenia sus
+     * `-medium.jpg` y `-small.jpg` generados el mismo dia que la imagen.
+     *
+     * Un falso positivo aqui es caro: manda a reparar lo que no esta roto y
+     * deja la cifra de incumplimientos sin bajar nunca, por mucho que se
+     * ejecute --fix.
+     */
+    private function rutaVariante($disk, string $base, string $filename, string $sufijo): ?string
+    {
+        $candidatas = [
+            ImageProcessingService::variantFilename($filename, $sufijo),
+            // Nomenclatura antigua: el mismo sufijo con guion.
+            ImageProcessingService::variantFilename($filename, '-' . ltrim($sufijo, '_')),
+        ];
+
+        foreach ($candidatas as $nombre) {
+            $ruta = $base . '/' . $nombre;
+
+            if ($disk->exists($ruta)) {
+                return $ruta;
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * Regenera todo a partir de la principal.
      *
-     * La principal se vuelve a pasar por el pipeline, que la reescribe
-     * cumpliendo el estándar y crea las versiones que falten.
+     * OJO con el alcance real: el pipeline crea las versiones que falten y
+     * sus WebP, pero **no reescribe el archivo principal**. Comprobado el
+     * 2026-10-03 en ebaemy_makingroup: tras --fix, la principal seguia
+     * pesando 312 KB y conservaba su fecha de 2025, mientras todos los WebP
+     * se habian regenerado.
+     *
+     * Por eso un incumplimiento de «la principal pesa más de X» no se corrige
+     * con --fix por mucho que se repita. Para eso hace falta recomprimir el
+     * original, que es una decision aparte: degrada la imagen que vera el
+     * comprador y es irreversible.
      */
     private function reparar($disk, string $base, string $filename): bool
     {
@@ -285,9 +326,15 @@ class AuditImageStandard extends Command
 
         if ($fix) {
             $this->line(sprintf('Regeneradas         : %d', $r['reparados']));
+            $this->newLine();
+            $this->comment('«Regeneradas» son las versiones que faltaban y sus WebP.');
+            $this->comment('El archivo principal NO se reescribe, así que un «pesa más de');
+            $this->comment('300 KB» o «mide más de 1200px» seguirá apareciendo tras --fix:');
+            $this->comment('eso pide recomprimir el original, que degrada la foto y no tiene');
+            $this->comment('vuelta atrás.');
         } elseif ($r['incumplen'] > 0) {
             $this->newLine();
-            $this->comment('Para corregirlas: php artisan images:audit --fix');
+            $this->comment('Para regenerar las versiones que falten: php artisan images:audit --fix');
         }
     }
 
