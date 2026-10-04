@@ -263,7 +263,11 @@ class MarketplaceCheckoutController extends Controller
         // vez, al crearlo, con lo que el middleware mp.attribution guardó en
         // la primera visita. Si no hay origen (tráfico directo) no se escribe
         // nada en vez de rellenar con nulls.
-        $attribution = \App\Services\Marketplace\AdsTracking::attributionColumns();
+        // Junto al origen se guarda lo que el comprador decidio sobre la
+        // medicion: el webhook de la pasarela llega sin sesion y es el unico
+        // sitio donde podra consultarlo.
+        $attribution = \App\Services\Marketplace\AdsTracking::attributionColumns()
+                     + \App\Services\Marketplace\AdsTracking::consentColumn();
         if (!empty($attribution)) {
             try {
                 $result['order']->forceFill($attribution)->save();

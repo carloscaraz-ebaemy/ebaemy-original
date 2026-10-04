@@ -92,6 +92,31 @@ class AdsTracking
         return Session::get(self::CONSENT_KEY) === 'granted';
     }
 
+    /**
+     * Lo que el comprador decidió: 'granted', 'denied' o null si todavía no
+     * ha decidido. Se guarda junto al pedido para que el envío server-side
+     * pueda respetarlo incluso cuando no hay sesión — el webhook de la
+     * pasarela, por ejemplo.
+     */
+    public static function consentState(): ?string
+    {
+        $v = Session::get(self::CONSENT_KEY);
+
+        return in_array($v, ['granted', 'denied'], true) ? $v : null;
+    }
+
+    /**
+     * El consentimiento listo para guardar en `marketplace_orders` o
+     * `marketplace_leads`. Vacío cuando no hay decisión, para no escribir
+     * ruido.
+     */
+    public static function consentColumn(): array
+    {
+        $estado = static::consentState();
+
+        return $estado ? ['ads_consent' => $estado] : [];
+    }
+
     // ══════════════════════════════════════════════════════════════
     // Identificadores
     // ══════════════════════════════════════════════════════════════

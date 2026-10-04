@@ -201,6 +201,45 @@ class AdsTrackingTest extends TestCase
         $this->assertNull(AdsTracking::metaFbc());
     }
 
+    // ── Consentimiento ────────────────────────────────────────────────────
+
+    /**
+     * El consentimiento se guarda junto al pedido porque el webhook de la
+     * pasarela llega SIN sesion: es el unico sitio donde ese camino puede
+     * consultarlo antes de mandar datos personales a Meta o TikTok.
+     */
+    public function test_el_consentimiento_se_guarda_para_el_pedido()
+    {
+        $this->sesion->put(AdsTracking::CONSENT_KEY, 'granted');
+
+        $this->assertSame('granted', AdsTracking::consentState());
+        $this->assertSame(['ads_consent' => 'granted'], AdsTracking::consentColumn());
+    }
+
+    public function test_el_rechazo_tambien_se_guarda()
+    {
+        $this->sesion->put(AdsTracking::CONSENT_KEY, 'denied');
+
+        $this->assertSame('denied', AdsTracking::consentState());
+        $this->assertSame(['ads_consent' => 'denied'], AdsTracking::consentColumn());
+    }
+
+    /** Sin decision no se escribe nada, para no inventar un consentimiento. */
+    public function test_sin_decision_no_se_escribe_consentimiento()
+    {
+        $this->assertNull(AdsTracking::consentState());
+        $this->assertSame([], AdsTracking::consentColumn());
+    }
+
+    /** Un valor manipulado en sesion no puede colarse como decision valida. */
+    public function test_un_valor_raro_no_cuenta_como_consentimiento()
+    {
+        $this->sesion->put(AdsTracking::CONSENT_KEY, 'si-claro');
+
+        $this->assertNull(AdsTracking::consentState());
+        $this->assertSame([], AdsTracking::consentColumn());
+    }
+
     // ── Identificadores desde el pedido (webhook de la pasarela) ──────────
 
     /**

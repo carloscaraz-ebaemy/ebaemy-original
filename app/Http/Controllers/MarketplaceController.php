@@ -1726,7 +1726,8 @@ class MarketplaceController extends Controller
         // Atribucion del lead: de que campana vino. Mismas columnas que en
         // marketplace_orders, para que el informe por campana pueda sumar
         // pedidos y leads sin casos especiales.
-        $leadAttribution = \App\Services\Marketplace\AdsTracking::attributionColumns();
+        $leadAttribution = \App\Services\Marketplace\AdsTracking::attributionColumns()
+                         + \App\Services\Marketplace\AdsTracking::consentColumn();
 
         $lead = MarketplaceLead::create($leadAttribution + [
             'listing_id'     => $listing->id,
@@ -1782,7 +1783,11 @@ class MarketplaceController extends Controller
             'lead-' . $lead->id
         );
 
-        if (\App\Services\Marketplace\AdsTracking::serverEnabled()) {
+        // Mismo criterio que en la venta: sin un «acepto» expreso no salen de
+        // aqui el correo ni el telefono de nadie.
+        if (\App\Services\Marketplace\AdsTracking::serverEnabled()
+            && \App\Services\Marketplace\AdsTracking::consentState() === 'granted'
+        ) {
             \App\Jobs\Marketplace\SendAdsConversion::dispatch(
                 'lead',
                 $adsLeadPayload + ['url' => $request->fullUrl()],

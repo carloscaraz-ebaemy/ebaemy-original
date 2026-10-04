@@ -45,6 +45,7 @@ class MarketplaceLead extends Model
         'click_id_fb',
         'click_id_tt',
         'click_id_google',
+        'ads_consent',
     ];
 
     protected $casts = [

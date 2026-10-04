@@ -42,6 +42,15 @@ class PurchaseConversion
             return false;
         }
 
+        // El comprador tiene que haber aceptado la medicion, y se mira en el
+        // PEDIDO, no en la sesion: el webhook de la pasarela llega sin sesion
+        // y si no, acabaria mandando a Meta y TikTok el email y el telefono de
+        // alguien que pulso «Rechazar». Sin decision expresa tampoco se manda:
+        // el banner no estaria sirviendo de nada.
+        if (($order->ads_consent ?? null) !== 'granted') {
+            return false;
+        }
+
         if (!$this->claim($order)) {
             return false;
         }
