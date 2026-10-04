@@ -387,13 +387,25 @@ class MarketplaceAdminController extends Controller
             'campaigns'         => $byCampaign->filter(fn ($c) => $c->source || $c->campaign)->count(),
         ];
 
+        // ── Que buscan los compradores ─────────────────────────────────────────
+        //
+        // Lo accionable no es el top de busquedas, es la lista de lo que se
+        // busca y no existe: cada fila es alguien que vino con una intencion
+        // concreta y se fue con las manos vacias. Tambien es el mejor
+        // argumento para captar tiendas nuevas.
+        $insights      = app(\App\Services\Marketplace\SearchInsights::class);
+        $searchStats   = $insights->summary($from, $to);
+        $topSearches   = $insights->topTerms($from, $to);
+        $zeroSearches  = $insights->zeroResultTerms($from, $to);
+
         $filters = compact('from', 'to', 'sort', 'tenant', 'status', 'q', 'minViews', 'granularity') + ['category' => $categoryId];
 
         return view('system.marketplace.dashboard', compact(
             'rows', 'kpis', 'topByViews', 'champion', 'laggard',
             'trendSeries', 'trendIsHistorical', 'timelineSource', 'activitySeries', 'activityStats',
             'categories', 'filters', 'useFallback', 'trackingStart', 'spanDays', 'trendStats',
-            'byCategory', 'byTenant', 'funnel', 'byCampaign', 'campaignStats'
+            'byCategory', 'byTenant', 'funnel', 'byCampaign', 'campaignStats',
+            'searchStats', 'topSearches', 'zeroSearches'
         ));
     }
 

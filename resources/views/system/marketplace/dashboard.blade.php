@@ -334,6 +334,8 @@
         </div>
     </div>
 
+    @include('system.marketplace.partials.search-insights')
+
     @include('system.marketplace.partials.campaign-report')
 
     {{-- ════════════ PROTAGONISTA: tabla de rendimiento ════════════ --}}
@@ -534,6 +536,30 @@
     word-break: break-all;
 }
 .mpd-tr--muted td { color: var(--mp-faint); }
+.mpd-cov__fill--warn { background: var(--mp-warn); }
+
+/* Que buscan tus clientes */
+.mpd-si { padding: 6px 18px 14px; min-width: 0; }
+.mpd-si__title { font-size: 13px; font-weight: 700; margin: 10px 0 8px; }
+.mpd-si__row {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    padding: 7px 0; border-bottom: 1px solid var(--mp-line2);
+}
+.mpd-si__row:last-child { border-bottom: 0; }
+/* min-width:0 obligatorio: sin el, un termino largo estira el flex y saca
+   scroll horizontal a toda la pagina. */
+.mpd-si__term {
+    min-width: 0; flex: 1 1 auto; font-size: 13px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.mpd-si__badge {
+    flex: 0 0 auto; font-size: 11.5px; font-variant-numeric: tabular-nums;
+    color: var(--mp-muted); background: var(--mp-subtle);
+    border: 1px solid var(--mp-line); border-radius: 999px; padding: 2px 9px;
+}
+.mpd-si__badge--warn { color: var(--mp-warn); background: var(--mp-warn-soft); border-color: #fde68a; }
+.mpd-si__empty { font-size: 12.5px; color: var(--mp-muted); margin: 6px 0 0; }
+.mpd-si__hint { font-size: 12px; color: var(--mp-muted); line-height: 1.5; margin: 12px 0 0; }
 
 /* Móvil: la tabla de campañas se lee de un vistazo con menos aire. */
 @media (max-width: 640px) {

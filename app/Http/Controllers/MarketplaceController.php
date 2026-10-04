@@ -158,6 +158,18 @@ class MarketplaceController extends Controller
 
         $listings   = $query->paginate(24)->withQueryString();
 
+        // Que busca la gente, y que busca sin encontrar. Se registra aqui
+        // porque es el unico punto donde ya se conoce el total: hacerlo antes
+        // obligaria a una consulta de conteo extra.
+        //
+        // Solo la busqueda de la pagina, nunca el autocompletado: ese dispara
+        // con cada tecla y llenaria la tabla de prefijos a medio escribir
+        // («z», «za», «zap»...) que no son intenciones reales.
+        if (!empty($q)) {
+            app(\App\Services\Marketplace\SearchInsights::class)
+                ->record($q, (int) $listings->total());
+        }
+
         // Nota: la diversidad de tiendas en el orden 'relevance' ahora se
         // resuelve a nivel SQL (window function tenant_rank, ver el switch de
         // orden arriba), que intercala por tienda en TODA la paginación. Ya no
