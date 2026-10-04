@@ -1,6 +1,19 @@
 @extends('marketplace.layout')
 
-@section('title', ($q ? 'Buscar "'.$q.'" — ' : '') . 'Marketplace ebaemy')
+{{-- El <title> de la portada sale de /admin/marketplace/seo.
+
+     Antes estaba escrito a mano aqui, y eso hacia que el campo «titulo» del
+     panel NO controlara el titular azul del resultado de Google: solo se
+     usaba al compartir el enlace (og:title). Google mostraba «Marketplace
+     ebaemy» mientras el panel tenia configurado un titulo con propuesta de
+     valor que nadie veia.
+
+     Al no declarar la seccion, el layout aplica su default, que es
+     marketplace_og_title. Las paginas de busqueda si llevan titulo propio
+     porque el termino buscado es lo unico que las distingue. --}}
+@if($q)
+    @section('title', 'Buscar "'.$q.'" — Marketplace ebaemy')
+@endif
 
 @section('content')
 

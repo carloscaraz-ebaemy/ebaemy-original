@@ -163,6 +163,16 @@ Trabajo de negocio, no de código, pero el sistema lo habilita o lo bloquea:
 
 ## Gotchas que ya costaron tiempo en este repo
 
+- **Un `@section('title')` literal en una vista anula el campo del panel.** El layout
+  hace `@yield('title', $mpOgTitle)`, así que el título configurado en
+  `/admin/marketplace/seo` **sólo** se aplica a las páginas que no declaran la
+  sección. La portada la declaraba a mano (`'Marketplace ebaemy'`), de modo que el
+  campo «título» del panel no controlaba el titular azul de Google — sólo el og:title
+  al compartir. Arreglado el 2026-10-03 dejando que la portada caiga al default.
+  **Antes de dar por bueno un campo del panel, compruébalo contra el HTML servido:**
+  `curl -s <url> | grep -o '<title>[^<]*</title>'`. El panel y lo que ve Google
+  pueden no ser lo mismo.
+
 - **Blade compila `@push` y `@if` dentro de comentarios `//` de un `<script>`.** Es
   exactamente el tipo de archivo que vas a escribir aquí. Comenta con `{{-- --}}`
   fuera del script, o con `/* */` dentro. Ya rompió el modal del marketplace.
