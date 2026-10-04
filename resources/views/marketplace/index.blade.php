@@ -880,6 +880,18 @@
             </div>
         @endif
 
+        {{-- La busqueda original no devolvia nada y se corrigio una errata.
+             Se dice SIEMPRE, y se deja volver al termino exacto: el comprador
+             tiene que saber que esta viendo otra cosa de lo que escribio. --}}
+        @if(request('rescued_from'))
+            <div class="mp-rescued" role="status">
+                Mostrando resultados para <strong>{{ $q }}</strong>.
+                <a href="{{ route('marketplace.index', array_merge(request()->except(['page', 'rescued_from', 'q']), ['q' => request('rescued_from'), 'exact' => 1])) }}">
+                    Buscar «{{ request('rescued_from') }}» tal cual
+                </a>
+            </div>
+        @endif
+
         @if($listings->isEmpty())
             <div class="mp-empty">
                 <div class="mp-empty-icon">
@@ -1059,6 +1071,28 @@
 
 @push('styles')
 <style>
+    /* Aviso de busqueda corregida por errata */
+    .mp-rescued {
+        margin: 0 0 12px;
+        padding: 10px 14px;
+        background: #f0fdfa;
+        border: 1px solid #99f6e4;
+        border-left: 3px solid var(--mp-primary, #0f8a82);
+        border-radius: 10px;
+        font-size: 13.5px;
+        line-height: 1.5;
+        color: #134e4a;
+    }
+    .mp-rescued strong { color: var(--mp-primary-dark, #0b6b65); }
+    .mp-rescued a {
+        color: var(--mp-primary-dark, #0b6b65);
+        font-weight: 600;
+        text-decoration: underline;
+        /* Zona de toque comoda en movil sin romper la linea de texto. */
+        display: inline-block;
+        padding: 2px 0;
+    }
+
     /* ───────────── Barra superior mobile [Ordenar][Filtros] ─────────────
        Solo visible en mobile (<=768px). En desktop el ordenar vive en
        .mp-toolbar (lado derecho) y los filtros estn en el sidebar.

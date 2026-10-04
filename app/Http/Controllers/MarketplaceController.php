@@ -158,9 +158,41 @@ class MarketplaceController extends Controller
 
         $listings   = $query->paginate(24)->withQueryString();
 
+        // Rescate por errata: la busqueda no devolvio nada, asi que antes de
+        // dar la cara con una pantalla vacia probamos si fue un error de
+        // tecleo. Solo corrige contra palabras que existen en el catalogo, de
+        // modo que la correccion siempre lleva a resultados reales.
+        //
+        // Tres guardas contra el bucle de redirecciones: no se reintenta si ya
+        // venimos de un rescate (`rescued_from`), si el comprador pidio el
+        // termino exacto (`exact`), o si la correccion es igual al original.
+        if ($listings->total() === 0
+            && !empty($q)
+            && !$request->filled('rescued_from')
+            && !$request->boolean('exact')
+        ) {
+            $sugerencia = app(\App\Services\Marketplace\SearchSpellRescue::class)->suggest($q);
+
+            if ($sugerencia && $sugerencia !== $q) {
+                // Se redirige en vez de rehacer la consulta aqui para que la
+                // URL refleje lo que se esta mostrando: asi el enlace se puede
+                // compartir y el boton de atras hace lo esperable.
+                return redirect()->route('marketplace.index', array_merge(
+                    $request->except(['page', 'rescued_from']),
+                    ['q' => $sugerencia, 'rescued_from' => $q]
+                ));
+            }
+        }
+
         // Que busca la gente, y que busca sin encontrar. Se registra aqui
         // porque es el unico punto donde ya se conoce el total: hacerlo antes
         // obligaria a una consulta de conteo extra.
+        //
+        // Va DESPUES del rescate a proposito: si la busqueda se corrige y se
+        // redirige, lo que cuenta es el termino que el comprador acabo viendo.
+        // Registrar ademas la errata llenaria la lista de «sin resultados» de
+        // casos que el sistema ya resuelve solo, tapando los que de verdad
+        // piden catalogo nuevo.
         //
         // Solo la busqueda de la pagina, nunca el autocompletado: ese dispara
         // con cada tecla y llenaria la tabla de prefijos a medio escribir
