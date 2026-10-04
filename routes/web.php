@@ -1850,8 +1850,15 @@ if ($hostname) {
         // El SuperAdmin puede acceder a su dashboard manualmente vía
         // /dashboard o /login — no tiene sentido que al visitar
         // ebaemy.com vea el panel administrativo.
+        //
+        // 301 y no el 302 por defecto: para un buscador, un 302 significa
+        // «esto es temporal, sigue teniendo en cuenta la raiz», asi que la
+        // autoridad del dominio se reparte entre dos URLs en vez de
+        // acumularse en la que de verdad queremos posicionar. Con 301 se
+        // consolida toda en /marketplace, que es la que tiene el titulo, la
+        // descripcion y el JSON-LD de la marca.
         Route::get('/', function () {
-            return redirect()->route('marketplace.index');
+            return redirect()->route('marketplace.index', [], 301);
         });
 
         Route::middleware('auth:admin')->group(function () {
