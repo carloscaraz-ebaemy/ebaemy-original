@@ -38,6 +38,7 @@ class MarketplaceCatalogGaps extends Command
     protected $signature = 'marketplace:catalog-gaps
                             {--tienda= : Acota a un subdominio de tienda}
                             {--sugerencias=20 : Cuántas propuestas de categoría mostrar}
+                            {--solo-fiables : Sólo las propuestas que vienen de la categoría de la tienda y cubren la categoría entera}
                             {--json : Salida en JSON para encadenar con otra cosa}';
 
     protected $description = 'Diagnostica qué productos publicados no se pueden encontrar (sin categoría o sin marca) y propone categoría';
@@ -186,14 +187,25 @@ class MarketplaceCatalogGaps extends Command
 
                 return $match ? array_merge($match, ['listing' => $l]) : null;
             })
-            ->filter()
-            ->sortByDesc('score')
-            ->take($limite);
+            ->filter();
+
+        // Las que no admiten discusion: el vendedor ya las habia clasificado
+        // y el nombre de la categoria oficial queda cubierto entero. Es el
+        // subconjunto que se puede aplicar sin revisar uno por uno.
+        if ($this->option('solo-fiables')) {
+            $propuestas = $propuestas->filter(
+                fn ($p) => $p['fuente'] === 'categoria de la tienda' && $p['aciertos'] === $p['de']
+            );
+        }
+
+        $propuestas = $propuestas->sortByDesc('score')->take($limite);
 
         $this->line('');
 
         if ($propuestas->isEmpty()) {
-            $this->warn('Ningún título se parece lo bastante a una categoría. Hay que asignarlas a mano.');
+            $this->warn($this->option('solo-fiables')
+                ? 'Ninguna propuesta llega al nivel de fiable. Mira sin --solo-fiables que hay.'
+                : 'Ningun titulo se parece lo bastante a una categoria. Hay que asignarlas a mano.');
 
             return;
         }
