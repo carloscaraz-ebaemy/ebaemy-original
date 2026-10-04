@@ -320,6 +320,27 @@ class MercadoPagoService
                     ]);
                 }
 
+                // Conversion de venta. Este es el unico camino que cubre al
+                // comprador que paga y NUNCA vuelve a la tienda —cierra la
+                // pestana, se le acaba la bateria, el navegador movil no
+                // restaura la sesion—. Sin esto esa venta no se medi­a en
+                // ninguna parte, y es de las mas frecuentes en movil.
+                //
+                // Aqui no hay comprador delante: la peticion la hace
+                // MercadoPago desde sus servidores, asi que los
+                // identificadores salen del propio pedido. Es idempotente, de
+                // modo que no dobla con el evento que ya haya mandado la
+                // pantalla de confirmacion.
+                try {
+                    app(\App\Services\Marketplace\PurchaseConversion::class)->sendOnce($order);
+                } catch (\Throwable $e) {
+                    // La medicion jamas puede tumbar el cobro ni el despacho.
+                    Log::warning('[MercadoPago] Conversion de venta no encolada', [
+                        'order' => $order->order_number,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+
                 return ['success' => true, 'order' => $order, 'status' => 'paid'];
             }
 

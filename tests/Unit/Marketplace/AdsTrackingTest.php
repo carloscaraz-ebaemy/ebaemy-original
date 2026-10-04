@@ -201,6 +201,49 @@ class AdsTrackingTest extends TestCase
         $this->assertNull(AdsTracking::metaFbc());
     }
 
+    // ── Identificadores desde el pedido (webhook de la pasarela) ──────────
+
+    /**
+     * En el webhook no hay comprador delante: la peticion la hace la pasarela
+     * desde sus servidores. Los identificadores tienen que salir del pedido o
+     * la venta no se puede casar con el anuncio.
+     */
+    public function test_el_fbc_del_pedido_lleva_el_formato_de_meta()
+    {
+        $pedido = (object) [
+            'click_id_fb' => 'PEDIDO123',
+            'click_id_tt' => null,
+            'created_at'  => \Carbon\Carbon::parse('2026-10-03 12:00:00'),
+        ];
+
+        $datos = AdsTracking::userDataFromOrder($pedido);
+
+        $this->assertMatchesRegularExpression('/^fb\.1\.\d{13}\.PEDIDO123$/', $datos['fbc']);
+    }
+
+    public function test_el_ttclid_del_pedido_viaja_tal_cual()
+    {
+        $pedido = (object) [
+            'click_id_fb' => null,
+            'click_id_tt' => 'TT987',
+            'created_at'  => null,
+        ];
+
+        $this->assertSame('TT987', AdsTracking::userDataFromOrder($pedido)['ttclid']);
+    }
+
+    /**
+     * Un pedido sin origen no manda identificadores vacios: la IP y el user
+     * agent de la pasarela no dicen nada de quien compro, y mandarlos seria
+     * peor que no mandar nada.
+     */
+    public function test_un_pedido_sin_origen_no_manda_identificadores()
+    {
+        $pedido = (object) ['click_id_fb' => null, 'click_id_tt' => null, 'created_at' => null];
+
+        $this->assertSame([], AdsTracking::userDataFromOrder($pedido));
+    }
+
     // ── Utilidades ────────────────────────────────────────────────────────
 
     private Store $sesion;

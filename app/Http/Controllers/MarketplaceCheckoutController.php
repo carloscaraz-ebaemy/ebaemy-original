@@ -281,7 +281,8 @@ class MarketplaceCheckoutController extends Controller
         // checkout abandonado en la pasarela. Ese caso lo cubre confirmation()
         // cuando payment_status llega a 'paid'.
         if (empty($result['init_point'])) {
-            $this->sendPurchaseConversion($result['order'], $request);
+            app(\App\Services\Marketplace\PurchaseConversion::class)
+                ->sendOnce($result['order'], $request);
         }
 
         // Persistimos los order_numbers que esta sesión pagó para que sólo
@@ -421,73 +422,6 @@ class MarketplaceCheckoutController extends Controller
     }
 
     /**
-     * Encola el Purchase server-side de un pedido. Una sola vez por pedido.
-     *
-     * Por qué server-side además del píxel: el Purchase es el evento que más
-     * importa y el que más se pierde en el navegador (iOS/ATT, bloqueadores,
-     * pestañas que se cierran en la redirección de la pasarela). El navegador
-     * manda el optimista; esto manda la verdad, con el mismo `event_id` para
-     * que la plataforma deduplique.
-     *
-     * La guarda es `ads_purchase_sent_at`, no una bandera en sesión: hay tres
-     * caminos que llegan a "pedido pagado" (contra entrega, retorno de
-     * MercadoPago y webhook) y un Purchase duplicado infla el ROAS de la
-     * cuenta publicitaria sin posibilidad de corregirlo después.
-     *
-     * Todo lo que el worker necesita se recoge AQUÍ: dentro de la cola ya no
-     * hay request ni sesión del comprador, así que la IP, el user agent y los
-     * click ids no se podrían obtener.
-     */
-    private function sendPurchaseConversion(MarketplaceOrder $order, Request $request): void
-    {
-        if (!\App\Services\Marketplace\AdsTracking::serverEnabled()) {
-            return;
-        }
-
-        // Idempotencia con la fila bloqueada: dos peticiones simultáneas sobre
-        // la misma confirmación (doble tap en móvil) no pueden pasar las dos.
-        try {
-            $claimed = MarketplaceOrder::where('id', $order->id)
-                ->whereNull('ads_purchase_sent_at')
-                ->update(['ads_purchase_sent_at' => now()]);
-
-            if (!$claimed) {
-                return;
-            }
-        } catch (\Throwable $e) {
-            \Log::warning('No se pudo marcar ads_purchase_sent_at', [
-                'order' => $order->order_number,
-                'error' => $e->getMessage(),
-            ]);
-
-            return;
-        }
-
-        $payload = \App\Services\Marketplace\AdsTracking::payload(
-            'purchase',
-            $order->items->map(fn ($i) => [
-                'content_id'   => \App\Services\Marketplace\AdsTracking::contentId($i->listing_id),
-                'content_name' => (string) $i->title,
-                'quantity'     => (int) $i->quantity,
-                'price'        => round((float) $i->unit_price, 2),
-            ])->values()->all(),
-            (float) $order->total,
-            $order->order_number
-        );
-        $payload['url'] = $request->fullUrl();
-
-        \App\Jobs\Marketplace\SendAdsConversion::dispatch(
-            'purchase',
-            $payload,
-            \App\Services\Marketplace\AdsTracking::userDataFromRequest($request),
-            [
-                'email' => $order->customer_email,
-                'phone' => $order->customer_phone,
-            ]
-        );
-    }
-
-    /**
      * Inserta o actualiza el contacto en marketing_contacts con consent=true.
      * Idempotente: si ya existe por phone/email, actualiza datos pero respeta
      * un opted_out previo (no lo reactiva sin acción explícita del contacto).
@@ -570,7 +504,8 @@ class MarketplaceCheckoutController extends Controller
         // porque entonces no había pago. Es idempotente, así que no dobla con
         // el de contra entrega.
         if (($order->payment_status ?? null) === 'paid') {
-            $this->sendPurchaseConversion($order, $request);
+            app(\App\Services\Marketplace\PurchaseConversion::class)
+                ->sendOnce($order, $request);
         }
 
         // Purchase del navegador. Lleva event_id sembrado con el número de

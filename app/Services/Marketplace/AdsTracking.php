@@ -227,6 +227,33 @@ class AdsTracking
      * evento con la persona. Se recogen en la petición, no en el job: dentro
      * de la cola ya no hay request del comprador.
      */
+    /**
+     * Los mismos identificadores, pero sacados del PEDIDO en vez de la
+     * petición. Es lo que permite medir la venta desde el webhook de la
+     * pasarela, donde no hay comprador delante: la petición la hace
+     * MercadoPago desde sus servidores, así que su IP y su user agent no
+     * dicen nada de quien compró — mandarlos sería peor que no mandar nada.
+     *
+     * Los click ids salen de las columnas de atribución que se escribieron al
+     * crear el pedido. El `fbc` necesita además un instante: se usa la fecha
+     * del pedido, que es lo más cercano al clic que se conserva.
+     */
+    public static function userDataFromOrder($order): array
+    {
+        $datos = [];
+
+        if (!empty($order->click_id_fb)) {
+            $ms = (int) (($order->created_at ? $order->created_at->timestamp : time()) * 1000);
+            $datos['fbc'] = 'fb.1.' . $ms . '.' . $order->click_id_fb;
+        }
+
+        if (!empty($order->click_id_tt)) {
+            $datos['ttclid'] = $order->click_id_tt;
+        }
+
+        return $datos;
+    }
+
     public static function userDataFromRequest(Request $request): array
     {
         return array_filter([
