@@ -831,6 +831,11 @@ if ($hostname) {
             Route::get('items/record/{item}', 'Tenant\ItemController@record');
             Route::post('items', 'Tenant\ItemController@store');
             Route::post('items/destroyMassive', 'Tenant\ItemController@destroyMassive');
+            // Retirar = sacar de circulación sin borrar, para los productos que ya
+            // figuran en ventas o compras y por eso no se pueden eliminar.
+            Route::post('items/retireMassive', 'Tenant\ItemController@retireMassive');
+            Route::post('items/{item}/retire', 'Tenant\ItemController@retire');
+            Route::post('items/{item}/restore', 'Tenant\ItemController@restoreRetired');
             Route::delete('items/{item}', 'Tenant\ItemController@destroy');
             Route::delete('items/item-unit-type/{item}', 'Tenant\ItemController@destroyItemUnitType');
             Route::post('items/import', 'Tenant\ItemController@import');

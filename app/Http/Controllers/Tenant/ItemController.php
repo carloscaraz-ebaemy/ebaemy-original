@@ -39,6 +39,7 @@ use App\Models\Tenant\Establishment;
 use App\Models\Tenant\Item;
 use App\Models\Tenant\ItemImage;
 use App\Models\Tenant\PricingSettings;
+use App\Services\Tenant\Catalog\ItemDeletionService;
 use App\Services\Tenant\Pricing\PriceCalculator;
 use App\Models\Tenant\ItemMovement;
 use App\Models\Tenant\ItemSupply;
@@ -1193,33 +1194,38 @@ class ItemController extends Controller
      */
     public function destroy($id)
     {
-        try {
+        $item = Item::findOrFail($id);
 
-            $item = Item::findOrFail($id);
-            $this->deleteRecordInitialKardex($item);
-            $this->deleteRecordInitialWeightedCosts($item);
-            $item->delete();
+        return (new ItemDeletionService())->delete($item);
+    }
 
-            return [
-                'success' => true,
-                'message' => 'Producto eliminado con éxito'
-            ];
+    /**
+     * Saca el producto de circulación sin borrarlo. Es la salida para los productos
+     * que ya se vendieron o compraron: borrarlos alteraría el histórico, pero el
+     * usuario sí necesita que dejen de verse y de venderse.
+     */
+    public function retire($id)
+    {
+        $item = Item::findOrFail($id);
 
-        } catch (Exception $e) {
+        return (new ItemDeletionService())->retire($item);
+    }
 
-            return ($e->getCode() == '23000') ? ['success' => false,'message' => 'El producto esta siendo usado por otros registros, no puede eliminar'] : ['success' => false,'message' => 'Error inesperado, no se pudo eliminar el producto'];
+    /**
+     * Devuelve al ERP un producto retirado. No lo republica en la tienda ni en el
+     * marketplace: esos interruptores se vuelven a activar a mano.
+     */
+    public function restoreRetired($id)
+    {
+        $item = Item::findOrFail($id);
 
-        }
-
-
+        return (new ItemDeletionService())->restore($item);
     }
 
     public function destroyMassive(Request $request)
     {
         $selected = collect($request->selected);
-        $itemDeleted = 0;
         $count = $selected->count();
-
 
         if ($count == 0 ) {
             return [
@@ -1228,16 +1234,78 @@ class ItemController extends Controller
             ];
         }
 
-        $selected->each(function($id) use (&$itemDeleted){
-            $response = $this->destroy($id);
-            if ($response['success']) $itemDeleted += 1;
-        });
+        $service = new ItemDeletionService();
+        $deleted = 0;
+        $blocked = [];
+
+        foreach ($selected as $id) {
+            $item = Item::find($id);
+
+            if (!$item) {
+                continue;
+            }
+
+            $response = $service->delete($item);
+
+            if ($response['success']) {
+                $deleted++;
+            } else {
+                $blocked[] = $item->description ?: ($item->internal_id ?: ('#' . $item->id));
+            }
+        }
+
+        // Un lote parcial se reportaba como éxito liso: el usuario veía "se eliminaron 0
+        // de 12" y nada más. Ahora se nombra lo que quedó y se dice qué hacer con ello.
+        $message = "Se eliminaron {$deleted} de {$count} productos seleccionados.";
+
+        if ($blocked) {
+            $shown = array_slice($blocked, 0, 5);
+            $rest = count($blocked) - count($shown);
+            $message .= ' No se pudo eliminar ' . implode(', ', $shown)
+                . ($rest > 0 ? " y {$rest} más" : '')
+                . ': ya figuran en ventas, compras u otros registros. Usa «Retirar seleccionados» para sacarlos de circulación sin tocar el histórico.';
+        }
+
+        return [
+            'success'      => true,
+            'deleted'      => $deleted,
+            'blocked'      => count($blocked),
+            'blocked_names'=> $blocked,
+            'message'      => $message,
+        ];
+    }
+
+    /**
+     * Retira en lote los productos seleccionados.
+     */
+    public function retireMassive(Request $request)
+    {
+        $selected = collect($request->selected);
+        $count = $selected->count();
+
+        if ($count == 0) {
+            return [
+                'success' => false,
+                'message' => 'Tiene que seleccionar los items'
+            ];
+        }
+
+        $service = new ItemDeletionService();
+        $retired = 0;
+
+        foreach ($selected as $id) {
+            $item = Item::find($id);
+
+            if ($item) {
+                $service->retire($item);
+                $retired++;
+            }
+        }
 
         return [
             'success' => true,
-            'message' => "Se eliminaron {$itemDeleted} productos de {$count} productos seleccionados"
+            'message' => "Se retiraron {$retired} de {$count} productos: ya no se muestran ni se pueden vender.",
         ];
-
     }
 
 

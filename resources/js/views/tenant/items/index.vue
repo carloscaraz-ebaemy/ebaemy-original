@@ -272,6 +272,7 @@
                   </el-button>
                   <el-dropdown-menu slot="dropdown">
                     <el-dropdown-item @click.native="clickDeleteSelected">Eliminar</el-dropdown-item>
+                    <el-dropdown-item @click.native="clickRetireSelected">Retirar del sistema</el-dropdown-item>
                     <el-dropdown-item @click.native="duplicateSelected">Duplicar</el-dropdown-item>
 
                     <!-- Solo si TODOS los seleccionados están habilitados -->
@@ -728,6 +729,16 @@
                                       Habilitar
                                     </el-dropdown-item>
                                 
+                                    <!-- Retirar: lo deja inactivo y además lo saca de la
+                                         tienda y del marketplace de una vez. -->
+                                    <el-dropdown-item
+                                      v-if="row.active || row.apply_store || row.marketplace_publishable"
+                                      @click.native.prevent="clickRetire(row.id)"
+                                    >
+                                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler me-2"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0 -18 0" /><path d="M9 12l6 0" /></svg>
+                                      Retirar del sistema
+                                    </el-dropdown-item>
+
                                     <el-dropdown-item
                                       @click.native.prevent="clickDelete(row.id)"
                                       class="text-danger option-delete"
@@ -973,6 +984,7 @@ import ItemsExportBarcode from "./partials/export_barcode.vue";
 import ItemsExportExtra from "./partials/export_extra.vue";
 import DataTable from "../../../components/DataTable.vue";
 import { deletable } from "../../../mixins/deletable";
+import { itemRemoval } from "../../../mixins/itemRemoval";
 import ItemsHistory from "@viewsModuleItem/items/history.vue";
 import { mapActions, mapState } from "vuex";
 import ItemsImportUpdatePrice from "./partials/update_prices.vue";
@@ -981,7 +993,7 @@ import ItemsExportBartender from "./partials/export_bartender.vue";
 
 export default {
     props: ["configuration", "typeUser", "type"],
-    mixins: [deletable],
+    mixins: [deletable, itemRemoval],
     components: {
         ItemsForm,
         ItemsImport,
@@ -1321,39 +1333,68 @@ export default {
           this.$refs.DataTable.showDisabled = this.filterDisabled;
           this.$refs.DataTable.getRecords();
         },
-        clickDeleteSelected() {
-            return new Promise((resolve) => {
-                this.$confirm('¿Desea eliminar los registro seleccionado?', 'Eliminar', {
-                    confirmButtonText: 'Eliminar',
-                    cancelButtonText: 'Cancelar',
-                    type: 'warning'
-                }).then(() => {
-                    this.$http.post(`${this.resource}/destroyMassive`, {
-                        selected: this.selected
-                    })
-                        .then(res => {
-                            if(res.data.success) {
-                                this.$message.success(res.data.message)
-                                this.selected = []
-                                this.selectedMeta = {}
-                                this.$eventHub.$emit("reloadData")
-                                resolve()
-                            }else{
-                                this.$message.error(res.data.message)
-                                resolve()
-                            }
-                        })
-                        .catch(error => {
-                            if (error.response.status === 500) {
-                                this.$message.error('Error al intentar eliminar');
-                            } else {
-                                console.log(error.response.data.message)
-                            }
-                        })
-                }).catch(error => {
-                    console.log(error)
+        async clickDeleteSelected() {
+            const confirmed = await this.confirmAction(
+                '¿Eliminar los productos seleccionados? Los que ya figuren en ventas o compras no se pueden borrar y se te dirá cuáles son.',
+                'Eliminar productos',
+                'Eliminar'
+            );
+
+            if (!confirmed) return;
+
+            try {
+                const res = await this.$http.post(`${this.resource}/destroyMassive`, {
+                    selected: this.selected
                 });
-            })
+                const data = res.data || {};
+
+                if (!data.success) {
+                    this.$message.error(data.message || 'No se pudieron eliminar los productos');
+                    return;
+                }
+
+                // Un lote parcial no es un éxito liso: si algo quedó sin borrar,
+                // se avisa en amarillo para que el usuario lo lea y use «Retirar».
+                if (data.blocked > 0) {
+                    this.$message({ message: data.message, type: 'warning', duration: 10000, showClose: true });
+                } else {
+                    this.$message.success(data.message);
+                }
+
+                this.selected = [];
+                this.selectedMeta = {};
+                this.$eventHub.$emit("reloadData");
+            } catch (error) {
+                this.$message.error('No se pudo contactar al servidor para eliminar los productos');
+            }
+        },
+        /** Saca de circulación los seleccionados sin borrar nada del histórico. */
+        async clickRetireSelected() {
+            const confirmed = await this.confirmAction(
+                '¿Retirar los productos seleccionados? Dejarán de verse y de poder venderse, pero se conserva su histórico.',
+                'Retirar del sistema',
+                'Retirar'
+            );
+
+            if (!confirmed) return;
+
+            try {
+                const res = await this.$http.post(`${this.resource}/retireMassive`, {
+                    selected: this.selected
+                });
+                const data = res.data || {};
+
+                if (data.success) {
+                    this.$message.success(data.message);
+                    this.selected = [];
+                    this.selectedMeta = {};
+                    this.$eventHub.$emit("reloadData");
+                } else {
+                    this.$message.error(data.message || 'No se pudieron retirar los productos');
+                }
+            } catch (error) {
+                this.$message.error('No se pudo contactar al servidor para retirar los productos');
+            }
         },
         clickDisableSelected() {
             return new Promise((resolve) => {
@@ -1581,9 +1622,12 @@ export default {
             this.showImporUpdatePrice = true;
         },
         clickDelete(id) {
-            this.destroy(`/${this.resource}/${id}`).then(() =>
-                this.$eventHub.$emit("reloadData")
-            );
+            // `removeItem` lee la respuesta del servidor y, si el producto ya tiene
+            // histórico, ofrece retirarlo en el mismo paso. Ver mixins/itemRemoval.
+            return this.removeItem(id);
+        },
+        clickRetire(id) {
+            return this.retireItem(id);
         },
         clickDisable(id) {
             this.disable(`/${this.resource}/disable/${id}`).then(() =>

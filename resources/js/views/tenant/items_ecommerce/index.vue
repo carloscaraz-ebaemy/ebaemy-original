@@ -324,7 +324,15 @@
                                         <el-dropdown-item v-if="row.marketplace_publishable && row.mp_status === 'active'" command="marketplace">
                                             🌐 Ver en ebaemy.com/marketplace
                                         </el-dropdown-item>
-                                        <el-dropdown-item divided command="delete">
+                                        <!-- Retirar: la salida real para un producto ya vendido,
+                                             que por histórico no se puede eliminar. -->
+                                        <el-dropdown-item v-if="row.active" divided command="retire">
+                                            <i class="el-icon-remove-outline"></i> Retirar del sistema
+                                        </el-dropdown-item>
+                                        <el-dropdown-item v-else divided command="restore">
+                                            <i class="el-icon-refresh-left"></i> Reactivar producto
+                                        </el-dropdown-item>
+                                        <el-dropdown-item command="delete">
                                             <span style="color:#dc2626"><i class="el-icon-delete"></i> Eliminar</span>
                                         </el-dropdown-item>
                                     </el-dropdown-menu>
@@ -492,10 +500,11 @@ import WarehousesDetail from "./partials/warehouses.vue";
 // import ItemsImport from './import.vue'
 import DataTable from "../../../components/DataTable.vue";
 import { deletable } from "../../../mixins/deletable";
+import { itemRemoval } from "../../../mixins/itemRemoval";
 
 export default {
     props: [], //'typeUser'
-    mixins: [deletable],
+    mixins: [deletable, itemRemoval],
     components: { ItemsForm, DataTable, WarehousesDetail }, //ItemsImport
     data() {
         return {
@@ -762,9 +771,9 @@ export default {
             this.showImportDialog = true;
         },
         clickDelete(id) {
-            this.destroy(`/${this.resource}/${id}`).then(() =>
-                this.$eventHub.$emit("reloadData")
-            );
+            // `removeItem` lee la respuesta del servidor y, si el producto ya tiene
+            // histórico, ofrece retirarlo en el mismo paso. Ver mixins/itemRemoval.
+            return this.removeItem(id);
         },
         // Despacha la opción elegida del dropdown "⋮" de cada fila.
         onRowActionCommand(command, row) {
@@ -780,6 +789,12 @@ export default {
                         'https://ebaemy.com/marketplace?q=' + encodeURIComponent(row.description || row.name || ''),
                         '_blank', 'noopener'
                     );
+                    break;
+                case 'retire':
+                    this.retireItem(row.id);
+                    break;
+                case 'restore':
+                    this.restoreItem(row.id);
                     break;
                 case 'delete':
                     this.clickDelete(row.id);
