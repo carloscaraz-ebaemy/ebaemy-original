@@ -549,14 +549,7 @@ class FalabellaImportService
             return $cached;
         }
 
-        $cached = Category::whereNull('parent_id')
-            ->whereRaw('LOWER(name) = ?', [mb_strtolower(Category::UNCLASSIFIED)])
-            ->first();
-
-        return $cached ?: ($cached = Category::create([
-            'name'              => Category::UNCLASSIFIED,
-            'visible_ecommerce' => false,
-        ]));
+        return $cached = Category::unclassified();
     }
 
     /**

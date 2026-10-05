@@ -145,6 +145,29 @@ class Category extends ModelTenant
         })->values();
     }
 
+    // ── El cajón de lo que nadie ha clasificado ───────────────────────────
+
+    /**
+     * La categoría «Sin clasificar», creándola la primera vez que hace falta.
+     *
+     * Toda categoría que nazca sola —de la importación de un canal o del
+     * auto-mapeo de la ficha rápida— tiene que colgar de aquí y nacer oculta.
+     * Dejarlas aterrizar en la raíz es como `carolayimport` acabó con 164
+     * categorías de primer nivel y la tienda con una barra impasable. El
+     * comerciante las coloca donde toque desde el panel de Categorías.
+     */
+    public static function unclassified(): self
+    {
+        $cat = self::whereNull('parent_id')
+                   ->whereRaw('LOWER(name) = ?', [mb_strtolower(self::UNCLASSIFIED)])
+                   ->first();
+
+        return $cat ?: self::create([
+            'name'              => self::UNCLASSIFIED,
+            'visible_ecommerce' => false,
+        ]);
+    }
+
     // ── Normalización de nombres ──────────────────────────────────────────
 
     /**

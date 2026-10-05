@@ -655,14 +655,27 @@ class ItemController extends Controller
                 $mpCat = \App\Models\System\MarketplaceCategory::query()
                     ->find($item->marketplace_category_id);
                 if ($mpCat) {
-                    $leafName = (string) $mpCat->name;
+                    // La clase es `Modules\Item\Models\Category`. Hasta el
+                    // 2026-10-05 esto apuntaba a `App\Models\Tenant\Category`,
+                    // que no existe, asi que el `catch` de abajo se comia un
+                    // "Class not found" en CADA guardado y el auto-mapeo nunca
+                    // llego a ejecutarse una sola vez.
+                    $leafName = Category::normalizeName((string) $mpCat->name);
                     if ($leafName !== '') {
-                        $cat = \App\Models\Tenant\Category::query()
-                            ->whereRaw('LOWER(name) = ?', [mb_strtolower($leafName)])
+                        $cat = Category::whereRaw('LOWER(name) = ?', [mb_strtolower($leafName)])
                             ->first();
                         if (!$cat) {
-                            $cat = \App\Models\Tenant\Category::query()->create([
-                                'name' => $leafName,
+                            // Nace colgando de «Sin clasificar» y oculta en el
+                            // escaparate, igual que las del importador de Saga:
+                            // esto solo existe para que `category_id` quede
+                            // poblado de cara a los reportes y filtros internos,
+                            // no para dar forma a la tienda. Una categoria que
+                            // nace sola en la raiz es como `carolayimport` acabo
+                            // con 164 de primer nivel.
+                            $cat = Category::create([
+                                'name'              => $leafName,
+                                'parent_id'         => Category::unclassified()->id,
+                                'visible_ecommerce' => false,
                             ]);
                         }
                         $item->category_id = $cat->id;
