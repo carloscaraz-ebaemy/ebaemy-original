@@ -1,5 +1,5 @@
 {{-- Cuerpo de la ficha de envio. Lo comparten el formulario publico
-     (envio/nuevo) y el modal "Registrar envio" del panel, para que el
+     (/R3GISTRO) y el modal "Registrar envio" del panel, para que el
      operador cargue exactamente los mismos datos que el cliente: direccion
      con Google Maps, monto a cobrar, modalidad y datos de quien recoge.
 

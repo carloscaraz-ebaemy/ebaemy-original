@@ -102,10 +102,33 @@ if ($hostname) {
         // ── Registro de Envíos: formulario PÚBLICO del cliente ──────────
         // El cliente llena sus datos + acepta términos → crea el envío en
         // estado "pendiente". El panel del encargado (grupo auth) sube la guía.
-        Route::get('envio/nuevo', [\App\Http\Controllers\Tenant\ShipmentController::class, 'publicForm'])
+        //
+        // La URL es `R3GISTRO` a secas porque este enlace se comparte a mano
+        // (WhatsApp, bio, rótulo impreso): `envio/nuevo` daba 36 caracteres de
+        // path sobre el subdominio del tenant. El subdominio se mantiene — es
+        // lo que identifica la tienda.
+        Route::get('R3GISTRO', [\App\Http\Controllers\Tenant\ShipmentController::class, 'publicForm'])
              ->name('shipments.public.form');
-        Route::post('envio/nuevo', [\App\Http\Controllers\Tenant\ShipmentController::class, 'publicStore'])
+        Route::post('R3GISTRO', [\App\Http\Controllers\Tenant\ShipmentController::class, 'publicStore'])
              ->name('shipments.public.store')
+             ->middleware('throttle:20,1');
+
+        // Alias de cortesía. El path de Laravel distingue mayúsculas, y quien
+        // teclee el enlace en el móvil lo escribirá en minúscula o sin el 3;
+        // sin estos alias vería un 404 y lo reportaría como "el enlace no
+        // funciona". Redirigen a la canónica en vez de servir el formulario
+        // dos veces en URLs distintas.
+        foreach (['r3gistro', 'registro', 'REGISTRO'] as $aliasPath) {
+            Route::redirect($aliasPath, '/R3GISTRO', 301);
+        }
+
+        // La URL vieja sigue viva: está compartida en chats y puede estar
+        // impresa en rótulos. El GET redirige; el POST se mantiene servido
+        // para que un formulario YA abierto en el navegador de un cliente
+        // pueda enviarse — un 301 sobre POST lo perdería.
+        Route::redirect('envio/nuevo', '/R3GISTRO', 301);
+        Route::post('envio/nuevo', [\App\Http\Controllers\Tenant\ShipmentController::class, 'publicStore'])
+             ->name('shipments.public.store_legacy')
              ->middleware('throttle:20,1');
         // ── Datos de entrega de un PEDIDO existente ─────────────────────
         // Unificación: el enlace que se le manda al cliente completa la
