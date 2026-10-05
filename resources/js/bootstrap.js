@@ -28,6 +28,15 @@ if (token) {
     axios.defaults.headers.common['X-CSRF-TOKEN'] = token.content;
     window.headers_token = {
         'X-CSRF-TOKEN': token.content,
+        // Los <el-upload> de Element UI suben con su propio XHR, que NO pasa
+        // por axios y por tanto no lleva este header. Sin el, el POST llega a
+        // Laravel con pinta de navegacion normal: RedirectModule lo evalua
+        // como si fuera un click en el menu y, si el usuario no tiene el
+        // modulo de esa ruta, responde 302 al dashboard. El componente
+        // recibe el HTML del dashboard en vez del JSON y dice «error de
+        // imagen» sin mas. Lo declaramos aqui porque este objeto es el que
+        // comparten los 60-y-pico <el-upload> del panel.
+        'X-Requested-With': 'XMLHttpRequest',
     }
 } else {
     console.error('CSRF token not found: https://laravel.com/docs/csrf#csrf-x-csrf-token');
@@ -63,7 +72,10 @@ window.refreshCsrfToken = async function () {
         if (window.headers_token) {
             window.headers_token['X-CSRF-TOKEN'] = data.token;
         } else {
-            window.headers_token = { 'X-CSRF-TOKEN': data.token };
+            window.headers_token = {
+                'X-CSRF-TOKEN': data.token,
+                'X-Requested-With': 'XMLHttpRequest',
+            };
         }
         return true;
     } catch (e) {

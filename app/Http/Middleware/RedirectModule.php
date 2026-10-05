@@ -37,6 +37,19 @@
                 return redirect()->route('login');
             }
 
+            // Este middleware es un guarda de NAVEGACION: decide a que pantalla
+            // mandar a alguien que abre una ruta de un modulo que no tiene.
+            // Sobre una escritura no tiene sentido: contestar 302 a un POST
+            // descarta la accion en silencio y le devuelve HTML a quien
+            // esperaba JSON — asi se veia el «error de imagen» al subir una
+            // foto desde items_ecommerce con un usuario sin el modulo `items`
+            // (el endpoint vive bajo items/, la pantalla bajo items_ecommerce).
+            // Quien autoriza una escritura es `auth`, `permission` y el propio
+            // controlador, no esto.
+            if (!$request->isMethodSafe()) {
+                return $next($request);
+            }
+
             $module = $request->user()->getModule();
             $path = explode('/', $request->path());
             $modules = $request->user()->getModules();
