@@ -578,58 +578,97 @@ class MarketplaceController extends Controller
             return response()->json($this->suggestPopular());
         }
 
-        $cacheKey = 'mp_suggest_v4_' . md5(mb_strtolower($q));
+        $cacheKey = 'mp_suggest_v5_' . md5(mb_strtolower($q));
         $data = \Cache::remember($cacheKey, 60, function () use ($q) {
             $qNorm = trim(preg_replace('/\s+/', ' ', $q));
 
-            // El filtro es el MISMO scopeSearch del listado — antes estaba
-            // duplicado aqui y las dos busquedas podian discrepar.
-            // Relevancia textual primero: el desplegable solo tiene 8 huecos,
-            // no puede gastarlos en coincidencias a mitad de palabra con
-            // muchas vistas. Puede venir null (query sin letras ni digitos,
-            // tipo '!!'): entonces se omite el termino.
-            $textRelevance = MarketplaceListing::textRelevanceSql($qNorm);
-
-            $listings = MarketplaceListing::published()
-                ->search($qNorm)
-                ->when($textRelevance, fn ($qb) => $qb->orderByRaw("{$textRelevance} DESC"))
-                ->orderByRaw('CASE WHEN is_featured = 1 AND (featured_until IS NULL OR featured_until > NOW()) THEN 1 ELSE 0 END DESC')
-                ->orderByDesc('view_count')
-                ->limit(8)
-                ->get(self::SUGGEST_COLS)
-                ->map(fn ($l) => $this->mapListingForSuggest($l))
-                ->values();
-
-            $shopsLike = '%' . $qNorm . '%';
-            $shops = MarketplaceListing::published()
-                ->where('tenant_name', 'like', $shopsLike)
-                ->select('tenant_name', 'tenant_fqdn', \DB::raw('COUNT(*) as products_count'))
-                ->groupBy('tenant_name', 'tenant_fqdn')
-                ->orderByDesc('products_count')
-                ->limit(3)
-                ->get()
-                ->map(function ($s) {
-                    $sub = strtolower(strtok((string) $s->tenant_fqdn, '.')) ?: null;
-                    return [
-                        'name'           => $s->tenant_name,
-                        'subdomain'      => $sub,
-                        'products_count' => (int) $s->products_count,
-                    ];
-                })
-                ->values();
+            ['listings' => $listings, 'shops' => $shops] = $this->buscarParaSugerencia($qNorm);
 
             $out = ['suggestions' => $listings, 'shops' => $shops];
 
-            // "Sin resultados" inteligente: si no hubo coincidencias, adjunta
-            // populares + categorías para que el comprador no quede en vacío.
-            if ($listings->isEmpty() && $shops->isEmpty()) {
-                $out = array_merge($out, $this->suggestPopular());
+            if ($listings->isNotEmpty() || $shops->isNotEmpty()) {
+                return $out;
             }
 
-            return $out;
+            // Vacio. Antes de decir "sin resultados" probamos si fue una errata.
+            //
+            // El filtro ya aguanta las faltas que SUENAN igual («cogines» ->
+            // «cojines»), que se resuelven sin llegar aqui. Lo que queda son
+            // las que no suenan igual: letras cambiadas de sitio u omitidas
+            // («zapatila», «audifnos»). Para eso ya existe SearchSpellRescue,
+            // que corrige por distancia contra el vocabulario REAL del
+            // catalogo. Solo estaba enchufado en la pagina de resultados, no
+            // aqui: el desplegable se quedaba mudo, que es justo lo que se
+            // reporto el 2026-10-05 («no me muestra ninguna otra opcion»).
+            $correccion = app(\App\Services\Marketplace\SearchSpellRescue::class)->suggest($qNorm);
+
+            if ($correccion && $correccion !== $qNorm) {
+                $rescate = $this->buscarParaSugerencia($correccion);
+
+                if ($rescate['listings']->isNotEmpty() || $rescate['shops']->isNotEmpty()) {
+                    return [
+                        'suggestions'    => $rescate['listings'],
+                        'shops'          => $rescate['shops'],
+                        'corrected_to'   => $correccion,
+                        'corrected_from' => $qNorm,
+                    ];
+                }
+            }
+
+            // Ni corrigiendo: populares + categorías para no dejar el vacío.
+            return array_merge($out, $this->suggestPopular());
         });
 
         return response()->json($data);
+    }
+
+    /**
+     * Las dos consultas del desplegable para un termino dado.
+     *
+     * Extraido porque se ejecutan dos veces: con lo que se tecleo y, si eso no
+     * devolvio nada, con la correccion. Tenerlo en un solo sitio evita que las
+     * dos pasadas puedan discrepar en orden o en columnas.
+     *
+     * @return array{listings:\Illuminate\Support\Collection,shops:\Illuminate\Support\Collection}
+     */
+    private function buscarParaSugerencia(string $termino): array
+    {
+        // El filtro es el MISMO scopeSearch del listado — antes estaba
+        // duplicado aqui y las dos busquedas podian discrepar.
+        // Relevancia textual primero: el desplegable solo tiene 8 huecos,
+        // no puede gastarlos en coincidencias a mitad de palabra con
+        // muchas vistas. Puede venir null (query sin letras ni digitos,
+        // tipo '!!'): entonces se omite el termino.
+        $textRelevance = MarketplaceListing::textRelevanceSql($termino);
+
+        $listings = MarketplaceListing::published()
+            ->search($termino)
+            ->when($textRelevance, fn ($qb) => $qb->orderByRaw("{$textRelevance} DESC"))
+            ->orderByRaw('CASE WHEN is_featured = 1 AND (featured_until IS NULL OR featured_until > NOW()) THEN 1 ELSE 0 END DESC')
+            ->orderByDesc('view_count')
+            ->limit(8)
+            ->get(self::SUGGEST_COLS)
+            ->map(fn ($l) => $this->mapListingForSuggest($l))
+            ->values();
+
+        $shops = MarketplaceListing::published()
+            ->where('tenant_name', 'like', '%' . $termino . '%')
+            ->select('tenant_name', 'tenant_fqdn', \DB::raw('COUNT(*) as products_count'))
+            ->groupBy('tenant_name', 'tenant_fqdn')
+            ->orderByDesc('products_count')
+            ->limit(3)
+            ->get()
+            ->map(function ($s) {
+                $sub = strtolower(strtok((string) $s->tenant_fqdn, '.')) ?: null;
+                return [
+                    'name'           => $s->tenant_name,
+                    'subdomain'      => $sub,
+                    'products_count' => (int) $s->products_count,
+                ];
+            })
+            ->values();
+
+        return ['listings' => $listings, 'shops' => $shops];
     }
 
     /**

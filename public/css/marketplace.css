@@ -1924,6 +1924,17 @@ button { font-family: inherit; cursor: pointer; }
 .mp-search-suggest__badge--offer { background: #fef3c7; color: #92400e; }
 .mp-search-suggest__badge--pack  { background: #ede9fe; color: #5b21b6; }
 .mp-search-suggest__badge--out   { background: #fee2e2; color: #991b1b; }
+/* Aviso de errata corregida. Va arriba del desplegable porque explica QUE se
+   esta listando: sin el, el comprador cree que el buscador le ignoro. */
+.mp-search-suggest__corrected {
+    padding: 9px 14px;
+    font-size: 12.5px;
+    line-height: 1.35;
+    color: var(--mp-muted);
+    background: rgba(15,138,130,.06);
+    border-bottom: 1px solid rgba(15,138,130,.14);
+}
+.mp-search-suggest__corrected strong { color: var(--mp-primary-dark); font-weight: 700; }
 .mp-search-suggest__empty {
     padding: 16px;
     text-align: center;

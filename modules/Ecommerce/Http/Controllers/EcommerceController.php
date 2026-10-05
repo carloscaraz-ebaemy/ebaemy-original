@@ -124,10 +124,7 @@ class EcommerceController extends Controller
 
         // Búsqueda por nombre
         if ($searchQ) {
-            $query->where(function ($q) use ($searchQ) {
-                $q->where('description', 'like', '%' . $searchQ . '%')
-                  ->orWhere('name', 'like', '%' . $searchQ . '%');
-            });
+            $this->applyToleranteTextSearch($query, $searchQ, ['description', 'name']);
         }
 
         // Filtrar solo productos disponibles (config o parámetro URL)
@@ -1839,6 +1836,72 @@ class EcommerceController extends Controller
     }
 
     /**
+     * Busqueda de texto que aguanta las faltas de ortografia que suenan igual.
+     *
+     * Reportado el 2026-10-05: quien escribe «cogines» no encuentra nada aunque
+     * el catalogo este lleno de «cojines», y el buscador tampoco ofrece ninguna
+     * alternativa. Igual con «baso»/«vaso» o «sapato»/«zapato».
+     *
+     * La condicion se monta en dos mitades unidas por OR:
+     *
+     *   1. La frase tal cual, que es el comportamiento que habia. Intacto.
+     *   2. Palabra a palabra, exigiendo cada una presente (AND entre palabras),
+     *      pero aceptando cualquiera de sus grafias equivalentes (OR dentro).
+     *
+     * Al ir en OR con lo anterior, esto solo puede SUMAR resultados, nunca
+     * quitarlos: si algo salia antes, sigue saliendo.
+     *
+     * Se usan solo `SearchSynonyms::spellings()` —erratas y plural—, no
+     * `expand()`: los sinonimos de significado traerian productos que la
+     * persona no nombro, y eso es otra decision, no la que se pidio.
+     *
+     * La colacion es utf8mb4_unicode_ci, que ignora tildes y trata la ene como
+     * «n» (verificado), asi que las variantes en ASCII casan con «Cojín» y con
+     * «Muñeca» sin normalizar las columnas.
+     *
+     * @param array<int,string> $columnas Columnas de texto donde buscar.
+     */
+    private function applyToleranteTextSearch($query, string $frase, array $columnas): void
+    {
+        $frase = trim(preg_replace('/\s+/', ' ', $frase));
+        if ($frase === '') {
+            return;
+        }
+
+        // Palabras de 1 caracter son ruido, salvo que sea lo unico que se puso.
+        $tokens = array_values(array_filter(explode(' ', $frase), fn ($t) => mb_strlen($t) >= 2));
+        if ($tokens === []) {
+            $tokens = [$frase];
+        }
+        $tokens = array_slice($tokens, 0, 5);
+
+        $query->where(function ($w) use ($frase, $tokens, $columnas) {
+            // 1. La frase literal: lo de siempre.
+            foreach ($columnas as $col) {
+                $w->orWhere($col, 'like', '%' . $frase . '%');
+            }
+
+            // 2. Cada palabra, en cualquiera de sus grafias.
+            $w->orWhere(function ($porPalabra) use ($tokens, $columnas) {
+                foreach ($tokens as $token) {
+                    $grafias = \App\Services\System\SearchSynonyms::spellings($token);
+                    if ($grafias === []) {
+                        $grafias = [$token];
+                    }
+
+                    $porPalabra->where(function ($alguna) use ($grafias, $columnas) {
+                        foreach ($grafias as $grafia) {
+                            foreach ($columnas as $col) {
+                                $alguna->orWhere($col, 'like', '%' . $grafia . '%');
+                            }
+                        }
+                    });
+                }
+            });
+        });
+    }
+
+    /**
      * Buscador avanzado con filtros (precio, categoria, marca, rating, stock).
      */
     public function advancedSearch(Request $request)
@@ -1848,11 +1911,14 @@ class EcommerceController extends Controller
 
         // Busqueda por texto
         if ($request->filled('q')) {
-            $q = $request->q;
+            // internal_id es un codigo, no lenguaje: ahi no se aplican grafias
+            // alternativas, solo el texto tal cual.
+            $q = (string) $request->q;
             $query->where(function ($w) use ($q) {
-                $w->where('description', 'LIKE', "%{$q}%")
-                  ->orWhere('name', 'LIKE', "%{$q}%")
-                  ->orWhere('internal_id', 'LIKE', "%{$q}%");
+                $w->orWhere('internal_id', 'LIKE', "%{$q}%")
+                  ->orWhere(function ($texto) use ($q) {
+                      $this->applyToleranteTextSearch($texto, $q, ['description', 'name']);
+                  });
             });
         }
 
@@ -1913,7 +1979,10 @@ class EcommerceController extends Controller
         $filters = [
             'categories' => \Modules\Item\Models\Category::whereHas('items', fn($q) => $q->where('apply_store', 1))
                 ->orderBy('name')->get(['id', 'name']),
-            'brands' => \App\Models\Tenant\Brand::whereHas('items', fn($q) => $q->where('apply_store', 1))
+            // La clase era `App\Models\Tenant\Brand`, que no existe: este
+            // endpoint reventaba con un 500 cada vez que se llamaba. No se
+            // notaba porque ningun front lo invoca todavia.
+            'brands' => \Modules\Item\Models\Brand::whereHas('items', fn($q) => $q->where('apply_store', 1))
                 ->orderBy('name')->get(['id', 'name']),
             'price_range' => [
                 'min' => Item::where('apply_store', 1)->min('sale_unit_price') ?? 0,

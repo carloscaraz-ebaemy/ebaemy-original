@@ -1079,6 +1079,15 @@ window.mpCouponTenantIds = []; // hostname_ids donde el user tiene cupn
         const shops = data.shops || [];
         let html = '';
 
+        /* Lo tecleado no daba nada y se corrigio la errata: hay que DECIRLO.
+           Mostrar resultados de otra palabra sin avisar confunde mas que el
+           vacio, porque parece que el buscador ignora lo que se escribio. */
+        if (data.corrected_to) {
+            html += `<div class="mp-search-suggest__corrected">`
+                 +  `Mostrando resultados para <strong>${esc(data.corrected_to)}</strong>`
+                 +  `</div>`;
+        }
+
         if (sug.length) {
             html += '<div class="mp-search-suggest__section">';
             html += '<div class="mp-search-suggest__header">Productos</div>';
@@ -1103,7 +1112,10 @@ window.mpCouponTenantIds = []; // hostname_ids donde el user tiene cupn
         }
 
         if (html) {
-            html += `<a class="mp-search-suggest__seemore" href="${SEARCH_BASE}?q=${encodeURIComponent(q)}">Ver todos los resultados →</a>`;
+            /* Si se corrigio, "ver todos" tiene que llevar al termino corregido:
+               con el original la pagina saldria vacia. */
+            const qVer = data.corrected_to || q;
+            html += `<a class="mp-search-suggest__seemore" href="${SEARCH_BASE}?q=${encodeURIComponent(qVer)}">Ver todos los resultados →</a>`;
         } else {
             /* Sin resultados se dice y nada más: no se rellena con populares. */
             html = `<div class="mp-search-suggest__empty">Sin resultados para "${esc(q)}"</div>`;

@@ -90,4 +90,88 @@ class SearchSynonymsTest extends TestCase
         $this->assertSame(array_values(array_unique($v)), $v);
         $this->assertNotContains('', $v);
     }
+
+    // ── Erratas que suenan igual ──────────────────────────────────────────
+
+    /**
+     * El caso reportado el 2026-10-05. `expand()` lo consumen a la vez el
+     * filtro (`scopeSearch`) y el orden (`textRelevanceSql`), así que basta con
+     * que la grafía correcta salga de aquí para que la búsqueda la encuentre.
+     */
+    public function test_una_errata_que_suena_igual_alcanza_la_grafia_del_catalogo()
+    {
+        $this->assertContains('cojines', SearchSynonyms::expand('cogines'));
+        $this->assertContains('vaso', SearchSynonyms::expand('baso'));
+        $this->assertContains('zapato', SearchSynonyms::expand('sapato'));
+        $this->assertContains('llave', SearchSynonyms::expand('yave'));
+    }
+
+    /**
+     * El catálogo guarda «Cojín» y «Cojines» según el vendedor, así que una
+     * errata en plural tiene que alcanzar también el singular bien escrito.
+     */
+    public function test_una_errata_en_plural_alcanza_el_singular_correcto()
+    {
+        $v = SearchSynonyms::expand('cogines');
+
+        $this->assertContains('cojines', $v);
+        $this->assertContains('cojin', $v);
+    }
+
+    /** Una palabra mal escrita debe llegar igual de lejos que la bien escrita. */
+    public function test_una_errata_tambien_alcanza_los_sinonimos()
+    {
+        // «sapatillas» → «zapatillas» → tenis/calzado.
+        $v = SearchSynonyms::expand('sapatillas');
+
+        $this->assertContains('zapatillas', $v);
+        $this->assertContains('tenis', $v);
+    }
+
+    /**
+     * `spellings()` es la mitad que usa la tienda del tenant: la MISMA palabra
+     * escrita de otro modo, nunca palabras de significado parecido. Si se le
+     * colaran sinónimos, el storefront empezaría a devolver productos que el
+     * comprador no nombró, y eso no es lo que se pidió.
+     */
+    public function test_spellings_no_trae_sinonimos_de_significado()
+    {
+        $v = SearchSynonyms::spellings('asiento');
+
+        $this->assertContains('asiento', $v);
+        $this->assertNotContains('silla', $v);
+        $this->assertNotContains('taburete', $v);
+
+        // Pero sí la errata que suena igual.
+        $this->assertContains('aciento', $v);
+    }
+
+    /** La palabra tecleada va siempre primera: se amplía, no se sustituye. */
+    public function test_lo_tecleado_va_primero()
+    {
+        $this->assertSame('cogines', SearchSynonyms::spellings('cogines')[0]);
+        $this->assertSame('cogines', SearchSynonyms::expand('cogines')[0]);
+    }
+
+    /**
+     * Cada variante son cuatro `LIKE` más en el SQL de relevancia, por hasta 5
+     * tokens. El tope evita que una palabra con muchas ambigüedades infle la
+     * consulta.
+     */
+    public function test_expand_respeta_un_tope()
+    {
+        foreach (['zapatillas', 'cabesa', 'cogines', 'inalanbrico'] as $palabra) {
+            $this->assertLessThanOrEqual(12, count(SearchSynonyms::expand($palabra)));
+        }
+    }
+
+    public function test_sigue_sin_devolver_duplicados_ni_vacios_con_erratas()
+    {
+        foreach (['cogines', 'sapatillas', 'baso', 'inalanbrico'] as $palabra) {
+            $v = SearchSynonyms::expand($palabra);
+
+            $this->assertSame(array_values(array_unique($v)), $v, "duplicados en «{$palabra}»");
+            $this->assertNotContains('', $v);
+        }
+    }
 }

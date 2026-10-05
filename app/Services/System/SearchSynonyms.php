@@ -47,29 +47,77 @@ class SearchSynonyms
         'colchon'     => ['cama'],
     ];
 
+    /** Tope de variantes que devuelve expand(), para no inflar el SQL. */
+    private const MAX_VARIANTES = 12;
+
     /**
-     * Devuelve el token normalizado, su singular y sus sinónimos (todos
-     * normalizados).
+     * La MISMA palabra escrita de otras formas: el token normalizado, su
+     * singular, y las grafías que suenan igual.
+     *
+     * Se separa de expand() porque son dos cosas distintas y no todo el mundo
+     * quiere las dos. Esto son erratas y plurales — «cogines» es «cojines» —, y
+     * ampliarlo nunca cambia QUÉ se buscó. Los sinónimos de expand() sí: traen
+     * productos que la persona no nombró. La tienda del tenant usa solo esto.
+     *
+     * @return array<int,string>
+     */
+    public static function spellings(string $token): array
+    {
+        $norm = MarketplaceListingSyncService::normalizeForSearch($token);
+        if ($norm === '') {
+            return [];
+        }
+
+        $out = [$norm];
+
+        $singular = static::singular($norm);
+        if ($singular) {
+            $out[] = $singular;
+        }
+
+        // Quien busca «cogines» tiene que encontrar los «cojines» del catálogo.
+        // Se piden también las del singular porque el catálogo guarda las dos
+        // formas y no sabemos cuál.
+        foreach (array_filter([$norm, $singular]) as $base) {
+            foreach (SpanishPhonetics::spellingVariants($base, 4) as $variante) {
+                if ($variante !== '' && $variante !== $base) {
+                    $out[] = $variante;
+                }
+            }
+        }
+
+        return array_values(array_unique($out));
+    }
+
+    /**
+     * Todo lo anterior MÁS los sinónimos de significado (asiento → silla).
+     *
+     * Lo consumen a la vez `MarketplaceListing::scopeSearch` (filtro) y
+     * `textRelevanceSql` (orden), así que lo que se añada aquí lo heredan los
+     * dos sin tocarlos.
      */
     public static function expand(string $token): array
     {
-        $norm = MarketplaceListingSyncService::normalizeForSearch($token);
-        $out = [$norm];
+        $out = [];
 
-        foreach (static::$map[$norm] ?? [] as $syn) {
-            $out[] = MarketplaceListingSyncService::normalizeForSearch($syn);
-        }
+        // A cada grafía se le miran sus sinónimos, no solo a la que se tecleó:
+        // así una palabra mal escrita llega igual de lejos que la bien escrita
+        // («sapato» → «zapato» → calzado).
+        foreach (static::spellings($token) as $grafia) {
+            $out[] = $grafia;
 
-        // El singular del término, y los sinónimos de ese singular.
-        if ($singular = static::singular($norm)) {
-            $out[] = $singular;
-
-            foreach (static::$map[$singular] ?? [] as $syn) {
+            foreach (static::$map[$grafia] ?? [] as $syn) {
                 $out[] = MarketplaceListingSyncService::normalizeForSearch($syn);
             }
         }
 
-        return array_values(array_filter(array_unique($out), fn ($t) => $t !== ''));
+        if ($out === []) {
+            $out = [MarketplaceListingSyncService::normalizeForSearch($token)];
+        }
+
+        $limpio = array_values(array_filter(array_unique($out), fn ($t) => $t !== ''));
+
+        return array_slice($limpio, 0, self::MAX_VARIANTES);
     }
 
     /**
