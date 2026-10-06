@@ -37,7 +37,8 @@ class SeoTenantAudit extends Command
 {
     protected $signature = 'seo:tenant-audit
         {--tenant= : UUID de un website concreto (por defecto: todos)}
-        {--fix : Rellena los campos vacios en vez de solo informar}';
+        {--fix : Rellena los campos vacios en vez de solo informar}
+        {--rewrite : Con --fix, rehace tambien las descripciones que genero este comando}';
 
     protected $description = 'Audita el SEO publicado por cada tienda y opcionalmente rellena lo que falta';
 
@@ -46,8 +47,9 @@ class SeoTenantAudit extends Command
 
     public function handle(): int
     {
-        $uuid = $this->option('tenant');
-        $fix  = (bool) $this->option('fix');
+        $uuid    = $this->option('tenant');
+        $fix     = (bool) $this->option('fix');
+        $rewrite = (bool) $this->option('rewrite');
 
         $websites = $uuid ? Website::where('uuid', $uuid)->get() : Website::all();
 
@@ -97,6 +99,13 @@ class SeoTenantAudit extends Command
             $tituloEsLegal = $tituloActual === $legal && $legal !== '';
             $descGenerica  = $descActual === '' || $descActual === self::DESC_FABRICA;
 
+            // Con --rewrite, lo que escribio este comando tambien se rehace.
+            // Sirve para propagar una mejora de la plantilla sin tocar lo que
+            // haya escrito a mano el vendedor, que es sagrado.
+            if ($rewrite && !$descGenerica && $this->laEscribimosNosotros($descActual)) {
+                $descGenerica = true;
+            }
+
             $estado = 'ok';
             if ($tituloEsLegal || $descGenerica) {
                 $estado = 'INCOMPLETO';
@@ -135,18 +144,13 @@ class SeoTenantAudit extends Command
 
             if ($descGenerica) {
                 if ($comercial !== '') {
-                    $cambios['seo_description'] = $this->recortar(
-                        $cats !== ''
-                            ? 'Tienda online de ' . $comercial . ': ' . $cats . '. Mira el catalogo y compra desde tu celular.'
-                            : 'Tienda online de ' . $comercial . '. Mira el catalogo y compra desde tu celular.',
-                        155
-                    );
+                    $cambios['seo_description'] = $this->describir($comercial, $cats);
                 } elseif ($cats !== '') {
                     // Sin nombre comercial, la descripcion se construye solo con
                     // las categorias: sigue siendo distinta de la del vecino y no
                     // mete el nombre del titular donde no toca.
                     $cambios['seo_description'] = $this->recortar(
-                        'Catalogo de ' . $cats . '. Compra online desde tu celular.',
+                        'Catálogo de ' . $cats . '. Compra online desde tu celular.',
                         155
                     );
                 }
@@ -217,6 +221,61 @@ class SeoTenantAudit extends Command
         return self::SUCCESS;
     }
 
+    /**
+     * ¿Esta descripcion la genero este comando, o la escribio una persona?
+     *
+     * Se reconoce por la plantilla: empieza por «Tienda online de» o
+     * «Catalogo de» y acaba en la coletilla fija. Se aceptan las dos grafias de
+     * «catalogo» porque las primeras pasadas la escribieron sin tilde.
+     *
+     * Importa acertar: con --rewrite esto decide que se sobreescribe, y pisar
+     * lo que un vendedor escribio a mano seria perder su trabajo.
+     */
+    private function laEscribimosNosotros(string $desc): bool
+    {
+        $empieza = str_starts_with($desc, 'Tienda online de ')
+                || str_starts_with($desc, 'Catálogo de ')
+                || str_starts_with($desc, 'Catalogo de ');
+
+        return $empieza && str_ends_with($desc, 'desde tu celular.');
+    }
+
+    /**
+     * La meta descripcion de una tienda, dentro del limite y SIN cortar a
+     * mitad de palabra.
+     *
+     * El limite de 155 caracteres no es un capricho: por encima, Google corta
+     * la descripcion en los resultados. Pero cortar por bytes deja frases como
+     * «Accesorios / repuestos para aparatos para el cuidado de la ropa l...»,
+     * que es lo que salio en los dos catalogos importados de Saga, cuyas
+     * categorias son enumeraciones larguisimas. Asi que en vez de recortar la
+     * frase, se van quitando CATEGORIAS hasta que cabe entera.
+     */
+    private function describir(string $nombre, string $cats): string
+    {
+        $cola  = 'Mira el catálogo y compra desde tu celular.';
+        $corta = 'Tienda online de ' . $nombre . '. ' . $cola;
+
+        if ($cats === '') {
+            return $this->recortar($corta, 155);
+        }
+
+        // De mas categorias a menos, la primera que quepa gana.
+        $lista = array_map('trim', explode(',', $cats));
+
+        for ($n = count($lista); $n >= 1; $n--) {
+            $frase = 'Tienda online de ' . $nombre . ': '
+                   . implode(', ', array_slice($lista, 0, $n)) . '. ' . $cola;
+
+            if (mb_strlen($frase) <= 155) {
+                return $frase;
+            }
+        }
+
+        // Ni con una sola categoria cabe: mejor sin ellas que a medias.
+        return $this->recortar($corta, 155);
+    }
+
     /** Una fila de la tabla final. */
     private function fila(string $fqdn, string $estado, string $titulo, $seo): array
     {
@@ -268,8 +327,25 @@ class SeoTenantAudit extends Command
         }
     }
 
+    /**
+     * Recorta por PALABRAS, no por caracteres: esto acaba en un resultado de
+     * Google y «...cuidado de la ropa l...» no lo lee nadie.
+     */
     private function recortar(string $texto, int $max): string
     {
-        return mb_strlen($texto) <= $max ? $texto : rtrim(mb_substr($texto, 0, $max - 1)) . '...';
+        if (mb_strlen($texto) <= $max) {
+            return $texto;
+        }
+
+        $corte = mb_substr($texto, 0, $max - 1);
+
+        // Retroceder a la ultima palabra completa, salvo que eso dejara el
+        // texto en nada (una sola palabra larguisima).
+        $espacio = mb_strrpos($corte, ' ');
+        if ($espacio !== false && $espacio >= (int) ($max * 0.5)) {
+            $corte = mb_substr($corte, 0, $espacio);
+        }
+
+        return rtrim($corte, " \t,;:.-") . '...';
     }
 }
