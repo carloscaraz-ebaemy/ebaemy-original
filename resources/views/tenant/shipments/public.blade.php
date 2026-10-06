@@ -71,6 +71,12 @@
         .dcard.moto .go { color:var(--moto); border-color:var(--moto); }
         .dcard.tienda .go { color:var(--ok); border-color:var(--ok); }
         .dcard.tienda:hover { border-color:var(--ok); box-shadow:0 12px 28px -18px rgba(22,163,74,.5); }
+        /* Modalidad que este dispositivo ya habia empezado a llenar. Se marca
+           para que el cliente la reconozca, pero sigue siendo UNA de las tres
+           opciones: el formulario nunca elige por el. */
+        .dcard--previa { border-color:var(--brand); background:#f8fbff; }
+        .dcard--previa::after { content:'Continuar donde lo dejaste'; position:absolute; top:-9px; left:16px; font-size:10.5px; font-weight:800; letter-spacing:.3px; text-transform:uppercase; color:#fff; background:var(--brand); border-radius:999px; padding:2px 9px; }
+        .dcard { position:relative; }
 
         .tag { display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:700; padding:5px 11px; border-radius:999px; margin-bottom:6px; }
         .tag.moto { background:#f3e8ff; color:var(--moto); } .tag.ag { background:#dbeafe; color:var(--brand-d); }

@@ -20,6 +20,9 @@
     var branchAg = document.querySelector('.branch-agencia');
     var branchTienda = document.querySelector('.branch-tienda');
     var selectedType = null;
+    // Tipo que venia en el borrador. Se recuerda SOLO para no perderlo al
+    // reguardar; no selecciona la modalidad por su cuenta.
+    var tipoGuardado = null;
 
     function setStep(n) {
         var sts = stepper.querySelectorAll('.st'), lines = stepper.querySelectorAll('.st-line');
@@ -38,6 +41,7 @@
     document.querySelectorAll('.dcard').forEach(function (c) {
         c.addEventListener('click', function () {
             selectedType = c.getAttribute('data-type');
+            tipoGuardado = null;
             dtInput.value = selectedType;
 
             var isDom = selectedType === DTYPE.DOM;
@@ -697,7 +701,7 @@
 
     function guardarBorrador() {
         try {
-            var datos = { __type: selectedType || '' };
+            var datos = { __type: selectedType || tipoGuardado || '', __ts: Date.now() };
             camposBorrador().forEach(function (el) {
                 if (el.type === 'hidden' && el.name === '_token') return;
                 if (el.type === 'checkbox') datos[el.id || el.name] = el.checked ? 1 : 0;
@@ -712,10 +716,15 @@
         try { localStorage.removeItem(BORRADOR); } catch (e) {}
     }
 
+    // Un borrador viejo no es ayuda: el telefono de la tienda abre este enlace
+    // para varios clientes y nadie quiere ver la direccion del anterior.
+    var BORRADOR_VIDA = 24 * 60 * 60 * 1000;
+
     function restaurarBorrador() {
         var datos;
         try { datos = JSON.parse(localStorage.getItem(BORRADOR) || 'null'); } catch (e) { return; }
         if (!datos) return;
+        if (datos.__ts && (Date.now() - datos.__ts) > BORRADOR_VIDA) { limpiarBorrador(); return; }
 
         camposBorrador().forEach(function (el) {
             if (el.type === 'hidden' && el.name === '_token') return;
@@ -725,11 +734,18 @@
             else if (clave in datos && datos[clave] !== '') el.value = datos[clave];
         });
 
-        // El tipo de entrega gobierna que campos existen: se re-elige tal cual
-        // lo dejo, para que las ramas y los `required` queden coherentes.
+        // El tipo de entrega NO se re-elige solo. Hacerlo saltaba el paso 0 y el
+        // cliente entraba al enlace directo en la modalidad de la vez anterior
+        // (casi siempre Lima), sin poder escoger provincia ni recojo en tienda.
+        // Se deja marcado el que eligio antes y el elige.
         if (datos.__type) {
+            tipoGuardado = datos.__type;
             var card = document.querySelector('.dcard[data-type="' + datos.__type + '"]');
-            if (card) card.click();
+            if (card) {
+                card.classList.add('dcard--previa');
+                var go = card.querySelector('.go');
+                if (go) go.textContent = 'Continuar';
+            }
         }
     }
 
