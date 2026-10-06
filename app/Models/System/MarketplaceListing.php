@@ -30,6 +30,7 @@ class MarketplaceListing extends Model
         'short_description',
         'description',
         'image_url',
+        'thumb_image_url',
         'secondary_image_url',
         'gallery_image_urls',
         'seller_whatsapp',

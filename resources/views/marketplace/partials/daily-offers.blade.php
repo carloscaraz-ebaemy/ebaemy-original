@@ -44,7 +44,12 @@
                 <a href="{{ route('marketplace.item', $offer->slug) }}" class="mp-offer-card">
                     <div class="mp-offer-card__img">
                         @if($offer->image_url)
-                            <img src="{{ $offer->image_url }}" alt="{{ $offer->title }}" loading="lazy">
+                            {{-- Miniatura de 512px si existe; el carrusel pinta
+                                 ~180px y la variante `_mp` de 1080 es 4 veces
+                                 mas pesada para el mismo resultado. --}}
+                            <img src="{{ $offer->thumb_image_url ?? $offer->image_url }}"
+                                 alt="{{ $offer->title }}" loading="lazy" decoding="async"
+                                 width="512" height="512">
                         @else
                             <div class="mp-offer-card__noimg">Sin imagen</div>
                         @endif

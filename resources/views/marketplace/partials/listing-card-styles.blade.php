@@ -89,8 +89,12 @@
         transition: opacity .25s ease, transform .35s ease;
     }
     .mp-card-img-secondary { opacity: 0; }
-    .mp-card-img[data-has-secondary="1"]:hover .mp-card-img-primary { opacity: 0; }
-    .mp-card-img[data-has-secondary="1"]:hover .mp-card-img-secondary { opacity: 1; }
+    /* El cruce solo ocurre con data-secondary-ready: la 2da foto no se
+       descarga al pintar la pagina sino al primer acercamiento (lo hace
+       listing-card-script), y sin esta guarda el primer hover apagaria la
+       principal contra un hueco en blanco. */
+    .mp-card-img[data-has-secondary="1"][data-secondary-ready="1"]:hover .mp-card-img-primary { opacity: 0; }
+    .mp-card-img[data-has-secondary="1"][data-secondary-ready="1"]:hover .mp-card-img-secondary { opacity: 1; }
 
     /* Shop name clickable */
     .mp-card-shop-link {

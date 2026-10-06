@@ -217,25 +217,35 @@ class MarketplaceController extends Controller
         $this->decorateListingsWithAlsoIn($listings);
         $this->decorateListingsWithPersonalCoupon($listings);
 
-        $categories = MarketplaceListing::published()
-            ->whereNotNull('category_name')
-            ->select('category_name')
-            ->groupBy('category_name')
-            ->orderBy('category_name')
-            ->limit(40)
-            ->pluck('category_name');
+        // Facetas del sidebar — cacheadas 30min, igual que el resto de
+        // agregados de esta pantalla. Son dos GROUP BY sobre toda la tabla y
+        // NO dependen de los filtros de la petición: se recalculaban en cada
+        // carga de la home para devolver siempre lo mismo. El catálogo cambia
+        // cada 30 min como mucho (el cron de sync), así que la ventana de
+        // caché coincide con la frecuencia real de cambio.
+        $categories = Cache::remember('mp_facet_categories_v1', 1800, function () {
+            return MarketplaceListing::published()
+                ->whereNotNull('category_name')
+                ->select('category_name')
+                ->groupBy('category_name')
+                ->orderBy('category_name')
+                ->limit(40)
+                ->pluck('category_name');
+        });
 
         // Faceta de marcas — top marcas por nº de productos publicados. Faceta
         // facetada estilo Amazon/MercadoLibre; aprovecha brand_name ya sincronizado.
-        $brands = MarketplaceListing::published()
-            ->whereNotNull('brand_name')
-            ->where('brand_name', '!=', '')
-            ->select('brand_name', \DB::raw('COUNT(*) as products_count'))
-            ->groupBy('brand_name')
-            ->orderByDesc(\DB::raw('COUNT(*)'))
-            ->orderBy('brand_name')
-            ->limit(30)
-            ->pluck('brand_name');
+        $brands = Cache::remember('mp_facet_brands_v1', 1800, function () {
+            return MarketplaceListing::published()
+                ->whereNotNull('brand_name')
+                ->where('brand_name', '!=', '')
+                ->select('brand_name', \DB::raw('COUNT(*) as products_count'))
+                ->groupBy('brand_name')
+                ->orderByDesc(\DB::raw('COUNT(*)'))
+                ->orderBy('brand_name')
+                ->limit(30)
+                ->pluck('brand_name');
+        });
 
         // Árbol oficial (sólo raíces visibles) — cacheado 30min.
         $officialRoots = $this->getOfficialRootsCached();
@@ -255,7 +265,7 @@ class MarketplaceController extends Controller
             // tienda. La franja cambia que ofertas de cada tienda salen, sin
             // tocar el reparto ni perder el cache.
             $rotSlot = (int) (now()->dayOfYear * 4 + intdiv((int) now()->hour, 6));
-            $dailyOffers = Cache::remember('mp_daily_offers_v5_' . $rotSlot, 1800, function () use ($rotSlot) {
+            $dailyOffers = Cache::remember('mp_daily_offers_v6_' . $rotSlot, 1800, function () use ($rotSlot) {
                 // Pool amplio de candidatos: si una sola tienda concentra las
                 // ofertas de mayor descuento, un limit pequeño (30) la dejaba
                 // monopolizar el top y el cap de 2/tienda recortaba el carrusel
@@ -1157,7 +1167,12 @@ class MarketplaceController extends Controller
         $this->explodeVariantsIntoCards($listings);
         $this->decorateListingsWithAlsoIn($listings);
         $this->decorateListingsWithPersonalCoupon($listings);
-        $total    = MarketplaceListing::published()->where('category_name', $category)->count();
+        // Total de la categoría — NO depende de los filtros de la petición
+        // (es el "de N productos" del encabezado), así que se cachea en vez de
+        // contar toda la tabla en cada visita.
+        $total = Cache::remember('mp_cat_total_v1_' . md5((string) $category), 1800, function () use ($category) {
+            return MarketplaceListing::published()->where('category_name', $category)->count();
+        });
 
         return view('marketplace.category', compact('listings', 'category', 'categorySlug', 'sort', 'priceMin', 'priceMax', 'total'));
     }
@@ -1210,7 +1225,9 @@ class MarketplaceController extends Controller
         $this->explodeVariantsIntoCards($listings);
         $this->decorateListingsWithAlsoIn($listings);
         $this->decorateListingsWithPersonalCoupon($listings);
-        $total    = MarketplaceListing::published()->inOfficialCategory($category->id)->count();
+        $total = Cache::remember('mp_catoff_total_v1_' . $category->id, 1800, function () use ($category) {
+            return MarketplaceListing::published()->inOfficialCategory($category->id)->count();
+        });
 
         // Breadcrumb oficial: ancestros + self
         $breadcrumb = $category->ancestorsAndSelf();
@@ -1640,17 +1657,21 @@ class MarketplaceController extends Controller
         $this->explodeVariantsIntoCards($listings);
         $this->decorateListingsWithAlsoIn($listings);
         $this->decorateListingsWithPersonalCoupon($listings);
-        $total    = MarketplaceListing::published()
-                        ->where('hostname_id', $hostname->id)
-                        ->count();
+        $total = Cache::remember('mp_shop_total_v1_' . $hostname->id, 1800, function () use ($hostname) {
+            return MarketplaceListing::published()
+                ->where('hostname_id', $hostname->id)
+                ->count();
+        });
 
         // Categorías oficiales con productos en esta tienda — para el filtro
         // lateral. Solo nodos hoja distintos para no duplicar al subir el árbol.
-        $tenantCategoryIds = MarketplaceListing::published()
-            ->where('hostname_id', $hostname->id)
-            ->whereNotNull('marketplace_category_id')
-            ->distinct()
-            ->pluck('marketplace_category_id');
+        $tenantCategoryIds = Cache::remember('mp_shop_catids_v1_' . $hostname->id, 1800, function () use ($hostname) {
+            return MarketplaceListing::published()
+                ->where('hostname_id', $hostname->id)
+                ->whereNotNull('marketplace_category_id')
+                ->distinct()
+                ->pluck('marketplace_category_id');
+        });
 
         $tenantCategories = $tenantCategoryIds->isEmpty()
             ? collect()
@@ -1701,7 +1722,7 @@ class MarketplaceController extends Controller
         // Ofertas del día de ESTA tienda — alimentan el carrusel + modal de
         // bienvenida (mismo partial que la home). Cache 30 min por tenant. El
         // Blade solo lo muestra si hay 4+ ofertas vigentes (mismo umbral).
-        $dailyOffers = Cache::remember('mp_tenant_offers_' . $hostname->id, 1800, function () use ($hostname) {
+        $dailyOffers = Cache::remember('mp_tenant_offers_v2_' . $hostname->id, 1800, function () use ($hostname) {
             return MarketplaceListing::published()
                 ->where('hostname_id', $hostname->id)
                 ->onOffer()

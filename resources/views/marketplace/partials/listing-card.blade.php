@@ -22,6 +22,15 @@
 
     // Imagen principal: variante is_primary si existe, fallback a la del padre.
     $cardPrimaryImg = $listing->primary_image_url ?? $listing->image_url;
+
+    // Miniatura de 512px para el srcset. thumb_image_url es la version
+    // reducida de `image_url` (la del producto padre), asi que solo sirve si
+    // la card esta pintando ESA imagen: cuando pinta la foto de una variante
+    // no hay `_medium` sincronizada para ese archivo y poner las dos en el
+    // mismo srcset mostraria dos productos distintos segun la pantalla.
+    $cardThumbImg = (!empty($listing->thumb_image_url) && $cardPrimaryImg === $listing->image_url)
+        ? $listing->thumb_image_url
+        : null;
 @endphp
 {{-- Card como <div> (no <a>): los <button> de dots dentro de un <a>
      compiten con la navegacion del link y en mobile el navegador prefiere
@@ -39,9 +48,28 @@
     <a class="mp-card__seo-link" href="{{ route('marketplace.item', $listing->slug) }}" aria-hidden="true" tabindex="-1"></a>
     <div class="mp-card-img" data-has-secondary="{{ $listing->secondary_image_url ? '1' : '0' }}">
         @if($cardPrimaryImg)
-            <img class="mp-card-img-primary" src="{{ $cardPrimaryImg }}" alt="{{ $listing->title }}" loading="lazy">
+            {{-- srcset: la card se pinta a ~260px en escritorio y ~48vw en
+                 movil, asi que con la de 512px basta en casi todos los casos y
+                 la de 1080 queda solo para pantallas muy densas. width/height
+                 van explicitos para que el hueco se reserve antes de descargar
+                 (sin salto de maquetado al entrar las fotos). --}}
+            <img class="mp-card-img-primary"
+                 src="{{ $cardThumbImg ?? $cardPrimaryImg }}"
+                 @if($cardThumbImg)
+                     srcset="{{ $cardThumbImg }} 512w, {{ $cardPrimaryImg }} 1080w"
+                     sizes="(max-width: 640px) 48vw, 260px"
+                 @endif
+                 alt="{{ $listing->title }}" loading="lazy" decoding="async"
+                 width="512" height="512">
             @if($listing->secondary_image_url)
-                <img class="mp-card-img-secondary" src="{{ $listing->secondary_image_url }}" alt="" loading="lazy" aria-hidden="true">
+                {{-- La segunda foto NO lleva src: es la del hover y la galeria
+                     del producto no tiene variantes reducidas, asi que son 24
+                     originales a tamano completo por pagina que el visitante
+                     casi nunca llega a ver. La hidrata listing-card-script al
+                     primer hover/toque sobre la card. --}}
+                <img class="mp-card-img-secondary" data-src="{{ $listing->secondary_image_url }}"
+                     alt="" loading="lazy" decoding="async" aria-hidden="true"
+                     width="512" height="512">
             @endif
         @else
             <div class="mp-card-img-empty">Sin imagen</div>

@@ -1,4 +1,53 @@
 <script>
+// La imagen principal de la card lleva srcset (512w / 1080w). Cambiar solo
+// `src` NO se ve: con srcset presente el navegador sigue eligiendo su
+// candidato e ignora el src. Todo lo que cambie la foto de una card (dots de
+// color/variante, galeria al hover) tiene que pasar por estos dos helpers.
+function mpSetCardImage(img, url) {
+    if (!img || !url) return;
+    if (img.__mpSrcset === undefined) {
+        img.__mpSrcset = img.getAttribute('srcset') || '';
+        img.__mpSizes  = img.getAttribute('sizes')  || '';
+    }
+    img.removeAttribute('srcset');
+    img.removeAttribute('sizes');
+    img.setAttribute('src', url);
+}
+function mpRestoreCardImage(img, url) {
+    if (!img) return;
+    img.setAttribute('src', url);
+    if (img.__mpSrcset) {
+        img.setAttribute('srcset', img.__mpSrcset);
+        if (img.__mpSizes) img.setAttribute('sizes', img.__mpSizes);
+    }
+}
+
+// La segunda foto (la del hover) se descarga al primer acercamiento, no al
+// pintar la pagina: son 24 originales a tamano completo que la mayoria de
+// visitantes no llega a ver nunca. Va DELEGADO en document para que las cards
+// que mete el scroll infinito funcionen sin re-bindear (ver
+// feedback_vue_mainwrapper_rerender: aqui el motivo es el mismo).
+(function () {
+    function hydrate(e) {
+        var card = e.target.closest && e.target.closest('.mp-card');
+        if (!card) return;
+        var img = card.querySelector('.mp-card-img-secondary[data-src]');
+        if (!img) return;
+        var box = card.querySelector('.mp-card-img');
+        // El intercambio de fotos del hover espera a que la segunda este
+        // descargada (data-secondary-ready): si no, el primer hover apaga la
+        // principal contra un hueco en blanco mientras baja la otra.
+        img.addEventListener('load', function () {
+            if (box) box.setAttribute('data-secondary-ready', '1');
+        }, { once: true });
+        img.setAttribute('src', img.getAttribute('data-src'));
+        img.removeAttribute('data-src');
+    }
+    document.addEventListener('mouseover',  hydrate, { passive: true });
+    document.addEventListener('touchstart', hydrate, { passive: true });
+    document.addEventListener('focusin',    hydrate);
+})();
+
 // La card ahora es <div> (no <a>): los dots pueden recibir click sin
 // competir con un link padre. Un selector ampliado define que es
 // "elemento interactivo" — todo lo que NO lo sea, navega al detalle.
@@ -44,7 +93,7 @@
         if (!primary) return;
         var url = dot.getAttribute('data-img');
         if (url && primary.getAttribute('src') !== url) {
-            primary.setAttribute('src', url);
+            mpSetCardImage(primary, url);
         }
         if (dot.classList.contains('mp-card-color-dot')) {
             card.querySelectorAll('.mp-card-color-dot').forEach(function (d) {
@@ -94,12 +143,12 @@ function mpBindGallery(scope) {
             timer = setInterval(function () {
                 if (hoveringDot) return;
                 idx = (idx + 1) % gallery.length;
-                primary.src = gallery[idx];
+                mpSetCardImage(primary, gallery[idx]);
             }, 1200);
         });
         card.addEventListener('mouseleave', function () {
             if (timer) { clearInterval(timer); timer = null; }
-            primary.src = originalSrc;
+            mpRestoreCardImage(primary, originalSrc);
         });
 
         // Bloquear el slideshow mientras el cursor esté sobre un dot con data-img

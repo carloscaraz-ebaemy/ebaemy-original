@@ -11,6 +11,7 @@ use App\Services\Tenant\PromotionEngine;
 use Hyn\Tenancy\Environment;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 /**
@@ -152,6 +153,17 @@ class MarketplaceListingSyncService
             ? 'https://' . $fqdn . '/storage/uploads/items/' . \App\Services\Tenant\ImageProcessingService::variantFilename($item->image, '_mp')
             : null;
 
+        // Miniatura de 512px (`_medium`) para el srcset de la card. La `_mp` de
+        // 1080x1080 pesa 4-5 veces mas y la card la pinta a ~260px, asi que
+        // servirla a pelo multiplica el peso de la home por nada. Aqui SI se
+        // comprueba el archivo (el disco de imagenes es plano y compartido por
+        // todos los tenants) porque los productos anteriores al pipeline no
+        // tienen variantes: si no esta, la columna queda NULL y la card cae a
+        // `image_url`. Ver project_imagen_estandar para el caso del guion.
+        $thumbImageUrl = $item->image
+            ? $this->resolveThumbUrl($fqdn, (string) $item->image)
+            : null;
+
         // Segunda imagen para efecto hover en cards del marketplace.
         // Tomamos la primera fila de item_images (galería del producto)
         // distinta de la principal del item. Si no hay galería, queda NULL
@@ -266,6 +278,7 @@ class MarketplaceListingSyncService
             'short_description' => null,
             'description'       => $item->mp_notes ?? null,
             'image_url'         => $imageUrl,
+            'thumb_image_url'   => $thumbImageUrl,
             'secondary_image_url' => $secondaryImageUrl,
             'gallery_image_urls'  => $galleryImageUrls,
             'category_name'     => $categoryName,
@@ -1155,6 +1168,33 @@ class MarketplaceListingSyncService
      * que wa.me/{numero} resuelva al chat correcto. Si ya trae código de país
      * (>= 10 dígitos) se respeta tal cual. Devuelve null si no es usable.
      */
+    /**
+     * URL de la variante `_medium` (512px) del archivo dado, o null si no
+     * existe en disco. Se consultan las dos nomenclaturas que conviven
+     * (`_medium` del pipeline actual y `-medium` de un generador anterior)
+     * porque los archivos con guion siguen en uso.
+     */
+    private function resolveThumbUrl(string $fqdn, string $file): ?string
+    {
+        $ext  = pathinfo($file, PATHINFO_EXTENSION);
+        $base = pathinfo($file, PATHINFO_FILENAME);
+
+        foreach (['_medium', '-medium'] as $suffix) {
+            $candidate = $ext ? "{$base}{$suffix}.{$ext}" : "{$base}{$suffix}";
+            try {
+                $exists = Storage::disk(\App\Services\Tenant\ImageProcessingService::disk())
+                    ->exists(\App\Services\Tenant\ImageProcessingService::BASE_DIR . '/' . $candidate);
+            } catch (\Throwable $e) {
+                return null;
+            }
+            if ($exists) {
+                return 'https://' . $fqdn . '/storage/uploads/items/' . $candidate;
+            }
+        }
+
+        return null;
+    }
+
     private function normalizeWhatsapp($raw): ?string
     {
         if (!$raw) return null;
