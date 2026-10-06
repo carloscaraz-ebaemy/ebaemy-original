@@ -23,6 +23,10 @@
     // Tipo que venia en el borrador. Se recuerda SOLO para no perderlo al
     // reguardar; no selecciona la modalidad por su cuenta.
     var tipoGuardado = null;
+    // Lo que puso el SERVIDOR en el hidden (old() tras un error de validacion).
+    // Se lee aqui, antes de que el borrador pueda escribir en el campo: es la
+    // unica razon legitima para re-elegir la modalidad sola.
+    var tipoDelServidor = (dtInput.value || '').trim();
 
     function setStep(n) {
         var sts = stepper.querySelectorAll('.st'), lines = stepper.querySelectorAll('.st-line');
@@ -699,11 +703,19 @@
         return form.querySelectorAll('input[name], select[name], textarea[name]');
     }
 
+    // El cascader de ubigeo y el mapa escriben en inputs ocultos y esos SI se
+    // guardan. Pero `delivery_type` no es un dato del cliente: es el mando del
+    // asistente. Si el borrador lo repone, el bloque de old() del final lo lee
+    // como si el servidor lo hubiera mandado y vuelve a saltar el paso 0.
+    function esMando(el) {
+        return el.type === 'hidden' && (el.name === '_token' || el.name === 'delivery_type');
+    }
+
     function guardarBorrador() {
         try {
             var datos = { __type: selectedType || tipoGuardado || '', __ts: Date.now() };
             camposBorrador().forEach(function (el) {
-                if (el.type === 'hidden' && el.name === '_token') return;
+                if (esMando(el)) return;
                 if (el.type === 'checkbox') datos[el.id || el.name] = el.checked ? 1 : 0;
                 else if (el.type === 'radio') { if (el.checked) datos['r:' + el.name] = el.value; }
                 else datos[el.id || el.name] = el.value;
@@ -727,7 +739,7 @@
         if (datos.__ts && (Date.now() - datos.__ts) > BORRADOR_VIDA) { limpiarBorrador(); return; }
 
         camposBorrador().forEach(function (el) {
-            if (el.type === 'hidden' && el.name === '_token') return;
+            if (esMando(el)) return;
             var clave = el.id || el.name;
             if (el.type === 'checkbox') { if (clave in datos) el.checked = !!datos[clave]; }
             else if (el.type === 'radio') { if (datos['r:' + el.name] === el.value) el.checked = true; }
@@ -776,8 +788,13 @@
         if (b) { b.disabled = true; b.textContent = 'Registrando…'; }
     });
 
-    // Restaurar tipo si hubo error de validación (old input).
-    var oldType = dtInput.value;
-    if (oldType) { var c = document.querySelector('.dcard[data-type="' + oldType + '"]'); if (c) c.click(); }
+    // Unico caso en que la modalidad se re-elige sola: el servidor devolvio el
+    // formulario con un error de validacion y ya sabemos cual era. Se usa el
+    // valor leido al arrancar, no `dtInput.value`, que a estas alturas puede
+    // haberlo escrito el borrador.
+    if (tipoDelServidor) {
+        var c = document.querySelector('.dcard[data-type="' + tipoDelServidor + '"]');
+        if (c) c.click();
+    }
 })();
 </script>
