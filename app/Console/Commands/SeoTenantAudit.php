@@ -237,7 +237,20 @@ class SeoTenantAudit extends Command
                 || str_starts_with($desc, 'Catálogo de ')
                 || str_starts_with($desc, 'Catalogo de ');
 
-        return $empieza && str_ends_with($desc, 'desde tu celular.');
+        if (!$empieza) {
+            return false;
+        }
+
+        // Acaba en la coletilla: plantilla completa.
+        if (str_ends_with($desc, 'desde tu celular.')) {
+            return true;
+        }
+
+        // O acaba en «...»: es una de las nuestras que la version anterior
+        // trunco, y el truncamiento se llevo por delante la coletilla. Son
+        // justo las que hay que rehacer, asi que sin esto --rewrite se dejaba
+        // fuera a las unicas dos tiendas con el problema.
+        return str_ends_with($desc, '...');
     }
 
     /**

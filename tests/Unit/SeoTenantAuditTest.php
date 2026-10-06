@@ -137,7 +137,15 @@ class SeoTenantAuditTest extends TestCase
             'plantilla sin nombre comercial' => [
                 'Catálogo de Plantas artificiales. Compra online desde tu celular.', true,
             ],
+            // Las truncadas por la version anterior: el corte se llevo la
+            // coletilla, y son precisamente las que hay que rehacer.
+            'nuestra pero truncada' => [
+                'Tienda online de CAROLAY IMPORT HOME: Accesorios / repuestos para el cuidado de la ropa l...', true,
+            ],
             'la de fabrica del layout' => ['Bienvenido a nuestra tienda.', false],
+            'del vendedor y acabada en puntos suspensivos' => [
+                'Somos tu mejor opción en decoración...', false,
+            ],
             'escrita por el vendedor' => [
                 'Somos la mejor floristería de Lima, envíos el mismo día.', false,
             ],
