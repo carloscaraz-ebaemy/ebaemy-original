@@ -41,6 +41,18 @@ class Kernel extends ConsoleKernel
                  ->at('03:00')
                  ->appendOutputTo(storage_path('logs/abandoned_carts.log'));
 
+        // Marketplace: pasa a los contadores las vistas y clicks que las
+        // fichas fueron apuntando en `marketplace_view_events`. Cada minuto
+        // porque es lo que mantiene el buzon pequeño; si una pasada se salta,
+        // la siguiente aplica el doble y no se pierde nada.
+        // `runInBackground` para que no retrase al resto del scheduler, y
+        // `withoutOverlapping` para que dos pasadas no sumen lo mismo.
+        $schedule->command('marketplace:flush-view-events')
+                 ->everyMinute()
+                 ->withoutOverlapping(5)
+                 ->runInBackground()
+                 ->appendOutputTo(storage_path('logs/marketplace_view_events.log'));
+
         // Marketplace: recalcula intereses del comprador (categoria_id → score)
         // y purga views > 90 dias. Ambos diario fuera de horario pico.
         $schedule->job(new \App\Jobs\Marketplace\RecalculateMarketplaceUserInterests())
