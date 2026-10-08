@@ -202,6 +202,10 @@ class UbigeoSearchTest extends TestCase
      *
      * Se reporto asi en produccion: escribir «ICA» devolvia Tate, Salas,
      * Parcona y ocho mas, y el operador lo leyo como «no filtra nada».
+     *
+     * El contrato plano —sin `?v=2`— no tiene donde poner un encabezado, asi
+     * que ahi los hermanos siguen fuera. Con grupos salen, pero marcados:
+     * ver el test de abajo.
      */
     public function test_una_provincia_con_distrito_homonimo_no_arrastra_a_sus_hermanos(): void
     {
@@ -213,6 +217,58 @@ class UbigeoSearchTest extends TestCase
             $nombres,
             'Castilla solo puede salir si se la busca a ella, no por ser vecina de Piura.'
         );
+    }
+
+    /**
+     * El reverso del anterior, y la otra queja de produccion.
+     *
+     * Esconder a los hermanos del todo obligaba a abrir la provincia para
+     * llegar a Castilla o Catacaos, y se reporto como «solo me muestra lo que
+     * escribo». Con `?v=2` salen, pero con `secondary => true` para que la UI
+     * los ponga bajo su propio encabezado en vez de hacerlos pasar por
+     * coincidencias.
+     */
+    public function test_con_grupos_los_hermanos_salen_marcados_como_secundarios(): void
+    {
+        $rows = $this->buscar('piura', true);
+
+        $porNombre = [];
+        foreach ($rows as $r) {
+            if ($r['type'] === 'district') {
+                $porNombre[$r['name']] = $r;
+            }
+        }
+
+        $this->assertArrayHasKey(
+            'Castilla',
+            $porNombre,
+            'Castilla tiene que salir sin obligar a abrir la provincia.'
+        );
+        $this->assertTrue(
+            $porNombre['Castilla']['secondary'],
+            'Castilla no coincide con «piura»: va marcada, o vuelve a leerse como que el buscador no filtra.'
+        );
+        $this->assertFalse(
+            $porNombre['Piura']['secondary'],
+            'El distrito Piura SI coincide con lo tecleado: no es un hermano arrastrado.'
+        );
+
+        // Y por debajo de la coincidencia directa, siempre.
+        $this->assertLessThan($porNombre['Piura']['score'], $porNombre['Castilla']['score']);
+    }
+
+    /** Talara no tiene homonimo: sus hijos SON la respuesta, no un anexo. */
+    public function test_sin_homonimo_los_hijos_no_son_secundarios(): void
+    {
+        foreach ($this->buscar('talara', true) as $r) {
+            if ($r['type'] === 'district' && $r['name'] === 'Pariñas') {
+                $this->assertFalse($r['secondary']);
+
+                return;
+            }
+        }
+
+        $this->fail('Pariñas tiene que seguir saliendo al buscar Talara.');
     }
 
     /** Y el arrastre sigue vivo donde hace falta: Talara no tiene homonimo. */

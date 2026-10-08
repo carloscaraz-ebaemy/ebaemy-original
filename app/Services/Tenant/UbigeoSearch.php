@@ -133,24 +133,34 @@ class UbigeoSearch
             // se llama asi, y sin el arrastre la busqueda no ofrecia nada
             // elegible.
             //
-            // Pero cuando la provincia SI tiene un distrito con su mismo
-            // nombre, ese ya ha entrado por la puerta principal y la pregunta
-            // esta contestada. Arrastrar entonces a sus hermanos convierte
-            // «Ica» en «Ica, Tate, Salas, Parcona, Pueblo Nuevo…»: once filas
-            // que el operador no ha pedido y que no se parecen a lo que
-            // escribio. Se reporto justo asi — «no me esta filtrando nada».
-            if (self::homonimoYaEncontrado($children, $p, $hits)) {
-                continue;
-            }
+            // Cuando la provincia SI tiene un distrito con su mismo nombre
+            // ese ya ha entrado por la puerta principal, y sus hermanos no se
+            // parecen a lo que se escribio. Mezclarlos en la misma lista
+            // convertia «Ica» en «Ica, Tate, Salas, Parcona, Pueblo Nuevo…» y
+            // se reporto como «no me esta filtrando nada»; esconderlos del
+            // todo obligaba a abrir la provincia para llegar a Castilla o
+            // Catacaos, y se reporto como «solo me muestra lo que escribo».
+            //
+            // Las dos quejas son la misma: la lista no decia de donde salia
+            // cada fila. Ahora los hermanos salen igual, pero marcados como
+            // SECUNDARIOS para que la UI los ponga bajo su propio encabezado
+            // («Otros distritos de la provincia de Piura») y al final.
+            //
+            // Si NO hay homonimo —Talara— los hijos son la respuesta y no se
+            // marcan: ahi arrastrarlos es justo lo que da un destino elegible.
+            $secundarios = self::homonimoYaEncontrado($children, $p, $hits);
 
             foreach ($children as $d) {
                 // Hereda el puntaje de su provincia, por debajo de una
-                // coincidencia directa; la capital homonima sube.
-                $inherited = $base - 20 + self::districtBonus($d)
+                // coincidencia directa; la capital homonima sube. Los
+                // secundarios caen mas para no desplazar a nadie.
+                $inherited = $base - ($secundarios ? 60 : 20) + self::districtBonus($d)
                     + ($d['norm'] === $p['norm'] ? 18 : 0);
                 // La calidad que se hereda es la de la PROVINCIA: el
                 // distrito no coincide con nada, esta ahi por su padre.
-                self::keepBest($hits, self::districtRow($d, $inherited, $p['name'], $base));
+                $fila = self::districtRow($d, $inherited, $p['name'], $base);
+                $fila['secondary'] = $secundarios;
+                self::keepBest($hits, $fila);
             }
         }
 
@@ -162,6 +172,13 @@ class UbigeoSearch
                 continue;
             }
             $groups[] = self::departmentRow($dep, $catalog, $base + 10) + ['calidad' => round($base, 2)];
+        }
+
+        // El contrato viejo (sin `?v=2`) es una lista plana de distritos: no
+        // tiene donde poner un encabezado, asi que un hermano arrastrado se
+        // leeria como coincidencia. Ahi se quedan fuera, como hasta ahora.
+        if (!$withGroups) {
+            $hits = array_filter($hits, fn ($r) => empty($r['secondary']));
         }
 
         $rows = $withGroups
@@ -347,6 +364,11 @@ class UbigeoSearch
             'label'         => $d['name'] . ' — ' . $d['province_name'] . ', ' . $d['department_name'],
             'group'         => $d['province_id'],
             'via'           => $viaProvince,
+            // Un hermano arrastrado que NO coincide con lo tecleado. La UI lo
+            // saca de la lista principal en vez de hacerlo pasar por
+            // resultado. Siempre presente para que no haya que comprobar
+            // isset() en el front.
+            'secondary'     => false,
             'score'         => round($score, 2),
         ];
     }

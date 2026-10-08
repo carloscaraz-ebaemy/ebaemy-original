@@ -300,6 +300,28 @@
                                 <span v-if="r.type !== 'district'" class="mo-ub-chev">&#8250;</span>
                             </el-option>
                         </el-option-group>
+
+                        <!-- Los vecinos, aparte y al final. Ver
+                             `ubigeoHermanos`: esta seccion ES la respuesta a
+                             dos quejas que se contradecian. -->
+                        <el-option-group
+                            v-if="ubigeoHermanos.length"
+                            :label="ubigeoTituloHermanos"
+                        >
+                            <el-option
+                                v-for="r in ubigeoHermanos"
+                                :key="'h' + r.district_id"
+                                :label="r.name + ' — ' + r.province_name + ', ' + r.department_name"
+                                :value="r.district_id"
+                                class="mo-ub-row"
+                            >
+                                <span class="mo-ub-main">
+                                    <span class="mo-ub-name">{{ r.name }}</span>
+                                    <span class="mo-ub-ctx">{{ r.context }}</span>
+                                </span>
+                                <span class="mo-ub-tag is-district">Distrito</span>
+                            </el-option>
+                        </el-option-group>
                     </el-select>
                     <!-- Que la lista se pueda abrir por provincia hay que
                          DECIRLO: quien no lo sabe, cuando su distrito no sale
@@ -716,7 +738,35 @@ export default {
          * respetar su orden es mas honesto que reordenar por tipo.
          */
         ubigeoFilas() {
-            return (this.ubigeoResults || []).filter(r => r && r.type);
+            return (this.ubigeoResults || []).filter(
+                r => r && r.type && !r.secondary
+            );
+        },
+
+        /**
+         * Los distritos que salen por ser VECINOS de lo buscado, no por
+         * parecerse a lo tecleado.
+         *
+         * Van en su propia seccion por las dos quejas opuestas que recibio
+         * esta lista: mezclados se leia como «no me filtra nada» (escribir
+         * «Ica» devolvia Tate, Salas y Parcona), y escondidos como «solo me
+         * muestra lo que escribo» (para llegar a Castilla habia que abrir la
+         * provincia de Piura). Separados y con el encabezado puesto, las dos
+         * se contestan: estan a la vista y se sabe de donde salen.
+         */
+        ubigeoHermanos() {
+            return (this.ubigeoResults || []).filter(
+                r => r && r.type === "district" && r.secondary
+            );
+        },
+
+        /** El encabezado dice de QUE provincia son, o no se entiende nada. */
+        ubigeoTituloHermanos() {
+            const uno = this.ubigeoHermanos[0];
+
+            return uno
+                ? "Otros distritos de la provincia de " + (uno.province_name || uno.via)
+                : "";
         },
 
         /** El titulo dice que se hace con la lista, no que contiene. */

@@ -51,6 +51,7 @@
     .ub-tag.is-dep { background: #e0e7ff; color: #3730a3; }
     .ub-chevron { flex: 0 0 auto; color: #cbd5e1; font-size: 15px; }
 
+    .ub-sec { padding: 9px 12px 6px; font-size: 11px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase; color: #94a3b8; background: #fcfcfd; border-top: 1px solid #f1f3f5; }
     .ub-head { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: #f8fafc; border-bottom: 1px solid #eef2f6; font-size: 12px; color: #475569; position: sticky; top: 0; z-index: 1; }
     .ub-back { cursor: pointer; color: #4f46e5; font-weight: 600; }
     .ub-back:hover { text-decoration: underline; }
@@ -239,10 +240,30 @@
             return '';
         }
 
+        // Un titulo de seccion: no es elegible ni navegable con el teclado.
+        function seccion(texto) {
+            var h = document.createElement('div');
+            h.className = 'ub-sec';
+            h.textContent = texto;
+            return h;
+        }
+
         function pintar(rows) {
             results.innerHTML = ''; filas = []; cursor = -1;
 
+            // Los distritos VECINOS —los que salen por estar al lado de lo
+            // buscado y no por parecerse a lo escrito— van aparte y al final.
+            // Mezclados se leia como «no me filtra nada» (escribir «Ica»
+            // devolvia Tate, Salas y Parcona); escondidos, como «solo me
+            // muestra lo que escribo», porque para llegar a Castilla habia
+            // que abrir la provincia de Piura. Con el encabezado puesto las
+            // dos quejas se contestan a la vez.
+            var principales = [], hermanos = [];
             rows.forEach(function (r) {
+                (r.secondary ? hermanos : principales).push(r);
+            });
+
+            function pinta(r) {
                 var el;
                 if (r.type === 'district') {
                     el = fila(r, function () { elegir(r); });
@@ -253,7 +274,15 @@
                 }
                 results.appendChild(el);
                 filas.push({ el: el });
-            });
+            }
+
+            principales.forEach(pinta);
+
+            if (hermanos.length) {
+                var prov = hermanos[0].province_name || hermanos[0].via || '';
+                results.appendChild(seccion('Otros distritos de la provincia de ' + prov));
+                hermanos.forEach(pinta);
+            }
 
             results.hidden = false;
         }
