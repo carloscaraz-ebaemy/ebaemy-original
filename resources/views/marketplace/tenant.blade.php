@@ -167,7 +167,17 @@
 
 {{-- Ofertas del día de ESTA tienda: carrusel + modal de bienvenida (1×/sesión).
      Solo en la portada de la tienda (sin filtros ni búsqueda) y con 4+ ofertas. --}}
-@if(isset($dailyOffers) && $dailyOffers->count() >= 4 && !$hasFilters && empty($q))
+@php
+    // Igual que en la home: quien pinta la primera imagen decide que se
+    // precarga en el <head>. Si sale el carrusel de ofertas es la suya, y no
+    // la de la rejilla, que queda mas abajo.
+    $mpOffersRail = isset($dailyOffers) && $dailyOffers->count() >= 4 && !$hasFilters && empty($q);
+@endphp
+@if($mpOffersRail)
+    @include('marketplace.partials.listing-preload', [
+        'items'      => $dailyOffers,
+        'withSrcset' => false,
+    ])
     @include('marketplace.partials.daily-offers', [
         'offers'       => $dailyOffers,
         'seeAllUrl'    => route('marketplace.index', ['on_offer' => 1, 'shop' => $store->subdomain]),
@@ -292,14 +302,17 @@
                 </p>
             </div>
         @else
-            @include('marketplace.partials.listing-preload', [
-                'items'      => $listings,
-                'withSrcset' => true,
-            ])
+            @unless($mpOffersRail)
+                @include('marketplace.partials.listing-preload', [
+                    'items'      => $listings,
+                    'withSrcset' => true,
+                ])
+            @endunless
             @php
                 // Tarjetas que se cargan sin diferir: dos filas en movil y la
-                // primera en escritorio. Lo lee partials/listing-card.
-                $cardEagerCount = 6;
+                // primera en escritorio. Si el carrusel de ofertas va delante
+                // ya hay tres imagenes adelantadas ahi, y con dos basta aqui.
+                $cardEagerCount = $mpOffersRail ? 2 : 6;
             @endphp
             <div class="mp-grid">
                 @foreach($listings as $listing)
