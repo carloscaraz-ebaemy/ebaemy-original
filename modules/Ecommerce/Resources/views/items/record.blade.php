@@ -638,7 +638,35 @@
                     // la auto-seleccionamos para que el comprador llegue con todo listo
                     // (precio, stock, imagen) y solo tenga que dar click en "Agregar".
                     // Sin primary: comportamiento Shopify, el usuario elige todo.
-                    if (Array.isArray(primaryValueIds) && primaryValueIds.length) {
+                    // Antes de eso, el enlace profundo: los feeds de catálogo
+                    // (Meta/WhatsApp, Google, TikTok) publican UN item por
+                    // variante y su link trae ?variant=<id>. Si el comprador
+                    // llega desde ese anuncio tiene que caer en la variante
+                    // anunciada, no en el producto con todo por elegir.
+                    function preselectFromUrl() {
+                        var match = /[?&]variant=(\d+)/.exec(window.location.search);
+                        if (!match) return false;
+
+                        var wanted = variants.find(function (v) {
+                            return String(v.id) === match[1];
+                        });
+                        if (!wanted || !Array.isArray(wanted.option_value_ids)) return false;
+
+                        wanted.option_value_ids.forEach(function (valId) {
+                            var btn = document.querySelector('.ec-rv-opt[data-value-id="' + valId + '"]');
+                            // Sin :not([disabled]): una variante agotada también
+                            // debe quedar seleccionada para que el comprador vea
+                            // que existe y por qué no la puede comprar.
+                            if (btn) {
+                                btn.disabled = false;
+                                btn.click();
+                            }
+                        });
+
+                        return !!window._ecSelectedVariant;
+                    }
+
+                    if (!preselectFromUrl() && Array.isArray(primaryValueIds) && primaryValueIds.length) {
                         primaryValueIds.forEach(function (valId) {
                             var btn = document.querySelector('.ec-rv-opt[data-value-id="' + valId + '"]:not([disabled])');
                             if (btn) btn.click();

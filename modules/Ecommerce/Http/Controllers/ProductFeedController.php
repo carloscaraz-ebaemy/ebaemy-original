@@ -3,11 +3,17 @@
 namespace Modules\Ecommerce\Http\Controllers;
 
 use App\Http\Controllers\Controller;
-use App\Models\Tenant\Item;
 use App\Models\Tenant\Company;
 use App\Models\Tenant\ConfigurationEcommerce;
-use Illuminate\Support\Str;
+use App\Services\Tenant\Feed\ProductFeedRowBuilder;
 
+/**
+ * Feeds de catálogo de la tienda del tenant.
+ *
+ * Cada fila es un item vendible: en los productos con variantes se emite UNA
+ * por variante, agrupadas con `item_group_id`. Quien decide eso es
+ * ProductFeedRowBuilder; aquí sólo se le da formato a cada plataforma.
+ */
 class ProductFeedController extends Controller
 {
     private function getBaseData(): array
@@ -20,79 +26,13 @@ class ProductFeedController extends Controller
         return compact('domain', 'base', 'company', 'seo');
     }
 
-    private function getProducts()
+    private function builder(): ProductFeedRowBuilder
     {
-        return Item::where('apply_store', 1)
-            ->with(['category', 'warehouses', 'variants'])
-            ->select(['id', 'slug', 'description', 'name', 'image', 'sale_unit_price',
-                      'sale_unit_price_set', 'is_set', 'has_variants',
-                      'currency_type_id', 'updated_at', 'stock', 'internal_id'])
-            ->get();
-    }
+        ['base' => $base, 'company' => $company] = $this->getBaseData();
 
-    /**
-     * Stock efectivo: en productos con variantes el stock vive en las variantes,
-     * no en item_warehouse del padre.
-     */
-    private function resolveStock($product): float
-    {
-        if ($product->has_variants && $product->variants->isNotEmpty()) {
-            return (float) $product->variants->sum('stock');
-        }
+        $storeName = $company->trade_name ?: ($company->name ?: 'Tienda Online');
 
-        $stock = 0;
-        foreach ($product->warehouses as $wh) {
-            $stock += $wh->stock;
-        }
-        return (float) $stock;
-    }
-
-    /**
-     * Precio efectivo: en productos con variantes el padre suele tener 0/null,
-     * Meta rechaza precio 0 → usamos el precio mínimo de variante con precio válido.
-     */
-    private function resolvePrice($product): float
-    {
-        if ($product->has_variants && $product->variants->isNotEmpty()) {
-            $prices = $product->variants
-                ->pluck('sale_unit_price')
-                ->filter(fn ($p) => (float) $p > 0);
-
-            if ($prices->isNotEmpty()) {
-                return (float) $prices->min();
-            }
-        }
-
-        if ($product->is_set && $product->sale_unit_price_set) {
-            return (float) $product->sale_unit_price_set;
-        }
-
-        return (float) $product->sale_unit_price;
-    }
-
-    /**
-     * Imagen efectiva: si el padre no tiene foto (caso típico en productos con
-     * variantes) tomamos la primera imagen válida de las variantes.
-     */
-    private function resolveImageUrl($product): string
-    {
-        $valid = fn ($img) => $img && $img !== 'imagen-no-disponible.jpg';
-
-        if ($valid($product->image)) {
-            return asset('storage/uploads/items/' . $product->image);
-        }
-
-        if ($product->has_variants && $product->variants->isNotEmpty()) {
-            $variantImg = $product->variants
-                ->pluck('image')
-                ->first(fn ($img) => $valid($img));
-
-            if ($variantImg) {
-                return asset('storage/uploads/items/' . $variantImg);
-            }
-        }
-
-        return asset('logo/imagen-no-disponible.jpg');
+        return new ProductFeedRowBuilder($base, $storeName, 'PEN');
     }
 
     /**
@@ -101,42 +41,51 @@ class ProductFeedController extends Controller
      */
     public function googleMerchant()
     {
-        ['domain' => $domain, 'base' => $base, 'company' => $company] = $this->getBaseData();
-        $products = $this->getProducts();
+        ['base' => $base, 'company' => $company] = $this->getBaseData();
+        $storeName = $company->trade_name ?: ($company->name ?: 'Tienda Online');
 
-        $storeName = $company->trade_name ?? $company->name ?? 'Tienda Online';
-        $currency  = 'PEN';
+        $feed = $this->builder();
+        $rows = $feed->rows();
+
+        $esc = fn ($v) => htmlspecialchars((string) $v, ENT_XML1);
 
         $xml  = '<?xml version="1.0" encoding="UTF-8"?>' . "\n";
         $xml .= '<rss version="2.0" xmlns:g="http://base.google.com/ns/1.0">' . "\n";
         $xml .= '<channel>' . "\n";
-        $xml .= '  <title>' . htmlspecialchars($storeName) . '</title>' . "\n";
-        $xml .= '  <link>' . htmlspecialchars($base) . '</link>' . "\n";
-        $xml .= '  <description>Catálogo de productos de ' . htmlspecialchars($storeName) . '</description>' . "\n";
+        $xml .= '  <title>' . $esc($storeName) . '</title>' . "\n";
+        $xml .= '  <link>' . $esc($base) . '</link>' . "\n";
+        $xml .= '  <description>Catálogo de productos de ' . $esc($storeName) . '</description>' . "\n";
 
-        foreach ($products as $product) {
-            $slug        = $product->slug ?: $product->id;
-            $productUrl  = $base . '/item/' . $slug;
-            $imageUrl    = $this->resolveImageUrl($product);
-
-            $stock        = $this->resolveStock($product);
-            $availability = $stock > 0 ? 'in stock' : 'out of stock';
-            $price        = number_format($this->resolvePrice($product), 2, '.', '');
-            $categoryName = $product->category ? $product->category->name : 'General';
-            $description  = $product->name ?: $product->description;
-
+        foreach ($rows as $row) {
             $xml .= '  <item>' . "\n";
-            $xml .= '    <g:id>'              . htmlspecialchars($product->id) . '</g:id>' . "\n";
-            $xml .= '    <g:title>'           . htmlspecialchars($product->description) . '</g:title>' . "\n";
-            $xml .= '    <g:description>'     . htmlspecialchars(Str::limit($description, 500)) . '</g:description>' . "\n";
-            $xml .= '    <g:link>'            . htmlspecialchars($productUrl) . '</g:link>' . "\n";
-            $xml .= '    <g:image_link>'      . htmlspecialchars($imageUrl) . '</g:image_link>' . "\n";
-            $xml .= '    <g:availability>'    . $availability . '</g:availability>' . "\n";
-            $xml .= '    <g:price>'           . $price . ' ' . $currency . '</g:price>' . "\n";
-            $xml .= '    <g:google_product_category>' . htmlspecialchars($categoryName) . '</g:google_product_category>' . "\n";
-            $xml .= '    <g:brand>'           . htmlspecialchars($storeName) . '</g:brand>' . "\n";
+            $xml .= '    <g:id>'          . $esc($row['id']) . '</g:id>' . "\n";
+            $xml .= '    <g:item_group_id>' . $esc($row['group_id']) . '</g:item_group_id>' . "\n";
+            $xml .= '    <g:title>'       . $esc($feed->title($row)) . '</g:title>' . "\n";
+            $xml .= '    <g:description>' . $esc($feed->description($row, 500)) . '</g:description>' . "\n";
+            $xml .= '    <g:link>'        . $esc($row['link']) . '</g:link>' . "\n";
+            $xml .= '    <g:image_link>'  . $esc($row['image_link']) . '</g:image_link>' . "\n";
+
+            foreach ($row['extra_images'] as $extra) {
+                $xml .= '    <g:additional_image_link>' . $esc($extra) . '</g:additional_image_link>' . "\n";
+            }
+
+            $xml .= '    <g:availability>' . $feed->availability($row) . '</g:availability>' . "\n";
+            $xml .= '    <g:price>'        . $feed->formatPrice($row) . '</g:price>' . "\n";
+            $xml .= '    <g:google_product_category>' . $esc($row['category']) . '</g:google_product_category>' . "\n";
+            $xml .= '    <g:brand>'        . $esc($row['brand']) . '</g:brand>' . "\n";
             $xml .= '    <g:condition>new</g:condition>' . "\n";
             $xml .= '    <g:identifier_exists>no</g:identifier_exists>' . "\n";
+
+            if ($row['sku']) {
+                $xml .= '    <g:mpn>' . $esc(mb_substr($row['sku'], 0, 70)) . '</g:mpn>' . "\n";
+            }
+            if ($row['color']) {
+                $xml .= '    <g:color>' . $esc(mb_substr($row['color'], 0, 100)) . '</g:color>' . "\n";
+            }
+            if ($row['size']) {
+                $xml .= '    <g:size>' . $esc(mb_substr($row['size'], 0, 100)) . '</g:size>' . "\n";
+            }
+
             $xml .= '  </item>' . "\n";
         }
 
@@ -149,49 +98,48 @@ class ProductFeedController extends Controller
     }
 
     /**
-     * Facebook / Instagram Catalog JSON Feed
+     * Facebook / Instagram / WhatsApp Catalog Feed (CSV)
      * GET /ecommerce/feed/facebook
+     *
+     * `item_group_id` es lo que hace que Meta pinte las variantes como un solo
+     * producto con selector de color y talla en vez de productos sueltos; sin
+     * él el catálogo de WhatsApp sólo mostraba el item principal.
      */
     public function facebookCatalog()
     {
-        ['base' => $base, 'company' => $company] = $this->getBaseData();
-        $products  = $this->getProducts();
-        $storeName = $company->trade_name ?? $company->name ?? 'Tienda Online';
-        $currency  = 'PEN';
+        $feed = $this->builder();
+        $rows = $feed->rows();
 
         $headers = [
             'Content-Type'  => 'text/csv; charset=UTF-8',
             'Cache-Control' => 'public, max-age=3600',
         ];
 
-        $callback = function () use ($products, $base, $storeName, $currency) {
+        $callback = function () use ($feed, $rows) {
             $out = fopen('php://output', 'w');
 
             fputcsv($out, [
-                'id', 'title', 'description', 'availability', 'condition',
-                'price', 'link', 'image_link', 'brand',
+                'id', 'item_group_id', 'title', 'description', 'availability', 'condition',
+                'price', 'link', 'image_link', 'additional_image_link', 'brand',
+                'color', 'size', 'quantity_to_sell_on_facebook',
             ]);
 
-            foreach ($products as $product) {
-                $slug       = $product->slug ?: $product->id;
-                $productUrl = $base . '/item/' . $slug;
-                $imageUrl   = $this->resolveImageUrl($product);
-
-                $stock        = $this->resolveStock($product);
-                $availability = $stock > 0 ? 'in stock' : 'out of stock';
-                $price        = number_format($this->resolvePrice($product), 2, '.', '') . ' ' . $currency;
-                $description  = $product->name ?: $product->description;
-
+            foreach ($rows as $row) {
                 fputcsv($out, [
-                    (string)$product->id,
-                    Str::limit($product->description, 65),
-                    Str::limit($description, 500),
-                    $availability,
+                    $row['id'],
+                    $row['group_id'],
+                    $feed->title($row, 65),
+                    $feed->description($row, 500),
+                    $feed->availability($row),
                     'new',
-                    $price,
-                    $productUrl,
-                    $imageUrl,
-                    $storeName,
+                    $feed->formatPrice($row),
+                    $row['link'],
+                    $row['image_link'],
+                    implode(',', $row['extra_images']),
+                    $row['brand'],
+                    $row['color'] ?: '',
+                    $row['size'] ?: '',
+                    (int) $row['inventory'],
                 ]);
             }
 
@@ -202,15 +150,13 @@ class ProductFeedController extends Controller
     }
 
     /**
-     * CSV Feed (TikTok Shop / generic)
+     * CSV Feed (genérico)
      * GET /ecommerce/feed/csv
      */
     public function csvFeed()
     {
-        ['base' => $base, 'company' => $company] = $this->getBaseData();
-        $products  = $this->getProducts();
-        $storeName = $company->trade_name ?? $company->name ?? 'Tienda Online';
-        $currency  = 'PEN';
+        $feed = $this->builder();
+        $rows = $feed->rows();
 
         $headers = [
             'Content-Type'        => 'text/csv; charset=UTF-8',
@@ -218,39 +164,33 @@ class ProductFeedController extends Controller
             'Cache-Control'       => 'public, max-age=3600',
         ];
 
-        $callback = function () use ($products, $base, $storeName, $currency) {
+        $callback = function () use ($feed, $rows) {
             $out = fopen('php://output', 'w');
 
             // UTF-8 BOM for Excel compatibility
             fputs($out, "\xEF\xBB\xBF");
 
             fputcsv($out, [
-                'id', 'title', 'description', 'availability', 'condition',
-                'price', 'link', 'image_link', 'brand', 'category',
+                'id', 'item_group_id', 'title', 'description', 'availability', 'condition',
+                'price', 'link', 'image_link', 'brand', 'category', 'color', 'size', 'quantity',
             ]);
 
-            foreach ($products as $product) {
-                $slug       = $product->slug ?: $product->id;
-                $productUrl = $base . '/item/' . $slug;
-                $imageUrl   = $this->resolveImageUrl($product);
-
-                $stock        = $this->resolveStock($product);
-                $availability = $stock > 0 ? 'in stock' : 'out of stock';
-                $price        = number_format($this->resolvePrice($product), 2, '.', '') . ' ' . $currency;
-                $description  = $product->name ?: $product->description;
-                $categoryName = $product->category ? $product->category->name : '';
-
+            foreach ($rows as $row) {
                 fputcsv($out, [
-                    (string)$product->id,
-                    $product->description,
-                    \Illuminate\Support\Str::limit($description, 500),
-                    $availability,
+                    $row['id'],
+                    $row['group_id'],
+                    $row['title'],
+                    $feed->description($row, 500),
+                    $feed->availability($row),
                     'new',
-                    $price,
-                    $productUrl,
-                    $imageUrl,
-                    $storeName,
-                    $categoryName,
+                    $feed->formatPrice($row),
+                    $row['link'],
+                    $row['image_link'],
+                    $row['brand'],
+                    $row['category'],
+                    $row['color'] ?: '',
+                    $row['size'] ?: '',
+                    (int) $row['inventory'],
                 ]);
             }
 
@@ -267,17 +207,15 @@ class ProductFeedController extends Controller
      */
     public function tiktokCatalog()
     {
-        ['base' => $base, 'company' => $company] = $this->getBaseData();
-        $products  = $this->getProducts();
-        $storeName = $company->trade_name ?? $company->name ?? 'Tienda Online';
-        $currency  = 'PEN';
+        $feed = $this->builder();
+        $rows = $feed->rows();
 
         $headers = [
             'Content-Type'  => 'text/csv; charset=UTF-8',
             'Cache-Control' => 'public, max-age=3600',
         ];
 
-        $callback = function () use ($products, $base, $storeName, $currency) {
+        $callback = function () use ($feed, $rows) {
             $out = fopen('php://output', 'w');
 
             // UTF-8 BOM
@@ -286,6 +224,7 @@ class ProductFeedController extends Controller
             // Columnas requeridas y recomendadas por TikTok Catalog
             fputcsv($out, [
                 'sku_id',
+                'item_group_id',
                 'title',
                 'description',
                 'availability',
@@ -295,32 +234,27 @@ class ProductFeedController extends Controller
                 'image_link',
                 'brand',
                 'google_product_category',
-                'item_group_id',
+                'color',
+                'size',
+                'quantity',
             ]);
 
-            foreach ($products as $product) {
-                $slug       = $product->slug ?: $product->id;
-                $productUrl = $base . '/item/' . $slug;
-                $imageUrl   = $this->resolveImageUrl($product);
-
-                $stock        = $this->resolveStock($product);
-                $availability = $stock > 0 ? 'in stock' : 'out of stock';
-                $price        = number_format($this->resolvePrice($product), 2, '.', '') . ' ' . $currency;
-                $description  = $product->name ?: $product->description;
-                $categoryName = $product->category ? $product->category->name : 'General';
-
+            foreach ($rows as $row) {
                 fputcsv($out, [
-                    (string) $product->id,                          // sku_id
-                    Str::limit($product->description, 150),         // title (máx 150)
-                    Str::limit(strip_tags($description), 5000),     // description
-                    $availability,                                  // availability
-                    'new',                                          // condition
-                    $price,                                         // price
-                    $productUrl,                                    // link
-                    $imageUrl,                                      // image_link
-                    $storeName,                                     // brand
-                    $categoryName,                                  // google_product_category
-                    $product->is_set ? 'pack-' . $product->id : '', // item_group_id
+                    $row['id'],                        // sku_id
+                    $row['group_id'],                  // item_group_id
+                    $feed->title($row, 150),           // title (máx 150)
+                    $feed->description($row, 5000),    // description
+                    $feed->availability($row),
+                    'new',
+                    $feed->formatPrice($row),
+                    $row['link'],
+                    $row['image_link'],
+                    $row['brand'],
+                    $row['category'],
+                    $row['color'] ?: '',
+                    $row['size'] ?: '',
+                    (int) $row['inventory'],
                 ]);
             }
 

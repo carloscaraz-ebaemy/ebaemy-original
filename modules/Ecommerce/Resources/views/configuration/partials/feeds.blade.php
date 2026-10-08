@@ -2,6 +2,7 @@
     $domain    = request()->getScheme() . '://' . request()->getHost();
     $feedGoogle   = $domain . '/ecommerce/feed/google';
     $feedFacebook = $domain . '/ecommerce/feed/facebook';
+    $feedTiktok   = $domain . '/ecommerce/feed/tiktok';
     $feedCsv      = $domain . '/ecommerce/feed/csv';
     $feedSitemap  = $domain . '/ecommerce/sitemap.xml';
 @endphp
@@ -24,8 +25,9 @@
 
                 @foreach([
                     ['label' => 'Google Merchant Center (XML)', 'url' => $feedGoogle,   'icon' => 'fab fa-google',    'color' => '#4285F4', 'hint' => 'Google Merchant → Agregar productos → Feed de datos'],
-                    ['label' => 'Facebook / Instagram (JSON)',  'url' => $feedFacebook, 'icon' => 'fab fa-facebook',  'color' => '#1877F2', 'hint' => 'Meta Business → Catálogos → Fuente de datos → Feed programado'],
-                    ['label' => 'TikTok Shop / CSV genérico',  'url' => $feedCsv,      'icon' => 'fab fa-tiktok',    'color' => '#010101', 'hint' => 'TikTok Seller Center → Productos → Importar → URL del archivo CSV'],
+                    ['label' => 'Facebook / Instagram / WhatsApp (CSV)', 'url' => $feedFacebook, 'icon' => 'fab fa-facebook',  'color' => '#1877F2', 'hint' => 'Meta Business → Catálogos → Fuente de datos → Feed programado. Incluye una fila por variante (color/talla).'],
+                    ['label' => 'TikTok Catalog (CSV)',        'url' => $feedTiktok,   'icon' => 'fab fa-tiktok',    'color' => '#010101', 'hint' => 'TikTok Seller Center → Productos → Importar → URL del archivo CSV'],
+                    ['label' => 'CSV genérico',                'url' => $feedCsv,      'icon' => 'fas fa-file-csv',  'color' => '#6b7280', 'hint' => 'Descarga del catálogo completo, una fila por variante'],
                     ['label' => 'Sitemap XML (SEO)',           'url' => $feedSitemap,  'icon' => 'fas fa-sitemap',   'color' => '#22c55e', 'hint' => 'Google Search Console → Mapas del sitio → Agregar URL'],
                 ] as $feed)
                 <div class="ec-feed-row">

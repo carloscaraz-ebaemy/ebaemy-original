@@ -120,7 +120,7 @@ class MetaFeedService
     {
         $items = Item::where('apply_store', 1)
             ->whereNotNull('internal_id')
-            ->with(['currency_type', 'category', 'brand', 'variants', 'images', 'warehouses'])
+            ->with(['currency_type', 'category', 'brand', 'variants', 'variants.optionValues', 'variants.optionValues.option:id,name', 'images', 'warehouses'])
             ->get();
 
         $xml = '<?xml version="1.0" encoding="UTF-8"?>' . "\n";
@@ -163,8 +163,13 @@ class MetaFeedService
         $availability = $stock > 0 ? 'in stock' : 'out of stock';
         $currency = $item->currency_type->id ?? 'PEN';
         $link = "{$this->baseUrl}/item/" . ($item->slug ?: $item->id);
-        $brand = $item->brand->name ?? 'Sin marca';
-        $category = $item->category->name ?? 'General';
+        // El clic del anuncio de una variante debe caer en esa variante.
+        if ($variant) {
+            $link .= '?variant=' . $variant->id;
+        }
+        $brand = $item->brand->name ?: 'Sin marca';
+        $category = $item->category->name ?: 'General';
+        [$color, $size] = $this->variantColorSize($variant);
 
         // Imagen
         $image = $item->image && $item->image !== 'imagen-no-disponible.jpg'
@@ -202,9 +207,42 @@ class MetaFeedService
              . "    <g:condition>new</g:condition>\n"
              . "    <g:product_type>" . e($category) . "</g:product_type>\n"
              . "    <g:item_group_id>" . e($item->internal_id) . "</g:item_group_id>\n"
-             . ($variant ? "    <g:size>" . e($variant->display_name) . "</g:size>\n" : '')
+             . ($color ? "    <g:color>" . e($color) . "</g:color>\n" : '')
+             . ($size  ? "    <g:size>"  . e($size)  . "</g:size>\n"  : '')
              . "    <g:inventory>" . $stock . "</g:inventory>\n"
              . "  </entry>\n";
+    }
+
+    /**
+     * Color y talla de una variante a partir de sus opciones.
+     *
+     * Meta sólo agrupa variantes por `color` y `size`; mandar "Rojo / M" entero
+     * dentro de `g:size` —como se hacía— deja al catálogo sin poder ofrecer el
+     * selector y trata cada combinación como un producto suelto.
+     *
+     * @return array{0:?string,1:?string}
+     */
+    protected function variantColorSize($variant): array
+    {
+        if (!$variant || !$variant->relationLoaded('optionValues')) {
+            return [null, null];
+        }
+
+        $color = null;
+        $size  = null;
+
+        foreach ($variant->optionValues as $value) {
+            $name = mb_strtolower((string) ($value->option->name ?? ''));
+
+            if (str_contains($name, 'color')) {
+                $color = $value->value;
+            } elseif (str_contains($name, 'talla') || str_contains($name, 'size')
+                   || str_contains($name, 'tama')  || str_contains($name, 'medida')) {
+                $size = $value->value;
+            }
+        }
+
+        return [$color, $size];
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -215,10 +253,10 @@ class MetaFeedService
     {
         $items = Item::where('apply_store', 1)
             ->whereNotNull('internal_id')
-            ->with(['currency_type', 'category', 'brand', 'variants', 'warehouses'])
+            ->with(['currency_type', 'category', 'brand', 'variants', 'variants.optionValues', 'variants.optionValues.option:id,name', 'warehouses'])
             ->get();
 
-        $header = "id,title,description,availability,condition,price,link,image_link,brand,product_type,inventory\n";
+        $header = "id,item_group_id,title,description,availability,condition,price,link,image_link,brand,product_type,color,size,inventory\n";
         $rows = '';
 
         foreach ($items as $item) {
@@ -244,11 +282,21 @@ class MetaFeedService
         $stock = $variant ? (int) $variant->stock : (int) $item->stock;
         $availability = $stock > 0 ? 'in stock' : 'out of stock';
         $link = "{$this->baseUrl}/item/" . ($item->slug ?: $item->id);
-        $image = $item->image ? url("storage/uploads/items/{$item->image}") : '';
-        $brand = $item->brand->name ?? '';
-        $category = $item->category->name ?? '';
+        if ($variant) {
+            $link .= '?variant=' . $variant->id;
+        }
+
+        // La variante manda su propia foto; sin esto todas las tallas y colores
+        // llegaban al catálogo con la misma imagen del padre.
+        $imageFile = ($variant && $variant->image) ? $variant->image : $item->image;
+        $image = $imageFile ? url("storage/uploads/items/{$imageFile}") : '';
+
+        $brand = $item->brand->name ?: '';
+        $category = $item->category->name ?: '';
+        [$color, $size] = $this->variantColorSize($variant);
 
         return '"' . str_replace('"', '""', $id) . '",'
+             . '"' . str_replace('"', '""', (string) $item->internal_id) . '",'
              . '"' . str_replace('"', '""', substr($title, 0, 150)) . '",'
              . '"' . str_replace('"', '""', substr($item->description, 0, 500)) . '",'
              . '"' . $availability . '",'
@@ -258,6 +306,8 @@ class MetaFeedService
              . '"' . $image . '",'
              . '"' . str_replace('"', '""', $brand) . '",'
              . '"' . str_replace('"', '""', $category) . '",'
+             . '"' . str_replace('"', '""', (string) $color) . '",'
+             . '"' . str_replace('"', '""', (string) $size) . '",'
              . $stock . "\n";
     }
 }
