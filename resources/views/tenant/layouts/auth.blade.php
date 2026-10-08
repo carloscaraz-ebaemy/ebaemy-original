@@ -23,8 +23,8 @@ use Illuminate\Support\Facades\Storage;
     <link rel="stylesheet" href="{{ asset('porto-light/vendor/animate/animate.css') }}" />
     <link rel="stylesheet" href="{{ asset('porto-light/vendor/font-awesome/css/fontawesome-all.min.css') }}" />
     <link rel="stylesheet" href="{{ asset('porto-light/css/theme.css') }}" />
-    <link rel="stylesheet" href="{{ asset('css/design-tokens.css') }}" />
-    <link rel="stylesheet" href="{{ asset('css/auth.css') }}" />
+    <link rel="stylesheet" href="{{ asset_v('css/design-tokens.css') }}" />
+    <link rel="stylesheet" href="{{ asset_v('css/auth.css') }}" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/limonte-sweetalert2/7.26.29/sweetalert2.min.css" />
     
     {{-- Incluir CSS del tema seleccionado --}}

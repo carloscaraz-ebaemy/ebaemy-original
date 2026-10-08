@@ -1,7 +1,7 @@
 @extends('tenant.layouts.app')
 
 @push('styles')
-    <link rel="stylesheet" href="{{ asset('css/pos.css') }}"/>
+    <link rel="stylesheet" href="{{ asset_v('css/pos.css') }}"/>
 @endpush
 
 @section('content')
@@ -22,11 +22,11 @@
 
 @push('scripts')
   <!-- QZ -->
-  <script src="{{ asset('js/sha-256.min.js') }}"></script>
-  <script src="{{ asset('js/qz-tray.js') }}"></script>
-  <script src="{{ asset('js/rsvp-3.1.0.min.js') }}"></script>
-  <script src="{{ asset('js/jsrsasign-all-min.js') }}"></script>
-  <script src="{{ asset('js/sign-message.js') }}"></script>
-  <script src="{{ asset('js/function-qztray.js') }}"></script>
+  <script src="{{ asset_v('js/sha-256.min.js') }}"></script>
+  <script src="{{ asset_v('js/qz-tray.js') }}"></script>
+  <script src="{{ asset_v('js/rsvp-3.1.0.min.js') }}"></script>
+  <script src="{{ asset_v('js/jsrsasign-all-min.js') }}"></script>
+  <script src="{{ asset_v('js/sign-message.js') }}"></script>
+  <script src="{{ asset_v('js/function-qztray.js') }}"></script>
   <!-- END QZ -->
 @endpush

@@ -292,6 +292,15 @@
                 </p>
             </div>
         @else
+            @include('marketplace.partials.listing-preload', [
+                'items'      => $listings,
+                'withSrcset' => true,
+            ])
+            @php
+                // Tarjetas que se cargan sin diferir: dos filas en movil y la
+                // primera en escritorio. Lo lee partials/listing-card.
+                $cardEagerCount = 6;
+            @endphp
             <div class="mp-grid">
                 @foreach($listings as $listing)
                     @include('marketplace.partials.listing-card', ['listing' => $listing])

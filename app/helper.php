@@ -234,3 +234,29 @@ if (!function_exists('feature_limit')) {
         return app(\App\Services\FeatureGate::class)->limit($key);
     }
 }
+
+if (!function_exists('asset_v')) {
+    /**
+     * asset() con la marca de tiempo del archivo pegada al final.
+     *
+     * Los CSS y JS sueltos de `public/` (a diferencia de los bundles de Vite)
+     * tienen un nombre fijo: `marketplace.css` se llama igual antes y despues
+     * de cambiarla. Eso obliga a servirlos con una caducidad corta, porque con
+     * una larga el visitante se queda con la version vieja hasta que expire —
+     * el clasico «desplegue pero no se ve el cambio».
+     *
+     * Pegando `?v=<filemtime>` la URL cambia sola en cuanto cambia el archivo,
+     * y entonces SI se pueden servir con `Cache-Control: immutable` a un año
+     * (que es lo que pide PageSpeed en «tiempos de vida de cache eficientes»).
+     *
+     * Si el archivo no existe se devuelve la URL tal cual, sin inventar
+     * version: mejor un 404 limpio que uno con parametro.
+     */
+    function asset_v(string $path): string
+    {
+        $url = asset($path);
+        $mt  = @filemtime(public_path($path));
+
+        return $mt ? $url . (str_contains($url, '?') ? '&' : '?') . 'v=' . $mt : $url;
+    }
+}

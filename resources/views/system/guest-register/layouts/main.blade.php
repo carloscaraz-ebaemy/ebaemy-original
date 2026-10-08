@@ -15,7 +15,7 @@
         <link rel="stylesheet" href="{{ asset('porto-light/vendor/animate/animate.css') }}" />
         <link rel="stylesheet" href="{{ asset('porto-light/vendor/font-awesome/css/fontawesome-all.min.css') }}" />
         <link rel="stylesheet" href="{{ asset('porto-light/css/theme.css') }}" />
-        <link rel="stylesheet" href="{{ asset('css/auth.css') }}" />
+        <link rel="stylesheet" href="{{ asset_v('css/auth.css') }}" />
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/limonte-sweetalert2/7.26.29/sweetalert2.min.css" />
         {{-- `asset()` y no `mix()`: `public/mix-manifest.json` lleva commiteado
              con marcadores de conflicto de merge sin resolver, asi que el JSON
@@ -31,9 +31,9 @@
              #main-wrapper, que este layout ya tiene) y reconstruir el
              bundle: el componente ya
              quedo registrado en resources/js/system.js. --}}
-        <link href="{{ asset('css/app.css') }}" id="app-style" rel="stylesheet" type="text/css" />
-        <script src="{{ asset('js/manifest.js') }}"></script>
-        <script src="{{ asset('js/vendor.js') }}"></script>
+        <link href="{{ asset_v('css/app.css') }}" id="app-style" rel="stylesheet" type="text/css" />
+        <script src="{{ asset_v('js/manifest.js') }}"></script>
+        <script src="{{ asset_v('js/vendor.js') }}"></script>
 
     </head>
     <body>

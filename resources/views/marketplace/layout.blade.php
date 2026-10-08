@@ -144,14 +144,18 @@
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    {{-- Preconnect a los subdominios de tienda y preload de la imagen LCP.
+         Lo apila partials/listing-preload desde la vista de rejilla; va aqui
+         arriba, antes del CSS, para que el navegador abra esas conexiones
+         mientras todavia esta descargando las hojas de estilo. --}}
+    @stack('preload')
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    @php
-        // Cache-busting por filemtime: el navegador recarga el CSS solo cuando
-        // el archivo cambia (evita "deployé pero no veo el cambio" por caché).
-        $mpCssVer = @filemtime(public_path('css/marketplace.css')) ?: null;
-    @endphp
-    <link rel="stylesheet" href="{{ asset('css/design-tokens.css') }}">
-    <link rel="stylesheet" href="{{ asset('css/marketplace.css') }}{{ $mpCssVer ? '?v=' . $mpCssVer : '' }}">
+    {{-- asset_v() pega ?v=filemtime: el navegador recarga el CSS solo cuando
+         el archivo cambia (evita "desplegué pero no veo el cambio"), y gracias
+         a eso nginx puede servirlo con caducidad de un año. --}}
+    <link rel="stylesheet" href="{{ asset_v('css/design-tokens.css') }}">
+    <link rel="stylesheet" href="{{ asset_v('css/marketplace.css') }}">
 
     {{-- Estilos de cards/grid/paginador compartidos por las 4 vistas que
          renderizan listings (home, categoría oficial, categoría legacy,
@@ -1591,7 +1595,7 @@ if ('serviceWorker' in navigator) {
 </script>
 {{-- Web Push: expone window.ebaemyEnablePush()/DisablePush() para botones.
      No pide permiso automáticamente (mala UX) — se llama desde un control. --}}
-<script src="{{ asset('js/push-marketplace.js') }}" defer></script>
+<script src="{{ asset_v('js/push-marketplace.js') }}" defer></script>
 @endunless
 
 </body>

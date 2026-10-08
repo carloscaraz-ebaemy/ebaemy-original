@@ -50,8 +50,19 @@
                             {{-- Miniatura de 512px si existe; el carrusel pinta
                                  ~180px y la variante `_mp` de 1080 es 4 veces
                                  mas pesada para el mismo resultado. --}}
+                            {{-- Las tres primeras NO van diferidas: este
+                                 carrusel es lo primero que se pinta de la home
+                                 y su foto es la candidata a LCP. Con
+                                 loading="lazy" el navegador no la pedia hasta
+                                 cerrar el layout y PageSpeed lo penalizaba por
+                                 su nombre. El <head> ademas precarga la
+                                 primera (partials/listing-preload). --}}
+                            @php $offerEager = $loop->index < 3; @endphp
                             <img src="{{ $offer->thumb_image_url ?? $offer->image_url }}"
-                                 alt="{{ $offer->title }}" loading="lazy" decoding="async"
+                                 alt="{{ $offer->title }}"
+                                 loading="{{ $offerEager ? 'eager' : 'lazy' }}"
+                                 decoding="{{ $offerEager ? 'sync' : 'async' }}"
+                                 @if($loop->index === 0) fetchpriority="high" @endif
                                  width="512" height="512">
                         @else
                             <div class="mp-offer-card__noimg">Sin imagen</div>

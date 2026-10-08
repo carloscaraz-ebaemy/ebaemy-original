@@ -144,9 +144,9 @@
     @if(env('EB_SHELL_ENABLED', false))
         <link rel="preconnect" href="https://fonts.gstatic.com">
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-        <link rel="stylesheet" href="{{ asset('css/design-tokens.css') }}">
-        <link rel="stylesheet" href="{{ asset('css/eb-components.css') }}">
-        <link rel="stylesheet" href="{{ asset('css/eb-tenant-shell.css') }}">
+        <link rel="stylesheet" href="{{ asset_v('css/design-tokens.css') }}">
+        <link rel="stylesheet" href="{{ asset_v('css/eb-components.css') }}">
+        <link rel="stylesheet" href="{{ asset_v('css/eb-tenant-shell.css') }}">
     @endif
 
     @stack('styles')
@@ -206,7 +206,7 @@
     @endif
 
     <script async src="https://social.buho.la/pixel/y9nonmie9j8dkwha20ct2ua7nwsywi2m"></script>
-    <script src="{{ asset('js/dark-mode.js') }}"></script>
+    <script src="{{ asset_v('js/dark-mode.js') }}"></script>
 </head>
 
 <body class="pr-0"
@@ -299,11 +299,11 @@
 
     @stack('scripts')
 
-    <script src="{{ asset('js/sign-message.js') }}"></script>
-    <script src="{{ asset('js/sha-256.min.js') }}"></script>
-    <script src="{{ asset('js/rsvp-3.1.0.min.js') }}"></script>
-    <script src="{{ asset('js/qz-tray.js') }}"></script>
-    {{-- <script src="{{ asset('js/vendor.js') }}"></script> --}}
+    <script src="{{ asset_v('js/sign-message.js') }}"></script>
+    <script src="{{ asset_v('js/sha-256.min.js') }}"></script>
+    <script src="{{ asset_v('js/rsvp-3.1.0.min.js') }}"></script>
+    <script src="{{ asset_v('js/qz-tray.js') }}"></script>
+    {{-- <script src="{{ asset_v('js/vendor.js') }}"></script> --}}
     <!-- Theme Base, Components and Settings -->
     <script src="{{asset('porto-light/js/theme.js')}}"></script>
 

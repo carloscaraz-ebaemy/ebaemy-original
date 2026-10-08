@@ -31,6 +31,23 @@
     $cardThumbImg = (!empty($listing->thumb_image_url) && $cardPrimaryImg === $listing->image_url)
         ? $listing->thumb_image_url
         : null;
+
+    // Carga diferida: SI para casi todo, NO para las primeras cards.
+    // Hasta 2026-10-08 todas las imagenes llevaban loading="lazy", incluida la
+    // del primer pliegue — es decir, la que Google mide como LCP. El navegador
+    // no la pedia hasta terminar el layout, y PageSpeed lo penaliza por su
+    // nombre ("El elemento LCP tenia carga diferida"); en escritorio ni
+    // siquiera conseguia identificar el elemento y la metrica salia en error.
+    //
+    // La rejilla que decide cuantas adelantar pone $cardEagerCount antes del
+    // bucle. Donde no se pone (ficha de producto: carruseles de relacionados,
+    // todos bajo la linea de flotacion) vale 0 y todo sigue siendo lazy.
+    $cardIdx        = isset($loop) ? $loop->index : null;
+    $cardEagerCount = $cardEagerCount ?? 0;
+    $cardEager      = $cardIdx !== null && $cardIdx < $cardEagerCount;
+    // La pista de prioridad solo para las dos primeras: marcarlas todas como
+    // "high" es lo mismo que no marcar ninguna, compiten entre ellas.
+    $cardPriority   = $cardEager && $cardIdx < 2;
 @endphp
 {{-- Card como <div> (no <a>): los <button> de dots dentro de un <a>
      compiten con la navegacion del link y en mobile el navegador prefiere
@@ -59,7 +76,10 @@
                      srcset="{{ $cardThumbImg }} 512w, {{ $cardPrimaryImg }} 1080w"
                      sizes="(max-width: 640px) 48vw, 260px"
                  @endif
-                 alt="{{ $listing->title }}" loading="lazy" decoding="async"
+                 alt="{{ $listing->title }}"
+                 loading="{{ $cardEager ? 'eager' : 'lazy' }}"
+                 decoding="{{ $cardEager ? 'sync' : 'async' }}"
+                 @if($cardPriority) fetchpriority="high" @endif
                  width="512" height="512">
             @if($listing->secondary_image_url)
                 {{-- La segunda foto NO lleva src: es la del hover y la galeria

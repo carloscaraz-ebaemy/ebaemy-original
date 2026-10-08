@@ -502,10 +502,20 @@
      Ocultar cuando el visitante ya esta filtrando por ofertas (?on_offer=1) —
      el listado de abajo ya muestra los mismos productos, evitar duplicado.
      El carrusel + modal viven en el partial compartido con la página de tienda. --}}
-@if(isset($dailyOffers) && $dailyOffers->count() >= 4 && empty($onOfferOnly))
+@php
+    // Quien pinta la primera imagen de la pagina decide que precargar en el
+    // <head>: si sale el carrusel de ofertas es la suya, si no, la primera
+    // tarjeta de la rejilla.
+    $mpOffersRail = isset($dailyOffers) && $dailyOffers->count() >= 4 && empty($onOfferOnly);
+@endphp
+@if($mpOffersRail)
     @php
         $offerTenantsCount = collect($dailyOffers)->pluck('hostname_id')->unique()->count();
     @endphp
+    @include('marketplace.partials.listing-preload', [
+        'items'      => $dailyOffers,
+        'withSrcset' => false,
+    ])
     @include('marketplace.partials.daily-offers', [
         'offers'       => $dailyOffers,
         'seeAllUrl'    => route('marketplace.index', ['on_offer' => 1]),
@@ -923,6 +933,18 @@
                 </p>
             </div>
         @else
+            @unless($mpOffersRail)
+                @include('marketplace.partials.listing-preload', [
+                    'items'      => $listings,
+                    'withSrcset' => true,
+                ])
+            @endunless
+            @php
+                // Cuantas tarjetas se cargan sin diferir. Dos filas de movil
+                // (2 columnas) y la primera de escritorio caben de sobra en 6;
+                // el resto sigue siendo lazy. Lo lee partials/listing-card.
+                $cardEagerCount = $mpOffersRail ? 2 : 6;
+            @endphp
             <div class="mp-grid">
                 @foreach($listings as $idx => $listing)
                     @php

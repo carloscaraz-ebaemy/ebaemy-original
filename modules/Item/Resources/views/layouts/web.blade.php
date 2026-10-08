@@ -15,7 +15,7 @@
          marcadores de conflicto sin resolver y no parsea. Con APP_DEBUG=false
          eso no tumba la pagina, solo reporta al log en cada visita y devuelve
          la ruta cruda. La ruta servida es la misma de antes. --}}
-    <link href="{{ asset('css/app.css') }}" rel="stylesheet">
+    <link href="{{ asset_v('css/app.css') }}" rel="stylesheet">
 
     <!-- Styles -->
     <link href="https://fonts.googleapis.com/css?family=Open+Sans:300,400,600,700,800|Shadows+Into+Light" rel="stylesheet" type="text/css">
@@ -69,7 +69,7 @@
 
     @yield('content-mercadopago')
 
-    <script src="{{ asset('js/manifest.js') }}"></script>
-    <script src="{{ asset('js/vendor.js') }}"></script>
+    <script src="{{ asset_v('js/manifest.js') }}"></script>
+    <script src="{{ asset_v('js/vendor.js') }}"></script>
 </body>
 </html>
