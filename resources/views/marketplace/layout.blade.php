@@ -234,9 +234,46 @@
             });
         };
 
+        /**
+         * El token EN CLARO, para el campo `_token` de un formulario normal:
+         * un POST de formulario no puede mandar cabeceras, asi que la cookie
+         * cifrada no sirve ahi.
+         * @return {Promise<string>}
+         */
+        window.mpCsrfToken = function () {
+            if (token) return Promise.resolve(token);
+            if (!pedido) window.mpCsrfHeaders();   // dispara la peticion
+
+            return (pedido || Promise.resolve()).then(function () { return token || ''; });
+        };
+
         // Se pide por adelantado si no hay cookie, para que el token ya este
         // listo cuando el visitante pulse algo y no espere a la ida y vuelta.
         if (!deCookie()) window.mpCsrfHeaders();
+
+        // Formularios de paginas cacheables: su campo `_token` sale vacio del
+        // servidor (ver partials/csrf-field) y se rellena aqui. Se pide al
+        // cargar, y si aun no ha llegado cuando alguien envia, se retiene el
+        // envio y se reanuda — mejor esperar medio segundo que comerse un 419.
+        var campos = document.querySelectorAll('input[name="_token"][data-mp-token]');
+        if (campos.length) {
+            window.mpCsrfToken().then(function (t) {
+                campos.forEach(function (c) { if (!c.value) c.value = t; });
+            });
+
+            document.addEventListener('submit', function (e) {
+                var form = e.target;
+                if (!form || !form.querySelector) return;
+                var campo = form.querySelector('input[name="_token"][data-mp-token]');
+                if (!campo || campo.value) return;   // ya tiene token: adelante
+
+                e.preventDefault();
+                window.mpCsrfToken().then(function (t) {
+                    campo.value = t;
+                    form.submit();
+                });
+            }, true);
+        }
     })();
     </script>
 </head>

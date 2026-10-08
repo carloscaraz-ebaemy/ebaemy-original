@@ -1115,7 +1115,7 @@
             </summary>
 
             <form method="POST" action="{{ route('marketplace.lead', $listing->slug) }}" class="mp-lead-form">
-                @csrf
+                @include('marketplace.partials.csrf-field')
                 {{-- Honeypot --}}
                 <input type="text" name="website" tabindex="-1" autocomplete="off"
                        style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0"
@@ -1344,7 +1344,7 @@
     <details class="mp-review-form-wrap">
         <summary>Escribir una opinión</summary>
         <form method="POST" action="{{ route('marketplace.review', $listing->slug) }}" class="mp-review-form">
-            @csrf
+            @include('marketplace.partials.csrf-field')
             <input type="text" name="website" tabindex="-1" autocomplete="off"
                    style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0" aria-hidden="true">
 
