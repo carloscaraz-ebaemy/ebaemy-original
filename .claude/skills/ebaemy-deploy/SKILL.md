@@ -173,7 +173,18 @@ sudo chmod 755 /home/ebaemy /home/ebaemy/ebaemy
 ❌ NUNCA `git push --force` a `main` o a `production`
 ❌ NUNCA borrar BD tenant (`auto-delete-tenant-database*=false` en config/tenancy.php — protección hardcodeada)
 ❌ NUNCA aplicar migración system sin backup mysqldump previo
-❌ NUNCA usar `php artisan route:cache` (closure routes no serializables → login JSON 404)
+❌ NUNCA usar `php artisan route:cache` ni `php artisan optimize` (que lo incluye).
+**Desde 2026-10-07 un comando lo bloquea** (`app/Console/Commands/RouteCacheProhibida.php`)
+porque la nota no basto: se ejecuto tres despliegues seguidos.
+
+Dos danos distintos, los dos reales:
+- closure routes no serializables → login JSON 404
+- **`routes/web.php` registra un mapa de rutas DISTINTO segun el host** (tenant vs
+  dominio principal) y `$app_url` sale de `env('APP_URL_BASE')`, que con la config
+  cacheada devuelve **null**. Al cachear queda `Route::domain(null)` y
+  `<cualquier-tenant>.ebaemy.com/marketplace` empieza a servir el marketplace central
+  con canonical propio: 17 copias del marketplace en Google. Se arregla con
+  `php artisan route:clear`
 
 ✅ SIEMPRE backup mysqldump antes de migrar system
 ✅ SIEMPRE confirmar al usuario antes de `git push production`
