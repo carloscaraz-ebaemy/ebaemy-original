@@ -1582,7 +1582,14 @@ if ($hostname) {
     $prefix = !empty($prefix)?$prefix.".":'';
     $app_url = $prefix. env('APP_URL_BASE');
 
-    Route::domain($app_url)->group(function () {
+    // ⚠ `Route::domain($app_url)` NO restringia nada: con la configuracion
+    // cacheada (produccion) `env()` no lee el .env y `$app_url` quedaba vacio.
+    // Asi que CUALQUIER subdominio que no fuera de un tenant servia el
+    // marketplace entero con canonical propio — incluso inventados, porque el
+    // DNS es `*.ebaemy.com`. Quien cierra esa puerta ahora es el middleware,
+    // que puede permitir varios hosts (`ebaemy.com` y `www.`) donde
+    // `Route::domain()` solo acepta uno. Ver EnsureMainDomain.
+    Route::domain($app_url)->middleware(\App\Http\Middleware\EnsureMainDomain::class)->group(function () {
         Route::get('login', 'System\LoginController@showLoginForm')->name('login');
         Route::post('login', 'System\LoginController@login')->middleware('throttle:10,1');
         Route::post('logout', 'System\LoginController@logout')->name('logout');
