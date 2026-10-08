@@ -26,13 +26,34 @@ class ProductFeedController extends Controller
         return compact('domain', 'base', 'company', 'seo');
     }
 
+    /**
+     * Nombre comercial de la tienda, el que viaja como `brand` cuando el
+     * producto no tiene marca propia.
+     *
+     * Con `trade_name` vacío el fallback obvio —`name`— publica la RAZÓN
+     * SOCIAL del titular ("Carlos Junior Carazas Lliuya") como marca en los
+     * anuncios. Antes de eso se usa el subdominio de la tienda, que es el
+     * nombre con el que el comprador la conoce.
+     */
+    private function storeName($company): string
+    {
+        if ($company && $company->trade_name) {
+            return $company->trade_name;
+        }
+
+        $subdomain = strtok(request()->getHost(), '.');
+        if ($subdomain && !in_array($subdomain, ['www', 'ebaemy'], true)) {
+            return ucfirst($subdomain);
+        }
+
+        return $company->name ?: 'Tienda Online';
+    }
+
     private function builder(): ProductFeedRowBuilder
     {
         ['base' => $base, 'company' => $company] = $this->getBaseData();
 
-        $storeName = $company->trade_name ?: ($company->name ?: 'Tienda Online');
-
-        return new ProductFeedRowBuilder($base, $storeName, 'PEN');
+        return new ProductFeedRowBuilder($base, $this->storeName($company), 'PEN');
     }
 
     /**
@@ -42,7 +63,7 @@ class ProductFeedController extends Controller
     public function googleMerchant()
     {
         ['base' => $base, 'company' => $company] = $this->getBaseData();
-        $storeName = $company->trade_name ?: ($company->name ?: 'Tienda Online');
+        $storeName = $this->storeName($company);
 
         $feed = $this->builder();
         $rows = $feed->rows();

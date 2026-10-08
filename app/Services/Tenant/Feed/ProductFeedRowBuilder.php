@@ -106,6 +106,8 @@ class ProductFeedRowBuilder
             'image_link' => $this->itemImage($item),
             'link'       => $this->itemLink($item),
             'sku'        => (string) ($item->internal_id ?: ''),
+            'title_base' => (string) $item->description,
+            'title_tail' => '',
         ]);
     }
 
@@ -137,6 +139,8 @@ class ProductFeedRowBuilder
             'color'      => $color,
             'size'       => $size,
             'variant_id' => $variant->id,
+            'title_base' => (string) $item->description,
+            'title_tail' => $suffix,
         ]);
     }
 
@@ -278,9 +282,32 @@ class ProductFeedRowBuilder
         return $row['inventory'] > 0 ? 'in stock' : 'out of stock';
     }
 
+    /**
+     * Título recortado SIN perder el nombre de la variante.
+     *
+     * Recortar el título entero deja "Pino Artificial (3 Cuerpos) -" en todas
+     * las variantes: el sufijo —lo único que las distingue— es justo lo que
+     * cae al final. Se recorta el nombre del producto y se conserva el
+     * sufijo completo.
+     */
     public function title(array $row, int $limit = 150): string
     {
-        return Str::limit($row['title'], $limit, '');
+        $base = $row['title_base'] ?? $row['title'];
+        $tail = trim((string) ($row['title_tail'] ?? ''));
+
+        if ($tail === '') {
+            return Str::limit($base, $limit, '');
+        }
+
+        $sep  = ' - ';
+        $room = $limit - mb_strlen($tail) - mb_strlen($sep);
+
+        // Sufijo tan largo que no deja sitio al producto: manda la variante.
+        if ($room < 12) {
+            return Str::limit($tail, $limit, '');
+        }
+
+        return rtrim(Str::limit($base, $room, '')) . $sep . $tail;
     }
 
     public function description(array $row, int $limit = 5000): string
