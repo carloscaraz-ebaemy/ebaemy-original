@@ -33,23 +33,34 @@
                   && method_exists($items, 'currentPage')
                   && $items->currentPage() > 1);
 
-    // OJO: `collect($paginator)` NO da los productos. El paginador es
-    // Arrayable, asi que Collection le llama a toArray() y lo que llega es
-    // {current_page, data, total, ...} — tomar los 6 primeros devuelve
-    // enteros, y la primera iteracion revienta con «Attempt to read property
-    // image_url on int». Se escapo a produccion el 2026-10-08 y dejo en 500
-    // la busqueda, las categorias y las paginas de tienda: la home no lo
-    // destapaba porque ahi este partial recibe la coleccion de ofertas.
-    // `all()` existe tanto en el paginador como en la coleccion y en los dos
-    // casos devuelve los elementos.
-    $plSource = is_object($items ?? null) && method_exists($items, 'all')
-        ? $items->all()
-        : ($items ?? []);
-
     $plOrigins = [];
     $plLcp     = null;
 
-    foreach ($plPage1 ? collect($plSource)->take(6) : collect() as $plItem) {
+    // OJO con `collect($items)`: si $items es un paginador, Collection le
+    // llama a toArray() —es Arrayable— y lo que llega es el sobre entero,
+    // {current_page, data, total, ...}, no los productos. Tomar los primeros
+    // devuelve enteros y la primera iteracion revienta con «Attempt to read
+    // property image_url on int». Eso dejo en 500 la busqueda, las categorias
+    // y las paginas de tienda el 2026-10-08; la home no lo destapaba porque
+    // ahi este partial recibe la coleccion de ofertas.
+    //
+    // Tampoco vale `$items->all()`: en el paginador `all()` no es un metodo
+    // real, lo atiende __call, asi que `method_exists()` dice que no existe y
+    // un fallback basado en eso se come la lista en silencio — el segundo
+    // intento del mismo dia, esta vez sin error y sin precarga.
+    //
+    // Recorrer el objeto tal cual SI funciona en los dos casos: el paginador
+    // es IteratorAggregate sobre su coleccion de elementos.
+    $plVistos = 0;
+
+    foreach (($plPage1 && is_iterable($items ?? null)) ? $items : [] as $plItem) {
+        // Solo las primeras: mas abajo ya no hay primer pliegue que adelantar,
+        // y cada conexion abierta de mas tambien cuesta.
+        if ($plVistos >= 6 || (count($plOrigins) >= 4 && $plLcp)) {
+            break;
+        }
+        $plVistos++;
+
         if (! is_object($plItem)) {
             continue;
         }
