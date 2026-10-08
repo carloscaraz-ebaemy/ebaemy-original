@@ -11,9 +11,16 @@ description: Procedimiento exacto para desplegar ebaemy-original a producción (
 - **OS**: Ubuntu 24.04 LTS · **PHP**: 8.3 (servicio `php8.3-fpm.service`) · **Web**: nginx + apache2 (raro setup; reload con `sudo systemctl reload nginx`)
 - **Path proyecto**: `/home/ebaemy/ebaemy/laravel/`
 - **RAM**: 3.82 GiB (insuficiente para `npm run build` → OOM)
-- **17 tenants productivos** (verificado 2026-08-28): alasitas, makingroup, mitienda, talara, myka, torneo,
-  calixto, gabito, torneoperu, ycre, charitzi, motalvan, floristeriapetaloencanto, carolayimport,
-  valentinaimportaciones, uniformespatty, importacionesdeywa
+- **16 tenants productivos** (verificado 2026-10-08 contra la tabla `hostnames`, que es la
+  unica fuente fiable): alasitas, makingroup, mitienda, talara, calixto, gabito, ycre,
+  charitzi, motalvan, floristeriapetaloencanto, carolayimport, valentinaimportaciones,
+  uniformespatty, importacionesdeywa, **abdkhoteleria**, **lia**
+
+  ⚠ La lista anterior decia 17 e incluia `myka`, `torneo` y `torneoperu`, que **ya no son
+  tenants** (no tienen fila en `hostnames`), y se dejaba fuera `abdkhoteleria` y `lia`. Barrer
+  con una lista a mano lleva a conclusiones falsas: esos tres respondian distinto que el resto y
+  parecia un fallo nuevo. Para sacarla de verdad:
+  `php artisan tinker --execute="foreach (\Hyn\Tenancy\Models\Hostname::orderBy('fqdn')->get() as \$h) echo \$h->fqdn.PHP_EOL;"`
 - **Webmin**: https://ebaemy.com:10000 (timeout en sesión, mata foreground)
 
 ## Antes de empezar — checks obligatorios
