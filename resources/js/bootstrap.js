@@ -100,6 +100,76 @@ if (typeof document !== 'undefined') {
     }, 60 * 1000);
 }
 
+/**
+ * Sesion caida: llevar al login en vez de dejar la pantalla muerta.
+ *
+ * El servidor ya hacia lo correcto —navegando responde 302 a /login, y por
+ * XHR responde 401 con {success:false,message:'No se encuentra autenticado'}—
+ * pero NADIE atendia ese 401. El panel es Vue: sus peticiones son XHR, asi que
+ * al caducar la sesion el usuario se quedaba en una pantalla que ya no
+ * funcionaba, viendo un error sin explicacion y sin que nada le llevara a
+ * entrar de nuevo.
+ *
+ * Dos codigos y dos tratos distintos:
+ *   401 — no hay sesion. Al login.
+ *   419 — el token caduco pero la sesion puede seguir viva (caso tipico:
+ *         iPhone pausa la pestana al abrir la camara). Se refresca el token y
+ *         se reintenta UNA vez; solo si eso falla se manda al login. Asi no se
+ *         expulsa a nadie por un token viejo cuando su sesion esta bien.
+ */
+(function () {
+    let yaEnMarcha = false;
+
+    function estamosEnLogin() {
+        return /(^|\/)login(\/|$)/.test(window.location.pathname);
+    }
+
+    function avisarEIrAlLogin() {
+        if (yaEnMarcha || estamosEnLogin()) return;
+        yaEnMarcha = true;
+
+        // Se avisa antes de mover la pagina: un salto sin explicacion se lee
+        // como un fallo mas. Sin dependencias (esto corre antes de ElementUI).
+        try {
+            const aviso = document.createElement('div');
+            aviso.setAttribute('role', 'status');
+            aviso.textContent = 'Tu sesion ha caducado. Te llevamos a iniciar sesion…';
+            aviso.style.cssText = [
+                'position:fixed', 'inset:0 0 auto 0', 'z-index:2147483647',
+                'background:#b91c1c', 'color:#fff', 'padding:14px 16px',
+                'font:600 14px/1.4 system-ui,-apple-system,sans-serif',
+                'text-align:center', 'box-shadow:0 2px 12px rgba(0,0,0,.25)',
+            ].join(';');
+            document.body.appendChild(aviso);
+        } catch (e) { /* si no se puede avisar, al menos se redirige */ }
+
+        // Se RECARGA en vez de ir directo a /login: una navegacion normal hace
+        // que el servidor responda 302 y guarde a donde volver (redirect
+        // ->guest), asi que tras entrar el usuario aterriza donde estaba.
+        setTimeout(function () { window.location.reload(); }, 1200);
+    }
+
+    axios.interceptors.response.use(undefined, async function (error) {
+        const status = error && error.response ? error.response.status : null;
+
+        if (status === 419 && error.config && !error.config.__csrfReintentado) {
+            // refreshCsrfToken usa fetch, no axios: no puede reentrar aqui.
+            const ok = await window.refreshCsrfToken();
+            if (ok) {
+                error.config.__csrfReintentado = true;
+                error.config.headers = error.config.headers || {};
+                error.config.headers['X-CSRF-TOKEN'] = axios.defaults.headers.common['X-CSRF-TOKEN'];
+
+                return axios.request(error.config);
+            }
+        }
+
+        if (status === 401 || status === 419) avisarEIrAlLogin();
+
+        return Promise.reject(error);
+    });
+})();
+
 Vue.prototype.$http = axios;
 
 Vue.prototype.$setStorage =   function(name,obj){
