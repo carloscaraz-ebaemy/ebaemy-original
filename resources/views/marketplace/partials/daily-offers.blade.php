@@ -284,17 +284,31 @@
 @endpush
 
 <script>
-// Clonar el carrusel dentro del modal. Clonamos (no movemos) para que el
-// bloque inline siga visible en escritorio. El clon pierde el id para no
+// Clon del carrusel para el modal. Clonamos (no movemos) para que el bloque
+// inline siga visible en escritorio, y el clon pierde el id para no
 // duplicarlo en el DOM.
-(function () {
+//
+// Se construye la PRIMERA VEZ QUE SE ABRE, no al cargar. Antes se clonaba de
+// entrada y eso metia otra vez en el documento las ~17 fotos del carrusel,
+// invisibles, antes de que nadie hubiera pedido ver el modal. Desde que las
+// tres primeras del carril dejaron de ir diferidas, el clon se traia tambien
+// ese `loading="eager"` copiado tal cual y duplicaba las descargas que mas
+// prisa tenian. Por si acaso, al clonar se le devuelve el diferido: lo que
+// esta dentro de un modal cerrado no corre ninguna prisa.
+window.mpOffersEnsureClone = function () {
     var rail  = document.getElementById('mpOffersRail');
     var mBody = document.getElementById('mpOffersModalBody');
     if (!rail || !mBody || mBody.children.length) return;
+
     var clone = rail.cloneNode(true);
     clone.removeAttribute('id');
+    clone.querySelectorAll('img').forEach(function (img) {
+        img.setAttribute('loading', 'lazy');
+        img.setAttribute('decoding', 'async');
+        img.removeAttribute('fetchpriority');
+    });
     mBody.appendChild(clone);
-})();
+};
 
 // Countdown ligero para los timers de "Termina en" (incluye los del clon).
 // Re-consulta el DOM en cada tick para cubrir las cards clonadas al modal.
@@ -371,7 +385,10 @@
     var fab   = document.getElementById('mpOffersFab');
     if (!modal) return;
 
-    function open()  { modal.classList.add('is-open');  modal.setAttribute('aria-hidden', 'false'); document.body.style.overflow = 'hidden'; }
+    function open()  {
+        if (window.mpOffersEnsureClone) window.mpOffersEnsureClone();
+        modal.classList.add('is-open');  modal.setAttribute('aria-hidden', 'false'); document.body.style.overflow = 'hidden';
+    }
     function close() { modal.classList.remove('is-open'); modal.setAttribute('aria-hidden', 'true');  document.body.style.overflow = ''; }
 
     if (fab) fab.addEventListener('click', open);

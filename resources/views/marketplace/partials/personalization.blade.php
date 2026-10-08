@@ -29,18 +29,33 @@
     var url = '{{ route('marketplace.personalization') }}'
         @isset($excluirListingId) + '?excluir={{ (int) $excluirListingId }}' @endisset;
 
-    /** Reordena las cards de un carril segun una lista de ids. */
+    /**
+     * Reordena las cards de un carril segun una lista de ids.
+     *
+     * Con `order` de CSS, NO moviendo los nodos. La primera version usaba
+     * appendChild y eso le costaba el LCP a la pagina entera: Lighthouse
+     * descarta como candidato a LCP cualquier elemento que salga del DOM, y
+     * mover un nodo es sacarlo y volver a meterlo. El 2026-10-08, en cuanto
+     * la primera foto del carrusel dejo de ir diferida y paso a ser la
+     * candidata, PageSpeed empezo a responder `NO_LCP` y con el varias
+     * auditorias en Error.
+     *
+     * El carril es `display:flex`, asi que `order` da exactamente el mismo
+     * resultado visual. Y de paso se conserva lo que ya conservaba el
+     * appendChild: listeners enganchados y temporizadores en marcha.
+     */
     function reordenar(carril, ids) {
         if (!carril || !ids.length) return;
         var porId = {};
         carril.querySelectorAll('[data-offer-id]').forEach(function (el) {
             porId[el.getAttribute('data-offer-id')] = el;
         });
-        // Mover solo lo que el orden menciona; lo que no aparezca se queda
-        // detras en el orden que ya traia.
+        // Lo que el orden menciona va delante, en ese orden; lo que no
+        // aparezca se queda detras tal y como venia.
+        var pos = 0;
         ids.forEach(function (id) {
             var el = porId[String(id)];
-            if (el) carril.appendChild(el);
+            if (el) el.style.order = ++pos;
         });
     }
 
