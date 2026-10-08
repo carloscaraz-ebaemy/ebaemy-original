@@ -41,7 +41,10 @@
     <div class="mp-offers-body" id="mpOffersBody">
         <div class="mp-offers-rail" id="mpOffersRail">
             @foreach($offers as $offer)
-                <a href="{{ route('marketplace.item', $offer->slug) }}" class="mp-offer-card">
+                {{-- data-offer-id: por el reordena el navegador segun la
+                     afinidad del visitante (partials/personalization). --}}
+                <a href="{{ route('marketplace.item', $offer->slug) }}" class="mp-offer-card"
+                   data-offer-id="{{ $offer->id }}">
                     <div class="mp-offer-card__img">
                         @if($offer->image_url)
                             {{-- Miniatura de 512px si existe; el carrusel pinta

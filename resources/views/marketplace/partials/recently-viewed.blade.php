@@ -6,9 +6,22 @@
     Si la colección está vacía, no renderiza nada (caller no se preocupa).
 
     Mobile-first: scroll-x con snap. Desktop: grid de 4-5 cols visibles.
+
+    DOS MODOS
+    ---------
+      'deferred' => false (por defecto) — se pinta en el servidor, como
+        siempre. Lo usa el carrito, que nunca se cachea.
+      'deferred' => true — se pinta la seccion VACIA y oculta, y la rellena
+        el navegador con lo que devuelve el endpoint de personalizacion. Lo
+        usan la home y la ficha, que si se quieren cachear: lo que cada
+        visitante vio es suyo, y dentro del HTML haria la pagina distinta
+        para cada uno. Ver partials/personalization.blade.php.
 --}}
-@if(isset($recentlyViewed) && $recentlyViewed->count() > 0)
-<section class="mp-recent" aria-label="Vistos recientemente">
+@php $mpRecentDeferred = $deferred ?? false; @endphp
+@if($mpRecentDeferred || (isset($recentlyViewed) && $recentlyViewed->count() > 0))
+<section class="mp-recent" aria-label="Vistos recientemente"
+         @if($mpRecentDeferred) hidden @endif
+         data-mp-recent>
     <div class="mp-recent-head">
         <h2 class="mp-recent-title">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -17,18 +30,20 @@
             </svg>
             Vistos recientemente
         </h2>
-        <span class="mp-recent-count">{{ $recentlyViewed->count() }}</span>
+        <span class="mp-recent-count" data-mp-recent-count>{{ $mpRecentDeferred ? '' : (isset($recentlyViewed) ? $recentlyViewed->count() : '') }}</span>
     </div>
 
     <div class="mp-recent-scroll" data-mp-recent-scroll>
-        @foreach($recentlyViewed as $listing)
-            <div class="mp-recent-item">
-                @include('marketplace.partials.listing-card', ['listing' => $listing])
-            </div>
-        @endforeach
+        @if(!$mpRecentDeferred && isset($recentlyViewed) && $recentlyViewed->count() > 0)
+            @include('marketplace.partials.recently-viewed-items', ['recentlyViewed' => $recentlyViewed])
+        @endif
     </div>
 </section>
+@endif
 
+{{-- El CSS se publica SIEMPRE, tambien cuando la seccion llega vacia: si
+     dependiera de que haya contenido, las cards que mete el navegador
+     despues saldrian sin estilo. --}}
 @once
 @push('styles')
 <style>
@@ -95,4 +110,3 @@
 </style>
 @endpush
 @endonce
-@endif

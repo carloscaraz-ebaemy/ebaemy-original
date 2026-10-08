@@ -1505,6 +1505,13 @@ if (window.matchMedia('(max-width: 899px)').matches) {
 
 @include('marketplace.partials.recommended', ['recommendedForYou' => $recommendedForYou ?? collect()])
 
-@include('marketplace.partials.recently-viewed', ['recentlyViewed' => $recentlyViewed ?? collect()])
+{{-- 'deferred': la seccion sale vacia y la rellena el navegador. Lo que
+     este visitante vio es suyo, y dentro del HTML haria la pagina distinta
+     para cada uno — que es lo que impide cachearla. --}}
+@include('marketplace.partials.recently-viewed', [
+    'recentlyViewed' => $recentlyViewed ?? collect(),
+    'deferred'       => true,
+])
+@include('marketplace.partials.personalization')
 
 @endsection

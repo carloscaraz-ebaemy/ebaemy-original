@@ -160,6 +160,11 @@ function mpBindGallery(scope) {
     });
 }
 mpBindGallery(document);
+// Expuesta en window para los bloques que meten cards despues (vistos
+// recientemente via partials/personalization): el hover de la galeria se
+// engancha por card y no se delega, asi que hay que llamarla con el contenedor
+// nuevo o esas cards se quedan sin carrusel al pasar el raton.
+window.mpBindGallery = mpBindGallery;
 
 // Sub-links dentro de la card: nombre de tienda + pill "Tambien en N
 // tiendas". El tap en el span propaga a la card. Solucion: delegacion en

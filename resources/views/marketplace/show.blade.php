@@ -1740,7 +1740,11 @@
     @endpush
 @endif
 
-@include('marketplace.partials.recently-viewed', ['recentlyViewed' => $recentlyViewed ?? collect()])
+@include('marketplace.partials.recently-viewed', [
+    'recentlyViewed' => $recentlyViewed ?? collect(),
+    'deferred'       => true,
+])
+@include('marketplace.partials.personalization', ['excluirListingId' => $listing->id])
 
 {{-- Vista de ficha. mpTrack solo existe si la medicion esta activa y el
      comprador acepto las cookies; mientras no la haya, el evento se queda en

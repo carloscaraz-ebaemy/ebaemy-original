@@ -256,76 +256,7 @@ class MarketplaceController extends Controller
         // hay 4+ ofertas; abajo de eso queda mejor ocultar la sección.
         $isHome = empty($q) && empty($category) && !$officialCatId
                   && $priceMin === null && $priceMax === null;
-        $dailyOffers = collect();
-        if ($isHome) {
-            // v5: 'diversity-first' + ROTACION por franja de 6h. El reparto
-            // por tienda ya funcionaba, pero con pocas tiendas en oferta el
-            // rail mostraba SIEMPRE las dos mismas ofertas de cada una, y en
-            // movil (donde caben ~2 cards) parecia el escaparate de una sola
-            // tienda. La franja cambia que ofertas de cada tienda salen, sin
-            // tocar el reparto ni perder el cache.
-            $rotSlot = (int) (now()->dayOfYear * 4 + intdiv((int) now()->hour, 6));
-            $dailyOffers = Cache::remember('mp_daily_offers_v6_' . $rotSlot, 1800, function () use ($rotSlot) {
-                // Pool amplio de candidatos: si una sola tienda concentra las
-                // ofertas de mayor descuento, un limit pequeño (30) la dejaba
-                // monopolizar el top y el cap de 2/tienda recortaba el carrusel
-                // por debajo del umbral de 4 → la sección desaparecía. Con un
-                // pool grande entran ofertas de TODAS las tiendas antes de
-                // aplicar la diversidad.
-                $candidates = MarketplaceListing::published()
-                    ->onOffer()
-                    ->orderByDesc('discount_pct')
-                    ->orderByDesc('view_count')
-                    ->limit(300)
-                    ->get();
-
-                // Agrupar por tenant preservando el orden por descuento (la
-                // mejor oferta de cada tienda queda primera en su grupo). El
-                // orden de aparición de los grupos = tienda con el descuento
-                // más alto primero.
-                $byTenant = [];
-                foreach ($candidates as $c) {
-                    $byTenant[$c->hostname_id][] = $c;
-                }
-
-                // Cuantas menos tiendas tengan oferta, mas ofertas por tienda
-                // hacen falta para que el rail no quede corto. Con 4 tiendas
-                // (el caso real hoy) salen 16 cards en vez de 8.
-                $tenantCount  = count($byTenant);
-                $perTenantCap = $tenantCount >= 8 ? 2 : ($tenantCount >= 5 ? 3 : 4);
-                $maxCards     = 18;
-
-                // Rotar el punto de partida DENTRO de cada tienda: la franja
-                // decide por donde se empieza, y el desfase por hostname evita
-                // que todas las tiendas salten a la vez. La tienda con 141
-                // ofertas deja de mostrar eternamente las mismas dos.
-                foreach ($byTenant as $hid => $offers) {
-                    $n = count($offers);
-                    if ($n > $perTenantCap) {
-                        $start = ($rotSlot + (int) $hid) % $n;
-                        $byTenant[$hid] = array_merge(
-                            array_slice($offers, $start),
-                            array_slice($offers, 0, $start)
-                        );
-                    }
-                }
-
-                // Intercalar tiendas (round-robin): ronda 0 toma una oferta de
-                // CADA tienda, ronda 1 la siguiente, etc. Así el carrusel
-                // alterna tiendas (tienda A, B, C, D, A, B…) en vez de
-                // agrupar las ofertas de cada una juntas.
-                $diverse = collect();
-                for ($round = 0; $round < $perTenantCap; $round++) {
-                    foreach ($byTenant as $offers) {
-                        if (isset($offers[$round])) {
-                            $diverse->push($offers[$round]);
-                            if ($diverse->count() >= $maxCards) break 2;
-                        }
-                    }
-                }
-                return $diverse;
-            });
-        }
+        $dailyOffers = $isHome ? $this->dailyOffersBase() : collect();
 
         // Top tiendas con productos publicados — sidebar de filtro por tienda.
         // Cache 30 min porque el ranking cambia lento. 12 max para no inflar
@@ -386,7 +317,12 @@ class MarketplaceController extends Controller
                       && !$priceMin && !$priceMax
                       && !$onOfferOnly && !$verifiedOnly && !$inStockOnly && !$packsOnly
                       && !$shopSubdomain;
-        if ($isCleanHome) {
+        // Solo para quien ha entrado: el bloque de recomendados lo necesita
+        // para no repetirle lo que ya vio. Para el visitante anonimo NO se
+        // calcula, porque su "visto recientemente" ya no se pinta en el
+        // servidor: lo trae el navegador desde /marketplace/personalizacion,
+        // y asi el HTML sale igual para todos y se puede cachear.
+        if ($isCleanHome && auth('marketplace')->check()) {
             $recentlyViewed = app(\App\Services\Marketplace\RecentlyViewedService::class)
                 ->listings(null, 8);
             if ($recentlyViewed->isNotEmpty()) {
@@ -394,14 +330,11 @@ class MarketplaceController extends Controller
             }
         }
 
-        // Ofertas del dia ordenadas por afinidad del visitante: lo buscado en
-        // esta sesion + lo que vio. Reutiliza $recentlyViewed para no repetir
-        // la consulta. Solo reordena, no filtra: las 4 tiendas en oferta
-        // siguen todas presentes.
-        if ($dailyOffers->isNotEmpty()) {
-            $dailyOffers = app(\App\Services\Marketplace\ShopperAffinityService::class)
-                ->rankOffers($dailyOffers, $recentlyViewed);
-        }
+        // Las ofertas del dia se mandan en su orden NEUTRO. El reordenado por
+        // afinidad (lo que el visitante busco y vio) lo aplica el navegador
+        // sobre el carrusel ya pintado, con el orden que le da
+        // /marketplace/personalizacion. El algoritmo sigue viviendo en un solo
+        // sitio: ShopperAffinityService. Ver personalization().
 
         // Cupones del comprador prximos a vencer (<=72h). Item 8 del
         // roadmap visibilidad  banner urgente en la home para incentivar
@@ -481,6 +414,147 @@ class MarketplaceController extends Controller
      * decisiones previas de opt-out (no reactiva contactos que se dieron de
      * baja). Throttle por IP a nivel de ruta.
      */
+    /**
+     * Las ofertas del dia tal como las ve TODO el mundo: mismo contenido y
+     * mismo orden para cualquier visitante, cacheadas 30 min y rotando por
+     * franja de 6h.
+     *
+     * El reordenado por afinidad del visitante NO se hace aqui: iria dentro
+     * del HTML y haria la pagina distinta para cada uno, que es justo lo que
+     * impide cachearla. Lo hace el navegador con el orden que le da
+     * MarketplaceController::personalization.
+     */
+    private function dailyOffersBase()
+    {
+        // v5: 'diversity-first' + ROTACION por franja de 6h. El reparto por
+        // tienda ya funcionaba, pero con pocas tiendas en oferta el rail
+        // mostraba SIEMPRE las dos mismas ofertas de cada una, y en movil
+        // (donde caben ~2 cards) parecia el escaparate de una sola tienda. La
+        // franja cambia que ofertas de cada tienda salen, sin tocar el reparto
+        // ni perder el cache.
+        $rotSlot = (int) (now()->dayOfYear * 4 + intdiv((int) now()->hour, 6));
+
+        return Cache::remember('mp_daily_offers_v6_' . $rotSlot, 1800, function () use ($rotSlot) {
+            // Pool amplio de candidatos: si una sola tienda concentra las
+            // ofertas de mayor descuento, un limit pequeño (30) la dejaba
+            // monopolizar el top y el cap de 2/tienda recortaba el carrusel
+            // por debajo del umbral de 4 → la sección desaparecía. Con un
+            // pool grande entran ofertas de TODAS las tiendas antes de
+            // aplicar la diversidad.
+            $candidates = MarketplaceListing::published()
+                ->onOffer()
+                ->orderByDesc('discount_pct')
+                ->orderByDesc('view_count')
+                ->limit(300)
+                ->get();
+
+            // Agrupar por tenant preservando el orden por descuento (la mejor
+            // oferta de cada tienda queda primera en su grupo). El orden de
+            // aparición de los grupos = tienda con el descuento más alto
+            // primero.
+            $byTenant = [];
+            foreach ($candidates as $c) {
+                $byTenant[$c->hostname_id][] = $c;
+            }
+
+            // Cuantas menos tiendas tengan oferta, mas ofertas por tienda
+            // hacen falta para que el rail no quede corto. Con 4 tiendas (el
+            // caso real hoy) salen 16 cards en vez de 8.
+            $tenantCount  = count($byTenant);
+            $perTenantCap = $tenantCount >= 8 ? 2 : ($tenantCount >= 5 ? 3 : 4);
+            $maxCards     = 18;
+
+            // Rotar el punto de partida DENTRO de cada tienda: la franja
+            // decide por donde se empieza, y el desfase por hostname evita
+            // que todas las tiendas salten a la vez. La tienda con 141
+            // ofertas deja de mostrar eternamente las mismas dos.
+            foreach ($byTenant as $hid => $offers) {
+                $n = count($offers);
+                if ($n > $perTenantCap) {
+                    $start = ($rotSlot + (int) $hid) % $n;
+                    $byTenant[$hid] = array_merge(
+                        array_slice($offers, $start),
+                        array_slice($offers, 0, $start)
+                    );
+                }
+            }
+
+            // Intercalar tiendas (round-robin): ronda 0 toma una oferta de
+            // CADA tienda, ronda 1 la siguiente, etc. Así el carrusel alterna
+            // tiendas (tienda A, B, C, D, A, B…) en vez de agrupar las
+            // ofertas de cada una juntas.
+            $diverse = collect();
+            for ($round = 0; $round < $perTenantCap; $round++) {
+                foreach ($byTenant as $offers) {
+                    if (isset($offers[$round])) {
+                        $diverse->push($offers[$round]);
+                        if ($diverse->count() >= $maxCards) break 2;
+                    }
+                }
+            }
+
+            return $diverse;
+        });
+    }
+
+    /**
+     * Lo que la pagina NO puede traer dentro si se quiere cachear: lo que es
+     * de cada visitante.
+     *
+     * Devuelve dos cosas, en una sola peticion y con `no-store`:
+     *   · `offers_order` — los ids de las ofertas del dia en el orden que le
+     *     toca a ESTE visitante segun lo que busco y vio. El navegador
+     *     reordena el carrusel que ya esta pintado; no se vuelve a mandar su
+     *     HTML. El algoritmo sigue en ShopperAffinityService y en ningun sitio
+     *     mas: portarlo a JS habria dejado la misma regla escrita dos veces en
+     *     dos lenguajes, y la que se olvide de actualizar seria la que falla.
+     *   · `recently_viewed` — el HTML de las cards de "Vistos recientemente".
+     *     Se manda renderizado, con el mismo partial que usa el servidor, para
+     *     no acabar con una copia de la card en JavaScript: tiene que seguir
+     *     siendo la misma en las cuatro vistas que la pintan.
+     *
+     * Si esto falla o el visitante no tiene JS, la pagina se queda como salio
+     * del servidor: ofertas en su orden neutro y sin bloque de vistos. Se
+     * degrada, no se rompe.
+     */
+    public function personalization(Request $request)
+    {
+        $excluir = $request->filled('excluir') ? (int) $request->input('excluir') : null;
+
+        $recientes = app(\App\Services\Marketplace\RecentlyViewedService::class)
+            ->listings($excluir, 8);
+
+        $html = '';
+        if ($recientes->isNotEmpty()) {
+            $this->decorateListingsWithVariantData($recientes);
+            $this->explodeVariantsIntoCards($recientes);
+            $this->decorateListingsWithAlsoIn($recientes);
+            $this->decorateListingsWithPersonalCoupon($recientes);
+            $html = view('marketplace.partials.recently-viewed-items', [
+                'recentlyViewed' => $recientes,
+            ])->render();
+        }
+
+        $orden  = [];
+        $ofertas = $this->dailyOffersBase();
+        if ($ofertas->isNotEmpty()) {
+            $orden = app(\App\Services\Marketplace\ShopperAffinityService::class)
+                ->rankOffers($ofertas, $recientes)
+                ->pluck('id')
+                ->filter()
+                ->values()
+                ->all();
+        }
+
+        return response()
+            ->json([
+                'offers_order'    => $orden,
+                'recently_viewed' => $html,
+                'recently_count'  => $recientes->count(),
+            ])
+            ->header('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    }
+
     /**
      * Entrega el token CSRF por separado, fuera del HTML.
      *
@@ -1481,12 +1555,10 @@ class MarketplaceController extends Controller
             }
         }
 
-        // "Vistos recientemente" del visitante, excluyendo el actual.
-        $recentlyViewed = app(\App\Services\Marketplace\RecentlyViewedService::class)
-            ->listings($listing->id, 8);
-        if ($recentlyViewed->isNotEmpty()) {
-            $this->decorateListingsWithVariantData($recentlyViewed);
-        }
+        // "Vistos recientemente" ya NO se calcula aqui: lo trae el navegador
+        // desde /marketplace/personalizacion (que excluye el producto actual),
+        // para que el HTML de la ficha sea igual para todos y se pueda cachear.
+        $recentlyViewed = collect();
 
         // Ofertas contextuales: 2 colecciones separadas para mejor UX cuando
         // hay variedad multi-tenant.

@@ -1662,6 +1662,11 @@ if ($hostname) {
                 ],
             ]])->header('Content-Type', 'application/json');
         })->name('twa.assetlinks');
+        // Lo que es de cada visitante y por eso no puede ir dentro del HTML:
+        // el orden de las ofertas por su afinidad y sus "vistos
+        // recientemente". Ver MarketplaceController::personalization.
+        Route::get('marketplace/personalizacion', 'MarketplaceController@personalization')
+             ->middleware('throttle:120,1')->name('marketplace.personalization');
         // Token CSRF fuera del HTML — lo que permite que las paginas del
         // marketplace sean identicas para todos los visitantes y por tanto
         // cacheables. Ver MarketplaceController::csrf.
