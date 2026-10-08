@@ -16,10 +16,17 @@ use Illuminate\Support\Facades\Http;
  * «va lento», es ensenar los datos de alguien a quien no le corresponden, asi
  * que conviene comprobarlo con una maquina y no de memoria.
  *
- * Tres visitantes:
+ * Cuatro visitantes, porque cada uno destapa una personalizacion distinta:
  *   A y B — recien llegados, sin nada previo.
- *   C     — anonimo que ya busco algo (la sesion lleva afinidad), que es la
- *           personalizacion que queda por sacar.
+ *   C     — ya busco algo (la sesion lleva afinidad de busqueda).
+ *   D     — ya vio un producto (la sesion lleva "vistos recientemente").
+ *
+ * El perfil D se anadio despues de que la primera version del comando diera
+ * por bueno algo que no lo era: solo probaba buscar, asi que no se enteraba de
+ * que el bloque "Vistos recientemente" tambien sale distinto para cada
+ * visitante anonimo. Si aparece otra personalizacion, el perfil que la
+ * destape se anade AQUI — un guardian que no cubre un caso es peor que no
+ * tenerlo, porque da luz verde en falso.
  *
  * Uso:
  *   php artisan marketplace:cache-check
@@ -57,6 +64,10 @@ class CheckMarketplaceCacheability extends Command
                 $ruta . '?q=' . urlencode((string) $this->option('buscar')),
                 $ruta,
             ]);
+            // D pasa por la ficha de un producto: asi su sesion lleva
+            // "vistos recientemente" al volver.
+            $ficha = $a !== null ? $this->unaFicha($a) : null;
+            $d = $ficha ? $this->visitante($base, [$ficha, $ruta]) : null;
 
             if ($a === null || $b === null || $c === null) {
                 $this->error('  no se pudo descargar la pagina');
@@ -66,6 +77,11 @@ class CheckMarketplaceCacheability extends Command
 
             $fallos += $this->comparar('dos visitantes nuevos', $a, $b, $show);
             $fallos += $this->comparar('nuevo vs uno que ya busco', $a, $c, $show);
+            if ($d !== null) {
+                $fallos += $this->comparar('nuevo vs uno que ya vio un producto', $a, $d, $show);
+            } else {
+                $this->warn('  (sin ficha de producto en la pagina: no se pudo probar el perfil que ya vio algo)');
+            }
         }
 
         $this->newLine();
@@ -78,6 +94,14 @@ class CheckMarketplaceCacheability extends Command
         $this->error("{$fallos} comparacion(es) con diferencias: NO activar la cache todavia.");
 
         return self::FAILURE;
+    }
+
+    /** Primera ficha de producto enlazada en la pagina, para el perfil D. */
+    private function unaFicha(string $html): ?string
+    {
+        return preg_match('#/marketplace/item/([a-z0-9][a-z0-9-]*)#i', $html, $m)
+            ? '/marketplace/item/' . $m[1]
+            : null;
     }
 
     /**
