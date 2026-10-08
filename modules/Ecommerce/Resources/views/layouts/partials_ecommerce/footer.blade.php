@@ -327,7 +327,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
 @push('scripts')
-<!-- <script type="text/javascript" src="{{ asset('porto-ecommerce/assets/js/cart.js') }}"></script> -->
+<!-- <script type="text/javascript" src="{{ asset_v('porto-ecommerce/assets/js/cart.js') }}"></script> -->
 <script type="text/javascript">
     matchPassword();
     submitLogin();

@@ -8,7 +8,7 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     {{-- Anti-flash: aplicar tema ANTES de que cargue el CSS --}}
     <script>(function(){var t=localStorage.getItem('ec_theme');if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}());</script>
-    <script src="{{ asset('porto-ecommerce/assets/js/jquery.min.js') }}"></script>
+    <script src="{{ asset_v('porto-ecommerce/assets/js/jquery.min.js') }}"></script>
 
 @php
     $seo = \App\Models\Tenant\ConfigurationEcommerce::first() ?? new \App\Models\Tenant\ConfigurationEcommerce();
@@ -161,14 +161,14 @@
     @endforeach
 
     {{-- CSS --}}
-    <link rel="stylesheet" href="{{ asset('porto-ecommerce/assets/css/bootstrap.min.css') }}">
-    <link rel="stylesheet" href="{{ asset('porto-ecommerce/assets/css/style.min.css') }}">
-    <link rel="stylesheet" href="{{ asset('porto-ecommerce/assets/css/custom.css') }}">
-    <link rel="stylesheet" href="{{ asset('porto-ecommerce/assets/css/rating.css') }}">
+    <link rel="stylesheet" href="{{ asset_v('porto-ecommerce/assets/css/bootstrap.min.css') }}">
+    <link rel="stylesheet" href="{{ asset_v('porto-ecommerce/assets/css/style.min.css') }}">
+    <link rel="stylesheet" href="{{ asset_v('porto-ecommerce/assets/css/custom.css') }}">
+    <link rel="stylesheet" href="{{ asset_v('porto-ecommerce/assets/css/rating.css') }}">
     {{-- NO cargar @vite app.js: el ecommerce usa su propia instancia Vue (CDN) --}}
-    <link rel="stylesheet" href="{{ asset('porto-ecommerce/assets/font-awesome/css/fontawesome-all.min.css') }}">
+    <link rel="stylesheet" href="{{ asset_v('porto-ecommerce/assets/font-awesome/css/fontawesome-all.min.css') }}">
     <link rel="stylesheet" href="{{ asset(file_exists(public_path('porto-light/css/styles_ecommerce.min.css')) ? 'porto-light/css/styles_ecommerce.min.css' : 'porto-light/css/styles_ecommerce.css') }}">
-    <link rel="stylesheet" href="{{ asset('porto-light/css/ecommerce-theme-override.css') }}">
+    <link rel="stylesheet" href="{{ asset_v('porto-light/css/ecommerce-theme-override.css') }}">
     {{-- Plugins CSS — carga directa sin directiva para compatibilidad --}}
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/drift-zoom@1/dist/drift-basic.min.css">
@@ -186,13 +186,13 @@
     {{-- Capa movil: va la ULTIMA a proposito, para ganar tanto al CSS base
          como al del tema por rubro. Solo corrige tamano de letra en campos
          (el zoom de iOS) y zonas de toque; no toca maquetacion. --}}
-    <link rel="stylesheet" href="{{ asset('porto-light/css/ec-mobile.css') }}">
+    <link rel="stylesheet" href="{{ asset_v('porto-light/css/ec-mobile.css') }}">
 
     {{-- ── Color primario del cliente: inyectado server-side para evitar flash ── --}}
     @include('ecommerce::layouts.partials_ecommerce.theme_tokens', ['config' => $seo])
     <!-- Vue debe cargarse ANTES del header (que usa new Vue) -->
-    <script src="{{ asset('porto-ecommerce/assets/js/vue.min.js') }}"></script>
-    <script src="{{ asset('porto-ecommerce/assets/js/axios.min.js') }}"></script>
+    <script src="{{ asset_v('porto-ecommerce/assets/js/vue.min.js') }}"></script>
+    <script src="{{ asset_v('porto-ecommerce/assets/js/axios.min.js') }}"></script>
 
     {{-- Comparador en móvil: oculto salvo que el tenant lo active.
          Antes era un display:none incondicional, así que el toggle de la
@@ -453,21 +453,21 @@
     </div>
 
     {{-- JS --}}
-    <script src="{{ asset('porto-ecommerce/assets/js/bootstrap.bundle.min.js') }}"></script>
-    <script src="{{ asset('porto-ecommerce/assets/js/plugins.min.js') }}"></script>
-    <script src="{{ asset('porto-ecommerce/assets/js/tracker.js') }}"></script>
-    <script src="{{ asset('porto-ecommerce/assets/js/wishlist.js') }}"></script>
-    <script src="{{ asset('porto-ecommerce/assets/js/cart.js') }}?v=20260401"></script>
-    <script src="{{ asset('porto-ecommerce/assets/js/main.js') }}"></script>
+    <script src="{{ asset_v('porto-ecommerce/assets/js/bootstrap.bundle.min.js') }}"></script>
+    <script src="{{ asset_v('porto-ecommerce/assets/js/plugins.min.js') }}"></script>
+    <script src="{{ asset_v('porto-ecommerce/assets/js/tracker.js') }}"></script>
+    <script src="{{ asset_v('porto-ecommerce/assets/js/wishlist.js') }}"></script>
+    <script src="{{ asset_v('porto-ecommerce/assets/js/cart.js') }}?v=20260401"></script>
+    <script src="{{ asset_v('porto-ecommerce/assets/js/main.js') }}"></script>
     <!-- Vue ya cargado en <head> -->
-    <script src="{{ asset('porto-ecommerce/assets/js/lazy-load.js') }}"></script>
-    <script src="{{ asset('porto-ecommerce/assets/js/stock-notify.js') }}"></script>
+    <script src="{{ asset_v('porto-ecommerce/assets/js/lazy-load.js') }}"></script>
+    <script src="{{ asset_v('porto-ecommerce/assets/js/stock-notify.js') }}"></script>
     <script src="{{ asset('porto-ecommerce/assets/js/recently-viewed.js?v=20260404') }}"></script>
-    <script src="{{ asset('porto-ecommerce/assets/js/compare.js') }}"></script>
-    <script src="{{ asset('porto-ecommerce/assets/js/filter-ajax.js') }}"></script>
-    <script src="{{ asset('porto-ecommerce/assets/js/quick-view.js') }}"></script>
-    <script src="{{ asset('porto-ecommerce/assets/js/image-zoom.js') }}"></script>
-    <script src="{{ asset('porto-ecommerce/assets/js/newsletter-popup.js') }}"></script>
+    <script src="{{ asset_v('porto-ecommerce/assets/js/compare.js') }}"></script>
+    <script src="{{ asset_v('porto-ecommerce/assets/js/filter-ajax.js') }}"></script>
+    <script src="{{ asset_v('porto-ecommerce/assets/js/quick-view.js') }}"></script>
+    <script src="{{ asset_v('porto-ecommerce/assets/js/image-zoom.js') }}"></script>
+    <script src="{{ asset_v('porto-ecommerce/assets/js/newsletter-popup.js') }}"></script>
     {{-- Plugins JS — carga directa sin directiva para compatibilidad --}}
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>

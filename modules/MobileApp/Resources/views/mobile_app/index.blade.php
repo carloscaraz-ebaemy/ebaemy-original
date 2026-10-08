@@ -11,7 +11,7 @@
         <meta http-equiv=Content-Security-Policy
             content="default-src * 'self' {{ url('/') }} 'unsafe-inline' 'unsafe-eval' data: gap:">
         <title>FacturaloPeru APP</title>
-        <link href="{{ asset('liveapp/assets/styles.css') }}" rel=stylesheet>
+        <link href="{{ asset_v('liveapp/assets/styles.css') }}" rel=stylesheet>
     </head>
     <body>
         <script src=cordova.js></script>

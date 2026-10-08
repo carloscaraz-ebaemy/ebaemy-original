@@ -17,27 +17,27 @@
     <link rel="icon" type="image/x-icon" href="{{ asset('porto-ecommerce/assets/images/icons/favicon.ico') }}">
 
     <!-- Plugins CSS File -->
-    <link rel="stylesheet" href="{{ asset('porto-ecommerce/assets/css/bootstrap.min.css') }}">
+    <link rel="stylesheet" href="{{ asset_v('porto-ecommerce/assets/css/bootstrap.min.css') }}">
 
     <!-- Main CSS File -->
-    <link rel="stylesheet" href="{{ asset('porto-ecommerce/assets/css/style.min.css') }}">
+    <link rel="stylesheet" href="{{ asset_v('porto-ecommerce/assets/css/style.min.css') }}">
 
-    <link rel="stylesheet" href="{{ asset('porto-ecommerce/assets/css/rating.css') }}">
+    <link rel="stylesheet" href="{{ asset_v('porto-ecommerce/assets/css/rating.css') }}">
     <link rel="stylesheet" href="{{ asset(file_exists(public_path('porto-light/css/styles_ecommerce.min.css')) ? 'porto-light/css/styles_ecommerce.min.css' : 'porto-light/css/styles_ecommerce.css') }}">
-    <link rel="stylesheet" href="{{ asset('porto-light/css/ecommerce-theme-override.css') }}">
+    <link rel="stylesheet" href="{{ asset_v('porto-light/css/ecommerce-theme-override.css') }}">
     @php $__thm = (\App\Models\Tenant\ConfigurationEcommerce::first()->theme_template ?? 'generic'); @endphp
     @if($__thm !== 'generic' && file_exists(public_path("porto-light/css/themes/{$__thm}.css")))
         <link rel="stylesheet" href="{{ asset("porto-light/css/themes/{$__thm}.css") }}">
     @endif
 
     @if (file_exists(public_path('theme/custom_styles_ecommerce.css')))
-        <link rel="stylesheet" href="{{ asset('theme/custom_styles_ecommerce.css') }}" />
+        <link rel="stylesheet" href="{{ asset_v('theme/custom_styles_ecommerce.css') }}" />
     @endif
     @include('ecommerce::layouts.partials_ecommerce.theme_tokens')
 
     <!-- Vue + Axios deben cargarse ANTES del header (que usa new Vue) -->
-    <script src="{{ asset('porto-ecommerce/assets/js/vue.min.js') }}"></script>
-    <script src="{{ asset('porto-ecommerce/assets/js/axios.min.js') }}"></script>
+    <script src="{{ asset_v('porto-ecommerce/assets/js/vue.min.js') }}"></script>
+    <script src="{{ asset_v('porto-ecommerce/assets/js/axios.min.js') }}"></script>
 </head>
 <body>
     <div class="page-wrapper">
@@ -263,15 +263,15 @@
     <a id="scroll-top" href="#top" title="Top" role="button"><i class="icon-angle-up"></i></a>
 
     <!-- Plugins JS File -->
-    <script src="{{ asset('porto-ecommerce/assets/js/jquery.min.js') }}"></script>
-    <script src="{{ asset('porto-ecommerce/assets/js/bootstrap.bundle.min.js') }}"></script>
+    <script src="{{ asset_v('porto-ecommerce/assets/js/jquery.min.js') }}"></script>
+    <script src="{{ asset_v('porto-ecommerce/assets/js/bootstrap.bundle.min.js') }}"></script>
     <script src="{{ asset( 'porto-ecommerce/assets/js/plugins.min.js') }}"></script>
     <script src="{{ asset( 'porto-ecommerce/assets/js/nouislider.min.js' ) }}"></script>
 
      <!-- Main JS File -->
-     <script src="{{ asset('porto-ecommerce/assets/js/main.js') }}"></script>
+     <script src="{{ asset_v('porto-ecommerce/assets/js/main.js') }}"></script>
      <!-- Vue ya cargado en <head> -->
-     <script src="{{ asset('porto-ecommerce/assets/js/rating.js') }}"></script>
+     <script src="{{ asset_v('porto-ecommerce/assets/js/rating.js') }}"></script>
 
 
     {{-- NO cargar @vite app.js: el ecommerce usa su propia instancia Vue (CDN) --}}

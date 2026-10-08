@@ -23,29 +23,29 @@
     <!-- Styles -->
     {{--<link rel="stylesheet" href="https://cdn.datatables.net/1.10.19/css/dataTables.bootstrap4.min.css" />--}}
     {{--<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/limonte-sweetalert2/7.26.29/sweetalert2.min.css" />--}}
-{{--    <link rel="stylesheet" href="{{asset('porto-light/vendor/bootstrap-datepicker/css/bootstrap-datepicker3.css')}}" />--}}
+{{--    <link rel="stylesheet" href="{{asset_v('porto-light/vendor/bootstrap-datepicker/css/bootstrap-datepicker3.css')}}" />--}}
 
     <!-- Specific Page Vendor CSS -->
-    {{--<link rel="stylesheet" href="{{asset('porto-light/vendor/jquery-ui/jquery-ui.css')}}" />--}}
-    {{--<link rel="stylesheet" href="{{asset('porto-light/vendor/jquery-ui/jquery-ui.theme.css')}}" />--}}
-    {{--<link rel="stylesheet" href="{{asset('porto-light/vendor/select2/css/select2.css')}}" />--}}
-{{--    <link rel="stylesheet" href="{{asset('porto-light/vendor/select2-bootstrap-theme/select2-bootstrap.min.css')}}" />--}}
+    {{--<link rel="stylesheet" href="{{asset_v('porto-light/vendor/jquery-ui/jquery-ui.css')}}" />--}}
+    {{--<link rel="stylesheet" href="{{asset_v('porto-light/vendor/jquery-ui/jquery-ui.theme.css')}}" />--}}
+    {{--<link rel="stylesheet" href="{{asset_v('porto-light/vendor/select2/css/select2.css')}}" />--}}
+{{--    <link rel="stylesheet" href="{{asset_v('porto-light/vendor/select2-bootstrap-theme/select2-bootstrap.min.css')}}" />--}}
 
     <!-- Daterange picker plugins css -->
-    {{--<link href="{{ asset('porto-light/vendor/bootstrap-timepicker/css/bootstrap-timepicker.css') }}" rel="stylesheet">--}}
-    {{--<link href="{{ asset('porto-light/vendor/bootstrap-daterangepicker/daterangepicker.css') }}" rel="stylesheet">--}}
+    {{--<link href="{{ asset_v('porto-light/vendor/bootstrap-timepicker/css/bootstrap-timepicker.css') }}" rel="stylesheet">--}}
+    {{--<link href="{{ asset_v('porto-light/vendor/bootstrap-daterangepicker/daterangepicker.css') }}" rel="stylesheet">--}}
 
-{{--    <link rel="stylesheet" href="{{asset('porto-light/vendor/bootstrap-timepicker/css/bootstrap-timepicker.css')}}" />--}}
+{{--    <link rel="stylesheet" href="{{asset_v('porto-light/vendor/bootstrap-timepicker/css/bootstrap-timepicker.css')}}" />--}}
 
-    <link rel="stylesheet" href="{{asset('porto-light/vendor/jquery-loading/dist/jquery.loading.css')}}" />
+    <link rel="stylesheet" href="{{asset_v('porto-light/vendor/jquery-loading/dist/jquery.loading.css')}}" />
 
     @if (file_exists(public_path('theme/custom_styles.css')))
-        <link rel="stylesheet" href="{{ asset('theme/custom_styles.css') }}" />
+        <link rel="stylesheet" href="{{ asset_v('theme/custom_styles.css') }}" />
     @endif
     {{--@stack('styles')--}}
 
 
-    {{--<script src="{{ asset('porto-light/vendor/modernizr/modernizr.js') }}"></script>--}}
+    {{--<script src="{{ asset_v('porto-light/vendor/modernizr/modernizr.js') }}"></script>--}}
 
 </head>
   <style>
@@ -597,9 +597,9 @@
 
     @yield('content-mercadopago')
     <!-- Theme Base, Components and Settings -->
-    {{--<script src="{{asset('porto-light/js/theme.js')}}"></script>--}}
+    {{--<script src="{{asset_v('porto-light/js/theme.js')}}"></script>--}}
     <!-- Vendor -->
-    <script src="{{ asset('porto-light/vendor/jquery/jquery.js')}}"></script>
+    <script src="{{ asset_v('porto-light/vendor/jquery/jquery.js')}}"></script>
     {{--
 </body>
 </html>

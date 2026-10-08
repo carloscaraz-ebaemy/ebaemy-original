@@ -17,12 +17,12 @@
     <link rel="icon" type="image/x-icon" href="{{ asset('porto-ecommerce/assets/images/icons/favicon.ico') }}">
 
     <!-- Plugins CSS File -->
-    <link rel="stylesheet" href="{{ asset('porto-ecommerce/assets/css/bootstrap.min.css') }}">
+    <link rel="stylesheet" href="{{ asset_v('porto-ecommerce/assets/css/bootstrap.min.css') }}">
 
     <!-- Main CSS File -->
-    <link rel="stylesheet" href="{{ asset('porto-ecommerce/assets/css/style.min.css') }}">
+    <link rel="stylesheet" href="{{ asset_v('porto-ecommerce/assets/css/style.min.css') }}">
 
-    <link rel="stylesheet" href="{{ asset('porto-ecommerce/assets/css/rating.css') }}">
+    <link rel="stylesheet" href="{{ asset_v('porto-ecommerce/assets/css/rating.css') }}">
 
 </head>
 <body>
@@ -249,15 +249,15 @@
     <a id="scroll-top" href="#top" title="Top" role="button"><i class="icon-angle-up"></i></a>
 
     <!-- Plugins JS File -->
-    <script src="{{ asset('porto-ecommerce/assets/js/jquery.min.js') }}"></script>
-    <script src="{{ asset('porto-ecommerce/assets/js/bootstrap.bundle.min.js') }}"></script>
+    <script src="{{ asset_v('porto-ecommerce/assets/js/jquery.min.js') }}"></script>
+    <script src="{{ asset_v('porto-ecommerce/assets/js/bootstrap.bundle.min.js') }}"></script>
     <script src="{{ asset( 'porto-ecommerce/assets/js/plugins.min.js') }}"></script>
     <script src="{{ asset( 'porto-ecommerce/assets/js/nouislider.min.js' ) }}"></script>
 
      <!-- Main JS File -->
-     <script src="{{ asset('porto-ecommerce/assets/js/main.js') }}"></script>
-     <script src="{{ asset('porto-ecommerce/assets/js/vue.min.js') }}"></script>
-     <script src="{{ asset('porto-ecommerce/assets/js/rating.js') }}"></script>
+     <script src="{{ asset_v('porto-ecommerce/assets/js/main.js') }}"></script>
+     <script src="{{ asset_v('porto-ecommerce/assets/js/vue.min.js') }}"></script>
+     <script src="{{ asset_v('porto-ecommerce/assets/js/rating.js') }}"></script>
 
 </body>
 

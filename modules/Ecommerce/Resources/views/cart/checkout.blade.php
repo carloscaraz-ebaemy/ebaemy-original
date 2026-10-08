@@ -748,8 +748,8 @@
 @endpush
 
 @push('scripts')
-<script src="{{ asset('porto-ecommerce/assets/js/ubigeo-filter.js') }}"></script>
-<script src="{{ asset('porto-ecommerce/assets/js/ubigeo-autocomplete.js') }}"></script>
+<script src="{{ asset_v('porto-ecommerce/assets/js/ubigeo-filter.js') }}"></script>
+<script src="{{ asset_v('porto-ecommerce/assets/js/ubigeo-autocomplete.js') }}"></script>
 <script type="text/javascript">
     // Ubigeo autocomplete — se conecta al Vue instance después de crearlo
     document.addEventListener('DOMContentLoaded', function() {

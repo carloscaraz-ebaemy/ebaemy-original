@@ -21,12 +21,12 @@
     <link rel="icon" href="{{ str_contains($company->favicon, 'storage/') ? asset($company->favicon) : asset('storage/uploads/favicons/' . $company->favicon) }}">
     @endif
 
-    <link rel="stylesheet" href="{{ asset('porto-ecommerce/assets/css/bootstrap.min.css') }}">
-    <link rel="stylesheet" href="{{ asset('porto-ecommerce/assets/css/style.min.css') }}">
-    <link rel="stylesheet" href="{{ asset('porto-ecommerce/assets/css/custom.css') }}">
-    <link rel="stylesheet" href="{{ asset('porto-ecommerce/assets/font-awesome/css/fontawesome-all.min.css') }}">
+    <link rel="stylesheet" href="{{ asset_v('porto-ecommerce/assets/css/bootstrap.min.css') }}">
+    <link rel="stylesheet" href="{{ asset_v('porto-ecommerce/assets/css/style.min.css') }}">
+    <link rel="stylesheet" href="{{ asset_v('porto-ecommerce/assets/css/custom.css') }}">
+    <link rel="stylesheet" href="{{ asset_v('porto-ecommerce/assets/font-awesome/css/fontawesome-all.min.css') }}">
     <link rel="stylesheet" href="{{ asset(file_exists(public_path('porto-light/css/styles_ecommerce.min.css')) ? 'porto-light/css/styles_ecommerce.min.css' : 'porto-light/css/styles_ecommerce.css') }}">
-    <link rel="stylesheet" href="{{ asset('porto-light/css/ecommerce-theme-override.css') }}">
+    <link rel="stylesheet" href="{{ asset_v('porto-light/css/ecommerce-theme-override.css') }}">
 
     {{-- Theme CSS --}}
     @php
@@ -171,8 +171,8 @@
     </style>
 
     <link rel="stylesheet" href="https://unpkg.com/element-ui/lib/theme-chalk/index.css">
-    <script src="{{ asset('porto-ecommerce/assets/js/vue.min.js') }}"></script>
-    <script src="{{ asset('porto-ecommerce/assets/js/axios.min.js') }}"></script>
+    <script src="{{ asset_v('porto-ecommerce/assets/js/vue.min.js') }}"></script>
+    <script src="{{ asset_v('porto-ecommerce/assets/js/axios.min.js') }}"></script>
     <script src="https://unpkg.com/element-ui/lib/index.js"></script>
     <script src="https://unpkg.com/element-ui/lib/umd/locale/es.js"></script>
 </head>
@@ -192,14 +192,14 @@
 
     <a id="scroll-top" href="#top" title="Top" role="button"><i class="icon-angle-up"></i></a>
 
-    <script src="{{ asset('porto-ecommerce/assets/js/jquery.min.js') }}"></script>
-    <script src="{{ asset('porto-ecommerce/assets/js/bootstrap.bundle.min.js') }}"></script>
-    <script src="{{ asset('porto-ecommerce/assets/js/plugins.min.js') }}"></script>
-    <script src="{{ asset('porto-ecommerce/assets/js/culqi_v3.js') }}"></script>
-    <script src="{{ asset('porto-ecommerce/assets/js/sweetalert2.all.min.js') }}"></script>
-    <script src="{{ asset('porto-ecommerce/assets/js/moment.min.js') }}"></script>
-    <script src="{{ asset('porto-ecommerce/assets/js/main.js') }}"></script>
-    <script src="{{ asset('porto-ecommerce/assets/js/cart.js') }}"></script>
+    <script src="{{ asset_v('porto-ecommerce/assets/js/jquery.min.js') }}"></script>
+    <script src="{{ asset_v('porto-ecommerce/assets/js/bootstrap.bundle.min.js') }}"></script>
+    <script src="{{ asset_v('porto-ecommerce/assets/js/plugins.min.js') }}"></script>
+    <script src="{{ asset_v('porto-ecommerce/assets/js/culqi_v3.js') }}"></script>
+    <script src="{{ asset_v('porto-ecommerce/assets/js/sweetalert2.all.min.js') }}"></script>
+    <script src="{{ asset_v('porto-ecommerce/assets/js/moment.min.js') }}"></script>
+    <script src="{{ asset_v('porto-ecommerce/assets/js/main.js') }}"></script>
+    <script src="{{ asset_v('porto-ecommerce/assets/js/cart.js') }}"></script>
 
     @stack('scripts')
     @include('ecommerce::layouts.partials_ecommerce.auth_modal')

@@ -18,18 +18,18 @@
     <link rel="icon" type="image/x-icon" href="{{ asset('porto-ecommerce/assets/images/icons/favicon.ico') }}">
 
     <!-- Plugins CSS File -->
-    <link rel="stylesheet" href="{{ asset('porto-ecommerce/assets/css/bootstrap.min.css') }}">
+    <link rel="stylesheet" href="{{ asset_v('porto-ecommerce/assets/css/bootstrap.min.css') }}">
 
     <!-- Main CSS File -->
-    <link rel="stylesheet" href="{{ asset('porto-ecommerce/assets/css/style.min.css') }}">
-    <link rel="stylesheet" href="{{ asset('porto-ecommerce/assets/css/custom.css') }}">
+    <link rel="stylesheet" href="{{ asset_v('porto-ecommerce/assets/css/style.min.css') }}">
+    <link rel="stylesheet" href="{{ asset_v('porto-ecommerce/assets/css/custom.css') }}">
 
-    <link rel="stylesheet" href="{{ asset('porto-ecommerce/assets/css/rating.css') }}">
+    <link rel="stylesheet" href="{{ asset_v('porto-ecommerce/assets/css/rating.css') }}">
 
     <!-- Fontawesome -->
-    <link rel="stylesheet" href="{{ asset('porto-ecommerce/assets/font-awesome/css/fontawesome-all.min.css') }}">
+    <link rel="stylesheet" href="{{ asset_v('porto-ecommerce/assets/font-awesome/css/fontawesome-all.min.css') }}">
 
-    <link rel="stylesheet" href="{{ asset('porto-light/css/styles_orders.css') }}" />
+    <link rel="stylesheet" href="{{ asset_v('porto-light/css/styles_orders.css') }}" />
 </head>
 
 <body>
@@ -81,14 +81,14 @@
     <a id="scroll-top" href="#top" title="Top" role="button"><i class="icon-angle-up"></i></a>
 
     <!-- Plugins JS File -->
-    <script src="{{ asset('porto-ecommerce/assets/js/jquery.min.js') }}"></script>
-    <script src="{{ asset('porto-ecommerce/assets/js/bootstrap.bundle.min.js') }}"></script>
-    <script src="{{ asset('porto-ecommerce/assets/js/plugins.min.js') }}"></script>
+    <script src="{{ asset_v('porto-ecommerce/assets/js/jquery.min.js') }}"></script>
+    <script src="{{ asset_v('porto-ecommerce/assets/js/bootstrap.bundle.min.js') }}"></script>
+    <script src="{{ asset_v('porto-ecommerce/assets/js/plugins.min.js') }}"></script>
 
     <!-- Main JS File -->
-    <script src="{{ asset('porto-ecommerce/assets/js/cart.js') }}"></script>
-    <script src="{{ asset('porto-ecommerce/assets/js/main.js') }}"></script>
-    <script src="{{ asset('porto-ecommerce/assets/js/vue.min.js') }}"></script>
+    <script src="{{ asset_v('porto-ecommerce/assets/js/cart.js') }}"></script>
+    <script src="{{ asset_v('porto-ecommerce/assets/js/main.js') }}"></script>
+    <script src="{{ asset_v('porto-ecommerce/assets/js/vue.min.js') }}"></script>
 
     @stack('scripts')
 </body>

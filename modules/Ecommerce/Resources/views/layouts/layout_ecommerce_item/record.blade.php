@@ -136,13 +136,13 @@
     <link rel="shortcut icon"                     href="{{ $favicon_url }}?v={{ $v }}">
 
     {{-- CSS --}}
-    <link rel="stylesheet" href="{{ asset('porto-ecommerce/assets/css/bootstrap.min.css') }}">
-    <link rel="stylesheet" href="{{ asset('porto-ecommerce/assets/css/style.min.css') }}">
-    <link rel="stylesheet" href="{{ asset('porto-ecommerce/assets/css/custom.css') }}">
-    <link rel="stylesheet" href="{{ asset('porto-ecommerce/assets/css/rating.css') }}">
-    <link rel="stylesheet" href="{{ asset('porto-ecommerce/assets/font-awesome/css/fontawesome-all.min.css') }}">
+    <link rel="stylesheet" href="{{ asset_v('porto-ecommerce/assets/css/bootstrap.min.css') }}">
+    <link rel="stylesheet" href="{{ asset_v('porto-ecommerce/assets/css/style.min.css') }}">
+    <link rel="stylesheet" href="{{ asset_v('porto-ecommerce/assets/css/custom.css') }}">
+    <link rel="stylesheet" href="{{ asset_v('porto-ecommerce/assets/css/rating.css') }}">
+    <link rel="stylesheet" href="{{ asset_v('porto-ecommerce/assets/font-awesome/css/fontawesome-all.min.css') }}">
     <link rel="stylesheet" href="{{ asset(file_exists(public_path('porto-light/css/styles_ecommerce.min.css')) ? 'porto-light/css/styles_ecommerce.min.css' : 'porto-light/css/styles_ecommerce.css') }}">
-    <link rel="stylesheet" href="{{ asset('porto-light/css/ecommerce-theme-override.css') }}">
+    <link rel="stylesheet" href="{{ asset_v('porto-light/css/ecommerce-theme-override.css') }}">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/drift-zoom@1/dist/drift-basic.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/glightbox@3/dist/css/glightbox.min.css">
@@ -153,8 +153,8 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css">
     @include('ecommerce::layouts.partials_ecommerce.theme_tokens', ['config' => $seo])
     <!-- Vue debe cargarse ANTES del header (que usa new Vue) -->
-    <script src="{{ asset('porto-ecommerce/assets/js/vue.min.js') }}"></script>
-    <script src="{{ asset('porto-ecommerce/assets/js/axios.min.js') }}"></script>
+    <script src="{{ asset_v('porto-ecommerce/assets/js/vue.min.js') }}"></script>
+    <script src="{{ asset_v('porto-ecommerce/assets/js/axios.min.js') }}"></script>
 </head>
 
 <body>
@@ -207,21 +207,21 @@
     <a id="scroll-top" href="#top" title="Volver arriba" role="button"><i class="icon-angle-up"></i></a>
 
     {{-- JS --}}
-    <script src="{{ asset('porto-ecommerce/assets/js/jquery.min.js') }}"></script>
-    <script src="{{ asset('porto-ecommerce/assets/js/bootstrap.bundle.min.js') }}"></script>
-    <script src="{{ asset('porto-ecommerce/assets/js/plugins.min.js') }}"></script>
-    <script src="{{ asset('porto-ecommerce/assets/js/main.js') }}"></script>
+    <script src="{{ asset_v('porto-ecommerce/assets/js/jquery.min.js') }}"></script>
+    <script src="{{ asset_v('porto-ecommerce/assets/js/bootstrap.bundle.min.js') }}"></script>
+    <script src="{{ asset_v('porto-ecommerce/assets/js/plugins.min.js') }}"></script>
+    <script src="{{ asset_v('porto-ecommerce/assets/js/main.js') }}"></script>
     <!-- Vue ya cargado en <head> -->
-    <script src="{{ asset('porto-ecommerce/assets/js/rating.js') }}"></script>
-    <script src="{{ asset('porto-ecommerce/assets/js/tracker.js') }}"></script>
-    <script src="{{ asset('porto-ecommerce/assets/js/wishlist.js') }}"></script>
-    <script src="{{ asset('porto-ecommerce/assets/js/cart.js') }}?v=20260401"></script>
-    <script src="{{ asset('porto-ecommerce/assets/js/stock-notify.js') }}"></script>
-    <script src="{{ asset('porto-ecommerce/assets/js/product-gallery.js') }}"></script>
-    <script src="{{ asset('porto-ecommerce/assets/js/image-zoom.js') }}"></script>
+    <script src="{{ asset_v('porto-ecommerce/assets/js/rating.js') }}"></script>
+    <script src="{{ asset_v('porto-ecommerce/assets/js/tracker.js') }}"></script>
+    <script src="{{ asset_v('porto-ecommerce/assets/js/wishlist.js') }}"></script>
+    <script src="{{ asset_v('porto-ecommerce/assets/js/cart.js') }}?v=20260401"></script>
+    <script src="{{ asset_v('porto-ecommerce/assets/js/stock-notify.js') }}"></script>
+    <script src="{{ asset_v('porto-ecommerce/assets/js/product-gallery.js') }}"></script>
+    <script src="{{ asset_v('porto-ecommerce/assets/js/image-zoom.js') }}"></script>
     <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
     <script src="{{ asset('porto-ecommerce/assets/js/recently-viewed.js?v=20260404') }}"></script>
-    <script src="{{ asset('porto-ecommerce/assets/js/compare.js') }}"></script>
+    <script src="{{ asset_v('porto-ecommerce/assets/js/compare.js') }}"></script>
     {{-- NO cargar @vite app.js: el ecommerce usa su propia instancia Vue (CDN) --}}
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>

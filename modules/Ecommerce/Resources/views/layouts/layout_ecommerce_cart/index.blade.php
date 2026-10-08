@@ -18,18 +18,18 @@
     <link rel="icon" type="image/x-icon" href="{{ asset('porto-ecommerce/assets/images/icons/favicon.ico') }}">
 
     <!-- Plugins CSS File -->
-    <link rel="stylesheet" href="{{ asset('porto-ecommerce/assets/css/bootstrap.min.css') }}">
+    <link rel="stylesheet" href="{{ asset_v('porto-ecommerce/assets/css/bootstrap.min.css') }}">
 
     <!-- Main CSS File -->
-    <link rel="stylesheet" href="{{ asset('porto-ecommerce/assets/css/style.min.css') }}">
-    <link rel="stylesheet" href="{{ asset('porto-ecommerce/assets/css/custom.css') }}">
+    <link rel="stylesheet" href="{{ asset_v('porto-ecommerce/assets/css/style.min.css') }}">
+    <link rel="stylesheet" href="{{ asset_v('porto-ecommerce/assets/css/custom.css') }}">
 
     <!-- Fontawesome -->
-    <link rel="stylesheet" href="{{ asset('porto-ecommerce/assets/font-awesome/css/fontawesome-all.min.css') }}">
+    <link rel="stylesheet" href="{{ asset_v('porto-ecommerce/assets/font-awesome/css/fontawesome-all.min.css') }}">
 
     <!-- Estilos personalizados -->
     <link rel="stylesheet" href="{{ asset(file_exists(public_path('porto-light/css/styles_ecommerce.min.css')) ? 'porto-light/css/styles_ecommerce.min.css' : 'porto-light/css/styles_ecommerce.css') }}" />
-    <link rel="stylesheet" href="{{ asset('porto-light/css/ecommerce-theme-override.css') }}" />
+    <link rel="stylesheet" href="{{ asset_v('porto-light/css/ecommerce-theme-override.css') }}" />
     @php $__thm = (\App\Models\Tenant\ConfigurationEcommerce::first()->theme_template ?? 'generic'); @endphp
     @if($__thm !== 'generic' && file_exists(public_path("porto-light/css/themes/{$__thm}.css")))
         <link rel="stylesheet" href="{{ asset("porto-light/css/themes/{$__thm}.css") }}" />
@@ -47,8 +47,8 @@
     <link rel="stylesheet" href="https://unpkg.com/element-ui/lib/theme-chalk/index.css">
 
     <!-- Vue + Axios + Element UI deben cargarse ANTES del header (que usa new Vue) -->
-    <script src="{{ asset('porto-ecommerce/assets/js/vue.min.js') }}"></script>
-    <script src="{{ asset('porto-ecommerce/assets/js/axios.min.js') }}"></script>
+    <script src="{{ asset_v('porto-ecommerce/assets/js/vue.min.js') }}"></script>
+    <script src="{{ asset_v('porto-ecommerce/assets/js/axios.min.js') }}"></script>
     <script src="https://unpkg.com/element-ui/lib/index.js"></script>
     <script src="https://unpkg.com/element-ui/lib/umd/locale/es.js"></script>
 </head>
@@ -89,16 +89,16 @@
     <a id="scroll-top" href="#top" title="Top" role="button"><i class="icon-angle-up"></i></a>
 
      <!-- Plugins JS File -->
-    <script src="{{ asset('porto-ecommerce/assets/js/jquery.min.js') }}"></script>
-    <script src="{{ asset('porto-ecommerce/assets/js/bootstrap.bundle.min.js') }}"></script>
-    <script src="{{ asset('porto-ecommerce/assets/js/plugins.min.js') }}"></script>
-    <script src="{{ asset('porto-ecommerce/assets/js/culqi_v3.js') }}"></script>
-    <script src="{{ asset('porto-ecommerce/assets/js/sweetalert2.all.min.js') }}"></script>
-    <script src="{{ asset('porto-ecommerce/assets/js/moment.min.js') }}"></script>
+    <script src="{{ asset_v('porto-ecommerce/assets/js/jquery.min.js') }}"></script>
+    <script src="{{ asset_v('porto-ecommerce/assets/js/bootstrap.bundle.min.js') }}"></script>
+    <script src="{{ asset_v('porto-ecommerce/assets/js/plugins.min.js') }}"></script>
+    <script src="{{ asset_v('porto-ecommerce/assets/js/culqi_v3.js') }}"></script>
+    <script src="{{ asset_v('porto-ecommerce/assets/js/sweetalert2.all.min.js') }}"></script>
+    <script src="{{ asset_v('porto-ecommerce/assets/js/moment.min.js') }}"></script>
 
     <!-- Main JS File -->
-    <script src="{{ asset('porto-ecommerce/assets/js/main.js') }}"></script>
-    <script src="{{ asset('porto-ecommerce/assets/js/cart.js') }}?v=20260401"></script>
+    <script src="{{ asset_v('porto-ecommerce/assets/js/main.js') }}"></script>
+    <script src="{{ asset_v('porto-ecommerce/assets/js/cart.js') }}?v=20260401"></script>
     <!-- Vue, Axios, Element UI ya cargados en <head> -->
 
     {{-- NO cargar @vite app.js aquí: esta página usa su propia instancia Vue (CDN) --}}
