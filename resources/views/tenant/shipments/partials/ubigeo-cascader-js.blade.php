@@ -17,6 +17,13 @@
     .ubigeo-search { width: 100%; border: 1px solid #dee2e6; border-radius: .4rem; padding: 10px 12px; font-size: 15px; outline: none; }
     .ubigeo-search:focus { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,.15); }
     .ubigeo-cols { display: flex; }
+    /* `.ubigeo-cols{display:flex}` es una regla de autor y gana al
+       `[hidden]{display:none}` de la hoja del navegador: poner
+       `cols.hidden = true` NO plegaba nada. El selector manual se
+       quedaba siempre desplegado y VACIO —tres columnas con «Elige un
+       departamento» y ningun departamento dentro— debajo de los
+       resultados, y se leia como «no me muestra las ciudades». */
+    .ubigeo-cols[hidden] { display: none; }
     .ubigeo-col { flex: 1; min-width: 33%; max-height: 220px; overflow-y: auto; border-right: 1px solid #f1f3f5; }
     .ubigeo-col:last-child { border-right: none; }
     .ubigeo-results { max-height: 300px; overflow-y: auto; }
@@ -134,6 +141,7 @@
         var manualBtn = document.createElement('div'); manualBtn.className = 'ub-manual-toggle';
         manualBtn.innerHTML = '<span>O elegir por <b>departamento → provincia → distrito</b></span><span>▾</span>';
         var cols = document.createElement('div'); cols.className = 'ubigeo-cols ub-manual'; cols.hidden = true;
+        cDep.setAttribute('data-empty', 'Cargando departamentos…');
         cProv.setAttribute('data-empty', 'Elige un departamento');
         cDist.setAttribute('data-empty', 'Elige una provincia');
         cols.appendChild(cDep); cols.appendChild(cProv); cols.appendChild(cDist);
@@ -161,6 +169,10 @@
         }
 
         var sel = { dep: '', depN: '', prov: '', provN: '', dist: '', distN: '' };
+
+        // Los departamentos se pintan ya, no al desplegar: si la columna
+        // llega a verse antes de tiempo, nunca sale vacia.
+        setTimeout(function () { ubRender(cDep, UB_DEPTS, pickDep, sel.dep); }, 0);
 
         // ── Cascada manual ──────────────────────────────────────────────
         function pickDep(it) {
