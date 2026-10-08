@@ -33,10 +33,27 @@
                   && method_exists($items, 'currentPage')
                   && $items->currentPage() > 1);
 
+    // OJO: `collect($paginator)` NO da los productos. El paginador es
+    // Arrayable, asi que Collection le llama a toArray() y lo que llega es
+    // {current_page, data, total, ...} — tomar los 6 primeros devuelve
+    // enteros, y la primera iteracion revienta con «Attempt to read property
+    // image_url on int». Se escapo a produccion el 2026-10-08 y dejo en 500
+    // la busqueda, las categorias y las paginas de tienda: la home no lo
+    // destapaba porque ahi este partial recibe la coleccion de ofertas.
+    // `all()` existe tanto en el paginador como en la coleccion y en los dos
+    // casos devuelve los elementos.
+    $plSource = is_object($items ?? null) && method_exists($items, 'all')
+        ? $items->all()
+        : ($items ?? []);
+
     $plOrigins = [];
     $plLcp     = null;
 
-    foreach ($plPage1 ? collect($items)->take(6) : collect() as $plItem) {
+    foreach ($plPage1 ? collect($plSource)->take(6) : collect() as $plItem) {
+        if (! is_object($plItem)) {
+            continue;
+        }
+
         $plPrimary = $plItem->primary_image_url ?? $plItem->image_url;
         if (! $plPrimary) {
             continue;
