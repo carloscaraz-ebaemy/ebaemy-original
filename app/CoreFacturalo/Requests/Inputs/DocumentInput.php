@@ -225,6 +225,27 @@ class DocumentInput
                         'has_igv' => $row['item']['has_igv'] ?? true,
                         'unit_price' => $row['unit_price'] ?? 0,
                         'purchase_unit_price' => $item->purchase_unit_price ?? 0,
+                        // Qué variante se vendió.
+                        //
+                        // Este snapshot se arma con lista blanca de claves, y
+                        // `variant_id` no estaba. El formulario de emisión SÍ la
+                        // resuelve y hasta bloquea el botón «agregar» hasta que
+                        // el cajero elige todas las opciones
+                        // (documents/partials/item.vue), y el observer de
+                        // inventario ya la lee desde aquí para descontar la
+                        // variante correcta — pero al no llegar nunca, ese
+                        // descuento jamás se ejecutó y la boleta salía sin decir
+                        // qué talla ni qué color se vendió.
+                        //
+                        // `sale_note_items` no tenía el problema porque su
+                        // controlador persiste la línea con `fill($row)` crudo.
+                        'variant_id' => $row['item']['variant_id'] ?? null,
+                        // El nombre legible congelado («Rojo / M»). La variante
+                        // puede desactivarse o borrarse después, y entonces el
+                        // `variant_id` apunta a nada: el comprobante tiene que
+                        // poder decir qué se vendió sin depender de que la
+                        // variante siga existiendo.
+                        'variant_display_name' => $row['item']['variant_display_name'] ?? null,
                         'exchanged_for_points' => $row['item']['exchanged_for_points'] ?? false,
                         'used_points_for_exchange' => $row['item']['used_points_for_exchange'] ?? null,
                     ],

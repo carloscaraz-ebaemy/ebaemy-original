@@ -6,7 +6,6 @@ use App\Models\Tenant\DocumentItem;
 use App\Models\Tenant\Document;
 use App\Models\Tenant\Item;
 use App\Models\Tenant\ItemVariant;
-use App\Models\Tenant\ItemVariantWarehouse;
 use App\Models\Tenant\PurchaseItem;
 use App\Models\Tenant\PurchaseSettlementItem;
 use App\Models\Tenant\SaleNoteItem;
@@ -112,42 +111,27 @@ class InventoryKardexServiceProvider extends ServiceProvider
                 //$this->createInventory($document_item->item_id, $factor * $document_item->quantity, $warehouse->id);
                 $this->createInventoryKardex($document_item->document, $document_item->item_id, ($factor * ($document_item->quantity * $presentationQuantity)), $warehouse->id);
 
-                $movesStock = false;
+                // La variante de la línea, si el JSON del item la trae. Se la
+                // pasamos a updateStock() en vez de descontarla aparte: antes
+                // había aquí debajo un bloque propio que escribía
+                // item_variant_warehouse a mano, y con updateStock() ya siendo
+                // variant-safe los dos habrían descontado la misma venta dos
+                // veces. Un solo escritor. Ver InventoryTrait::updateStock().
+                $variantId = $document_item->item->variant_id ?? null;
+
                 if (!$document_item->document->sale_note_id && !$document_item->document->order_note_id && !$document_item->document->dispatch_id && !$document_item->document->sale_notes_relateds)
                 {
-                    $this->updateStock($document_item->item_id, ($factor * ($document_item->quantity * $presentationQuantity)), $warehouse->id);
-                    $movesStock = true;
+                    $this->updateStock($document_item->item_id, ($factor * ($document_item->quantity * $presentationQuantity)), $warehouse->id, $variantId);
 
                 } else
                 {
                     if ($document_item->document->dispatch)
                     {
                         if (!$document_item->document->dispatch->transfer_reason_type->discount_stock) {
-                            $this->updateStock($document_item->item_id, ($factor * ($document_item->quantity * $presentationQuantity)), $warehouse->id);
-                            $movesStock = true;
+                            $this->updateStock($document_item->item_id, ($factor * ($document_item->quantity * $presentationQuantity)), $warehouse->id, $variantId);
                         }
                     }
                 }
-
-                // ── Ajustar stock de variante (venta por CPE directo) ──────
-                // Solo cuando ESTE documento mueve stock (no cuando proviene de
-                // una NV/pedido/despacho que ya descontó la variante). Respeta el
-                // factor: -1 descuenta (venta), +1 reingresa (nota de crédito 07).
-                $variantId = $document_item->item->variant_id ?? null;
-                if ($variantId && $movesStock) {
-                    $variantDelta = $factor * ($document_item->quantity * $presentationQuantity);
-                    $vw = ItemVariantWarehouse::where('item_variant_id', $variantId)
-                        ->where('warehouse_id', $warehouse->id)
-                        ->first();
-                    if ($vw) {
-                        $vw->stock_physical = max(0, $vw->stock_physical + $variantDelta);
-                        $vw->stock          = $vw->stock_physical;
-                        $vw->save();
-                    }
-                    $totalVariant = ItemVariantWarehouse::where('item_variant_id', $variantId)->sum('stock_physical');
-                    ItemVariant::where('id', $variantId)->update(['stock' => $totalVariant]);
-                }
-                // ── /Ajustar stock de variante ─────────────────────────────
 
             } else {
 
@@ -293,20 +277,27 @@ class InventoryKardexServiceProvider extends ServiceProvider
                 // if(!$sale_note_item->sale_note->order_note_id) $this->updateStock($sale_note_item->item_id, (-1 * ($sale_note_item->quantity * $presentationQuantity)), $warehouse->id);
 
                 // ── Descontar stock de variante ───────────────────────────
-                $variantId = $sale_note_item->item->variant_id ?? null;
-                if ($variantId) {
-                    $deduction = $sale_note_item->quantity * $presentationQuantity;
-                    $vw = ItemVariantWarehouse::where('item_variant_id', $variantId)
-                        ->where('warehouse_id', $warehouse->id)
-                        ->first();
-                    if ($vw) {
-                        $vw->stock_physical  = max(0, $vw->stock_physical - $deduction);
-                        $vw->stock           = $vw->stock_physical;
-                        $vw->save();
-                    }
-                    // Actualizar stock agregado de la variante
-                    $totalVariant = ItemVariantWarehouse::where('item_variant_id', $variantId)->sum('stock_physical');
-                    ItemVariant::where('id', $variantId)->update(['stock' => $totalVariant]);
+                // Va por updateStock(), que para productos con variantes aplica
+                // el delta en item_variant_warehouse Y propaga hacia
+                // item_warehouse e items.stock.
+                //
+                // Antes esto escribía item_variant_warehouse a mano y NO
+                // propagaba: funcionaba porque `KardexTrait` restaba
+                // `items.stock` por su cuenta desde el otro listener. Al dejar
+                // de hacerlo (restar el derivado se perdía en la siguiente
+                // propagación), `items.stock` se habría quedado alto para
+                // siempre. Un solo escritor que además propaga.
+                //
+                // Solo productos con variantes: para los simples el dueño del
+                // stock en notas de venta es `SaleNoteStockService`, y llamar
+                // aquí descontaría dos veces.
+                if ($sale_note_item->item_id && optional(Item::find($sale_note_item->item_id))->has_variants) {
+                    $this->updateStock(
+                        $sale_note_item->item_id,
+                        (-1 * ($sale_note_item->quantity * $presentationQuantity)),
+                        $warehouse->id,
+                        $sale_note_item->item->variant_id ?? null
+                    );
                 }
                 // ── /Descontar stock de variante ──────────────────────────
 
@@ -396,19 +387,18 @@ class InventoryKardexServiceProvider extends ServiceProvider
                 // $this->updateStock($sale_note_item->item_id, (1 * ($sale_note_item->quantity * $presentationQuantity)), $warehouse->id);
 
                 // ── Revertir stock de variante ────────────────────────────
-                $variantId = $sale_note_item->item->variant_id ?? null;
-                if ($variantId) {
-                    $restitution = $sale_note_item->quantity * $presentationQuantity;
-                    $vw = ItemVariantWarehouse::where('item_variant_id', $variantId)
-                        ->where('warehouse_id', $warehouse->id)
-                        ->first();
-                    if ($vw) {
-                        $vw->stock_physical = $vw->stock_physical + $restitution;
-                        $vw->stock          = $vw->stock_physical;
-                        $vw->save();
-                    }
-                    $totalVariant = ItemVariantWarehouse::where('item_variant_id', $variantId)->sum('stock_physical');
-                    ItemVariant::where('id', $variantId)->update(['stock' => $totalVariant]);
+                // Simétrico al descuento de sale_note(): va por updateStock(),
+                // que aplica el delta en la variante Y propaga hacia
+                // item_warehouse e items.stock. Si el alta propaga y la baja
+                // no, el total del padre se queda corto tras cada edición de
+                // una nota de venta.
+                if ($sale_note_item->item_id && optional(Item::find($sale_note_item->item_id))->has_variants) {
+                    $this->updateStock(
+                        $sale_note_item->item_id,
+                        (1 * ($sale_note_item->quantity * $presentationQuantity)),
+                        $warehouse->id,
+                        $sale_note_item->item->variant_id ?? null
+                    );
                 }
                 // ── /Revertir stock de variante ───────────────────────────
 

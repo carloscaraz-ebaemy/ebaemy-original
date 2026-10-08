@@ -29,10 +29,31 @@ trait KardexTrait
     }
 
     public function updateStock($item_id, $quantity, $is_sale){
-        
+
         $item = Item::find($item_id);
-        /* dd($item); */
-        $item->stock = ($is_sale) ? $item->stock - $quantity : $item->stock + $quantity;
+        if (!$item) return;
+
+        $delta = ($is_sale) ? -$quantity : $quantity;
+
+        // Productos CON variantes: no se toca nada aquí.
+        //
+        // `items.stock` es un valor DERIVADO de `item_variant_warehouse`, y
+        // `ItemVariantService::propagateStock()` lo reescribe entero. Restar
+        // aquí se perdía en la siguiente propagación —que ocurre al guardar el
+        // producto, al editar cualquier variante y al correr `stock:reconcile`—
+        // y el stock vendido reaparecía.
+        //
+        // Tampoco se delega al enrutador de variantes desde aquí: este trait no
+        // es el dueño del movimiento. Sobre el mismo evento hay otro listener
+        // (`modules/Inventory/.../InventoryKardexServiceProvider`) que sí sabe
+        // el almacén y la variante de la línea; si los dos aplicaran el delta,
+        // la variante se descontaría dos veces. Ese listener propaga, así que
+        // `items.stock` queda correcto sin que este trait escriba.
+        //
+        // Ver la skill `ebaemy-stock-flow`.
+        if ($item->has_variants) return;
+
+        $item->stock = $item->stock + $delta;
         $item->save();
 
     }

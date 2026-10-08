@@ -362,11 +362,48 @@ trait InventoryTrait
      *
      * @throws Exception
      */
-    private function updateStock($item_id, $quantity, $warehouse_id)
+    private function updateStock($item_id, $quantity, $warehouse_id, $variantId = null)
     {
         static $inventory_configuration = null;
         if ($inventory_configuration === null) {
             $inventory_configuration = InventoryConfiguration::firstOrFail();
+        }
+
+        // Productos CON variantes: este trait es el DUEÑO del movimiento, y el
+        // movimiento va al nivel que es la verdad, no al derivado.
+        //
+        // `item_warehouse` e `items.stock` se reescriben enteros desde
+        // `item_variant_warehouse` en `ItemVariantService::propagateStock()`,
+        // así que sumar aquí se perdía en la siguiente propagación y el stock
+        // vendido reaparecía. `applyStockDelta()` aplica el delta en
+        // `item_variant_warehouse` y propaga, dejando los dos niveles de arriba
+        // correctos y estables.
+        //
+        // `$variantId` lo pasa el provider desde `item->variant_id` del JSON de
+        // la línea. Cuando llega null —productos cuyo formulario de emisión no
+        // manda la variante— se imputa a la principal; ver el comentario de
+        // applyStockDelta(). Antes de esto, el provider llevaba su propio bloque
+        // de descuento de variante justo debajo de la llamada a este método:
+        // se retiró para que haya un solo escritor y no se descuente dos veces.
+        //
+        // Nota: el control de stock (`stock_control`, la excepción de abajo) no
+        // se evalúa en esta rama. No es una regresión —para un producto con
+        // variantes ese `if` ya miraba un número derivado que la propagación
+        // descartaba— pero sigue pendiente llevar el bloqueo de sobreventa al
+        // nivel de la variante.
+        //
+        // Ver la skill `ebaemy-stock-flow`.
+        $item = \App\Models\Tenant\Item::find($item_id);
+        if ($item && $item->has_variants) {
+            app(\App\Services\Tenant\ItemVariantService::class)->applyStockDelta(
+                $item,
+                (float) $quantity,
+                $warehouse_id,
+                $variantId ? (int) $variantId : null,
+                'InventoryTrait::updateStock item ' . $item_id
+            );
+
+            return;
         }
 
         DB::transaction(function () use ($item_id, $quantity, $warehouse_id, $inventory_configuration) {
@@ -767,8 +804,23 @@ trait InventoryTrait
      * @param float $quantity
      * @param int $warehouse_id
      */
-    private function updateStockPurchase($item_id, $quantity, $warehouse_id)
+    private function updateStockPurchase($item_id, $quantity, $warehouse_id, $variantId = null)
     {
+        // Mismo motivo que en updateStock(): con variantes el nivel derivado no
+        // se escribe directo. Ver ItemVariantService::applyStockDelta().
+        $item = \App\Models\Tenant\Item::find($item_id);
+        if ($item && $item->has_variants) {
+            app(\App\Services\Tenant\ItemVariantService::class)->applyStockDelta(
+                $item,
+                (float) $quantity,
+                $warehouse_id,
+                $variantId ? (int) $variantId : null,
+                'InventoryTrait::updateStockPurchase item ' . $item_id
+            );
+
+            return;
+        }
+
         DB::transaction(function () use ($item_id, $quantity, $warehouse_id) {
             $item_warehouse = ItemWarehouse::where('item_id', $item_id)
                                            ->where('warehouse_id', $warehouse_id)

@@ -25,10 +25,29 @@ trait InventoryKardexTrait
 
     public function updateStock($item_id, $establishment_id, $quantity, $is_sale, $warehouse_id = null){
 
+        $delta = $is_sale ? -$quantity : $quantity;
+
+        // Productos CON variantes: no se escribe el nivel derivado.
+        //
+        // `item_warehouse` se reescribe entero desde `item_variant_warehouse`
+        // en `ItemVariantService::propagateStock()`, así que sumar aquí se
+        // pierde. Y no se delega al enrutador de variantes porque el dueño del
+        // movimiento es `modules/Inventory/Traits/InventoryTrait::updateStock`,
+        // que sí recibe la variante de la línea: delegar desde los dos sitios
+        // descontaría dos veces.
+        //
+        // Hoy este método además no está en el camino caliente: en
+        // `App\Providers\InventoryKardexServiceProvider::boot()`, `sale()` y
+        // `purchase()` están comentados y solo corre `sale_note()`, que va por
+        // `SaleNoteStockService`. La guarda se deja puesta para que reactivar
+        // esos dos no rompa el stock de variantes en silencio.
+        //
+        // Ver la skill `ebaemy-stock-flow`.
+        $item = \App\Models\Tenant\Item::find($item_id);
+        if ($item && $item->has_variants) return;
+
         $item_warehouse = $this->getItemWarehouse($item_id, $establishment_id, $warehouse_id);
         if (!$item_warehouse) return;
-
-        $delta = $is_sale ? -$quantity : $quantity;
 
         // Campo legacy
         $item_warehouse->stock = max(0, $item_warehouse->stock + $delta);

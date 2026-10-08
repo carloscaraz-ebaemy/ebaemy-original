@@ -478,6 +478,220 @@ class ItemVariantService
     }
 
     /**
+     * Aplica un DELTA de stock a un producto, respetando la jerarquía cuando
+     * tiene variantes. Punto único de entrada para los traits de kardex e
+     * inventario, que hasta ahora escribían `item_warehouse.stock` e
+     * `items.stock` directamente.
+     *
+     * POR QUÉ EXISTE
+     * -------------
+     * Con `has_variants = true`, `item_warehouse.stock` e `items.stock` son
+     * valores DERIVADOS: `propagateStock()` los reescribe enteros desde
+     * `item_variant_warehouse`. Una venta que restaba del nivel derivado se
+     * perdía en la siguiente propagación — y la propagación ocurre al guardar
+     * el producto, al editar cualquier variante y al correr `stock:reconcile`.
+     * El stock vendido reaparecía. Ver la skill `ebaemy-stock-flow`.
+     *
+     * QUÉ DEVUELVE
+     * ------------
+     * `false` si el producto NO tiene variantes: el llamador sigue con su
+     * camino legacy, que para un producto simple es correcto.
+     * `true` si lo gestionó aquí; el llamador no debe tocar nada más.
+     *
+     * A QUÉ VARIANTE SE IMPUTA
+     * ------------------------
+     * Si el llamador sabe la variante (`$variantId`), a esa. Hoy casi nadie la
+     * sabe: `document_items`, `sale_note_items`, `quotation_items` y
+     * `purchase_items` no tienen la columna, así que la venta por comprobante
+     * llega sin ella. En ese caso se imputa a la variante `is_primary`, y si no
+     * hay, a la activa con más stock físico.
+     *
+     * Eso NO es correcto, es menos incorrecto que hoy: el TOTAL del producto
+     * queda bien y se mantiene bien, que es lo que decide si se puede vender o
+     * no. La atribución por talla seguirá mal hasta que la línea del
+     * comprobante lleve `item_variant_id`. Es el mismo criterio que ya aplica
+     * la recepción de órdenes de compra, y se registra en el log para que el
+     * descuadre de atribución sea visible y no haya que deducirlo.
+     *
+     * @param  float    $delta       Negativo descuenta, positivo ingresa.
+     * @param  int|null $warehouseId Null = la fila de la variante con más stock.
+     * @param  int|null $variantId   La variante concreta, si el llamador la sabe.
+     * @param  string   $motivo      Para el log. Ej: 'venta document_item 123'.
+     */
+    public function applyStockDelta(
+        Item $item,
+        float $delta,
+        ?int $warehouseId = null,
+        ?int $variantId = null,
+        string $motivo = ''
+    ): bool {
+        if (!$item->has_variants) {
+            return false;
+        }
+
+        if (abs($delta) < 0.0001) {
+            return true; // Nada que mover, pero el producto SÍ es de variantes.
+        }
+
+        try {
+            DB::connection('tenant')->transaction(function () use ($item, $delta, $warehouseId, $variantId, $motivo) {
+                $variant = $this->resolveTargetVariant($item, $variantId);
+
+                if (!$variant) {
+                    // `has_variants = true` sin ninguna variante activa. No se
+                    // inventa una: se deja constancia y no se toca el derivado,
+                    // porque propagateStock() lo pondría a cero de todos modos.
+                    Log::warning('[ItemVariantService::applyStockDelta] producto con has_variants y sin variantes activas', [
+                        'item_id' => $item->id,
+                        'delta'   => $delta,
+                        'motivo'  => $motivo,
+                    ]);
+
+                    return;
+                }
+
+                $row = $this->resolveTargetWarehouseRow($variant, $item, $warehouseId);
+
+                $nuevo = (float) $row->stock_physical + $delta;
+
+                if ($nuevo < 0) {
+                    // Se avisa del faltante Y se deja el número, porque recortar
+                    // a cero sin más es cómo desaparecen unidades sin que nadie
+                    // pueda reconstruir después cuántas eran.
+                    Log::warning('[ItemVariantService::applyStockDelta] el descuento dejaba la variante en negativo; se recorta a 0', [
+                        'item_id'      => $item->id,
+                        'variant_id'   => $variant->id,
+                        'warehouse_id' => $row->warehouse_id,
+                        'actual'       => (float) $row->stock_physical,
+                        'delta'        => $delta,
+                        'faltante'     => abs($nuevo),
+                        'motivo'       => $motivo,
+                    ]);
+                    $nuevo = 0;
+                }
+
+                $row->stock_physical = $nuevo;
+                $row->stock          = $nuevo;   // espejo legacy
+                $row->save();
+
+                $variant->stock = (float) ItemVariantWarehouse::where('item_variant_id', $variant->id)
+                    ->sum('stock_physical');
+                $variant->save();
+
+                if ($variantId === null) {
+                    Log::info('[ItemVariantService::applyStockDelta] movimiento sin variante en la línea; imputado a la principal', [
+                        'item_id'    => $item->id,
+                        'variant_id' => $variant->id,
+                        'delta'      => $delta,
+                        'motivo'     => $motivo,
+                    ]);
+                }
+
+                $this->propagateStock($item);
+            });
+
+            return true;
+        } catch (\Throwable $e) {
+            // Si esto falla NO se cae al camino legacy: escribir el nivel
+            // derivado dejaría el stock peor que no tocarlo, porque la próxima
+            // propagación lo descartaría igual y entretanto el dato sería falso.
+            Log::error('[ItemVariantService::applyStockDelta] error aplicando el delta', [
+                'item_id'    => $item->id,
+                'variant_id' => $variantId,
+                'delta'      => $delta,
+                'motivo'     => $motivo,
+                'error'      => $e->getMessage(),
+            ]);
+
+            return true;
+        }
+    }
+
+    /**
+     * La variante a la que se imputa un movimiento. Ver applyStockDelta().
+     */
+    private function resolveTargetVariant(Item $item, ?int $variantId): ?ItemVariant
+    {
+        if ($variantId) {
+            $pedida = ItemVariant::where('item_id', $item->id)
+                ->where('id', $variantId)
+                ->lockForUpdate()
+                ->first();
+
+            if ($pedida) {
+                return $pedida;
+            }
+
+            // La variante pudo desactivarse o borrarse entre que se emitió el
+            // documento y que llegó aquí. Se cae a la principal, igual que la
+            // recepción de órdenes de compra.
+            Log::warning('[ItemVariantService] la variante de la línea no existe; se usa la principal', [
+                'item_id'    => $item->id,
+                'variant_id' => $variantId,
+            ]);
+        }
+
+        $principal = ItemVariant::where('item_id', $item->id)
+            ->where('is_active', true)
+            ->where('is_primary', true)
+            ->lockForUpdate()
+            ->first();
+
+        if ($principal) {
+            return $principal;
+        }
+
+        // Sin principal marcada: la activa con más stock físico. Es la que más
+        // probablemente aguante el descuento sin quedarse en negativo.
+        return ItemVariant::where('item_id', $item->id)
+            ->where('is_active', true)
+            ->orderByDesc('stock')
+            ->orderBy('id')
+            ->lockForUpdate()
+            ->first();
+    }
+
+    /**
+     * La fila de item_variant_warehouse sobre la que se escribe.
+     *
+     * Con almacén explícito, ese. Sin él, la fila con más stock físico — y si la
+     * variante no tiene ninguna fila todavía, se crea en el almacén donde el
+     * producto padre ya tenga registro, para no inventar un almacén nuevo.
+     */
+    private function resolveTargetWarehouseRow(
+        ItemVariant $variant,
+        Item $item,
+        ?int $warehouseId
+    ): ItemVariantWarehouse {
+        if ($warehouseId) {
+            return ItemVariantWarehouse::lockForUpdate()->firstOrCreate(
+                ['item_variant_id' => $variant->id, 'warehouse_id' => $warehouseId],
+                ['stock' => 0, 'stock_physical' => 0, 'stock_committed' => 0]
+            );
+        }
+
+        $row = ItemVariantWarehouse::where('item_variant_id', $variant->id)
+            ->orderByDesc('stock_physical')
+            ->orderBy('warehouse_id')
+            ->lockForUpdate()
+            ->first();
+
+        if ($row) {
+            return $row;
+        }
+
+        $fallbackWarehouseId = ItemWarehouse::where('item_id', $item->id)
+            ->orderByDesc('stock_physical')
+            ->value('warehouse_id')
+            ?? $item->warehouse_id;
+
+        return ItemVariantWarehouse::lockForUpdate()->firstOrCreate(
+            ['item_variant_id' => $variant->id, 'warehouse_id' => $fallbackWarehouseId],
+            ['stock' => 0, 'stock_physical' => 0, 'stock_committed' => 0]
+        );
+    }
+
+    /**
      * Propaga el stock de item_variant_warehouse → item_warehouse → items.
      * Mantiene retrocompatibilidad con todo el código que lee item_warehouse.stock.
      *

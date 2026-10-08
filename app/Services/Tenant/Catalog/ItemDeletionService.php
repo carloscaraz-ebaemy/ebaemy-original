@@ -182,9 +182,24 @@ class ItemDeletionService
 
         $item->save();
 
-        if ($this->hasColumn('item_variants', 'active')) {
-            $this->db()->table('item_variants')->where('item_id', $item->id)->update(['active' => 0]);
-        }
+        // Las variantes NO se tocan a propósito.
+        //
+        // Aquí había un bloque que ponía a 0 una columna `active` de
+        // `item_variants`. Esa columna no existe — la real es `is_active` — así
+        // que el `hasColumn()` devolvía false y el bloque nunca llegó a correr.
+        //
+        // No se arregló, se quitó, porque retirar el producto ya cierra las tres
+        // puertas por las que sale a la calle: `active=false` y
+        // `marketplace_publishable=false` hacen que el sync marque el listing
+        // como inactivo, y `apply_store=false` lo saca del escaparate y de los
+        // feeds, que filtran por esa columna. La variante no tiene ninguna vía
+        // propia hacia el comprador.
+        //
+        // Y desactivarlas sería irreversible en el sentido que importa: una
+        // variante desactivada a mano por el negocio (porque guarda stock de una
+        // combinación retirada) es indistinguible de una desactivada por este
+        // retiro, así que `restore()` las reactivaría todas y devolvería ese
+        // stock a `items.stock` sin que nadie lo haya pedido.
 
         return [
             'success' => true,
@@ -202,9 +217,9 @@ class ItemDeletionService
         $item->active = true;
         $item->save();
 
-        if ($this->hasColumn('item_variants', 'active')) {
-            $this->db()->table('item_variants')->where('item_id', $item->id)->update(['active' => 1]);
-        }
+        // Simétrico a retire(): las variantes no se tocan. Ver el comentario de
+        // allí — reactivarlas en bloque resucitaría las que el negocio había
+        // desactivado por su cuenta.
 
         return [
             'success' => true,

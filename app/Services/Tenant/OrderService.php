@@ -849,12 +849,47 @@ class OrderService
         ksort($variantQtys);
 
         foreach ($variantQtys as $variantId => $qty) {
-            // Lock pesimista + re-select para obtener el registro con más stock
-            // dentro de la transacción outer (stock_physical más alto).
-            $vw = ItemVariantWarehouse::where('item_variant_id', $variantId)
+            // El almacén del PEDIDO manda.
+            //
+            // Antes esto cogía la fila con `orderByDesc('stock_physical')` sin
+            // mirar `$order->warehouse_id`, así que un pedido de un almacén
+            // podía descontar del de otra sucursal: el stock total cuadraba y
+            // el de cada almacén quedaba mal, que es lo que no se ve hasta que
+            // alguien hace un conteo físico.
+            //
+            // Sin almacén en el pedido se mantiene el criterio viejo (el que
+            // más stock tenga), que es lo único razonable sin más información.
+            $query = ItemVariantWarehouse::where('item_variant_id', $variantId);
+
+            if ($order->warehouse_id) {
+                $query->where('warehouse_id', $order->warehouse_id);
+            }
+
+            $vw = $query
                 ->orderByDesc('stock_physical')
                 ->lockForUpdate()
                 ->first();
+
+            // El almacén del pedido puede no tener fila para esta variante
+            // —nunca entró stock ahí— y entonces no hay nada que bloquear. Se
+            // cae al almacén con stock, pero dejando constancia de que el
+            // descuento no salió de donde decía el pedido.
+            if (!$vw && $order->warehouse_id) {
+                $vw = ItemVariantWarehouse::where('item_variant_id', $variantId)
+                    ->orderByDesc('stock_physical')
+                    ->lockForUpdate()
+                    ->first();
+
+                if ($vw) {
+                    Log::warning('[OrderService] la variante no tiene stock en el almacén del pedido; se descuenta de otro', [
+                        'order_id'              => $order->id,
+                        'variant_id'            => $variantId,
+                        'warehouse_del_pedido'  => $order->warehouse_id,
+                        'warehouse_descontado'  => $vw->warehouse_id,
+                        'qty'                   => $qty,
+                    ]);
+                }
+            }
 
             if (!$vw) {
                 Log::warning('[OrderService] Variant sin warehouse al despachar', [
@@ -866,11 +901,16 @@ class OrderService
             }
 
             if ($vw->stock_physical - $qty < 0) {
+                // Con el faltante en el log: recortar a cero sin decir cuánto
+                // faltaba es cómo desaparecen unidades sin que después se pueda
+                // reconstruir el descuadre.
                 Log::warning('Variant stock would go negative', [
+                    'order_id'     => $order->id,
                     'variant_id'   => $vw->item_variant_id,
                     'warehouse_id' => $vw->warehouse_id,
-                    'current'      => $vw->stock_physical,
+                    'current'      => (float) $vw->stock_physical,
                     'requested'    => $qty,
+                    'faltante'     => $qty - (float) $vw->stock_physical,
                 ]);
             }
 

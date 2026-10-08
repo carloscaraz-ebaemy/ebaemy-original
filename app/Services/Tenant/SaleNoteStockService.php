@@ -47,6 +47,8 @@ class SaleNoteStockService
      */
     public function onItemCreated(SaleNoteItem $item): void
     {
+        if ($this->loGestionaElSistemaDeVariantes($item)) return;
+
         $saleNote  = $item->sale_note;
         $qty       = (float) $item->quantity;
         $estId     = $saleNote->establishment_id;
@@ -80,6 +82,8 @@ class SaleNoteStockService
      */
     public function onItemDeleted(SaleNoteItem $item): void
     {
+        if ($this->loGestionaElSistemaDeVariantes($item)) return;
+
         $saleNote    = $item->sale_note;
         $qty         = (float) $item->quantity;
         $estId       = $saleNote->establishment_id;
@@ -94,6 +98,33 @@ class SaleNoteStockService
     }
 
     // ─── Lógica privada ──────────────────────────────────────────────────────
+
+    /**
+     * ¿El stock de esta línea lo mueve el sistema de variantes?
+     *
+     * Para un producto con variantes, este servicio escribiría `item_warehouse`,
+     * que es un valor DERIVADO: `ItemVariantService::propagateStock()` lo
+     * reescribe entero desde `item_variant_warehouse`. El dueño del movimiento
+     * en notas de venta es `modules/Inventory/.../InventoryKardexServiceProvider`
+     * (`sale_note()`), que aplica el delta en la variante y propaga. Si los dos
+     * escribieran, el resultado dependería del orden en que Eloquent dispare los
+     * dos listeners de `SaleNoteItem::created`, que no está garantizado.
+     *
+     * PENDIENTE, y conviene no confundirlo con una regresión: las notas de venta
+     * de provincia reservan con `stock_committed`, y esa reserva NO existe a
+     * nivel de variante. Tampoco existía antes —`propagateStock()` recalcula
+     * `item_warehouse.stock_committed` desde las variantes y borraba la reserva
+     * del padre en cuanto alguien editaba una variante—, así que el
+     * comportamiento no empeora; lo que falta es implementar la reserva en
+     * `item_variant_warehouse.stock_committed`, como ya hace `StockReservation`
+     * para los pedidos.
+     */
+    private function loGestionaElSistemaDeVariantes(SaleNoteItem $item): bool
+    {
+        if (empty($item->item_id)) return false;
+
+        return (bool) optional(\App\Models\Tenant\Item::find($item->item_id))->has_variants;
+    }
 
     /**
      * PROVINCE: reserva stock_committed (no toca stock_physical).
