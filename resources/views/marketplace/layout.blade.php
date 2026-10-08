@@ -75,9 +75,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    {{-- CSRF para fetch() del newsletter, cart, coupon, etc. Sin este meta
-         las llamadas POST/PATCH/DELETE devuelven 419 'CSRF token mismatch'. --}}
-    <meta name="csrf-token" content="{{ csrf_token() }}">
+    {{-- El token CSRF ya NO viaja en el HTML. Era lo unico que hacia distinta
+         la pagina de un visitante a la del siguiente, y por tanto lo que
+         impedia cachearla. Ahora todas las llamadas POST/PATCH/DELETE lo
+         sacan de la cookie `XSRF-TOKEN` via mpCsrfHeaders() — definido al
+         principio del bloque de scripts de este mismo layout. Si se vuelve a
+         mete de nuevo la funcion del token en una vista cacheable, se rompe la
+         cache. Lo vigila `php artisan marketplace:cache-check`, que compara
+         el HTML que reciben dos visitantes anonimos distintos. --}}
     <title>@yield('title', $mpOgTitle)</title>
     <meta name="description" content="@yield('description', $mpOgDesc)">
     <meta name="keywords"    content="@yield('keywords', $mpKeywords)">
@@ -172,6 +177,68 @@
             body.is-embed main.mp-container { padding-top: 12px; }
         </style>
     @endif
+
+    {{-- ─── Token CSRF, fuera del HTML ──────────────────────────────────────
+         Va en <head> y sin `defer` porque TODO el JS del marketplace que hace
+         POST depende de el. Dos caminos, en este orden:
+
+           1. La cookie `XSRF-TOKEN`, que Laravel pone en cada respuesta. Va
+              cifrada: se manda tal cual en la cabecera `X-XSRF-TOKEN` y
+              Laravel la descifra al recibirla. Es el camino normal.
+           2. `/marketplace/csrf`, para cuando no hay cookie. Pasa si la
+              pagina vino de una cache: una respuesta cacheada no lleva
+              `Set-Cookie`, asi que un visitante nuevo puede llegar sin ella.
+
+         mpCsrfHeaders() devuelve SIEMPRE una promesa, aunque el token ya este
+         a mano. Es a proposito: si devolviera el objeto directo cuando hay
+         cookie y una promesa cuando no, el primer clic de un visitante que
+         llega por cache daria 419 segun quien ganara la carrera. Mejor un
+         `await` de mas que un «agregar al carrito» que falla a veces. --}}
+    <script>
+    (function () {
+        var pedido = null;   // promesa en vuelo, para no pedirlo dos veces
+        var token  = null;   // token ya resuelto por el endpoint
+
+        function deCookie() {
+            var m = document.cookie.match(/(?:^|;\s*)XSRF-TOKEN=([^;]*)/);
+            return m ? decodeURIComponent(m[1]) : null;
+        }
+
+        /**
+         * Cabeceras para un fetch que necesita CSRF.
+         * @param  {Object} base  cabeceras propias de la llamada
+         * @return {Promise<Object>}
+         */
+        window.mpCsrfHeaders = function (base) {
+            var h = Object.assign({}, base || {});
+
+            var c = deCookie();
+            if (c) { h['X-XSRF-TOKEN'] = c; return Promise.resolve(h); }
+            if (token) { h['X-CSRF-TOKEN'] = token; return Promise.resolve(h); }
+
+            if (!pedido) {
+                pedido = fetch('{{ route('marketplace.csrf') }}', {
+                    credentials: 'same-origin',
+                    headers: { 'Accept': 'application/json' },
+                }).then(function (r) { return r.json(); })
+                  .then(function (d) { token = (d && d.token) || null; })
+                  .catch(function () { /* se reintenta en la llamada siguiente */ })
+                  .then(function () { pedido = null; });
+            }
+
+            return pedido.then(function () {
+                var c2 = deCookie();
+                if (c2) h['X-XSRF-TOKEN'] = c2;
+                else if (token) h['X-CSRF-TOKEN'] = token;
+                return h;
+            });
+        };
+
+        // Se pide por adelantado si no hay cookie, para que el token ya este
+        // listo cuando el visitante pulse algo y no espere a la ida y vuelta.
+        if (!deCookie()) window.mpCsrfHeaders();
+    })();
+    </script>
 </head>
 <body class="{{ $isEmbed ? 'is-embed' : '' }}">
 
@@ -769,11 +836,11 @@
         try {
             const res = await fetch(@json(route('marketplace.newsletter')), {
                 method: 'POST',
-                headers: {
+                headers: await window.mpCsrfHeaders({
                     'Content-Type': 'application/json',
                     'Accept': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
-                },
+                }),
+                credentials: 'same-origin',
                 body: JSON.stringify({ email }),
             });
             const data = await res.json();
@@ -1380,7 +1447,6 @@ window.mpCouponTenantIds = []; // hostname_ids donde el user tiene cupn
     // Eliminar item del mini-cart con remocion local animada — SIN
     // re-fetch ni spinner ("Cargando..."). El endpoint devuelve summary
     // actualizado; con eso ajustamos total general y badge.
-    const csrf = @json(csrf_token());
     const updateBase = @json(url('/marketplace/cart')); // PATCH /marketplace/cart/{listing}
     body.addEventListener('click', function (e) {
         const btn = e.target.closest && e.target.closest('.js-mini-cart-remove');
@@ -1394,16 +1460,16 @@ window.mpCouponTenantIds = []; // hostname_ids donde el user tiene cupn
         btn.disabled = true;
         if (lineEl) lineEl.classList.add('is-removing');
 
-        fetch(`${updateBase}/${listingId}`, {
+        window.mpCsrfHeaders({
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+        })
+        .then(h => fetch(`${updateBase}/${listingId}`, {
             method: 'PATCH',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': csrf,
-                'Accept': 'application/json',
-            },
+            headers: h,
             credentials: 'same-origin',
             body: JSON.stringify({ quantity: 0 }),
-        })
+        }))
         .then(r => r.json())
         .then(j => {
             if (!j.success) {

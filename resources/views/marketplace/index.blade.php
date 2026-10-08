@@ -460,15 +460,17 @@
             var oldHtml = addBtn.innerHTML;
             addBtn.innerHTML = 'Agregando…';
 
-            fetch(@json(route('marketplace.cart.bulk_add')), {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': @json(csrf_token()),
-                    'Accept': 'application/json',
-                },
-                credentials: 'same-origin',
-                body: JSON.stringify({ listing_ids: Array.from(selected.keys()) })
+            window.mpCsrfHeaders({
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+            })
+            .then(function (h) {
+                return fetch(@json(route('marketplace.cart.bulk_add')), {
+                    method: 'POST',
+                    headers: h,
+                    credentials: 'same-origin',
+                    body: JSON.stringify({ listing_ids: Array.from(selected.keys()) })
+                });
             })
             .then(function (r) { return r.json(); })
             .then(function (data) {

@@ -1037,15 +1037,16 @@
                     body.variant_id = parseInt(vid, 10);
                 }
 
-                fetch(@json(route('marketplace.cart.add')), {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': @json(csrf_token()),
-                        'Accept': 'application/json',
-                    },
-                    body: JSON.stringify(body)
+                window.mpCsrfHeaders({
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
                 })
+                .then(h => fetch(@json(route('marketplace.cart.add')), {
+                    method: 'POST',
+                    headers: h,
+                    credentials: 'same-origin',
+                    body: JSON.stringify(body)
+                }))
                 .then(r => r.json())
                 .then(function (data) {
                     if (!data.success) {

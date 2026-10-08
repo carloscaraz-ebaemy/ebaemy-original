@@ -196,7 +196,6 @@ mpBindGallery(document);
 (function () {
     var toggleUrl = @json(route('marketplace.favorites.toggle'));
     var jsonUrl   = @json(route('marketplace.favorites.json'));
-    var csrf      = @json(csrf_token());
 
     var favSet = new Set();
 
@@ -233,15 +232,17 @@ mpBindGallery(document);
         btn.classList.add('is-pulsing');
         setTimeout(function () { btn.classList.remove('is-pulsing'); }, 350);
 
-        fetch(toggleUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': csrf,
-                'Accept': 'application/json',
-            },
-            credentials: 'same-origin',
-            body: JSON.stringify({ listing_id: id })
+        window.mpCsrfHeaders({
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+        })
+        .then(function (h) {
+            return fetch(toggleUrl, {
+                method: 'POST',
+                headers: h,
+                credentials: 'same-origin',
+                body: JSON.stringify({ listing_id: id })
+            });
         })
         .then(function (r) { return r.json(); })
         .then(function (data) {
@@ -259,7 +260,6 @@ mpBindGallery(document);
 // (donde el comprador elige opciones). Delegado en document.
 (function () {
     var addUrl  = @json(route('marketplace.cart.add'));
-    var csrf    = @json(csrf_token());
     var detailBase = @json(route('marketplace.index')) + '/item/'; // marketplace.item route
 
     document.addEventListener('click', function (e) {
@@ -283,15 +283,17 @@ mpBindGallery(document);
         btn.classList.add('is-loading');
 
         // El endpoint valida { slug, quantity } — no listing_id.
-        fetch(addUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': csrf,
-                'Accept': 'application/json',
-            },
-            credentials: 'same-origin',
-            body: JSON.stringify({ slug: slug, quantity: 1 })
+        window.mpCsrfHeaders({
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+        })
+        .then(function (h) {
+            return fetch(addUrl, {
+                method: 'POST',
+                headers: h,
+                credentials: 'same-origin',
+                body: JSON.stringify({ slug: slug, quantity: 1 })
+            });
         })
         .then(function (r) { return r.json(); })
         .then(function (data) {

@@ -530,7 +530,6 @@ input.mp-co-invalid, select.mp-co-invalid, textarea.mp-co-invalid {
 (function(){
     const VALIDATE_URL = @json(route('marketplace.checkout.coupon'));
     const REMOVE_URL_BASE = @json(url('/marketplace/checkout/coupon'));
-    const CSRF = document.querySelector('meta[name="csrf-token"]')?.content || '';
 
     // Trackea descuento por tienda. Se hidrata desde data-applied-discount al
     // cargar para que el resumen ya refleje los cupones persistidos.
@@ -590,11 +589,11 @@ input.mp-co-invalid, select.mp-co-invalid, textarea.mp-co-invalid {
             try {
                 const res = await fetch(VALIDATE_URL, {
                     method: 'POST',
-                    headers: {
+                    headers: await window.mpCsrfHeaders({
                         'Content-Type': 'application/json',
                         'Accept': 'application/json',
-                        'X-CSRF-TOKEN': CSRF,
-                    },
+                    }),
+                    credentials: 'same-origin',
                     body: JSON.stringify({ hostname_id: hostnameId, code }),
                 });
                 const data = await res.json();
@@ -623,7 +622,8 @@ input.mp-co-invalid, select.mp-co-invalid, textarea.mp-co-invalid {
             try {
                 const res = await fetch(REMOVE_URL_BASE + '/' + hostnameId, {
                     method: 'DELETE',
-                    headers: { 'Accept':'application/json', 'X-CSRF-TOKEN': CSRF },
+                    headers: await window.mpCsrfHeaders({ 'Accept': 'application/json' }),
+                    credentials: 'same-origin',
                 });
                 if (res.ok) window.location.reload();
                 else alert('No se pudo quitar el cupón.');
@@ -656,7 +656,8 @@ input.mp-co-invalid, select.mp-co-invalid, textarea.mp-co-invalid {
                     try {
                         await fetch(REMOVE_URL_BASE + '/' + hostnameId, {
                             method: 'DELETE',
-                            headers: { 'Accept':'application/json', 'X-CSRF-TOKEN': CSRF },
+                            headers: await window.mpCsrfHeaders({ 'Accept': 'application/json' }),
+                            credentials: 'same-origin',
                         });
                     } catch (e) {}
                 }

@@ -481,6 +481,28 @@ class MarketplaceController extends Controller
      * decisiones previas de opt-out (no reactiva contactos que se dieron de
      * baja). Throttle por IP a nivel de ruta.
      */
+    /**
+     * Entrega el token CSRF por separado, fuera del HTML.
+     *
+     * El token es distinto para cada visitante, asi que mientras viva dentro
+     * de la pagina esa pagina NO se puede cachear: dos visitantes anonimos
+     * reciben HTML distinto y una cache compartida serviria el token de uno
+     * al otro. Sacandolo de aqui, el HTML del marketplace es identico para
+     * todos y el token lo pide el navegador cuando le hace falta.
+     *
+     * Normalmente el JS lo saca de la cookie `XSRF-TOKEN`, que Laravel pone
+     * en cada respuesta. Este endpoint es para el caso en que la pagina venga
+     * de una cache (una respuesta cacheada no lleva `Set-Cookie`, asi que el
+     * visitante puede llegar sin cookie). `no-store` porque esta respuesta es
+     * justo lo unico que nunca se debe compartir entre visitantes.
+     */
+    public function csrf(Request $request)
+    {
+        return response()
+            ->json(['token' => csrf_token()])
+            ->header('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    }
+
     public function newsletterSubscribe(Request $request)
     {
         $data = $request->validate([

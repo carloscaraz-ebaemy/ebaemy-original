@@ -192,15 +192,17 @@
     };
 
     window.mpTrackConsent = function (granted) {
-        fetch({!! json_encode($adsConsentUrl) !!}, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-                'Accept': 'application/json'
-            },
-            credentials: 'same-origin',
-            body: JSON.stringify({ consent: granted ? 'granted' : 'denied' })
+        window.mpCsrfHeaders({
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+        })
+        .then(function (h) {
+            return fetch({!! json_encode($adsConsentUrl) !!}, {
+                method: 'POST',
+                headers: h,
+                credentials: 'same-origin',
+                body: JSON.stringify({ consent: granted ? 'granted' : 'denied' })
+            });
         }).catch(function () { /* la decisión ya se aplicó en pantalla */ });
 
         var bar = document.getElementById('mpConsentBar');

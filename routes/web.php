@@ -1662,6 +1662,11 @@ if ($hostname) {
                 ],
             ]])->header('Content-Type', 'application/json');
         })->name('twa.assetlinks');
+        // Token CSRF fuera del HTML — lo que permite que las paginas del
+        // marketplace sean identicas para todos los visitantes y por tanto
+        // cacheables. Ver MarketplaceController::csrf.
+        Route::get('marketplace/csrf', 'MarketplaceController@csrf')
+             ->middleware('throttle:60,1')->name('marketplace.csrf');
         // PWA — Web Push (suscripción del comprador). public-key es GET público.
         Route::get('marketplace/push/public-key',  'Marketplace\PushSubscriptionController@publicKey')->name('marketplace.push.key');
         Route::post('marketplace/push/subscribe',  'Marketplace\PushSubscriptionController@subscribe')

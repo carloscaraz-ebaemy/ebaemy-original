@@ -255,29 +255,28 @@
 
 <script>
 (function() {
-    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content
-        || @json(csrf_token());
-
     function patchLine(listingId, quantity) {
-        return fetch(@json(url('/marketplace/cart')) + '/' + listingId, {
+        return window.mpCsrfHeaders({
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+        })
+        .then(h => fetch(@json(url('/marketplace/cart')) + '/' + listingId, {
             method: 'PATCH',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': csrfToken,
-                'Accept': 'application/json',
-            },
+            headers: h,
+            credentials: 'same-origin',
             body: JSON.stringify({ quantity })
-        }).then(r => r.json());
+        }))
+        .then(r => r.json());
     }
 
     function deleteLine(listingId) {
-        return fetch(@json(url('/marketplace/cart')) + '/' + listingId, {
-            method: 'DELETE',
-            headers: {
-                'X-CSRF-TOKEN': csrfToken,
-                'Accept': 'application/json',
-            }
-        }).then(r => r.json());
+        return window.mpCsrfHeaders({ 'Accept': 'application/json' })
+            .then(h => fetch(@json(url('/marketplace/cart')) + '/' + listingId, {
+                method: 'DELETE',
+                headers: h,
+                credentials: 'same-origin',
+            }))
+            .then(r => r.json());
     }
 
     // Mismo formato que `number_format($x, 2)` de PHP: separador de miles y
