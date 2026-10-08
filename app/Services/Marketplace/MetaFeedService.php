@@ -230,6 +230,7 @@ class MetaFeedService
 
         $color = null;
         $size  = null;
+        $otros = [];
 
         foreach ($variant->optionValues as $value) {
             $name = mb_strtolower((string) ($value->option->name ?? ''));
@@ -239,7 +240,15 @@ class MetaFeedService
             } elseif (str_contains($name, 'talla') || str_contains($name, 'size')
                    || str_contains($name, 'tama')  || str_contains($name, 'medida')) {
                 $size = $value->value;
+            } else {
+                $otros[] = $value->value;
             }
+        }
+
+        // Los nombres de opción los escribe cada tienda: «medias», «Modelo»…
+        // Lo que no se reconoce va a `size` antes que perderlo.
+        if ($size === null && $otros) {
+            $size = implode(' / ', $otros);
         }
 
         return [$color, $size];

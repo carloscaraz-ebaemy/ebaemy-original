@@ -2275,13 +2275,24 @@ class MarketplaceController extends Controller
         // Color / talla desde las opciones de la variante.
         $color = null;
         $size  = null;
+        $otros = [];
         foreach ($attrs as $a) {
             $name = mb_strtolower((string) $a->option_name);
             if (str_contains($name, 'color')) {
                 $color = $a->value;
             } elseif (str_contains($name, 'talla') || str_contains($name, 'size') || str_contains($name, 'tama') || str_contains($name, 'medida')) {
                 $size = $a->value;
+            } else {
+                $otros[] = $a->value;
             }
+        }
+
+        // Los nombres de opción los escribe cada tienda: en producción hay
+        // «medias» (errata de «medidas») y «Modelo». Sin este respaldo esas
+        // variantes llegaban al catálogo sin ningún atributo que las distinga
+        // dentro de su grupo.
+        if ($size === null && $otros) {
+            $size = implode(' / ', $otros);
         }
 
         // Título: padre + nombre de la variante (color/talla) para distinguirlas.

@@ -176,6 +176,7 @@ class ProductFeedRowBuilder
         $color = null;
         $size  = null;
         $parts = [];
+        $otros = [];
 
         foreach ($variant->optionValues as $value) {
             $optionName = mb_strtolower((string) ($value->option->name ?? ''));
@@ -186,7 +187,18 @@ class ProductFeedRowBuilder
             } elseif (str_contains($optionName, 'talla') || str_contains($optionName, 'size')
                    || str_contains($optionName, 'tama')  || str_contains($optionName, 'medida')) {
                 $size = $value->value;
+            } else {
+                $otros[] = $value->value;
             }
+        }
+
+        // Las opciones se nombran a mano: en producción hay «medias» (errata de
+        // «medidas») y «Modelo». Reconocer sólo los nombres canónicos dejaba
+        // esas variantes sin NINGÚN atributo de agrupación, y entonces Meta ve
+        // varios items indistinguibles dentro del mismo grupo. Lo que no se
+        // reconoce va a `size`, que es texto libre.
+        if ($size === null && $otros) {
+            $size = implode(' / ', $otros);
         }
 
         $suffix = $variant->display_name ?: implode(' / ', array_filter($parts));
