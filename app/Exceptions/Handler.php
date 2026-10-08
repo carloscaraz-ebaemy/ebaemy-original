@@ -68,6 +68,27 @@ class Handler extends ExceptionHandler
     */
     public function render($request, Throwable $exception)
     {
+        // Token CSRF caducado o ausente. NO es un fallo del servidor: es una
+        // condicion esperada —la sesion expiro, o la pagina llego desde una
+        // cache y no traia cookie— y el codigo que la pide necesita poder
+        // distinguirla para conseguir un token nuevo y reintentar.
+        //
+        // Con HTML ya respondia 419, porque Laravel convierte esta excepcion
+        // al renderizarla. Con `Accept: application/json` no: TokenMismatch no
+        // es una HttpException, asi que se caia hasta el `errorResponse('',
+        // 500, ...)` del final y todas las llamadas por fetch del marketplace
+        // (favoritos, carrito, cupones) recibian un 500 en vez de un 419.
+        if ($exception instanceof \Illuminate\Session\TokenMismatchException) {
+            if ($request->expectsJson()) {
+                return response()->json(
+                    ['success' => false, 'message' => 'CSRF token mismatch.'],
+                    419
+                );
+            }
+
+            return parent::render($request, $exception);
+        }
+
         if ($exception instanceof InvalidOrderTransitionException) {
             if ($request->expectsJson()) {
                 return response()->json(['success' => false, 'message' => $exception->getMessage()], 422);
