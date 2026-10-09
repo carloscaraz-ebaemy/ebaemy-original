@@ -176,11 +176,21 @@
     .mp-offers-rail-wrap { position: relative; }
     .mp-offers-rail {
         display:flex; gap:14px;
-        overflow-x:auto; scroll-snap-type:x mandatory; scroll-behavior:smooth;
+        overflow-x:auto; scroll-behavior:smooth;
+        /* El snap se activa DESPUES de `load`, con la clase .is-snappy.
+           Un contenedor con scroll-snap-type:x mandatory se re-encaja solo
+           cuando su contenido termina de asentarse, y eso cuenta como un
+           scroll del usuario: Chrome deja de registrar candidatos a LCP en
+           el primer scroll. Medido el 2026-10-08 en escritorio, el
+           NotifyScroll caia en 1362 ms, treinta milisegundos ANTES del
+           primer pintado de imagen, y la pagina acababa sin LCP — con la
+           metrica sin medir, PageSpeed devuelve la puntuacion entera nula.
+           Las paginas sin este carril median 97. */
         padding:4px 2px 14px;
         scrollbar-width:none;            /* Firefox */
         -ms-overflow-style:none;         /* IE/Edge antiguo */
     }
+    .mp-offers-rail.is-snappy { scroll-snap-type:x mandatory; }
     .mp-offers-rail::-webkit-scrollbar { width:0; height:0; display:none; }  /* Chrome/Safari */
     .mp-offer-card {
         flex:0 0 auto; scroll-snap-align:start;
@@ -298,6 +308,19 @@
 // ese `loading="eager"` copiado tal cual y duplicaba las descargas que mas
 // prisa tenian. Por si acaso, al clonar se le devuelve el diferido: lo que
 // esta dentro de un modal cerrado no corre ninguna prisa.
+// El snap horizontal se enciende cuando la pagina ya pinto (ver el comentario
+// en .mp-offers-rail). Se aplica tambien al clon del modal, que para entonces
+// puede existir o no.
+(function () {
+    function snap() {
+        document.querySelectorAll('.mp-offers-rail').forEach(function (r) {
+            r.classList.add('is-snappy');
+        });
+    }
+    if (document.readyState === 'complete') setTimeout(snap, 200);
+    else window.addEventListener('load', function () { setTimeout(snap, 200); }, { once: true });
+})();
+
 window.mpOffersEnsureClone = function () {
     var rail  = document.getElementById('mpOffersRail');
     var mBody = document.getElementById('mpOffersModalBody');
@@ -305,6 +328,7 @@ window.mpOffersEnsureClone = function () {
 
     var clone = rail.cloneNode(true);
     clone.removeAttribute('id');
+    clone.classList.add('is-snappy');
     clone.querySelectorAll('img').forEach(function (img) {
         img.setAttribute('loading', 'lazy');
         img.setAttribute('decoding', 'async');
