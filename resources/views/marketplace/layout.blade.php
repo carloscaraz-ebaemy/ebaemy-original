@@ -142,15 +142,23 @@
     <script type="application/ld+json">{!! json_encode($mpJsonLd, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}</script>
     @endunless
 
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    {{-- Inter, alojada aqui. El <link> a fonts.googleapis.com bloqueaba el
+         renderizado 975 ms: dos origenes de terceros (googleapis para la
+         hoja, gstatic para el archivo) metidos en el camino critico por una
+         tipografia. Ahora es un solo archivo del mismo dominio, precargado,
+         y la hoja va inline para no anadir otro ida y vuelta. --}}
+    <link rel="preload" as="font" type="font/woff2" crossorigin
+          href="{{ asset('fonts/inter/inter-latin.woff2') }}">
+    <style>
+        @font-face{font-family:'Inter';font-style:normal;font-weight:100 900;font-display:swap;src:url('{{ asset('fonts/inter/inter-latin-ext.woff2') }}') format('woff2');unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C4,U+2113,U+2C60-2C7F,U+A720-A7FF}
+        @font-face{font-family:'Inter';font-style:normal;font-weight:100 900;font-display:swap;src:url('{{ asset('fonts/inter/inter-latin.woff2') }}') format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+    </style>
 
     {{-- Preconnect a los subdominios de tienda y preload de la imagen LCP.
          Lo apila partials/listing-preload desde la vista de rejilla; va aqui
          arriba, antes del CSS, para que el navegador abra esas conexiones
          mientras todavia esta descargando las hojas de estilo. --}}
     @stack('preload')
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     {{-- asset_v() pega ?v=filemtime: el navegador recarga el CSS solo cuando
          el archivo cambia (evita "desplegué pero no veo el cambio"), y gracias
          a eso nginx puede servirlo con caducidad de un año. --}}

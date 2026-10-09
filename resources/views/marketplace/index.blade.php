@@ -503,19 +503,12 @@
      el listado de abajo ya muestra los mismos productos, evitar duplicado.
      El carrusel + modal viven en el partial compartido con la página de tienda. --}}
 @php
-    // Quien pinta la primera imagen de la pagina decide que precargar en el
-    // <head>: si sale el carrusel de ofertas es la suya, si no, la primera
-    // tarjeta de la rejilla.
     $mpOffersRail = isset($dailyOffers) && $dailyOffers->count() >= 4 && empty($onOfferOnly);
 @endphp
 @if($mpOffersRail)
     @php
         $offerTenantsCount = collect($dailyOffers)->pluck('hostname_id')->unique()->count();
     @endphp
-    @include('marketplace.partials.listing-preload', [
-        'items'      => $dailyOffers,
-        'withSrcset' => false,
-    ])
     @include('marketplace.partials.daily-offers', [
         'offers'       => $dailyOffers,
         'seeAllUrl'    => route('marketplace.index', ['on_offer' => 1]),
@@ -933,17 +926,22 @@
                 </p>
             </div>
         @else
-            @unless($mpOffersRail)
-                @include('marketplace.partials.listing-preload', [
-                    'items'      => $listings,
-                    'withSrcset' => true,
-                ])
-            @endunless
+            {{-- El preload apunta SIEMPRE a la rejilla, tambien cuando el
+                 carrusel de ofertas va por encima. Medido con Lighthouse el
+                 2026-10-08: el elemento LCP es una tarjeta de la rejilla
+                 (~48vw en movil), no una del carrusel (200 px fijos), porque
+                 lo que cuenta es el tamano pintado y no el orden. Precargar
+                 la del carrusel dejaba el LCP con 1,47 s de «Load Delay»:
+                 adelantabamos una foto que no era la que se medía. --}}
+            @include('marketplace.partials.listing-preload', [
+                'items'      => $listings,
+                'withSrcset' => true,
+            ])
             @php
                 // Cuantas tarjetas se cargan sin diferir. Dos filas de movil
                 // (2 columnas) y la primera de escritorio caben de sobra en 6;
                 // el resto sigue siendo lazy. Lo lee partials/listing-card.
-                $cardEagerCount = $mpOffersRail ? 2 : 6;
+                $cardEagerCount = 6;
             @endphp
             <div class="mp-grid">
                 @foreach($listings as $idx => $listing)
