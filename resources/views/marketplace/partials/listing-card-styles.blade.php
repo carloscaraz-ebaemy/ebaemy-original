@@ -262,7 +262,10 @@
     }
     .mp-card-price-old {
         font-size: 12.5px; font-weight: 500;
-        color: #9ca3af; text-decoration: line-through;
+        /* Esta hoja se carga DESPUES de marketplace.css, asi que esta linea
+           pisaba el var(--mp-muted) que ya se habia corregido alli y el
+           precio tachado seguia en 2,53 de contraste. */
+        color: #5f7085; text-decoration: line-through;
         margin-left: 6px;
     }
     .mp-badge--offer {
