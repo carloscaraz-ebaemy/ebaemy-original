@@ -156,15 +156,18 @@
     .mp-filter-item .mp-filter-count {
         float: right;
         font-size: 11px;
-        color: var(--mp-muted, #9ca3af);
+        color: var(--mp-muted, #5f7085);
         background: rgba(0,0,0,.04);
         padding: 1px 7px;
         border-radius: 999px;
         line-height: 1.4;
     }
     .mp-filter-item.is-active .mp-filter-count {
-        background: rgba(255,255,255,.25);
-        color: #fff;
+        /* Era blanco sobre rgba(255,255,255,.25), o sea blanco sobre casi
+           blanco: 1,09 de contraste. El contador del filtro activo no se
+           podia leer — no es un matiz de accesibilidad, es que no se veia. */
+        background: rgba(15,138,130,.16);
+        color: #0e5e59;
     }
 
     /* Color dots en cards (estilo Falabella) */

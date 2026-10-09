@@ -321,14 +321,25 @@
 
         <form id="mpSearchForm" action="{{ route('marketplace.index') }}" method="GET" class="mp-search" role="search">
             @if(isset($marketplaceNavCategories) && $marketplaceNavCategories->count() > 0)
+            @php
+                // El texto visible se esconde por CSS en pantallas estrechas y
+                // el boton se queda sin nombre accesible: para un lector de
+                // pantalla pasa a ser «boton» a secas. El aria-label lo
+                // sostiene pase lo que pase, y repite lo mismo que el <span>
+                // para que no haya dos nombres distintos.
+                $mpMegaLabel = !empty($navScopedToSubdomain ?? null)
+                    ? 'Categorías de la tienda'
+                    : 'Categorías';
+            @endphp
             <button type="button"
                     id="mpMegaToggle"
                     class="mp-search-category mp-mega-toggle"
+                    aria-label="{{ $mpMegaLabel }}"
                     aria-haspopup="true"
                     aria-expanded="false"
                     aria-controls="mpMegaPanel">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-                <span class="mp-mega-toggle__label">{{ !empty($navScopedToSubdomain ?? null) ? 'Categorías de la tienda' : 'Categorías' }}</span>
+                <span class="mp-mega-toggle__label">{{ $mpMegaLabel }}</span>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="mp-mega-toggle__chev"><polyline points="6 9 12 15 18 9"/></svg>
             </button>
             @endif

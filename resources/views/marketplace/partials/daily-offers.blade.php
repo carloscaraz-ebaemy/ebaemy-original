@@ -123,8 +123,8 @@
     .mp-offers-head__title-wrap { min-width: 0; flex: 1; }
     .mp-offers-head__actions { display: inline-flex; gap: 8px; align-items: center; flex-shrink: 0; }
     .mp-offers-title { margin:0; font-size:18px; font-weight:800; color:#0a0e1a; }
-    .mp-offers-sub { margin:2px 0 0; font-size:12.5px; color:#6b7280; }
-    .mp-offers-cta { font-size:13px; font-weight:700; color:#dc2626; text-decoration:none; white-space:nowrap; }
+    .mp-offers-sub { margin:2px 0 0; font-size:12.5px; color:#555c69; }   /* #6b7280 sobre #f4f6f9 daba 4,46 */
+    .mp-offers-cta { font-size:13px; font-weight:700; color:#bf1b1b; text-decoration:none; white-space:nowrap; }   /* #dc2626 sobre #f4f6f9 daba 4,46 */
     .mp-offers-cta:hover { text-decoration:underline; }
 
     /* Flechas nav del carrusel (desktop). Mobile: ocultas, swipe nativo. */
@@ -234,7 +234,7 @@
     }
     .mp-offer-card__price-row { display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; }
     .mp-offer-card__price { font-size:16px; font-weight:800; color:#dc2626; }
-    .mp-offer-card__old { font-size:12px; color:#9ca3af; text-decoration:line-through; }
+    .mp-offer-card__old { font-size:12px; color:#6b7280; text-decoration:line-through; }   /* #9ca3af sobre blanco daba 2,54 */
     .mp-offer-card__shop { margin-top:4px; font-size:11.5px; color:#6b7280; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     @media (max-width: 640px) {
         .mp-offer-card { width: 160px; }

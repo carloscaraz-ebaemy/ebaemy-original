@@ -724,7 +724,7 @@
                 @if(!empty($verifiedOnly)) <input type="hidden" name="verified" value="1"> @endif
                 @if(!empty($inStockOnly))  <input type="hidden" name="in_stock" value="1"> @endif
                 @if(!empty($packsOnly))    <input type="hidden" name="packs"    value="1"> @endif
-                <select name="brand" class="mp-filter-select" onchange="this.form.submit()" style="width:100%;padding:8px 10px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;background:#fff;color:#374151">
+                <select name="brand" class="mp-filter-select" aria-label="Filtrar por marca" onchange="this.form.submit()" style="width:100%;padding:8px 10px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;background:#fff;color:#374151">
                     <option value="">Todas las marcas</option>
                     @foreach($brands as $b)
                         <option value="{{ $b }}" {{ ($brand ?? null) === $b ? 'selected' : '' }}>{{ $b }}</option>
@@ -741,12 +741,12 @@
             </div>
             <a href="{{ route('marketplace.index', $toggleQs('on_offer')) }}"
                class="mp-filter-checkbox {{ !empty($onOfferOnly) ? 'is-active' : '' }}">
-                <input type="checkbox" {{ !empty($onOfferOnly) ? 'checked' : '' }} onclick="return false">
+                <input type="checkbox" {{ !empty($onOfferOnly) ? 'checked' : '' }} onclick="return false" aria-hidden="true" tabindex="-1">
                 Con descuento
             </a>
             <a href="{{ route('marketplace.index', $toggleQs('packs')) }}"
                class="mp-filter-checkbox {{ !empty($packsOnly) ? 'is-active' : '' }}">
-                <input type="checkbox" {{ !empty($packsOnly) ? 'checked' : '' }} onclick="return false">
+                <input type="checkbox" {{ !empty($packsOnly) ? 'checked' : '' }} onclick="return false" aria-hidden="true" tabindex="-1">
                 📦 Solo packs / combos
             </a>
             {{-- 'Envío gratis' removido hasta que la feature este implementada.
@@ -760,12 +760,12 @@
             </div>
             <a href="{{ route('marketplace.index', $toggleQs('verified')) }}"
                class="mp-filter-checkbox {{ !empty($verifiedOnly) ? 'is-active' : '' }}">
-                <input type="checkbox" {{ !empty($verifiedOnly) ? 'checked' : '' }} onclick="return false">
+                <input type="checkbox" {{ !empty($verifiedOnly) ? 'checked' : '' }} onclick="return false" aria-hidden="true" tabindex="-1">
                 Solo tiendas verificadas
             </a>
             <a href="{{ route('marketplace.index', $toggleQs('in_stock')) }}"
                class="mp-filter-checkbox {{ !empty($inStockOnly) ? 'is-active' : '' }}">
-                <input type="checkbox" {{ !empty($inStockOnly) ? 'checked' : '' }} onclick="return false">
+                <input type="checkbox" {{ !empty($inStockOnly) ? 'checked' : '' }} onclick="return false" aria-hidden="true" tabindex="-1">
                 Con stock disponible
             </a>
         </div>

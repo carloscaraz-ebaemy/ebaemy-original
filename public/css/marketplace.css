@@ -17,7 +17,11 @@
 
     --mp-ink:            #0f172a;
     --mp-ink-soft:       #475569;
-    --mp-muted:          #94a3b8;
+    /* Subido de #94a3b8 el 2026-10-08: sobre blanco daba 2,56 de contraste,
+       muy por debajo del 4,5 que pide WCAG AA, y Lighthouse marcaba con el
+       los precios tachados, los metadatos de tienda y los subtitulos. Es el
+       mismo matiz slate, solo mas oscuro: 5,07 sobre blanco. */
+    --mp-muted:          #5f7085;
     --mp-line:           #e2e8f0;
     --mp-line-soft:      #eef2f6;
     --mp-bg:             #f4f6f9;
@@ -861,7 +865,8 @@ button { font-family: inherit; cursor: pointer; }
     align-items: center;
     padding: 1px 6px;
     background: #fee2e2;
-    color: #dc2626;
+    /* #dc2626 sobre #fee2e2 daba 3,95. */
+    color: #b91c1c;
     border-radius: 6px;
     font-size: 11px;
     font-weight: 800;
@@ -2119,7 +2124,8 @@ button { font-family: inherit; cursor: pointer; }
     justify-content: space-between;
     align-items: center;
     font-size: 12.5px;
-    color: #64748b;
+    /* Sobre el fondo #0b1220 del pie, #64748b daba 3,93. */
+    color: #94a3b8;
     flex-wrap: wrap;
     gap: 10px;
 }
