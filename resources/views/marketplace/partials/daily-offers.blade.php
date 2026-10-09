@@ -400,12 +400,29 @@ window.mpOffersEnsureClone = function () {
 
     // Auto-abrir una sola vez por sesión (no molesta en cada navegación).
     // La clave es única por contexto (home vs cada tienda).
-    try {
-        var KEY = @json($modalSeenKey);
-        if (!sessionStorage.getItem(KEY)) {
+    //
+    // Se espera a que la pagina haya TERMINADO de pintar, no 700 ms desde que
+    // empieza. Con los 700 ms de antes el modal tapaba el contenido mientras
+    // el navegador todavia estaba decidiendo cual era su mayor elemento
+    // pintado: en escritorio, donde todo va rapido, Chrome no llegaba a
+    // registrar ninguno y Lighthouse devolvia `NO_LCP` — con el LCP sin medir
+    // la puntuacion de rendimiento entera sale nula. Medido el 2026-10-08:
+    // la misma pagina sin este modal daba 93 con LCP de 1,5 s.
+    //
+    // De paso es mejor para quien mira: un interstitial encima de un
+    // escaparate a medio pintar es justo lo que Google penaliza.
+    function autoAbrir() {
+        try {
+            var KEY = @json($modalSeenKey);
+            if (sessionStorage.getItem(KEY)) return;
             sessionStorage.setItem(KEY, '1');
-            setTimeout(open, 700);
-        }
-    } catch (e) {}
+        } catch (e) { return; }
+
+        // `load` ya implica que las imagenes del primer pliegue entraron.
+        var tras = function () { setTimeout(open, 1500); };
+        if (document.readyState === 'complete') tras();
+        else window.addEventListener('load', tras, { once: true });
+    }
+    autoAbrir();
 })();
 </script>
