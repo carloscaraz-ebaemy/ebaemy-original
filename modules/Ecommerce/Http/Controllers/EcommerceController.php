@@ -287,6 +287,17 @@ class EcommerceController extends Controller
             'flashSale'       => $flashSale,
             'marketplaceCategories' => $marketplaceCategories,
             'currentMpCategory'     => $currentMpCategory,
+
+            // Sin estas dos, el <h1> de la portada de TODAS las tiendas salia
+            // literalmente «Tienda Online» y el parrafo de entrada con el
+            // texto generico. La vista hace
+            // `$company->trade_name ?? $company->name ?? 'Tienda Online'`,
+            // y con `$company` sin pasar el `??` se traga el acceso a null y
+            // cae hasta el literal, sin aviso ninguno. El `$seo` del layout
+            // tampoco vale: se define en su propio @php, que corre DESPUES de
+            // capturar las secciones del hijo.
+            'company'         => Company::first(),
+            'seo'             => ConfigurationEcommerce::firstCached(),
         ];
 
         // AJAX: devolver solo el grid parcial

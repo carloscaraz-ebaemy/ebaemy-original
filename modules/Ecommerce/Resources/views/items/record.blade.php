@@ -91,7 +91,10 @@
         "itemCondition": "https://schema.org/NewCondition",
         "seller": {
             "@type": "Organization",
-            "name": "{{ addslashes($company->name ?? 'Tienda Online') }}"
+            {{-- El nombre COMERCIAL, no la razon social: `name` es el nombre
+                 legal y en la mitad de las tiendas es el nombre personal del
+                 dueno, que acababa publicado en Google como el vendedor. --}}
+            "name": "{{ addslashes($company->trade_name ?: ($company->name ?? 'Tienda Online')) }}"
         }
     }
     @php

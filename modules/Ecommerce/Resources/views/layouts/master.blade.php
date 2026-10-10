@@ -46,7 +46,10 @@
     <link rel="dns-prefetch" href="https://connect.facebook.net">
 
     {{-- SEO: Título dinámico por página --}}
-    <title>@yield('page_title', $seo->seo_title ?? $company->name ?? 'Tienda Online')</title>
+    {{-- `$company->name` es la RAZON SOCIAL. Cuando una vista no fija su
+         propio titulo, caer ahi publica el nombre legal —y en la mitad de las
+         tiendas, el nombre personal del dueno. El comercial va primero. --}}
+    <title>@yield('page_title', $seo->seo_title ?: ($company->trade_name ?: ($company->name ?? 'Tienda Online')))</title>
     <meta name="description" content="@yield('meta_description', $seo->seo_description ?? 'Bienvenido a nuestra tienda.')">
     <meta name="keywords" content="@yield('meta_keywords', $seo->seo_keywords ?? 'ecommerce, tienda, decoración, hogar')">
     <meta name="author" content="{{ $seo->seo_author ?? $company->name }}">
@@ -71,7 +74,7 @@
 
     {{-- SEO: Open Graph --}}
     <meta property="og:locale" content="es_PE">
-    <meta property="og:title" content="@yield('og_title', $seo->og_title ?? $seo->seo_title ?? $company->name)">
+    <meta property="og:title" content="@yield('og_title', $seo->og_title ?: ($seo->seo_title ?: ($company->trade_name ?: $company->name)))">
     <meta property="og:description" content="@yield('og_description', $seo->og_description ?? $seo->seo_description)">
     <meta property="og:type" content="@yield('og_type', 'website')">
     <meta property="og:url" content="@yield('canonical_url', url()->current())">
@@ -88,7 +91,7 @@
 
     {{-- SEO: Twitter Cards --}}
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="@yield('og_title', $seo->twitter_title ?? $seo->seo_title ?? $company->name)">
+    <meta name="twitter:title" content="@yield('og_title', $seo->twitter_title ?: ($seo->seo_title ?: ($company->trade_name ?: $company->name)))">
     <meta name="twitter:description" content="@yield('og_description', $seo->twitter_description ?? $seo->seo_description)">
     <meta name="twitter:image" content="@yield('og_image', $share_image . '?v=' . $v)">
 

@@ -80,6 +80,13 @@
         @yield('schema_product')
     @endif
 
+    {{-- Respaldo heredado: Product + BreadcrumbList para cuando la vista hija
+         NO trae los suyos. Hasta 2026-10-10 se emitian SIEMPRE, asi que cada
+         ficha de producto llevaba DOS bloques Product y DOS BreadcrumbList.
+         El segundo Product salia ademas incompleto —`brand` vacia, sin `url`
+         y sin `seller`—, que es lo peor que puede pasar con datos
+         estructurados: Google elige, y puede elegir el malo. --}}
+    @unless(View::hasSection('schema_product'))
     {{-- SEO: Product Schema --}}
     @if(isset($record))
     <script type="application/ld+json">
@@ -129,6 +136,7 @@
     }
     </script>
     @endif
+    @endunless
 
     {{-- Favicon --}}
     <link rel="icon"             type="image/png" href="{{ $favicon_url }}?v={{ $v }}">
