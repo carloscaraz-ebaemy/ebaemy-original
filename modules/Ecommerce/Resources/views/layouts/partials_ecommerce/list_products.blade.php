@@ -56,7 +56,12 @@
     if ((int) request('page', 1) === 1) {
         foreach ($dataPaginate as $__p) {
             if ($__p->image && $__p->image !== 'imagen-no-disponible.jpg') {
-                $primeraFoto = asset('storage/uploads/items/' . $__p->image);
+                // El MISMO archivo que va a pintar la tarjeta: si el preload
+                // apunta a otra URL, la foto se descarga dos veces y el
+                // adelanto sale mas caro que no hacerlo.
+                $__med = ($__p->image_medium ?? null);
+                $__med = ($__med && $__med !== 'imagen-no-disponible.jpg') ? $__med : null;
+                $primeraFoto = asset('storage/uploads/items/' . ($__med ?: $__p->image));
                 break;
             }
         }
@@ -85,8 +90,22 @@
         ? asset('logo/imagen-no-disponible.jpg')
         : asset('storage/defaults/' . $defaultImage);
     $hasRealImage = $item->image && $item->image !== 'imagen-no-disponible.jpg';
+
+    // La rejilla pinta la foto a ~200-400 px, pero servia el ORIGINAL. La
+    // variante reducida ya existe en `items.image_medium` —la genera el
+    // pipeline de imagenes y la usa el marketplace desde siempre— y pesa la
+    // mitad: 50 KB frente a 106 KB en la foto que mide Google como LCP de
+    // alasitas. Las 86 fotos de esa tienda la tienen poblada.
+    //
+    // Con respaldo al original por si algun producto viejo no la tiene: mejor
+    // una foto pesada que un hueco.
+    $imagenReducida = ($item->image_medium ?? null);
+    $imagenReducida = ($imagenReducida && $imagenReducida !== 'imagen-no-disponible.jpg')
+        ? $imagenReducida
+        : null;
+
     $imagePath    = $hasRealImage
-        ? asset('storage/uploads/items/' . $item->image)
+        ? asset('storage/uploads/items/' . ($imagenReducida ?: $item->image))
         : $defaultPath;
     // Segunda imagen para hover swap
     $hoverImage = null;
