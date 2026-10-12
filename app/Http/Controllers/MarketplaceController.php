@@ -1838,14 +1838,30 @@ class MarketplaceController extends Controller
             ->orderByDesc('synced_at')
             ->first(['tenant_name', 'tenant_logo_url', 'tenant_verified', 'tenant_fqdn']);
 
+        // La direccion publica de la tienda: su dominio principal si lo tiene.
+        //
+        // Este es el UNICO enlace entrante que recibe cada tienda desde
+        // ebaemy.com, asi que importa a donde apunta. En cuanto un tenant
+        // tenga dominio propio y lo marque como principal, enlazar al
+        // subdominio viejo obligaria a Google a seguir un 301 — y un enlace
+        // que pasa por una redireccion vale menos que uno directo.
+        //
+        // Sin dominio principal marcado se queda como siempre: el `tenant_fqdn`
+        // de la ficha o el hostname encontrado por subdominio.
+        $principal = \Hyn\Tenancy\Models\Hostname::where('website_id', $hostname->website_id)
+            ->where('is_primary', true)
+            ->value('fqdn');
+
+        $hostPublico = $principal ?: ($sample->tenant_fqdn ?? $hostname->fqdn);
+
         $store = (object) [
             'subdomain'  => $subdomain,
             'name'       => $sample->tenant_name ?? $client->name ?? $hostname->fqdn,
             'logo_url'   => $sample->tenant_logo_url ?? null,
             'verified'   => (bool) ($sample->tenant_verified ?? $client->is_verified ?? false),
-            'fqdn'       => $sample->tenant_fqdn ?? $hostname->fqdn,
+            'fqdn'       => $hostPublico,
             'ruc'        => $client->number ?? null,
-            'site_url'   => 'https://' . ($sample->tenant_fqdn ?? $hostname->fqdn),
+            'site_url'   => 'https://' . $hostPublico,
         ];
 
         return view('marketplace.tenant', compact(
