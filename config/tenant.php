@@ -70,4 +70,16 @@ return [
     'verification_cname_target'  => env('TENANT_CNAME_TARGET', 'verify.ebaemy.com'),
     'ssl_email'                  => env('TENANT_SSL_EMAIL', 'admin@ebaemy.com'),
     'default_theme'              => env('TENANT_DEFAULT_THEME', 'default'),
+
+    // Nginx Proxy Manager: quien termina el 443 en este servidor.
+    //
+    // Sin email y contrasena, la automatizacion del certificado queda APAGADA
+    // y el sistema dice que hay que crearlo a mano — que es lo correcto
+    // mientras no haya credenciales. La URL apunta al propio contenedor desde
+    // la maquina, no se expone a nadie.
+    'npm' => [
+        'url'      => env('NPM_URL', 'http://127.0.0.1:81'),
+        'email'    => env('NPM_EMAIL'),
+        'password' => env('NPM_PASSWORD'),
+    ],
 ];

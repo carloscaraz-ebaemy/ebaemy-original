@@ -58,12 +58,25 @@ class GenerateSslCertificate implements ShouldQueue
             return;
         }
 
-        try {
-            $hostname->ssl_status = 'manual_required';
-            $hostname->save();
-        } catch (\Throwable $e) {
-            // Las columnas de SSL podrian no existir en instalaciones viejas.
+        $npm = app(\App\Services\System\NginxProxyManager::class);
+
+        if ($npm->estaConfigurado()) {
+            $r = $npm->publicarDominio($hostname->fqdn);
+            $this->marcarSsl($hostname, $r['ok'] ? 'active' : 'failed');
+
+            if ($r['ok']) {
+                Log::info('SSL emitido para ' . $hostname->fqdn, ['detalle' => $r['mensaje']]);
+            } else {
+                Log::warning('No se pudo emitir el SSL; queda para hacerlo a mano', [
+                    'dominio' => $hostname->fqdn,
+                    'motivo'  => $r['mensaje'],
+                ]);
+            }
+
+            return;
         }
+
+        $this->marcarSsl($hostname, 'manual_required');
 
         Log::warning('Dominio activado SIN certificado: hay que crearlo a mano en Nginx Proxy Manager', [
             'dominio'          => $hostname->fqdn,
@@ -76,5 +89,18 @@ class GenerateSslCertificate implements ShouldQueue
             'http2'            => true,
             'aviso'            => 'El desafio es HTTP: el DNS del dominio debe apuntar ya a este servidor antes de pedir el certificado.',
         ]);
+    }
+
+    private function marcarSsl(Hostname $hostname, string $estado): void
+    {
+        try {
+            $hostname->ssl_status = $estado;
+            if ($estado === 'active') {
+                $hostname->ssl_expires_at = now()->addDays(90);   // Let's Encrypt
+            }
+            $hostname->save();
+        } catch (\Throwable $e) {
+            // Las columnas de SSL podrian no existir en instalaciones viejas.
+        }
     }
 }
