@@ -37,8 +37,26 @@
 @endphp
 
 {{-- ── SEO META DINÁMICOS POR PRODUCTO ─────────────── --}}
-@section('page_title', $record->description . ' | ' . ($company->trade_name ?? $company->name ?? 'Tienda Online'))
-@section('meta_description', $shortDesc)
+@php
+    // Titulo y descripcion propios de la ficha si el administrador los ha
+    // escrito; si no, los de siempre. El respaldo se construye con datos
+    // REALES del producto —su nombre, su tienda, su texto comercial—: aqui no
+    // se inventa ni una caracteristica, ni una medida, ni un material.
+    //
+    // `?:` y no `??` a proposito: una columna nueva en una tabla con 95 filas
+    // llega como NULL, pero un campo de formulario que se deja en blanco llega
+    // como cadena vacia, y `??` daria por bueno ese vacio y publicaria un
+    // titulo en blanco.
+    // `?? ''` antes del `?:` porque `$record` NO es un modelo Eloquent, es un
+    // stdClass armado a mano en el controlador: si la clave no esta, acceder a
+    // la propiedad es un error, no un null. El `?:` posterior cubre el otro
+    // caso, el campo que el administrador dejo en blanco y llega vacio.
+    $tienda      = $company->trade_name ?: ($company->name ?? 'Tienda Online');
+    $tituloSeo   = ($record->seo_title ?? '') ?: ($record->description . ' | ' . $tienda);
+    $descripSeo  = ($record->seo_description ?? '') ?: $shortDesc;
+@endphp
+@section('page_title', $tituloSeo)
+@section('meta_description', $descripSeo)
 @section('meta_keywords', $record->description . ($record->category ? ', ' . $record->category->name : '') . ', ' . ($company->name ?? ''))
 @section('og_type', 'product')
 @section('og_title', $record->description)

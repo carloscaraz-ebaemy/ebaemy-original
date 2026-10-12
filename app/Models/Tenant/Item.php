@@ -180,6 +180,8 @@ class Item extends ModelTenant
         'mp_price',
         'mp_status',
         'mp_notes',
+        'seo_title',
+        'seo_description',
         'mp_synced_at',
         'marketplace_category_id',
         'apply_restaurant',
@@ -1716,6 +1718,12 @@ class Item extends ModelTenant
             // ¿El producto está marcado para Saga? (mapeo activo, no excluido) → switch.
             'saga_enabled' => in_array(self::resolveSagaStatusMap()[$this->id]['sync_status'] ?? null, ['synced', 'pending', 'error'], true),
             'mp_notes'   => $this->mp_notes,
+            // SEO propio de la ficha. Van al JSON que consume el Vue del
+            // formulario: sin esto el campo se pinta pero vuelve vacio al
+            // reabrir el producto, que es el fallo clasico de anadir una
+            // columna y olvidar el contrato de la vista.
+            'seo_title'       => $this->seo_title,
+            'seo_description' => $this->seo_description,
             'marketplace_category_id'   => $this->marketplace_category_id,
             'marketplace_category_path' => $this->resolveMarketplaceCategoryPath(),
 

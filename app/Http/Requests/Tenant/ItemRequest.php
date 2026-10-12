@@ -37,6 +37,16 @@ class ItemRequest extends FormRequest
             'description' => [
                 'required', 'max:600'
             ],
+            // SEO propio de la ficha. Opcionales los dos: en blanco, la ficha
+            // publica el nombre del producto y su descripcion, como siempre.
+            // Los maximos coinciden con el ancho de las columnas para que un
+            // texto largo de un error claro y no un truncado silencioso.
+            'seo_title' => [
+                'nullable', 'string', 'max:70'
+            ],
+            'seo_description' => [
+                'nullable', 'string', 'max:180'
+            ],
             'name' => [
                 'max:600'
             ],

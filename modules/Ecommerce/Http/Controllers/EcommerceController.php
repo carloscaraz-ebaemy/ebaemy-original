@@ -553,6 +553,12 @@ class EcommerceController extends Controller
             // solo podia mostrar el nombre y la descripcion escrita al
             // registrar el producto no aparecia nunca en la tienda.
             'mp_notes'                    => $row->mp_notes,
+            // SEO propio de la ficha. Esta lista es una lista BLANCA: una
+            // columna que no se nombre aqui no llega a la vista por mucho que
+            // exista en la tabla — justo lo que le paso a `mp_notes` y esta
+            // documentado dos lineas mas arriba.
+            'seo_title'                   => $row->seo_title ?? null,
+            'seo_description'             => $row->seo_description ?? null,
             'name'                        => $row->name,
             'second_name'                 => $row->second_name,
             'sale_unit_price'             => ($row->currency_type_id === 'PEN') ? $finalPrice : ($finalPrice * $exchange_rate_sale),

@@ -727,6 +727,48 @@
                             </div>
                         </div>
 
+                        <!-- ── SEO de la ficha ──────────────────────────────
+                             Opcional. Si se deja en blanco, la ficha publica
+                             el nombre del producto y su descripcion, que es
+                             justo lo que hacia antes de que existieran estos
+                             campos. -->
+                        <div class="ie-card" style="display:flex;gap:12px;align-items:flex-start;padding:14px;border:1px solid #e5e7eb;border-radius:10px;margin-top:14px">
+                            <div style="font-size:22px;line-height:1">🔎</div>
+                            <div style="flex:1">
+                                <div style="font-weight:600;font-size:14px;color:#111827">Cómo se ve en Google</div>
+                                <div style="font-size:12px;color:#6b7280;margin-top:2px">
+                                    Opcional. Si lo dejas vacío se usa el nombre del producto y su
+                                    descripción, igual que hasta ahora.
+                                </div>
+
+                                <div style="margin-top:10px">
+                                    <label style="font-size:12px;color:#374151;display:block;margin-bottom:4px">Título</label>
+                                    <el-input v-model="form.seo_title"
+                                              :maxlength="70"
+                                              placeholder="Ej. Planta de plátano artificial de 1,60 m"></el-input>
+                                    <div style="font-size:11px;margin-top:4px"
+                                         :style="{color: (form.seo_title || '').length > 60 ? '#b45309' : '#9ca3af'}">
+                                        {{ (form.seo_title || '').length }} de 70 caracteres.
+                                        Google suele cortar alrededor de los 60.
+                                    </div>
+                                </div>
+
+                                <div style="margin-top:12px">
+                                    <label style="font-size:12px;color:#374151;display:block;margin-bottom:4px">Descripción</label>
+                                    <el-input v-model="form.seo_description"
+                                              type="textarea"
+                                              :rows="2"
+                                              :maxlength="180"
+                                              placeholder="La frase que aparece debajo del título en los resultados."></el-input>
+                                    <div style="font-size:11px;margin-top:4px"
+                                         :style="{color: (form.seo_description || '').length > 155 ? '#b45309' : '#9ca3af'}">
+                                        {{ (form.seo_description || '').length }} de 180 caracteres.
+                                        Google suele cortar alrededor de los 155.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                     </div>
                 </el-tab-pane>
 
@@ -2053,6 +2095,8 @@ export default {
                 marketplace_publishable: false,
                 mp_price: null,
                 mp_notes: null,
+                seo_title: null,
+                seo_description: null,
                 mp_status: null,
                 marketplace_category_id: null,
                 marketplace_category_path: [],
