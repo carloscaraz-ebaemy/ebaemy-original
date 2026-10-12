@@ -328,6 +328,17 @@ class EcommerceController extends Controller
             }
 
             $category = $resolved->id;
+        } elseif (!Category::whereKey((int) $category)->exists()) {
+            // Un id numerico que no existe TIENE que dar 404.
+            //
+            // Antes solo se comprobaba la existencia cuando el parametro no era
+            // numerico. Con un numero se fusionaba el filtro sin mirar nada, y
+            // mas adelante `Category::find()` devolvia null: la vista se
+            // quedaba sin filtro de categoria y pintaba el catalogo ENTERO con
+            // el titulo y la canonical de la portada. Es un soft 404 —
+            // /ecommerce/category/999 respondia HTTP 200 con 402 KB— y abre
+            // infinitas URLs duplicadas de la portada, todas indexables.
+            abort(404);
         }
 
         request()->merge(['category_id' => $category]);

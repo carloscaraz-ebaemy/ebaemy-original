@@ -7,6 +7,40 @@
     $categoryUrl     = $hasCategoryFilter ? route('tenant.ecommerce.category', ['category' => $currentCategory->id]) : null;
     $homeUrl         = route('tenant.ecommerce.index');
 
+    // ── Canonical de las paginas paginadas ───────────────────────────────
+    // A partir de la pagina 2, la canonical apunta a ESA pagina, no a la
+    // primera. Antes todas las paginas de la serie se canonicalizaban a la
+    // portada mientras a la vez emitian rel=prev/next: dos senales que se
+    // contradicen —«esto es una serie» y «todas son la misma pagina»—. Y la
+    // consecuencia practica es que los productos que solo aparecen a partir
+    // de la pagina 2 pierden la unica ruta de descubrimiento que tienen desde
+    // el listado.
+    //
+    // Los demas parametros (orden, filtros, busqueda) SI siguen consolidando
+    // a la URL limpia: ahi no hay contenido nuevo que descubrir, solo el mismo
+    // catalogo barajado, y multiplicar URLs no aporta nada.
+    // ── Politica de indexacion de busquedas y filtros ────────────────────
+    // La busqueda interna y las combinaciones de filtros no se indexan: son
+    // el mismo catalogo barajado, se multiplican sin limite y no hay ninguna
+    // consulta de Google que deba aterrizar ahi. Las categorias SI siguen
+    // siendo indexables: esas si tienen contenido y utilidad propios.
+    //
+    // Se hace con `noindex` en la pagina y NO con robots.txt: si se bloquea el
+    // rastreo, el buscador nunca llega a leer la directiva y la URL puede
+    // acabar indexada igual, sin titulo ni descripcion.
+    //
+    // `follow` a proposito: que no se indexe la pagina de resultados no quita
+    // que sus enlaces lleven a fichas que si interesan.
+    $parametrosNoIndexables = ['q', 'sort', 'available', 'min_price', 'max_price', 'mp_category'];
+    $esBusquedaOFiltro = collect($parametrosNoIndexables)
+        ->contains(fn ($p) => filled(request($p)));
+
+    $paginaActual = (int) request('page', 1);
+    $urlBase      = $categoryUrl ?: $homeUrl;
+    $canonicalUrl = $paginaActual > 1
+        ? $urlBase . '?page=' . $paginaActual
+        : $urlBase;
+
     // og:image dinámica por categoría: usamos la imagen del primer producto
     // visible. Fallback al $share_image global del layout si no hay productos
     // o no tienen imagen.
@@ -25,6 +59,12 @@
     // hay página previa/siguiente real.
     $prevPageUrl = (isset($dataPaginate) && method_exists($dataPaginate, 'previousPageUrl'))
         ? $dataPaginate->previousPageUrl() : null;
+
+    // Desde la pagina 2, el `prev` apunta a la URL limpia y no a `?page=1`:
+    // son la misma pagina con dos direcciones, y la limpia es la canonica.
+    if ($prevPageUrl && $paginaActual === 2) {
+        $prevPageUrl = $urlBase;
+    }
     $nextPageUrl = (isset($dataPaginate) && method_exists($dataPaginate, 'nextPageUrl'))
         ? $dataPaginate->nextPageUrl() : null;
 @endphp
@@ -34,12 +74,17 @@
     @section('page_title', $categoryName . ' — Tienda Online')
     @section('meta_description', 'Explora todos los productos de ' . $categoryName . ' en nuestra tienda.')
     @section('meta_keywords', $categoryName . ', tienda online, comprar ' . $categoryName . ', ' . ($company->name ?? ''))
-    @section('canonical_url', $categoryUrl)
+    @section('canonical_url', $canonicalUrl)
     @if($categoryOgImage)
         @section('og_image', $categoryOgImage)
     @endif
 @else
-    @section('canonical_url', $homeUrl)
+    @section('canonical_url', $canonicalUrl)
+@endif
+
+{{-- ── SEO: busquedas y filtros fuera del indice ───────────────── --}}
+@if($esBusquedaOFiltro)
+    @section('meta_robots', 'noindex, follow')
 @endif
 
 {{-- ── SEO: rel prev/next para paginación ──────────────────────── --}}

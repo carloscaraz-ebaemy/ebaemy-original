@@ -6,7 +6,19 @@ if($current_hostname) {
     Route::domain($current_hostname->fqdn)->group(function () {
         Route::middleware(['auth', 'locked.tenant', 'check.email.verified'])->group(function () {
 
-            Route::redirect('/', '/dashboard');
+            // AQUI HABIA: Route::redirect('/', '/dashboard');
+            //
+            // Registraba la raiz del tenant DENTRO de un grupo con middleware
+            // `auth`, y las rutas de modulo se cargan antes que
+            // `routes/web.php`, asi que ganaba a la de alla. Consecuencia: la
+            // raiz de TODAS las tiendas (alasitas.ebaemy.com/, lia..., etc.)
+            // respondia 302 a /login. Quien tecleaba el dominio de la tienda
+            // aterrizaba en un formulario de acceso, y Google, al rastrear la
+            // raiz, encontraba una pagina privada en vez del escaparate.
+            //
+            // No hace falta reponerla: `routes/web.php` ya resuelve la raiz
+            // para los dos casos — autenticado a /dashboard, anonimo a
+            // /ecommerce— y ese es el comportamiento que se queria.
 
             Route::prefix('dashboard')->group(function () {
                 Route::get('/', 'DashboardController@index')->name('tenant.dashboard.index');

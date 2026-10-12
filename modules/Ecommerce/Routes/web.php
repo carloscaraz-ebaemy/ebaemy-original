@@ -29,7 +29,11 @@ Route::get('/libro-reclamaciones', function () {
 // ========== SEO - Rutas públicas (sin auth ni middleware) ==========
 Route::get('/sitemap.xml', '\Modules\Ecommerce\Http\Controllers\SitemapController@index');
 Route::get('/robots.txt', '\Modules\Ecommerce\Http\Controllers\RobotsController@index');
-Route::get('/ecommerce/sitemap.xml', '\Modules\Ecommerce\Http\Controllers\SitemapController@index');
+// La direccion buena del sitemap es /sitemap.xml, la que esperan los
+// buscadores. Esta otra devolvia el MISMO XML byte a byte y se anunciaba
+// ademas en robots.txt: dos direcciones para un unico recurso. Se queda
+// como redireccion permanente por si alguien la tiene guardada.
+Route::get('/ecommerce/sitemap.xml', fn () => redirect('/sitemap.xml', 301));
 
 // ========== Product Feeds ==========
 Route::get('/ecommerce/feed/google',   [ProductFeedController::class, 'googleMerchant'])->name('ecommerce.feed.google');

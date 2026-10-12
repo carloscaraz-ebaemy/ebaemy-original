@@ -5,6 +5,7 @@ namespace Modules\Ecommerce\Http\Controllers;
 use App\Http\Controllers\Controller;
 use App\Models\Tenant\Item;
 use App\Models\Tenant\ConfigurationEcommerce;
+use Illuminate\Support\Facades\Log;
 use Modules\Item\Models\Category;
 
 class SitemapController extends Controller
@@ -42,8 +43,19 @@ class SitemapController extends Controller
         ]);
 
         // ── Categorías ─────────────────────────────────────────────────────
+        // Solo las que tienen algo que ensenar. Una categoria vacia es una
+        // pagina sin contenido, y mandarsela a Google en el sitemap es pedirle
+        // que gaste rastreo en ella y que juzgue el sitio por paginas vacias.
         try {
-            foreach (Category::all() as $category) {
+            $categoriasConProductos = Item::query()
+                ->where('apply_store', 1)
+                ->whereNotNull('internal_id')
+                ->whereNotNull('category_id')
+                ->distinct()
+                ->pluck('category_id')
+                ->all();
+
+            foreach (Category::whereIn('id', $categoriasConProductos)->get() as $category) {
                 $entries->push([
                     'loc'        => route('tenant.ecommerce.category', ['category' => $category->id]),
                     'lastmod'    => $category->updated_at
@@ -54,7 +66,13 @@ class SitemapController extends Controller
                     'image'      => null,
                 ]);
             }
-        } catch (\Exception $e) {}
+        } catch (\Exception $e) {
+            // Antes esto era un catch vacio: si la consulta fallaba, el
+            // sitemap se publicaba incompleto y nadie se enteraba nunca.
+            // Un sitemap al que le faltan URLs es peor que uno que falla,
+            // porque parece correcto.
+            Log::warning('sitemap: bloque omitido', ['error' => $e->getMessage()]);
+        }
 
         // ── Productos (una sola entrada por URL, con imagen si existe) ──────
         try {
@@ -85,7 +103,13 @@ class SitemapController extends Controller
                     ] : null,
                 ]);
             }
-        } catch (\Exception $e) {}
+        } catch (\Exception $e) {
+            // Antes esto era un catch vacio: si la consulta fallaba, el
+            // sitemap se publicaba incompleto y nadie se enteraba nunca.
+            // Un sitemap al que le faltan URLs es peor que uno que falla,
+            // porque parece correcto.
+            Log::warning('sitemap: bloque omitido', ['error' => $e->getMessage()]);
+        }
 
         // ── Packs / Bundles ───────────────────────────────────────────────
         try {
@@ -114,7 +138,13 @@ class SitemapController extends Controller
                     ] : null,
                 ]);
             }
-        } catch (\Exception $e) {}
+        } catch (\Exception $e) {
+            // Antes esto era un catch vacio: si la consulta fallaba, el
+            // sitemap se publicaba incompleto y nadie se enteraba nunca.
+            // Un sitemap al que le faltan URLs es peor que uno que falla,
+            // porque parece correcto.
+            Log::warning('sitemap: bloque omitido', ['error' => $e->getMessage()]);
+        }
 
         // ── Páginas legales ────────────────────────────────────────────────
         $legalPages = [

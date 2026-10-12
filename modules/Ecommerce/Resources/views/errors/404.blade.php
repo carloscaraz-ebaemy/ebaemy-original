@@ -3,6 +3,12 @@
 @section('page_title', 'Página no encontrada')
 @section('meta_description', 'La página que buscas no existe.')
 
+{{-- Una pagina de error no se indexa y no es canonica de nada. `follow` y no
+     `nofollow` a proposito: interesa que el buscador siga los enlaces de
+     salida hacia el catalogo real. --}}
+@section('meta_robots', 'noindex, follow')
+@section('sin_canonical', '1')
+
 @section('content')
 @php $company = \App\Models\Tenant\Company::first(); @endphp
 

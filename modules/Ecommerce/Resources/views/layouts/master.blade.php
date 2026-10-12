@@ -54,15 +54,27 @@
     <meta name="keywords" content="@yield('meta_keywords', $seo->seo_keywords ?? 'ecommerce, tienda, decoración, hogar')">
     <meta name="author" content="{{ $seo->seo_author ?? $company->name }}">
 
-    {{-- SEO: Robots --}}
-    @if(($seo->indexable ?? true))
+    {{-- SEO: Robots.
+         Una vista puede imponer el suyo con @section('meta_robots'). Lo usan
+         las paginas de error: hasta ahora heredaban el `index, follow` de la
+         tienda, asi que una pagina «no encontrada» se anunciaba a Google como
+         contenido indexable. --}}
+    @if(View::hasSection('meta_robots'))
+        <meta name="robots" content="@yield('meta_robots')">
+    @elseif(($seo->indexable ?? true))
         <meta name="robots" content="{{ $seo->seo_robots ?? 'index, follow' }}">
     @else
         <meta name="robots" content="noindex, nofollow">
     @endif
 
-    {{-- SEO: Canonical dinámico por página --}}
-    <link rel="canonical" href="@yield('canonical_url', url()->current())">
+    {{-- SEO: Canonical dinámico por página.
+         Una vista puede suprimirla con @section('sin_canonical'). Tambien es
+         para los errores: la 404 emitia una canonical que se apuntaba a la
+         URL inexistente, declarandose la version buena de una pagina que no
+         existe. Una pagina de error no es canonica de nada. --}}
+    @unless(View::hasSection('sin_canonical'))
+        <link rel="canonical" href="@yield('canonical_url', url()->current())">
+    @endunless
 
     {{-- SEO: Paginación rel prev/next --}}
     @hasSection('prev_page')
