@@ -121,7 +121,7 @@ class Handler extends ExceptionHandler
 
         // ModelNotFoundException (findOrFail) debe tratarse como 404, no 500
         if ($exception instanceof \Illuminate\Database\Eloquent\ModelNotFoundException) {
-            if ($request->is('ecommerce*') && !$request->expectsJson()) {
+            if ($this->debeRenderizar404DeTienda($request)) {
                 try {
                     return response(view('ecommerce::errors.404'), 404);
                 } catch (\Throwable $e) {}
@@ -131,8 +131,19 @@ class Handler extends ExceptionHandler
 
         if($exception instanceof NotFoundHttpException)
         {
-            // Mostrar página 404 del ecommerce cuando la URL comienza con /ecommerce
-            if ($request->is('ecommerce*') && !$request->expectsJson()) {
+            // Pagina 404 de verdad en CUALQUIER ruta de una tienda, no solo
+            // bajo /ecommerce.
+            //
+            // Antes solo se miraba `is('ecommerce*')`, asi que cualquier otra
+            // URL equivocada del dominio de un tenant respondia con el JSON
+            // crudo `{"success":false,"message":"No se encontro la URL
+            // especificada"}` pintado en la pantalla del visitante. Y como ese
+            // JSON no pasa por el layout, tampoco llevaba el `noindex` que si
+            // lleva la 404 del escaparate.
+            //
+            // Se excluye `api*` y lo que pida JSON: ahi el JSON es la
+            // respuesta correcta y hay clientes que dependen de ella.
+            if ($this->debeRenderizar404DeTienda($request)) {
                 try {
                     return response(view('ecommerce::errors.404'), 404);
                 } catch (\Throwable $e) {}
@@ -245,5 +256,31 @@ class Handler extends ExceptionHandler
         }
 
         return response()->json($response, $code);
+    }
+
+    /**
+     * ¿Toca pintar la pagina 404 del escaparate en vez de devolver JSON?
+     *
+     * Si para cualquier ruta del dominio de una tienda que abra una persona
+     * con el navegador. No para `api*` ni para quien pida JSON expresamente:
+     * ahi el JSON es la respuesta correcta y hay clientes que dependen de ella.
+     */
+    private function debeRenderizar404DeTienda($request): bool
+    {
+        if ($request->expectsJson() || $request->ajax() || $request->is('api*')) {
+            return false;
+        }
+
+        if ($request->is('ecommerce*')) {
+            return true;
+        }
+
+        // Hay tenant resuelto = estamos en el dominio de una tienda. En el
+        // dominio principal no se toca nada: tiene sus propias paginas.
+        try {
+            return (bool) app(\Hyn\Tenancy\Contracts\CurrentHostname::class);
+        } catch (\Throwable $e) {
+            return false;
+        }
     }
 }

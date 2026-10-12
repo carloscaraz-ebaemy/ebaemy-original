@@ -43,6 +43,13 @@ if ($hostname) {
             Route::get('quotations/print/{external_id}/{format?}', 'Tenant\QuotationController@toPrint');
         });
 
+        // ── /marketplace en el dominio de una tienda ─────────────────────
+        // Devolvia un 404 en JSON crudo: `{"success":false,...}` en pantalla.
+        // En el dominio de una tienda, «marketplace» es su propio escaparate,
+        // asi que se manda alli en vez de dejar al visitante —o al robot de
+        // Google, que sigue el enlace desde cualquier parte— mirando un JSON.
+        Route::redirect('/marketplace', '/ecommerce', 301);
+
         // ── Redirect raíz (/) según autenticación ────────────────────────
         // Visitantes anónimos → storefront ecommerce (/ecommerce).
         // Usuarios autenticados del panel → su dashboard (HomeController lo resuelve).
