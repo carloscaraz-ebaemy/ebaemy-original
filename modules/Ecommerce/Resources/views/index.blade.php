@@ -82,6 +82,14 @@
     @section('canonical_url', $canonicalUrl)
 @endif
 
+{{-- ── Rendimiento: el catalogo no necesita Vue ni axios de entrada ──
+     Vue solo lo usa el buscador del header, que sabe esperar; axios no lo
+     usa nada de esta pagina. Entre los dos bloqueaban ~2,1 s el renderizado.
+     Verificado uno a uno: ni el layout, ni los 14 parciales, ni ninguno de
+     los 16 .js del escaparate llaman a axios. --}}
+@section('vue_diferido', '1')
+@section('sin_axios', '1')
+
 {{-- ── SEO: busquedas y filtros fuera del indice ───────────────── --}}
 @if($esBusquedaOFiltro)
     @section('meta_robots', 'noindex, follow')

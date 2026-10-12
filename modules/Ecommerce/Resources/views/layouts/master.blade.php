@@ -205,9 +205,28 @@
 
     {{-- ── Color primario del cliente: inyectado server-side para evitar flash ── --}}
     @include('ecommerce::layouts.partials_ecommerce.theme_tokens', ['config' => $seo])
-    <!-- Vue debe cargarse ANTES del header (que usa new Vue) -->
-    <script src="{{ asset_v('porto-ecommerce/assets/js/vue.min.js') }}"></script>
-    <script src="{{ asset_v('porto-ecommerce/assets/js/axios.min.js') }}"></script>
+    {{-- Vue y axios.
+         Juntos eran ~2,1 s de los recursos que bloquean el renderizado, y en
+         el catalogo —la pagina que mide Google y por la que entra el trafico
+         organico— no hacen falta en ese momento:
+
+         · Vue solo lo usa el buscador del header, que ya espera a
+           DOMContentLoaded si hace falta (ver partials_ecommerce/header).
+           Por eso ahi va con `defer`.
+         · axios NO lo usa ni el layout, ni un solo .js del escaparate, ni
+           ninguno de los 14 parciales: solo los scripts en linea de carrito,
+           checkout, perfil y documentos.
+
+         Se desactivan vista por vista con @section, nunca al reves: el
+         comportamiento por defecto sigue siendo el de siempre, asi que una
+         vista que no diga nada se carga exactamente igual que antes. Carrito
+         y checkout llaman a axios dentro de `mounted()`, que corre al
+         instante, y con `defer` global se romperian. --}}
+    <script src="{{ asset_v('porto-ecommerce/assets/js/vue.min.js') }}"
+            @if(View::hasSection('vue_diferido')) defer @endif></script>
+    @unless(View::hasSection('sin_axios'))
+        <script src="{{ asset_v('porto-ecommerce/assets/js/axios.min.js') }}"></script>
+    @endunless
 
     {{-- Comparador en móvil: oculto salvo que el tenant lo active.
          Antes era un display:none incondicional, así que el toggle de la

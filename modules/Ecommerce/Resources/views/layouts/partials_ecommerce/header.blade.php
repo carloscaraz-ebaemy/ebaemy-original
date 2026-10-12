@@ -934,6 +934,17 @@ document.addEventListener("DOMContentLoaded", function () {
 });
 
 
+// El buscador del header se monta en cuanto Vue este disponible.
+//
+// En la mayoria de las vistas `vue.min.js` se carga de forma sincrona y esto
+// se ejecuta tal cual, igual que siempre. En el catalogo se carga con `defer`
+// —ahi bloqueaba 2,1 s el renderizado y es la pagina que mide Google—, y
+// entonces Vue todavia no existe cuando el navegador llega hasta aqui: se
+// espera a DOMContentLoaded, que es justo despues de que los `defer`
+// terminen de ejecutarse.
+function montarBuscadorDelHeader() {
+    if (typeof Vue === 'undefined' || !document.getElementById('header_bar')) return;
+
 window.headerVue = new Vue({
     el: '#header_bar',
 
@@ -1074,6 +1085,14 @@ window.headerVue = new Vue({
         }
     }
 });
+
+}   // fin de montarBuscadorDelHeader()
+
+if (typeof Vue !== 'undefined') {
+    montarBuscadorDelHeader();                 // carga sincrona: como siempre
+} else {
+    document.addEventListener('DOMContentLoaded', montarBuscadorDelHeader);
+}
 
 // ── Voice Search ─────────────────────────────────────────────────────────────
 (function () {
