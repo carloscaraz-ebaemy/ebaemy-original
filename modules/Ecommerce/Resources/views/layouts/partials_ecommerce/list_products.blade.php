@@ -43,6 +43,31 @@
 
 @endphp
 
+@php
+    // Precarga de la primera foto de la rejilla: es la candidata a LCP y el
+    // navegador tardaba 9,4 s en pedirla porque estaba enterrada detras de
+    // las hojas de estilo y los scripts del <head>. Con el preload empieza a
+    // bajar mientras el resto todavia se descarga.
+    //
+    // Solo en la primera pagina: de la 2 en adelante no hay primer pliegue que
+    // adelantar. Y solo con foto REAL: adelantar un marcador seria pagar una
+    // peticion por una imagen que ni siquiera deberia existir.
+    $primeraFoto = null;
+    if ((int) request('page', 1) === 1) {
+        foreach ($dataPaginate as $__p) {
+            if ($__p->image && $__p->image !== 'imagen-no-disponible.jpg') {
+                $primeraFoto = asset('storage/uploads/items/' . $__p->image);
+                break;
+            }
+        }
+    }
+@endphp
+@if($primeraFoto)
+    @push('head_extra')
+        <link rel="preload" as="image" fetchpriority="high" href="{{ $primeraFoto }}">
+    @endpush
+@endif
+
 @foreach ($dataPaginate as $item)
 @php
     $outOfStock   = stock($item, $configuration);
@@ -71,6 +96,21 @@
             $hoverImage = asset('storage/uploads/items/' . $firstGallery->image);
         }
     }
+    // Las primeras tarjetas NO van diferidas: son las del primer pliegue y de
+    // ahi sale el elemento que Google mide como LCP. Con todas en `lazy` el
+    // navegador no pedia esa imagen hasta cerrar el layout, y el desglose del
+    // LCP lo cantaba: 9,4 s de «Load Delay» sobre 15,2 s totales, el 62 %.
+    // Cuatro cubre dos filas de movil y una de escritorio.
+    //
+    // Se cuentan las tarjetas CON FOTO, no las posiciones. Si las primeras del
+    // listado son productos sin imagen —en alasitas hay 9 asi— contar
+    // posiciones gastaria el cupo en marcadores que ni siquiera hacen una
+    // peticion, y la foto de verdad, que es la que mide Google, se quedaria
+    // diferida. Es el fallo que me saco la prueba en local.
+    $conFoto      = ($conFoto ?? 0) + ($hasRealImage ? 1 : 0);
+    $cardEager    = $hasRealImage && $conFoto <= 4;
+    $cardPriority = $hasRealImage && $conFoto === 1;
+
     $productUrl   = route('tenant.ecommerce.item', ['slug' => $item->slug ?: $item->id]);
     $altText      = $item->description . ($item->category ? ' — ' . $item->category->name : '');
     $symbol       = $item->currency_type['symbol'] ?? 'S/';
@@ -153,13 +193,41 @@
             <a href="{{ $productUrl }}"
                class="pcard__img-link{{ $hoverImage ? ' pcard__img-link--has-hover' : '' }}"
                tabindex="-1" aria-label="{{ $altText }}">
+                @if($hasRealImage)
                 <img src="{{ $imagePath }}"
                      alt="{{ $altText }}"
-                     loading="lazy" decoding="async"
+                     loading="{{ $cardEager ? 'eager' : 'lazy' }}"
+                     decoding="{{ $cardEager ? 'sync' : 'async' }}"
+                     @if($cardPriority) fetchpriority="high" @endif
                      width="400" height="400"
                      class="pcard__img pcard__img--primary"
                      onerror="this.src='{{ asset('logo/imagen-no-disponible.jpg') }}'"
                      itemprop="image">
+                @else
+                    {{-- Producto sin foto. Antes se servia
+                         `logo/imagen-no-disponible.jpg`, un JPG de 20 KB que
+                         ademas llevaba el `alt` del producto —le contaba a
+                         Google y a un lector de pantalla que ESA imagen era el
+                         producto— y que en la portada de alasitas acabo siendo
+                         el propio elemento LCP. Un marcador no deberia ser
+                         nunca lo mas importante que pinta la pagina.
+                         Ahora es un dibujo en el HTML: cero peticiones, cero
+                         bytes y `aria-hidden`, porque no aporta nada que leer.
+                         Tampoco lleva `itemprop="image"`: declarar una imagen
+                         de producto que no es el producto es mentirle a
+                         Google. --}}
+                    <div class="pcard__img pcard__img--primary pcard__img--vacia"
+                         role="img" aria-label="Producto sin imagen"
+                         style="display:flex;align-items:center;justify-content:center;background:#f3f4f6">
+                        <svg width="56" height="56" viewBox="0 0 24 24" fill="none"
+                             stroke="#c3c9d2" stroke-width="1.3" stroke-linecap="round"
+                             stroke-linejoin="round" aria-hidden="true">
+                            <rect x="3" y="3" width="18" height="18" rx="2"/>
+                            <circle cx="8.5" cy="8.5" r="1.5"/>
+                            <path d="m21 15-5-5L5 21"/>
+                        </svg>
+                    </div>
+                @endif
 
                 {{-- Segunda imagen: aparece al hacer hover --}}
                 @if($hoverImage)
