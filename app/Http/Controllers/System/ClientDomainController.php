@@ -113,9 +113,18 @@ class ClientDomainController extends Controller
                 GenerateSslCertificate::dispatch($hostname->id)->delay(now()->addSeconds(10));
             }
 
+            // El mensaje dice la verdad a medias a proposito: el dominio queda
+            // dado de alta, pero el certificado NO se emite desde aqui — el 443
+            // lo termina Nginx Proxy Manager. Antes decia «verificado y activado
+            // exitosamente» y el dominio no servia por HTTPS, asi que quien lo
+            // leia daba el trabajo por terminado y se encontraba un error de
+            // certificado en el navegador.
             return response()->json([
                 'success' => true,
-                'message' => 'Dominio verificado y activado exitosamente.',
+                'message' => 'Dominio verificado y dado de alta. FALTA el certificado: '
+                           . 'crea el proxy host de ' . $hostname->fqdn . ' en Nginx Proxy Manager '
+                           . '(puerto 81) hacia http://172.17.0.1:8088 y pide el SSL de Let\'s Encrypt. '
+                           . 'Hasta entonces el dominio no sirve por HTTPS.',
             ]);
         }
 
