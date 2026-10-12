@@ -52,7 +52,12 @@ return [
     'ubigeo_default_invoice_import' => env('UBIGEO_DEFAULT_INVOICE_IMPORT', '150101'),
 
     // ── Theme & Domain System ──────────────────────────
-    'base_domain'                => env('TENANT_BASE_DOMAIN', 'ebaemy.test'),
+    // Por defecto cae en APP_URL_BASE —que en produccion es `ebaemy.com`— y
+    // no en un dominio `.test` de desarrollo. Con el valor viejo, produccion
+    // creia que su dominio base era `ebaemy.test` porque TENANT_BASE_DOMAIN no
+    // estaba en el .env, y nadie se enteraba: solo lo usan el alta de tenants
+    // y la verificacion de dominios propios, que no se habia usado nunca.
+    'base_domain'                => env('TENANT_BASE_DOMAIN', env('APP_URL_BASE', 'ebaemy.test')),
     'excluded_subdomains'        => [
         'admin', 'api', 'app', 'www', 'root', 'superadmin',
         'mail', 'ftp', 'cdn', 'static', 'assets',

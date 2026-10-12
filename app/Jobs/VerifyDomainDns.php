@@ -75,11 +75,33 @@ class VerifyDomainDns implements ShouldQueue
         $records = dns_get_record($v->domain, DNS_CNAME);
         if (!$records) return false;
 
-        $baseDomain = config('tenancy.hostname.default', '');
+        // Destinos que valen: el de verificacion y el dominio base.
+        //
+        // ESTO APROBABA CUALQUIER COSA. La version anterior comparaba con
+        // `str_contains($target, config('tenancy.hostname.default', ''))`, y
+        // esa clave de configuracion no existe: vale NULL. En PHP 8
+        // `str_contains($loQueSea, '')` devuelve **true**, asi que bastaba con
+        // que el dominio tuviera UN CNAME apuntando a donde fuese para darlo
+        // por verificado. Y lo que hay al otro lado de esta comprobacion es
+        // dar de alta un hostname que sirve la tienda de un tenant.
+        //
+        // No llego a explotarse —la funcion nunca se uso, 0 filas en
+        // `domain_verifications`— pero se iba a encender ahora.
+        //
+        // Comparacion EXACTA y en minusculas, no `str_contains`: un
+        // `verify.ebaemy.com.atacante.net` contiene la cadena buena y no es el
+        // destino bueno.
+        $destinosValidos = array_filter(array_map(
+            fn ($d) => strtolower(rtrim((string) $d, '.')),
+            [
+                $v->getDnsCnameTarget(),
+                config('tenant.base_domain'),
+            ]
+        ));
 
         foreach ($records as $record) {
-            $target = rtrim($record['target'] ?? '', '.');
-            if (str_contains($target, $baseDomain)) {
+            $target = strtolower(rtrim($record['target'] ?? '', '.'));
+            if ($target !== '' && in_array($target, $destinosValidos, true)) {
                 return true;
             }
         }
