@@ -163,10 +163,28 @@ class TenantDomain extends Command
         $this->info("Hostname dado de alta: {$hostname->fqdn} (website {$hostname->website_id}).");
         $this->newLine();
         $this->warn('FALTA UN PASO QUE NO SE PUEDE HACER DESDE AQUI.');
-        $this->line("El 443 lo termina Nginx Proxy Manager, no esta aplicacion. Hay que crear alli");
-        $this->line("un proxy host para {$hostname->fqdn} apuntando al mismo destino que *.ebaemy.com,");
-        $this->line('y pedirle el certificado de Let\'s Encrypt. Hasta entonces el dominio no sirve');
-        $this->line('por HTTPS y el navegador dara un error de certificado.');
+        $this->line('El 443 lo termina Nginx Proxy Manager, no esta aplicacion. En su panel');
+        $this->line('(puerto 81) hay que crear un Proxy Host con estos valores — son los mismos');
+        $this->line('que usa el comodin *.ebaemy.com, leidos de su propia configuracion:');
+        $this->newLine();
+        $this->table(['Campo', 'Valor'], [
+            ['Domain Names',     $hostname->fqdn],
+            ['Scheme',           'http'],
+            ['Forward Hostname', '172.17.0.1'],
+            ['Forward Port',     '8088'],
+            ['Block Exploits',   'si'],
+            ['Websockets',       'si'],
+            ['SSL',              "Request a new SSL Certificate (Let's Encrypt)"],
+            ['Force SSL',        'si'],
+            ['HTTP/2 Support',   'si'],
+        ]);
+        $this->line('El certificado se emite por desafio HTTP, asi que el DNS del dominio tiene que');
+        $this->line('apuntar YA a este servidor antes de pedirlo.');
+        $this->newLine();
+        $this->line('Y para que la tienda no quede accesible por dos direcciones a la vez:');
+        $this->line("  - marca {$hostname->fqdn} como principal (is_primary)");
+        $this->line('  - marca el subdominio viejo con redirect_to_primary');
+        $this->line('Sin eso las dos sirven el mismo catalogo y compiten entre ellas en Google.');
 
         return self::SUCCESS;
     }
