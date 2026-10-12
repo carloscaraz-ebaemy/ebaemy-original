@@ -34,6 +34,10 @@ class Kernel extends HttpKernel
             \Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse::class,
             \Illuminate\Session\Middleware\StartSession::class,
             \App\Http\Middleware\CanonicalizeEcommerceUrl::class,
+            // Una tienda, una direccion. Solo actua si el tenant tiene un
+            // dominio principal marcado y el host actual pide redirigir a el;
+            // mientras nadie lo marque, no hace nada.
+            \App\Http\Middleware\RedirectToPrimaryDomain::class,
             \Illuminate\Session\Middleware\AuthenticateSession::class,
             \Illuminate\View\Middleware\ShareErrorsFromSession::class,
             \App\Http\Middleware\VerifyCsrfToken::class,
