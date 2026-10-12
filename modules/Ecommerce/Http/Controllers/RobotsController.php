@@ -66,7 +66,7 @@ Disallow: /dashboard
 Disallow: /login
 Disallow: /pedido/
 
-Sitemap: {$domain}/sitemap.xml
+Sitemap: {$domain}/ecommerce/sitemap.xml
 TXT;
     }
 
@@ -176,7 +176,7 @@ Allow: /storage/uploads/logos/
 Allow: /storage/uploads/promotions/
 Allow: /storage/uploads/favicons/
 
-Sitemap: {$domain}/sitemap.xml
+Sitemap: {$domain}/ecommerce/sitemap.xml
 TXT;
     }
 }

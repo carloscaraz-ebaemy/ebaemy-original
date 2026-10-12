@@ -27,13 +27,20 @@ Route::get('/libro-reclamaciones', function () {
 })->name('tenant.libro_reclamaciones.short');
 
 // ========== SEO - Rutas públicas (sin auth ni middleware) ==========
-Route::get('/sitemap.xml', '\Modules\Ecommerce\Http\Controllers\SitemapController@index');
+// `/sitemap.xml` es la ubicacion que los rastreadores sondean por costumbre,
+// asi que se conserva como redireccion permanente a la de verdad.
+Route::get('/sitemap.xml', fn () => redirect('/ecommerce/sitemap.xml', 301));
 Route::get('/robots.txt', '\Modules\Ecommerce\Http\Controllers\RobotsController@index');
-// La direccion buena del sitemap es /sitemap.xml, la que esperan los
-// buscadores. Esta otra devolvia el MISMO XML byte a byte y se anunciaba
-// ademas en robots.txt: dos direcciones para un unico recurso. Se queda
-// como redireccion permanente por si alguien la tiene guardada.
-Route::get('/ecommerce/sitemap.xml', fn () => redirect('/sitemap.xml', 301));
+// La direccion BUENA del sitemap es esta, dentro de /ecommerce/.
+//
+// Antes respondian las dos con el MISMO XML byte a byte, y el 2026-10-12 lo
+// resolvi al reves: deje /sitemap.xml y mande esta al 301. Fue un error de
+// bulto, y lo destapo Search Console: la propiedad del tenant es un PREFIJO
+// de URL sobre `https://<tienda>/ecommerce/`, asi que el sitemap tiene que
+// vivir DENTRO de ese prefijo para poder enviarlo desde el panel sin que
+// Google tenga que seguir una redireccion. Ademas las 105 URLs que contiene
+// cuelgan todas de /ecommerce/.
+Route::get('/ecommerce/sitemap.xml', '\Modules\Ecommerce\Http\Controllers\SitemapController@index');
 
 // ========== Product Feeds ==========
 Route::get('/ecommerce/feed/google',   [ProductFeedController::class, 'googleMerchant'])->name('ecommerce.feed.google');
