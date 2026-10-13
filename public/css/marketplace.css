@@ -1125,7 +1125,9 @@ button { font-family: inherit; cursor: pointer; }
 
 .mp-detail {
     display: grid;
-    grid-template-columns: 1fr;
+    /* minmax(0,…): con `1fr` a secas la columna no baja del min-content de la
+       fila de miniaturas (6 x 72px) y en móvil la ficha desbordaba a 500px. */
+    grid-template-columns: minmax(0, 1fr);
     gap: clamp(20px, 3vw, 40px);
     background: #fff;
     border-radius: var(--mp-radius-lg);
@@ -1134,7 +1136,7 @@ button { font-family: inherit; cursor: pointer; }
     box-shadow: var(--mp-shadow-sm);
 }
 @media (min-width: 900px) {
-    .mp-detail { grid-template-columns: 1.15fr 1fr; }
+    .mp-detail { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); }
 }
 
 .mp-gallery { display: flex; flex-direction: column; gap: 10px; }
@@ -1191,6 +1193,9 @@ button { font-family: inherit; cursor: pointer; }
    imágenes se desplaza en vertical en vez de estirar la galería. */
 @media (min-width: 600px) {
     .mp-gallery--side {
+        /* start: si no, .mp-detail la estira hasta la altura de la columna de
+           información y la de miniaturas crecía con ella (812-1322px). */
+        align-self: start;
         display: grid;
         grid-template-columns: 80px minmax(0, 1fr);
         gap: 10px;
