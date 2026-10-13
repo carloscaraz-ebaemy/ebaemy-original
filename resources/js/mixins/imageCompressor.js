@@ -58,6 +58,25 @@ function _mb(bytes) {
     return (Math.round(bytes / 1024 / 1024 * 10) / 10) + ' MB'
 }
 
+// Fondo de la imagen PRINCIPAL. Los mismos numeros que
+// `ImageProcessingService::analyzeBackground`, que es quien mide el catalogo:
+// si cambian alli, cambian aqui.
+const FONDO_BANDA          = 0.03   // franja del borde que se mira (3 % de cada lado)
+const FONDO_MIN_CANAL      = 235    // blanco = los tres canales por encima
+const FONDO_MAX_ALFA       = 30     // transparente = alfa por debajo (0-255)
+const FONDO_MIN_PROPORCION = 0.85   // proporcion del borde que tiene que cumplir
+
+/**
+ * Error con el que se cancela una subida. Element UI solo cancela si la
+ * promesa de `before-upload` se RECHAZA: si resuelve con `false`, sube el
+ * archivo original (ver `upload.vue`, rama `else this.post(rawFile)`).
+ */
+function _cancelada(motivo) {
+    const e = new Error(motivo)
+    e.subidaCancelada = true
+    return e
+}
+
 // Helpers internos para el flujo async (no reactivos, evita Vue reactivity)
 const ASYNC_TIMEOUT_MS  = 90000   // desktop default
 const ASYNC_INTERVAL_MS = 1500    // polling cada 1.5s
@@ -87,11 +106,13 @@ export const imageCompressor = {
          * el servidor, que mira los bytes con finfo (`ImageProcessingService`).
          * El cliente solo filtra lo obvio para no gastar una subida.
          *
-         * Devuelve el File listo, o `false` — que es lo que `el-upload` entiende
-         * como «no subas esto».
+         * Devuelve el File listo, o RECHAZA para cancelar. No vale devolver
+         * `false` desde una funcion async: Element UI recibe una promesa que
+         * resuelve con `false` y sube el archivo ORIGINAL. Asi era hasta el
+         * 2026-10-13: el aviso «no parece una imagen» salia y la subida seguia.
          */
         async prepararImagen(file) {
-            if (!file) return false
+            if (!file) throw _cancelada('sin archivo')
 
             const tipo = (file.type || '').toLowerCase()
             const nombre = (file.name || '').toLowerCase()
@@ -104,25 +125,115 @@ export const imageCompressor = {
                     'Ese archivo no parece una imagen. Usa JPG, PNG, WEBP, GIF o HEIC.'
                 )
 
-                return false
+                throw _cancelada('no es imagen')
             }
 
             // SVG nunca: se puede meter javascript dentro.
             if (/svg/.test(tipo) || /\.svgz?$/i.test(nombre)) {
                 this.$message && this.$message.error('Los archivos SVG no se admiten.')
 
-                return false
+                throw _cancelada('svg')
             }
 
+            // Si falla, `beforeUpload` ya aviso con el motivo (pesa mas de lo
+            // que admite el servidor y no se pudo reducir) y el rechazo sigue.
+            return await this.beforeUpload(file)
+        },
+
+        /**
+         * La puerta de la imagen PRINCIPAL del producto: la misma que
+         * `prepararImagen`, mas el aviso de fondo.
+         *
+         * La principal es la que sale en las cards, junto a las de otras
+         * tiendas, y la que Saga Falabella y Mercado Libre exigen sobre blanco.
+         * La galeria y las variantes quedan libres: una foto de ambiente o del
+         * producto en uso tiene sentido ahi.
+         *
+         * Es un AVISO, no un bloqueo: el vendedor puede subirla igual. Se mide
+         * sobre la foto YA comprimida, que es la que llega al servidor; asi
+         * vale tambien para HEIC (el navegador no lo decodifica antes de
+         * convertirlo) y el PNG transparente ya viene aplanado sobre blanco.
+         */
+        async prepararImagenPrincipal(file) {
+            const lista = await this.prepararImagen(file)
+
+            let fondo = null
             try {
-                const listo = await this.beforeUpload(file)
-
-                return listo || false
+                fondo = await this._analizarFondo(lista || file)
             } catch (e) {
-                // `beforeUpload` ya aviso con el motivo (pesa mas de lo que
-                // admite el servidor y no se pudo reducir).
-                return false
+                fondo = null   // si no se puede medir, no se molesta al vendedor
             }
+
+            if (fondo && !fondo.ok) {
+                try {
+                    await this.$confirm(
+                        'La imagen principal debería tener fondo blanco o transparente: es la que se ve ' +
+                        'en el catálogo junto a los demás productos, y Saga Falabella y Mercado Libre la ' +
+                        'exigen así. En esta foto solo el ' + Math.round(fondo.proporcion * 100) +
+                        ' % del borde es blanco. ¿Quieres subirla igual?',
+                        'Fondo de la imagen principal',
+                        {
+                            confirmButtonText: 'Subirla igual',
+                            cancelButtonText: 'Elegir otra foto',
+                            type: 'warning',
+                        }
+                    )
+                } catch (e) {
+                    throw _cancelada('fondo')
+                }
+            }
+
+            return lista
+        },
+
+        /**
+         * Mira el borde de la imagen y dice si el fondo es blanco o
+         * transparente. El producto suele ir en el centro: el borde es el fondo.
+         *
+         * Devuelve { ok, proporcion } o null si no se pudo decodificar.
+         */
+        async _analizarFondo(file) {
+            const fuente = await this._decodificar(file)
+            if (!fuente || !fuente.width || !fuente.height) return null
+
+            // Basta una version pequeña: se cuentan pixeles, no se mira detalle.
+            const escala = Math.min(1, 200 / Math.max(fuente.width, fuente.height))
+            const w = Math.max(1, Math.round(fuente.width * escala))
+            const h = Math.max(1, Math.round(fuente.height * escala))
+
+            const canvas = document.createElement('canvas')
+            canvas.width  = w
+            canvas.height = h
+            const ctx = canvas.getContext('2d')
+            if (!ctx) return null
+            ctx.drawImage(fuente, 0, 0, w, h)
+            if (fuente.close) fuente.close()
+
+            const datos = ctx.getImageData(0, 0, w, h).data
+            const banda = Math.max(1, Math.round(Math.min(w, h) * FONDO_BANDA))
+            let total = 0
+            let fondo = 0
+
+            for (let y = 0; y < h; y++) {
+                for (let x = 0; x < w; x++) {
+                    const enBorde = x < banda || y < banda || x >= w - banda || y >= h - banda
+                    if (!enBorde) continue
+
+                    const i = (y * w + x) * 4
+                    const transparente = datos[i + 3] < FONDO_MAX_ALFA
+                    const blanco = datos[i] >= FONDO_MIN_CANAL
+                        && datos[i + 1] >= FONDO_MIN_CANAL
+                        && datos[i + 2] >= FONDO_MIN_CANAL
+
+                    total++
+                    if (transparente || blanco) fondo++
+                }
+            }
+
+            if (!total) return null
+            const proporcion = fondo / total
+
+            return { ok: proporcion >= FONDO_MIN_PROPORCION, proporcion }
         },
 
         async beforeUpload(file) {
@@ -226,6 +337,12 @@ export const imageCompressor = {
                 canvas.height = h
                 const ctx = canvas.getContext('2d')
                 if (!ctx) return null
+
+                // Blanco debajo: la salida es JPEG, que no tiene alfa, y el
+                // navegador aplana lo transparente sobre NEGRO. Un PNG con
+                // fondo transparente salia del telefono con fondo negro.
+                ctx.fillStyle = '#ffffff'
+                ctx.fillRect(0, 0, w, h)
                 ctx.drawImage(fuente, 0, 0, w, h)
 
                 const blob = await this._aBlob(canvas, quality)

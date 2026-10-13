@@ -25,6 +25,11 @@ use Illuminate\Support\Facades\Storage;
  *   php artisan images:audit --fix                regenera lo que incumple
  *   php artisan images:audit --limit=200          corta el recorrido
  *
+ * Además MIDE el fondo de la imagen principal (blanco, transparente u otro).
+ * Es informativo: no cuenta como incumplimiento ni cambia el código de
+ * salida. Sirve para decidir si el aviso de fondo al subir se endurece a
+ * bloqueo, y con qué umbral (`ImageProcessingService::FONDO_MIN_PROPORCION`).
+ *
  * NO borra nada nunca. `--fix` solo REGENERA a partir de la imagen principal,
  * que es la única que no se puede reconstruir.
  */
@@ -80,6 +85,7 @@ class AuditImageStandard extends Command
             'resumen' => [
                 'productos' => 0, 'con_imagen' => 0, 'cumplen' => 0,
                 'incumplen' => 0, 'reparados' => 0,
+                'fondo'     => ['blanco' => 0, 'transparente' => 0, 'otro' => 0, 'sin_medir' => 0],
             ],
         ];
 
@@ -99,6 +105,9 @@ class AuditImageStandard extends Command
             $global['tenants'][] = $informe;
             foreach (['productos', 'con_imagen', 'cumplen', 'incumplen', 'reparados'] as $k) {
                 $global['resumen'][$k] += $informe[$k];
+            }
+            foreach ($informe['fondo'] as $k => $n) {
+                $global['resumen']['fondo'][$k] += $n;
             }
 
             if (!$json) {
@@ -143,10 +152,23 @@ class AuditImageStandard extends Command
             'reparados'  => 0,
             'motivos'    => [],
             'ejemplos'   => [],
+            'fondo'      => ['blanco' => 0, 'transparente' => 0, 'otro' => 0, 'sin_medir' => 0],
+            'fondo_otro' => [],
         ];
 
         foreach ($query->get() as $item) {
             $informe['con_imagen']++;
+
+            $fondo = $this->medirFondo($disk, $base, $item->image);
+            $informe['fondo'][$fondo ? $fondo['tipo'] : 'sin_medir']++;
+            if ($fondo && !$fondo['ok'] && count($informe['fondo_otro']) < 5) {
+                $informe['fondo_otro'][] = [
+                    'item'       => $item->id,
+                    'nombre'     => mb_substr((string) $item->description, 0, 40),
+                    'imagen'     => $item->image,
+                    'proporcion' => $fondo['proporcion'],
+                ];
+            }
             $fallos = $this->revisar($disk, $base, $item->image);
 
             if (empty($fallos)) {
@@ -259,6 +281,27 @@ class AuditImageStandard extends Command
     }
 
     /**
+     * El fondo de la imagen principal, o null si no se pudo leer.
+     *
+     * Se mide sobre `_small` cuando existe: el borde es el mismo y son 256 px
+     * en vez de 1200, que en un disco remoto es lo que se descarga.
+     */
+    private function medirFondo($disk, string $base, string $filename): ?array
+    {
+        $ruta = $this->rutaVariante($disk, $base, $filename, '_small') ?? $base . '/' . $filename;
+
+        try {
+            if (!$disk->exists($ruta)) {
+                return null;
+            }
+
+            return ImageProcessingService::analyzeBackground((string) $disk->get($ruta));
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    /**
      * Regenera todo a partir de la principal.
      *
      * OJO con el alcance real: el pipeline crea las versiones que falten y
@@ -314,6 +357,13 @@ class AuditImageStandard extends Command
         if ($i['reparados'] > 0) {
             $this->info('      ' . $i['reparados'] . ' regeneradas');
         }
+
+        $f = $i['fondo'];
+        $this->line(sprintf(
+            '      fondo: %d blanco · %d transparente · %d otro%s',
+            $f['blanco'], $f['transparente'], $f['otro'],
+            $f['sin_medir'] ? ' · ' . $f['sin_medir'] . ' sin medir' : ''
+        ));
     }
 
     private function pintarResumen(array $r, bool $fix): void
@@ -323,6 +373,16 @@ class AuditImageStandard extends Command
         $this->line(sprintf('Productos con imagen: %d', $r['con_imagen']));
         $this->line(sprintf('Cumplen el estándar : %d', $r['cumplen']));
         $this->line(sprintf('Incumplen           : %d', $r['incumplen']));
+
+        $f        = $r['fondo'];
+        $medidas  = $f['blanco'] + $f['transparente'] + $f['otro'];
+        $conFondo = $f['blanco'] + $f['transparente'];
+        $this->line(sprintf(
+            'Fondo blanco/transp.: %d de %d medidas (%s)%s',
+            $conFondo, $medidas,
+            $medidas ? round($conFondo * 100 / $medidas) . ' %' : '—',
+            $f['sin_medir'] ? ' · ' . $f['sin_medir'] . ' sin medir' : ''
+        ));
 
         if ($fix) {
             $this->line(sprintf('Regeneradas         : %d', $r['reparados']));

@@ -2119,12 +2119,41 @@ export default {
          * Ahora pasa por la misma puerta que la Tienda Virtual y las variantes.
          */
         beforeImageUpload(file) {
-            return this.prepararImagen(file)
+            return this.beforePrincipalUpload(file)
         },
 
+        /**
+         * La imagen principal pasa por la puerta con aviso de fondo. Si la
+         * subida se cancela, se devuelve la foto que habia y se desbloquea
+         * Guardar: `on-change` ya habia pintado la nueva y puesto
+         * `uploadingImage`, y Element no vuelve a avisar al cancelar.
+         */
+        async beforePrincipalUpload(file) {
+            try {
+                return await this.prepararImagenPrincipal(file)
+            } catch (e) {
+                this.uploadingImage = false
+                if (this.imagenPrevia !== undefined) {
+                    if (typeof this.form.image_url === 'string' && this.form.image_url.startsWith('blob:')) {
+                        URL.revokeObjectURL(this.form.image_url)
+                    }
+                    this.form.image_url = this.imagenPrevia
+                    this.imagenPrevia = undefined
+                }
+                throw e
+            }
+        },
+        _soltarImagenPrevia() {
+            const previa = this.imagenPrevia
+            this.imagenPrevia = undefined
+            if (typeof previa === 'string' && previa.startsWith('blob:') && previa !== this.form.image_url) {
+                URL.revokeObjectURL(previa)
+            }
+        },
         onSuccess(response, file, fileList) {
             this.uploadingImage = false
             if (response.success) {
+                this._soltarImagenPrevia()
                 this.form.image = response.data.filename
                 this.form.temp_path = response.data.temp_path
                 // Si el server no devolvió temp_image (skip_preview), el preview ya
@@ -2142,10 +2171,11 @@ export default {
         // el temp_path — sin ese path el backend no procesa la nueva imagen.
         onFileChange(file) {
             if (!file || !file.raw) return
-            if (file.raw.type && file.raw.type.startsWith('image/')) {
-                if (this.form.image_url && typeof this.form.image_url === 'string' && this.form.image_url.startsWith('blob:')) {
-                    URL.revokeObjectURL(this.form.image_url)
-                }
+            // Solo al elegirla: `on-change` vuelve a dispararse al terminar.
+            // La foto anterior se guarda para devolverla si la subida se
+            // cancela (aviso de fondo, archivo no valido); se libera en onSuccess.
+            if (file.status === 'ready' && file.raw.type && file.raw.type.startsWith('image/')) {
+                this.imagenPrevia = this.form.image_url
                 this.form.image_url = URL.createObjectURL(file.raw)
             }
             if (file.status === 'ready' || file.status === 'uploading') {

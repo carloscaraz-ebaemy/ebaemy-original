@@ -438,6 +438,93 @@ class ImageProcessingService
         return $img->resizeCanvas($size, $size, 'center', false, '#ffffff');
     }
 
+    // ── Fondo de la imagen principal ─────────────────────────────────────────
+    // Los mismos números que `imageCompressor.js`, que avisa al subir: si
+    // cambian aquí, cambian allí.
+    const FONDO_BANDA          = 0.03;  // franja del borde que se mira (3 % de cada lado)
+    const FONDO_MIN_CANAL      = 235;   // blanco = los tres canales por encima
+    const FONDO_MIN_ALFA_GD    = 115;   // transparente en GD (0 opaco … 127 transparente)
+    const FONDO_MIN_PROPORCION = 0.85;  // proporción del borde que tiene que cumplir
+
+    /**
+     * ¿La imagen tiene fondo blanco o transparente?
+     *
+     * Mira solo el borde: el producto suele ir en el centro, así que el borde
+     * es el fondo. Un producto blanco sobre blanco pasa — eso no lo distingue
+     * ninguna regla de borde — y una foto de estudio con sombra o degradado
+     * gris puede quedarse por debajo del umbral.
+     *
+     * @param  string $contenido  Los bytes de la imagen (no la ruta: así vale
+     *                            igual para un disco local que para S3).
+     * @return array|null  ['ok' => bool, 'tipo' => blanco|transparente|otro,
+     *                     'proporcion' => 0..1], o null si no se pudo leer.
+     */
+    public static function analyzeBackground(string $contenido): ?array
+    {
+        $img = @imagecreatefromstring($contenido);
+        if ($img === false) {
+            return null;
+        }
+
+        $w = imagesx($img);
+        $h = imagesy($img);
+
+        // Basta una muestra del borde: ~100 puntos por lado.
+        $banda = max(1, (int) round(min($w, $h) * self::FONDO_BANDA));
+        $paso  = max(1, (int) floor(max($w, $h) / 100));
+        $color = imageistruecolor($img);
+
+        $total = $blancos = $transparentes = 0;
+
+        $mirar = function (int $x, int $y) use ($img, $color, &$total, &$blancos, &$transparentes) {
+            $c = imagecolorat($img, $x, $y);
+            if ($color) {
+                $a = ($c >> 24) & 0x7F;
+                $r = ($c >> 16) & 0xFF;
+                $g = ($c >> 8) & 0xFF;
+                $b = $c & 0xFF;
+            } else {
+                $rgba = imagecolorsforindex($img, $c);
+                [$r, $g, $b, $a] = [$rgba['red'], $rgba['green'], $rgba['blue'], $rgba['alpha']];
+            }
+
+            $total++;
+            if ($a >= self::FONDO_MIN_ALFA_GD) {
+                $transparentes++;
+            } elseif ($r >= self::FONDO_MIN_CANAL && $g >= self::FONDO_MIN_CANAL && $b >= self::FONDO_MIN_CANAL) {
+                $blancos++;
+            }
+        };
+
+        for ($d = 0; $d < $banda; $d++) {
+            // Franjas de arriba y abajo, de lado a lado.
+            for ($x = 0; $x < $w; $x += $paso) {
+                $mirar($x, $d);
+                $mirar($x, $h - 1 - $d);
+            }
+            // Franjas laterales, sin repetir las esquinas.
+            for ($y = $banda; $y < $h - $banda; $y += $paso) {
+                $mirar($d, $y);
+                $mirar($w - 1 - $d, $y);
+            }
+        }
+
+        imagedestroy($img);
+
+        if ($total === 0) {
+            return null;
+        }
+
+        $proporcion = ($blancos + $transparentes) / $total;
+        $ok         = $proporcion >= self::FONDO_MIN_PROPORCION;
+
+        return [
+            'ok'         => $ok,
+            'tipo'       => !$ok ? 'otro' : ($transparentes > $blancos ? 'transparente' : 'blanco'),
+            'proporcion' => round($proporcion, 3),
+        ];
+    }
+
     public static function isHeicFile(string $path): bool
     {
         if (!file_exists($path)) return false;
