@@ -161,9 +161,9 @@
         // Si no hay galería sincronizada o solo trae la principal, fallback al thumb único
         $hasGallery = count($galleryUrls) > 1;
     @endphp
-    {{-- --multi: con 2+ imágenes las miniaturas van en columna a la DERECHA
-         de la principal (desde 600px). Con una sola no se reserva la columna. --}}
-    <div class="mp-gallery {{ $hasGallery ? 'mp-gallery--multi' : '' }}">
+    {{-- --side: las miniaturas van en columna a la IZQUIERDA de la principal
+         (desde 600px), también con una sola imagen. Sin imagen no hay thumbs. --}}
+    <div class="mp-gallery {{ $listing->image_url ? 'mp-gallery--side' : '' }}">
         <div class="mp-gallery-main">
             @if($listing->image_url)
                 {{-- En el DETALLE mostramos la variante completa (sin recorte _mp)
