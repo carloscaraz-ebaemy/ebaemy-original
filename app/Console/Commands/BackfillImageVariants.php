@@ -149,8 +149,14 @@ class BackfillImageVariants extends Command
 
                 $format  = pathinfo($targetFilename, PATHINFO_EXTENSION) ?: 'webp';
                 $encoded = $img->encode($format, $config['quality']);
-                Storage::disk($disk)->put($baseDir . '/' . $targetFilename, (string) $encoded);
+                $written = Storage::disk($disk)->put($baseDir . '/' . $targetFilename, (string) $encoded);
                 $img->destroy();
+                // put() devuelve false SIN excepción si no puede escribir: las
+                // _mp son de www-data 0644 y la CLI corre como ebaemy. Sin esto
+                // el comando reportaba «0 fallos» habiendo escrito nada.
+                if (!$written) {
+                    throw new \RuntimeException("sin permiso de escritura en {$targetFilename} (¿correr con sudo -u www-data?)");
+                }
             }
         } finally {
             @unlink($temp);
