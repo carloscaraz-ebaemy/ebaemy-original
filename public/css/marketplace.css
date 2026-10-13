@@ -1181,6 +1181,29 @@ button { font-family: inherit; cursor: pointer; }
 }
 .mp-gallery-thumb.is-active { border-color: var(--mp-primary); }
 .mp-gallery-thumb img { width: 100%; height: 100%; object-fit: contain; }
+.mp-gallery-thumb:hover:not(.is-active) { border-color: var(--mp-muted); }
+
+/* Miniaturas a la DERECHA de la principal. En móvil siguen debajo en fila:
+   una columna lateral le quitaría a la foto el ancho que no sobra.
+   `height:0; min-height:100%` hace que la columna NO aporte altura a la fila
+   (la fija la principal, cuadrada) y luego la ocupe entera: con muchas
+   imágenes se desplaza en vertical en vez de estirar la galería. */
+@media (min-width: 600px) {
+    .mp-gallery--multi {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 80px;
+        gap: 10px;
+    }
+    .mp-gallery--multi .mp-gallery-thumbs {
+        flex-direction: column;
+        height: 0;
+        min-height: 100%;
+        overflow-x: hidden;
+        overflow-y: auto;
+        padding-right: 2px;
+    }
+    .mp-gallery--multi .mp-gallery-thumb { flex: 0 0 auto; width: 100%; }
+}
 
 .mp-detail-info h1 {
     margin: 0 0 10px;

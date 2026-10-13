@@ -155,7 +155,15 @@
 <article class="mp-detail">
 
     {{-- ═══════════════════════ GALERÍA ═══════════════════════ --}}
-    <div class="mp-gallery">
+    @php
+        $galleryUrls     = is_array($listing->gallery_image_urls) ? $listing->gallery_image_urls : [];
+        $galleryFullUrls = is_array($listing->gallery_full_image_urls) ? $listing->gallery_full_image_urls : [];
+        // Si no hay galería sincronizada o solo trae la principal, fallback al thumb único
+        $hasGallery = count($galleryUrls) > 1;
+    @endphp
+    {{-- --multi: con 2+ imágenes las miniaturas van en columna a la DERECHA
+         de la principal (desde 600px). Con una sola no se reserva la columna. --}}
+    <div class="mp-gallery {{ $hasGallery ? 'mp-gallery--multi' : '' }}">
         <div class="mp-gallery-main">
             @if($listing->image_url)
                 {{-- En el DETALLE mostramos la variante completa (sin recorte _mp)
@@ -173,12 +181,6 @@
              enlaza click en thumb → cambia mpGalleryMain. La thumb usa el _mp
              cuadrado (src) pero data-full-image apunta a la versión completa,
              que es la que va al visor principal y al lightbox. --}}
-        @php
-            $galleryUrls     = is_array($listing->gallery_image_urls) ? $listing->gallery_image_urls : [];
-            $galleryFullUrls = is_array($listing->gallery_full_image_urls) ? $listing->gallery_full_image_urls : [];
-            // Si no hay galería sincronizada o solo trae la principal, fallback al thumb único
-            $hasGallery = count($galleryUrls) > 1;
-        @endphp
         @if($hasGallery)
             <div class="mp-gallery-thumbs">
                 @foreach($galleryUrls as $idx => $thumbUrl)
