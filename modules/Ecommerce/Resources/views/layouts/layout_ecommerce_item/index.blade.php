@@ -38,6 +38,10 @@
     <!-- Vue + Axios deben cargarse ANTES del header (que usa new Vue) -->
     <script src="{{ asset_v('porto-ecommerce/assets/js/vue.min.js') }}"></script>
     <script src="{{ asset_v('porto-ecommerce/assets/js/axios.min.js') }}"></script>
+    {{-- Pixeles de medicion. Este layout no extiende `master`, asi que
+         sin esta linea la pagina no medía nada. --}}
+    @include('ecommerce::layouts.partials_ecommerce.tracking_pixels')
+
 </head>
 <body>
     <div class="page-wrapper">

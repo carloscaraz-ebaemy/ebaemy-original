@@ -51,6 +51,10 @@
     <script src="{{ asset_v('porto-ecommerce/assets/js/axios.min.js') }}"></script>
     <script src="https://unpkg.com/element-ui/lib/index.js"></script>
     <script src="https://unpkg.com/element-ui/lib/umd/locale/es.js"></script>
+    {{-- Pixeles de medicion. Este layout no extiende `master`, asi que
+         sin esta linea la pagina no medía nada. --}}
+    @include('ecommerce::layouts.partials_ecommerce.tracking_pixels')
+
 </head>
 <body>
     <div class="page-wrapper">
