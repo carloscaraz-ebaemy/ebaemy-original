@@ -518,16 +518,12 @@
                                 </el-button>
                             </div>
                         </div>
-                        <div v-for="(row, index) in form.addresses"
+                        <div v-for="({ row, index }) in visibleAddresses"
+                             :key="index"
                              class="row m-t-10">
                             <div class="col-md-12">
-                                <label v-if="index === 0"
-                                       class="control-label">
-                                    Dirección principal
-                                </label>
-                                <label v-else
-                                       class="control-label">
-                                    Dirección secundaria # {{ index }}
+                                <label class="control-label">
+                                    Dirección adicional # {{ index + 1 }}
                                     <el-button class="btn-default-danger"
                                                icon="el-icon-minus"
                                                size="mini"
@@ -873,6 +869,43 @@ export default {
             'person',
             'parentPerson',
         ]),
+        /**
+         * Las direcciones ADICIONALES que se pintan, con su indice real.
+         *
+         * Hasta el 2026-10-13 el formulario copiaba la direccion principal del
+         * cliente dentro de esta lista al guardar, asi que la calle y el ubigeo
+         * salian dos veces en la ficha. El push ya no esta, pero quedan copias
+         * grabadas de antes: se ocultan aqui para que la ficha deje de
+         * mostrarlas duplicadas.
+         *
+         * Se ocultan, no se quitan de `form.addresses`: el guardado borra en la
+         * base lo que no venga en el envio, y algunas de esas filas las
+         * referencia una guia de remision ya emitida.
+         */
+        visibleAddresses() {
+            const principal = (this.form.address || '').trim().toUpperCase()
+            const distrito = (Array.isArray(this.form.location_id) && this.form.location_id.length === 3)
+                ? this.form.location_id[2]
+                : null
+
+            return (this.form.addresses || [])
+                .map((row, index) => ({ row, index }))
+                .filter(({ row }) => {
+                    if (!principal) return true
+
+                    const mismaCalle = (row.address || '').trim().toUpperCase() === principal
+                    if (!mismaCalle) return true
+
+                    // Sin ubigeo principal no hay con que comparar: se muestra.
+                    if (!distrito) return true
+
+                    const mismoDistrito = Array.isArray(row.location_id)
+                        && row.location_id.length === 3
+                        && row.location_id[2] === distrito
+
+                    return !mismoDistrito
+                })
+        },
         maxLength: function () {
             if (this.form.identity_document_type_id === '6') {
                 return 11
