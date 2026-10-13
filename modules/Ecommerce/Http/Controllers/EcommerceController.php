@@ -1025,8 +1025,10 @@ class EcommerceController extends Controller
                 'password'                   => \Hash::make(Str::random(32)),
                 'google_id'                  => $googleUser->getId(),
                 'avatar'                     => $googleUser->getAvatar(),
-                'condition'                  => '01',
-                'state'                      => '01',
+                // `condition` y `state` son la condicion y el estado DEL
+                // CONTRIBUYENTE segun SUNAT, en texto ('HABIDO', 'ACTIVO').
+                // Un '01' ahi se pinta en rojo en la ficha del cliente y
+                // bloquea su guardado; quien entra con Google no trae RUC.
                 'country_id'                 => 'PE', // Perú por defecto
             ]);
         } else {

@@ -158,7 +158,13 @@ use Illuminate\Support\Facades\DB;
                     'number'                    => $doc,
                     'name'                      => trim((string) $nombre) ?: 'CLIENTE',
                     'country_id'                => 'PE',
-                    'state'                     => true,
+                    // OJO: `state` y `condition` NO son banderas de registro
+                    // activo, son el ESTADO y la CONDICION DEL CONTRIBUYENTE
+                    // que devuelve SUNAT, en texto ('ACTIVO', 'BAJA DEFINITIVA',
+                    // 'HABIDO'...). Poner aqui `true` guardaba un '1' que la
+                    // ficha pinta en rojo como contribuyente no activo y que
+                    // ademas BLOQUEA el guardado en PersonController::store.
+                    // Aqui no se ha consultado a SUNAT: se dejan vacios.
                 ], array_filter($extra, fn ($v) => $v !== null && $v !== '')));
             } catch (\Throwable $e) {
                 \Illuminate\Support\Facades\Log::warning(
