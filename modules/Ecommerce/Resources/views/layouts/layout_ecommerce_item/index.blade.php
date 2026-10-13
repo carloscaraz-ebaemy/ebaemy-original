@@ -268,6 +268,12 @@
 
     <!-- Plugins JS File -->
     <script src="{{ asset_v('porto-ecommerce/assets/js/jquery.min.js') }}"></script>
+    {{-- El motor de eventos de ecommerce. Sin esto, las llamadas a
+         `EcommerceTracker.*` que ya hay en estas vistas no hacen nada:
+         van envueltas en `if (window.EcommerceTracker)` y el objeto no
+         existe. Es lo que dejaba sin medir `add_to_cart` y
+         `begin_checkout`, justo los pasos previos a la compra. --}}
+    <script src="{{ asset_v('porto-ecommerce/assets/js/tracker.js') }}"></script>
     <script src="{{ asset_v('porto-ecommerce/assets/js/bootstrap.bundle.min.js') }}"></script>
     <script src="{{ asset( 'porto-ecommerce/assets/js/plugins.min.js') }}"></script>
     <script src="{{ asset( 'porto-ecommerce/assets/js/nouislider.min.js' ) }}"></script>
