@@ -164,7 +164,14 @@ Disallow: /ecommerce/login
 Disallow: /ecommerce/stock-check
 Disallow: /ecommerce/order/
 Disallow: /ecommerce/configuration
-Disallow: /ecommerce/feed/
+
+# Los feeds de catálogo NO se bloquean. Google Merchant Center respeta
+# robots.txt al descargar un feed por URL, así que un Disallow aquí le impide
+# leer el catálogo entero: el feed deja de existir para Google Shopping sin
+# ningún aviso. Que no acaben en el índice de búsqueda lo resuelve la
+# cabecera `X-Robots-Tag: noindex` que manda ProductFeedController, que es la
+# herramienta correcta: deja pasar al rastreador y le dice qué no indexar.
+Allow: /ecommerce/feed/
 
 # Enlace que se manda al cliente con sus datos de envío: URL pública por
 # external_id, no debe acabar en un índice.

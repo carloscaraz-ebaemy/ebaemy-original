@@ -14,7 +14,19 @@
                              ? asset('storage/uploads/items/'.$record->image)
                              : $defaultImagePath;
     $productUrl            = route('tenant.ecommerce.item', ['slug' => $record->slug ?: $record->id]);
-    $shortDesc             = \Illuminate\Support\Str::limit(strip_tags($record->name ?: $record->description), 155);
+    // Corte por PALABRA, no por caracter. `Str::limit(..., 155)` partia la
+    // ultima palabra por la mitad y Google publicaba «...y base de tru...» en
+    // los resultados: el respaldo lo usan los 95 productos, porque ninguno
+    // tiene `seo_description` propia.
+    $textoLargo            = trim(preg_replace('/\s+/', ' ', strip_tags($record->name ?: $record->description)));
+    if (mb_strlen($textoLargo) <= 155) {
+        $shortDesc = $textoLargo;
+    } else {
+        $recorte   = mb_substr($textoLargo, 0, 155);
+        $ultimo    = mb_strrpos($recorte, ' ');
+        // Sin espacios no hay palabra que respetar: se queda el corte seco.
+        $shortDesc = rtrim($ultimo !== false ? mb_substr($recorte, 0, $ultimo) : $recorte, " \t\n\r,;:.-") . '...';
+    }
 
     // Resolución de og:image en cascada para compartir en redes (WhatsApp, FB, Twitter):
     //   1) Imagen real del producto (si existe y no es placeholder)

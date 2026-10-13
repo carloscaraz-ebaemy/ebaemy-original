@@ -115,7 +115,9 @@ class ProductFeedController extends Controller
 
         return response($xml, 200)
             ->header('Content-Type', 'application/xml; charset=UTF-8')
-            ->header('Cache-Control', 'public, max-age=3600');
+            ->header('Cache-Control', 'public, max-age=3600')
+            // Rastreable para Merchant Center, fuera del indice de busqueda.
+            ->header('X-Robots-Tag', 'noindex');
     }
 
     /**
@@ -134,6 +136,8 @@ class ProductFeedController extends Controller
         $headers = [
             'Content-Type'  => 'text/csv; charset=UTF-8',
             'Cache-Control' => 'public, max-age=3600',
+            // Rastreable para Meta y Merchant Center, fuera del indice.
+            'X-Robots-Tag'  => 'noindex',
         ];
 
         $callback = function () use ($feed, $rows) {
@@ -183,6 +187,7 @@ class ProductFeedController extends Controller
             'Content-Type'        => 'text/csv; charset=UTF-8',
             'Content-Disposition' => 'attachment; filename="products.csv"',
             'Cache-Control'       => 'public, max-age=3600',
+            'X-Robots-Tag'        => 'noindex',
         ];
 
         $callback = function () use ($feed, $rows) {
@@ -234,6 +239,8 @@ class ProductFeedController extends Controller
         $headers = [
             'Content-Type'  => 'text/csv; charset=UTF-8',
             'Cache-Control' => 'public, max-age=3600',
+            // Rastreable para Meta y Merchant Center, fuera del indice.
+            'X-Robots-Tag'  => 'noindex',
         ];
 
         $callback = function () use ($feed, $rows) {
