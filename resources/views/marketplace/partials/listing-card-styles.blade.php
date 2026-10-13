@@ -79,8 +79,11 @@
     .mp-card:hover .mp-card-img img { transform: scale(1.04); }
 
     /* Hover-image: muestra la 2da foto al pasar el cursor */
-    .mp-card-img-primary,
-    .mp-card-img-secondary {
+    /* Con el prefijo .mp-card-img: sin el, `.mp-card-img img { object-fit: cover }`
+       de marketplace.css (0,1,1) le ganaba a esta regla (0,1,0) y el `contain`
+       nunca llego a aplicarse — las cards recortaban la foto. */
+    .mp-card-img .mp-card-img-primary,
+    .mp-card-img .mp-card-img-secondary {
         position: absolute; top: 0; left: 0;
         width: 100%; height: 100%;
         box-sizing: border-box;
