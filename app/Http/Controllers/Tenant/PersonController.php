@@ -110,13 +110,17 @@ class PersonController extends Controller
             }
         }
 
-        if ($request->state) {
-            if ($request->state != "ACTIVO") {
-                return [
-                    'success' => false,
-                    'message' => 'El estado del contribuyente no es activo, no puede registrarlo',
-                ];
-            }
+        // Solo al dar de ALTA, como dice el propio mensaje. Aplicarlo tambien a
+        // la edicion dejaba al cliente congelado: un contribuyente que SUNAT da
+        // de baja sigue estando en la cartera, con sus documentos emitidos, y
+        // habia que poder corregirle el telefono o la direccion. Tal y como
+        // estaba, cualquier intento de editarlo moria con «no puede
+        // registrarlo» sin que hubiera nada que registrar.
+        if (!$request->input('id') && $request->state && $request->state != "ACTIVO") {
+            return [
+                'success' => false,
+                'message' => 'El estado del contribuyente no es activo, no puede registrarlo',
+            ];
         }
 
     

@@ -1224,19 +1224,18 @@ export default {
             //     }
             // }
 
-            if( this.form.location_id.every(lid => lid !== null ) &&  this.form.addresses.length==0 && this.form.location_id.length===3 && this.form.address!=null ){
-                this.form.addresses.push({
-                    'id': null,
-                    'country_id': 'PE',
-                    'location_id': this.form.location_id,
-                    'address': this.form.address,
-                    'email': this.form.email,
-                    'phone': this.form.telephone,
-                    'main': false,
-                    'establishment_code':this.form.establishment_code,
-                    'has_consigned' : false
-                });
-            }
+            // Aqui habia un push que copiaba la direccion principal del cliente
+            // dentro de `addresses` cuando la lista estaba vacia. Esa copia se
+            // pinta en el formulario como «Direccion principal» justo debajo de
+            // los mismos datos del cliente: el ubigeo y la calle salian DOS
+            // veces sin que nadie hubiera agregado una segunda direccion. Y al
+            // mutar el formulario antes del POST, un guardado rechazado dejaba
+            // el duplicado en pantalla.
+            //
+            // La copia no hacia falta: la guia de remision y los documentos ya
+            // reciben la direccion principal del propio cliente (`address`),
+            // aparte de la lista. `addresses` es para las direcciones
+            // ADICIONALES, que es justo como las titula esta pantalla.
 
             this.loading_submit = true
             this.form.parent_id = parseInt(this.parent);
