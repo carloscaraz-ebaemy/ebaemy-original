@@ -30,10 +30,10 @@ class ImageProcessingService
         'medium' => ['width' => 512,  'height' => null, 'quality' => 75, 'suffix' => '_medium'],
         'small'  => ['width' => 256,  'height' => null, 'quality' => 70, 'suffix' => '_small'],
 
-        // Marketplace EBAEMY — cuadrado 1080x1080 estilo Falabella/Mercado Libre.
-        // fit() recorta para alcanzar dimensiones exactas; productos centrados
-        // se ven óptimos. Si el producto está descentrado, queda visible pero
-        // recortado en los bordes.
+        // Marketplace EBAEMY — cuadrado 1080x1080 estilo Falabella/Mercado Libre:
+        // la foto ENTERA centrada sobre fondo blanco (ver fitSquare()). Antes
+        // usaba fit(), que recortaba los bordes: los collages y las fotos
+        // apaisadas perdían media imagen en la card.
         'marketplace' => ['width' => 1080, 'height' => 1080, 'quality' => 82, 'suffix' => '_mp',     'fit_square' => true],
 
         // Mobile optimizada — Lighthouse-friendly, carga rápida en 4G.
@@ -361,10 +361,7 @@ class ImageProcessingService
                 try { $img->orientate(); } catch (\Throwable $_) { /* sin EXIF */ }
 
                 if (!empty($config['fit_square'])) {
-                    // Cuadrado exacto (marketplace 1080x1080): fit() recorta los
-                    // bordes para alcanzar las dimensiones. Productos centrados
-                    // quedan óptimos. La regla es el estándar de Falabella/MeLi.
-                    $img->fit($config['width'], $config['height'] ?? $config['width']);
+                    self::fitSquare($img, $config['width']);
                 } else {
                     // Aspect ratio normal — no agranda imágenes pequeñas
                     $img->resize($config['width'], $config['height'], function ($constraint) {
@@ -424,6 +421,23 @@ class ImageProcessingService
      * Más seguro que mirar la extensión (los .heic muchas veces vienen sin
      * extensión correcta cuando el browser/share-sheet los entrega).
      */
+    /**
+     * Cuadrado de $size x $size SIN recortar: escala la foto para que quepa
+     * entera y rellena lo que sobra con blanco. Es lo que hacen Falabella y
+     * Mercado Libre; el fit() de antes cortaba los bordes de toda foto que no
+     * fuera ya cuadrada. Las imágenes pequeñas se amplían para llenar el lado
+     * largo: un producto diminuto en medio del blanco se ve peor que levemente
+     * suavizado.
+     */
+    public static function fitSquare(\Intervention\Image\Image $img, int $size): \Intervention\Image\Image
+    {
+        $img->resize($size, $size, function ($constraint) {
+            $constraint->aspectRatio();
+        });
+
+        return $img->resizeCanvas($size, $size, 'center', false, '#ffffff');
+    }
+
     public static function isHeicFile(string $path): bool
     {
         if (!file_exists($path)) return false;

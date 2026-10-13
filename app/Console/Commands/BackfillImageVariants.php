@@ -19,18 +19,25 @@ use Intervention\Image\ImageManagerStatic as Image;
  *   php artisan images:backfill-variants                # todos los tenants
  *   php artisan images:backfill-variants --tenant=uuid  # uno solo
  *   php artisan images:backfill-variants --dry-run      # no escribe nada
+ *   php artisan images:backfill-variants --rebuild-mp   # rehace TODAS las _mp
+ *
+ * --rebuild-mp existe porque las `_mp` anteriores a 2026-10-13 se generaron
+ * con fit(), que recortaba los bordes. Regenerarlas no cambia el nombre del
+ * archivo, así que no hace falta re-sincronizar los listings.
  */
 class BackfillImageVariants extends Command
 {
     protected $signature = 'images:backfill-variants
                             {--tenant= : UUID de un website específico}
-                            {--dry-run : No escribe archivos, solo muestra qué haría}';
+                            {--dry-run : No escribe archivos, solo muestra qué haría}
+                            {--rebuild-mp : Regenera la _mp aunque ya exista (sin recorte)}';
 
     protected $description = 'Genera variantes _mp y _mobile para items existentes (F6)';
 
     public function handle(): int
     {
-        $dryRun = (bool) $this->option('dry-run');
+        $dryRun    = (bool) $this->option('dry-run');
+        $rebuildMp = (bool) $this->option('rebuild-mp');
         $uuid   = $this->option('tenant');
 
         $websites = $uuid
@@ -79,7 +86,8 @@ class BackfillImageVariants extends Command
                 $missingVariants = [];
                 foreach ($variants as $variantKey => $suffix) {
                     $variantFile = $this->injectSuffix($filename, $suffix);
-                    if (!Storage::disk($disk)->exists($baseDir . '/' . $variantFile)) {
+                    $rebuild = $rebuildMp && $variantKey === 'marketplace';
+                    if ($rebuild || !Storage::disk($disk)->exists($baseDir . '/' . $variantFile)) {
                         $missingVariants[$variantKey] = $variantFile;
                     }
                 }
@@ -131,7 +139,7 @@ class BackfillImageVariants extends Command
                 try { $img->orientate(); } catch (\Throwable $_) { /* sin EXIF */ }
 
                 if (!empty($config['fit_square'])) {
-                    $img->fit($config['width'], $config['height'] ?? $config['width']);
+                    ImageProcessingService::fitSquare($img, $config['width']);
                 } else {
                     $img->resize($config['width'], $config['height'], function ($c) {
                         $c->aspectRatio();
