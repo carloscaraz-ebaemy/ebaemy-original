@@ -38,7 +38,7 @@ class ShippingBatchService
         }
 
         return DB::connection('tenant')->transaction(function () use ($ids, $format, $notes) {
-            $shipments = ShippingRequest::whereIn('id', $ids)->lockForUpdate()->get();
+            $shipments = ShippingRequest::whereIn('id', $ids)->with('order.activeShipment', 'printBatch')->lockForUpdate()->get();
 
             $skipped   = [];
             $eligible  = collect();
@@ -127,7 +127,9 @@ class ShippingBatchService
                 : 'Ya pertenece a un lote abierto (' . ($batch->code ?? '—') . ').';
         }
 
-        if (ShippingSetting::current()->require_payment && !$shipment->payment_confirmed) {
+        // Misma regla que el rotulo suelto: mira los dos libros de cobro, no
+        // solo el flag `payment_confirmed`.
+        if ($shipment->paymentBlocksLabel()) {
             return 'Falta confirmar su pago.';
         }
 
@@ -144,7 +146,7 @@ class ShippingBatchService
         $added   = 0;
         $skipped = [];
 
-        foreach (ShippingRequest::whereIn('id', $ids)->get() as $shipment) {
+        foreach (ShippingRequest::whereIn('id', $ids)->with('order.activeShipment', 'printBatch')->get() as $shipment) {
             $reason = $this->rejectionReason($shipment);
 
             if ($reason) {

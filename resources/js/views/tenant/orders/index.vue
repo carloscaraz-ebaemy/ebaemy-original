@@ -5970,30 +5970,118 @@ export default {
         async bulkCreatePrintBatch() {
             if (!this.selectedIds.length) return;
 
+            // La pestaña se abre AQUÍ, dentro del clic, y se redirige cuando
+            // el servidor contesta. Abrirla después del `await` ya no cuenta
+            // como gesto del usuario: Safari/iPhone (y Chrome si tarda) la
+            // bloqueaba en silencio, el lote quedaba ABIERTO sin imprimir y el
+            // siguiente intento rechazaba todo con «Ya pertenece a un lote
+            // abierto».
+            const win = window.open("", "_blank");
+            if (win) {
+                win.document.write(
+                    "<p style=\"font:16px sans-serif;padding:24px\">Preparando el lote de impresión…</p>"
+                );
+            }
+
             try {
                 const { data } = await this.$http.post("/orders/print-batch", {
                     order_ids: this.selectedIds,
                     format: "a4",
                 });
 
-                let message = data.message;
-                if (data.orders_without_shipment && data.orders_without_shipment.length) {
-                    message +=
-                        " Sin envío configurado: " +
-                        data.orders_without_shipment.length +
-                        " pedido(s).";
+                if (data.print_url) {
+                    if (win) {
+                        win.location.href = data.print_url;
+                    } else {
+                        // Bloqueada igual (ajustes del navegador): el lote ya
+                        // existe, así que se ofrece el enlace en vez de dejarlo
+                        // abierto sin que nadie lo sepa.
+                        this.$alert(
+                            "El navegador bloqueó la ventana. El lote " + data.batch_code +
+                                " está creado: ábrelo desde «Lotes de impresión» para imprimirlo.",
+                            "Lote creado",
+                            { confirmButtonText: "Entendido" }
+                        );
+                    }
+                } else if (win) {
+                    win.close();
                 }
-                this.$message.success(message);
+
+                // El aviso va ANTES de recargar: lee los códigos de pedido de
+                // las filas que se ven ahora.
+                if (this.batchLeftovers(data)) {
+                    this.showBatchLeftovers(data.message, data, "warning");
+                } else {
+                    this.$message.success(data.message);
+                }
 
                 this.selectedIds = [];
                 this.$refs.ordersTable.getRecords();
                 this.loadChipCounts();
-
-                if (data.print_url) window.open(data.print_url, "_blank");
             } catch (e) {
-                const body = e.response && e.response.data;
-                this.$message.error((body && body.message) || "No se pudo crear el lote.");
+                if (win) win.close();
+                const body = (e.response && e.response.data) || {};
+                if (this.batchLeftovers(body)) {
+                    this.showBatchLeftovers("No se pudo crear el lote.", body, "error");
+                } else {
+                    this.$message.error(body.message || "No se pudo crear el lote.");
+                }
             }
+        },
+
+        /** ¿La respuesta del lote trae pedidos que quedaron fuera? */
+        batchLeftovers(data) {
+            return (
+                Object.keys(data.skipped || {}).length > 0 ||
+                (data.orders_without_shipment || []).length > 0 ||
+                data.over_limit > 0
+            );
+        },
+
+        /**
+         * Lista, uno por uno, los pedidos que no entraron al lote y por qué.
+         * Antes el aviso decía «creado con 2 envío(s)» cuando se habían
+         * elegido 10, sin explicar los otros 8.
+         */
+        showBatchLeftovers(title, data, type) {
+            const h = this.$createElement;
+            const lines = [];
+
+            Object.keys(data.skipped || {}).forEach(code => {
+                lines.push(code + ": " + data.skipped[code]);
+            });
+
+            const sinEnvio = data.orders_without_shipment || [];
+            if (sinEnvio.length) {
+                const codes = sinEnvio.map(id => {
+                    const row = (this.currentRecords || []).find(r => Number(r.id) === Number(id));
+                    return "#" + (row && row.order_id ? row.order_id : id);
+                });
+                lines.push(
+                    "Sin envío configurado (" + sinEnvio.length + "): " + codes.join(", ") +
+                        ". Configúrale el envío o pide al cliente que llene sus datos."
+                );
+            }
+
+            if (data.over_limit > 0) {
+                lines.push(
+                    data.over_limit + " pedido(s) no se procesaron: el lote admite 200 como máximo."
+                );
+            }
+
+            this.$alert(
+                h("div", [
+                    h("p", { style: "margin:0 0 8px" }, data.success ? data.message : title),
+                    h("p", { style: "margin:0 0 6px;font-weight:600" }, "Quedaron fuera:"),
+                    h(
+                        "ul",
+                        { style: "margin:0;padding-left:18px;max-height:260px;overflow:auto" },
+                        lines.map(l => h("li", l))
+                    ),
+                ]),
+                data.success ? "Lote creado" : "Lote no creado",
+                { confirmButtonText: "Entendido", type }
+            );
         },
 
         /**

@@ -1187,6 +1187,53 @@ class ShippingRequest extends Model
         return null;
     }
 
+    /**
+     * ¿Hay que bloquear el rotulo porque el envio no esta cobrado?
+     *
+     * Definicion UNICA de la regla de pago del rotulo: la usan la impresion
+     * individual, la masiva y los lotes. Antes el lote tenia su propia copia
+     * —`require_payment && !payment_confirmed`— y rechazaba con «Falta
+     * confirmar su pago» pedidos cobrados en `order_payments` que el rotulo
+     * suelto si imprimia.
+     *
+     * `payment_confirmed` es un FLAG que solo enciende `syncPaymentState()`
+     * cuando aparece una fila en `shipping_payments`; un pedido cobrado desde
+     * Pedidos escribe en `order_payments`. Por eso se pregunta a la definicion
+     * canonica (OrderPaymentSync::estaSaldado), que mira los dos libros. El
+     * flag se conserva como via valida: el operador que confirma a mano
+     * —efectivo, contra entrega— desbloquea igual.
+     *
+     * Detectado 2026-09-15 en ENV-20260907-000280 (alasitas).
+     *
+     * En bucles, precargar `order.activeShipment` para no caer en un N+1.
+     */
+    public function paymentBlocksLabel(): bool
+    {
+        if (!ShippingSetting::current()->require_payment) {
+            return false;
+        }
+
+        if ($this->payment_confirmed) {
+            return false;
+        }
+
+        $order = $this->order;
+
+        // Un envio sin pedido detras no tiene mas libro que consultar.
+        if (!$order) {
+            return true;
+        }
+
+        if (!\App\Services\Tenant\OrderPaymentSync::estaSaldado($order)) {
+            return true;
+        }
+
+        // Si el tenant verifica los cobros, un pago pendiente de revision no
+        // habilita nada: es la misma salvedad que aplica el avance del pedido.
+        return \App\Services\Tenant\PaymentVerification::requerida()
+            && \App\Services\Tenant\OrderPaymentSync::tienePendientesDeVerificar($order);
+    }
+
     /** ¿Se puede imprimir su rótulo en una selección masiva? */
     public function isLabelPrintable(): bool
     {

@@ -339,7 +339,12 @@ class ShipmentController extends Controller
             ? $request->input('order_ids')
             : explode(',', (string) $request->input('order_ids'));
 
-        $orderIds = collect($orderIds)->map(fn($x) => (int) trim($x))->filter()->unique()->take(200);
+        $orderIds = collect($orderIds)->map(fn($x) => (int) trim($x))->filter()->unique();
+
+        // Tope por lote. Se avisa en vez de recortar en silencio: antes el
+        // pedido 201 en adelante desaparecía sin que nadie lo supiera.
+        $overLimit = max(0, $orderIds->count() - 200);
+        $orderIds  = $orderIds->take(200);
 
         $shipments = ShippingRequest::whereIn('order_id', $orderIds)
             ->vigente()
@@ -370,6 +375,7 @@ class ShipmentController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'No se pudo crear el lote. ' . ($detail ?: 'Ningún envío es elegible.'),
+                'skipped' => $result['skipped'],
                 'orders_without_shipment' => $withoutShipment,
             ], 422);
         }
@@ -381,6 +387,7 @@ class ShipmentController extends Controller
             'added'     => $result['added'],
             'skipped'   => $result['skipped'],
             'orders_without_shipment' => $withoutShipment,
+            'over_limit'=> $overLimit,
             'print_url' => route('shipments.batches.print', $result['batch']),
             'message'   => "Lote {$result['batch']->code} creado con {$result['added']} envío(s).",
         ]);
@@ -1485,37 +1492,9 @@ class ShipmentController extends Controller
      */
     private function paymentBlocks(ShippingRequest $shipment): bool
     {
-        if (!ShippingSetting::current()->require_payment) {
-            return false;
-        }
-
-        // Confirmado a mano: es una decision explicita del operador y basta.
-        if ($shipment->payment_confirmed) {
-            return false;
-        }
-
-        // Consulta el pedido y su envio vigente. En los bucles de lote eso seria
-        // un N+1, asi que los dos puntos que iteran precargan
-        // `order.activeShipment` antes de llamar aqui.
-        $order = $shipment->order;
-
-        // Un envio sin pedido detras no tiene mas libro que consultar: se
-        // mantiene el comportamiento de siempre.
-        if (!$order) {
-            return true;
-        }
-
-        if (!OrderPaymentSync::estaSaldado($order)) {
-            return true;
-        }
-
-        // Si el tenant verifica los cobros, un pago pendiente de revision no
-        // habilita nada: es la misma salvedad que aplica el avance del pedido.
-        if (PaymentVerification::requerida() && OrderPaymentSync::tienePendientesDeVerificar($order)) {
-            return true;
-        }
-
-        return false;
+        // La regla vive en el modelo para que los lotes
+        // (ShippingBatchService) pregunten exactamente lo mismo.
+        return $shipment->paymentBlocksLabel();
     }
 
     /** Confirmar (o revertir) el pago del envío. Habilita el resto del flujo. */
