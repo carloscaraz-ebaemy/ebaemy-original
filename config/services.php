@@ -78,4 +78,13 @@ return [
         'sandbox'         => (bool) env('MP_SANDBOX', false),
     ],
 
+    // Quitar el fondo de la imagen principal del producto. Apagado mientras
+    // no haya clave: el boton no aparece. Ver BackgroundRemovalService.
+    'background_removal' => [
+        'driver'        => env('BG_REMOVAL_DRIVER', 'photoroom'),
+        'photoroom_key' => env('PHOTOROOM_API_KEY'),
+        // Fotos por tienda y mes: cada una se paga (~0,02 USD en Photoroom).
+        'monthly_limit' => (int) env('BG_REMOVAL_MONTHLY_LIMIT', 100),
+    ],
+
 ];

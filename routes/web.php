@@ -853,6 +853,9 @@ if ($hostname) {
             // F2: pipeline async — encola job, frontend hace polling
             Route::post('items/upload-async', 'Tenant\ItemController@uploadAsync');
             Route::get('items/upload-jobs/{uuid}', 'Tenant\ItemController@uploadJobStatus');
+            // Quitar el fondo de la imagen principal (Photoroom; apagado sin clave)
+            Route::get('items/remove-background/status', 'Tenant\ItemBackgroundController@status');
+            Route::post('items/remove-background', 'Tenant\ItemBackgroundController@remove');
             Route::post('items/visible_store', 'Tenant\ItemController@visibleStore');
             Route::post('items/quick-price', 'Tenant\ItemController@quickPrice');
             Route::post('items/marketplace-toggle', 'Tenant\ItemController@marketplaceToggle');

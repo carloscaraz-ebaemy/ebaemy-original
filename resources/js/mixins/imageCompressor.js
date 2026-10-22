@@ -82,6 +82,13 @@ const ASYNC_TIMEOUT_MS  = 90000   // desktop default
 const ASYNC_INTERVAL_MS = 1500    // polling cada 1.5s
 
 export const imageCompressor = {
+    data() {
+        return {
+            // Resultado del aviso de fondo de la ultima principal subida:
+            // { ok, proporcion } o null. Lo lee el boton «Quitar el fondo».
+            fondoPrincipal: null,
+        }
+    },
     methods: {
         _isMobileClient() {
             return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent || '')
@@ -163,6 +170,8 @@ export const imageCompressor = {
             } catch (e) {
                 fondo = null   // si no se puede medir, no se molesta al vendedor
             }
+
+            this.fondoPrincipal = fondo
 
             if (fondo && !fondo.ok) {
                 try {

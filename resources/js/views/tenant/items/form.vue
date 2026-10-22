@@ -983,6 +983,12 @@
                                     <i v-else
                                        class="el-icon-plus avatar-uploader-icon"></i>
                                 </el-upload>
+                                <quitar-fondo :temp-path="form.temp_path"
+                                              :image="form.image"
+                                              :preview-url="form.image_url"
+                                              :fondo-malo="!!(fondoPrincipal && !fondoPrincipal.ok)"
+                                              :subiendo="uploadingImage"
+                                              @aplicar="onFondoQuitado"></quitar-fondo>
                             </div>
                         </div>
                         <div class="col-md-9">
@@ -1599,6 +1605,7 @@ import {ItemOptionDescription, ItemSlotTooltip} from "../../../helpers/modal_ite
 import ClassicEditor from '@ckeditor/ckeditor5-build-classic';
 import VueCkeditor from 'vue-ckeditor5';
 import { imageCompressor } from '../../../mixins/imageCompressor';
+import QuitarFondo from './partials/QuitarFondo.vue';
 
 
 export default {
@@ -1613,6 +1620,7 @@ export default {
         'input_item',
     ],
     components: {
+        QuitarFondo,
         LotsForm,
         ExtraInfo,
         VariantsTab,
@@ -2149,6 +2157,21 @@ export default {
             if (typeof previa === 'string' && previa.startsWith('blob:') && previa !== this.form.image_url) {
                 URL.revokeObjectURL(previa)
             }
+        },
+        /**
+         * El vendedor acepto la foto sin fondo: se guarda como una subida
+         * nueva (`temp_path`), igual que si la hubiera elegido el.
+         */
+        onFondoQuitado(d) {
+            if (!d) return
+            if (typeof this.form.image_url === 'string' && this.form.image_url.startsWith('blob:')) {
+                URL.revokeObjectURL(this.form.image_url)
+            }
+            this.form.temp_path = d.temp_path
+            this.form.image = d.filename
+            this.form.image_url = d.temp_image
+            if ('processed_filename' in this.form) this.form.processed_filename = null
+            this.fondoPrincipal = null
         },
         onSuccess(response, file, fileList) {
             this.uploadingImage = false
