@@ -399,7 +399,7 @@
                             </td>
                             <!-- Nombre de la variante -->
                             <td class="ie-vrow__name">
-                                <span class="ie-vrow__branch">└</span>
+                                <span class="ie-vrow__branch">└</span><span class="ie-vrow__tag">Variante</span>
                                 <i
                                     v-for="ov in colorValues(v)"
                                     :key="ov.id"
@@ -1014,26 +1014,36 @@ export default {
     font-size: 11px; color: #4f46e5; background: #eef2ff; border-radius: 10px;
     padding: 1px 7px; margin-top: 3px; cursor: pointer; white-space: nowrap; display: inline-block;
 }
-.ie-row--open > td { border-bottom-color: transparent; }
-/* Filas de variante: mismas columnas que el producto, tono más suave y una
-   guía a la izquierda para que se lean como hijas del producto de arriba. */
-.ie-vrow > td {
-    background: #f8fafc; font-size: 12.5px; color: #475569;
-    padding-top: 4px !important; padding-bottom: 4px !important;
-    border-top: 0 !important; border-bottom: 1px solid #eef2f6;
+/* Producto abierto: cabecera del grupo, mismo tono que sus variantes. */
+.ie-row--open > td {
+    background: #c7d2fe !important; font-weight: 600; color: #312e81;
+    border-bottom: 0 !important;
 }
-.ie-vrow > td:first-child { box-shadow: inset 3px 0 0 #c7d2fe; }
-.ie-vrow--last > td { border-bottom: 2px solid #e0e7ff; }
-.ie-vrow--msg > td { color: #64748b; padding: 8px 12px !important; }
-.ie-vrow__code { white-space: nowrap; }
-.ie-vrow__auto { color: #94a3b8; font-style: italic; cursor: help; border-bottom: 1px dotted #cbd5e1; }
-.ie-vrow__muted { color: #94a3b8; font-size: 11px; }
+.ie-row--open > td:first-child { box-shadow: inset 4px 0 0 #4f46e5; }
+/* Filas de variante: fondo índigo claro, barra lateral y etiqueta «Variante»
+   para que no se confundan con los productos de alrededor. */
+.ie-vrow > td {
+    background: #eef2ff; font-size: 12.5px; color: #3730a3;
+    padding-top: 4px !important; padding-bottom: 4px !important;
+    border-top: 0 !important; border-bottom: 1px solid #e0e7ff;
+}
+.ie-vrow:hover > td { background: #e0e7ff; }
+.ie-vrow > td:first-child { box-shadow: inset 4px 0 0 #818cf8; }
+.ie-vrow--last > td { border-bottom: 3px solid #c7d2fe; }
+.ie-vrow--msg > td { color: #4f46e5; padding: 8px 12px !important; }
+.ie-vrow__code { white-space: nowrap; padding-left: 14px !important; }
+.ie-vrow__auto { color: #6366f1; font-style: italic; cursor: help; border-bottom: 1px dotted #a5b4fc; }
+.ie-vrow__muted { color: #818cf8; font-size: 11px; }
 .ie-vrow__img {
     display: inline-block; width: 28px; height: 28px; object-fit: contain;
     border-radius: 4px; background: #fff; border: 1px solid #e5e7eb; vertical-align: middle;
 }
 .ie-vrow__name { white-space: nowrap; }
-.ie-vrow__branch { color: #a5b4fc; margin: 0 4px 0 6px; }
+.ie-vrow__branch { color: #818cf8; margin: 0 4px 0 6px; }
+.ie-vrow__tag {
+    font-size: 9.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+    color: #fff; background: #6366f1; border-radius: 3px; padding: 1px 5px; margin-right: 6px; vertical-align: 1px;
+}
 .ie-var__dot {
     display: inline-block; width: 10px; height: 10px; border-radius: 50%;
     border: 1px solid rgba(0,0,0,.15); margin-right: 3px; vertical-align: -1px;
