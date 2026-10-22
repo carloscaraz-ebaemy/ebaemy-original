@@ -241,11 +241,9 @@
                                 <i :class="isOpen(row) ? 'el-icon-arrow-down' : 'el-icon-arrow-right'"></i>
                             </button>
                             {{ row.description }}
-                            <span
-                                v-if="row.has_variants"
-                                class="ie-var-badge"
-                                @click="toggleVariants(row)"
-                            >{{ variantsLabel(row) }}</span>
+                            <div v-if="row.has_variants">
+                                <span class="ie-var-badge" @click="toggleVariants(row)">{{ variantsLabel(row) }}</span>
+                            </div>
                             <!-- Estado en Saga Falabella -->
                             <template v-if="row.saga_status">
                                 <span v-if="row.saga_status === 'error' || row.saga_qc === 'rejected'" class="ie-saga ie-saga--err" title="Saga Falabella: error / rechazado">🔴 Saga</span>
@@ -254,7 +252,7 @@
                             </template>
                         </td>
                         <!-- Precio (normal) -->
-                        <td class="text-end">S/ {{ regularOf(row) }}</td>
+                        <td class="text-end" style="white-space:nowrap">S/ {{ regularOf(row) }}</td>
                         <!-- Precio oferta: texto + tooltip (estado + duración) + lápiz -->
                         <td class="text-end" style="min-width:120px">
                             <div style="display:flex;align-items:center;justify-content:flex-end;gap:6px">
@@ -359,44 +357,88 @@
                         </td>
                     </tr>
                     <!-- Variantes del producto: no son productos aparte, viven
-                         dentro de este y se cargan al desplegar la flecha. -->
-                    <tr v-if="row.has_variants && isOpen(row)" class="ie-var-row">
-                        <td colspan="100">
-                            <div class="ie-var">
-                                <div v-if="variantsLoading[row.id]" class="ie-var__empty">
-                                    <i class="el-icon-loading"></i> Cargando variantes…
+                         dentro de este y se cargan al desplegar la flecha. Cada
+                         variante ocupa su fila alineada con las columnas del
+                         padre: código bajo el código, foto bajo la foto, precios
+                         y stock en su columna. -->
+                    <template v-if="row.has_variants && isOpen(row)">
+                        <tr v-if="variantsLoading[row.id]" class="ie-vrow ie-vrow--msg">
+                            <td colspan="100"><i class="el-icon-loading"></i> Cargando variantes…</td>
+                        </tr>
+                        <tr v-else-if="!(variantsOf[row.id] || []).length" class="ie-vrow ie-vrow--msg">
+                            <td colspan="100">Sin variantes activas.</td>
+                        </tr>
+                        <template v-else>
+                        <tr
+                            v-for="(v, vi) in variantsOf[row.id]"
+                            :key="'v' + v.id"
+                            class="ie-vrow"
+                            :class="{ 'ie-vrow--last': vi === variantsOf[row.id].length - 1 }"
+                        >
+                            <!-- Cód. Interno: SKU propio o subcódigo sugerido -->
+                            <td class="ie-vrow__code">
+                                <span v-if="v.sku">{{ v.sku }}</span>
+                                <el-tooltip v-else placement="top" content="Sin SKU propio: código sugerido a partir del producto (no está guardado)">
+                                    <span class="ie-vrow__auto">{{ subCode(row, vi) }}</span>
+                                </el-tooltip>
+                            </td>
+                            <!-- Unidad -->
+                            <td class="ie-vrow__muted">{{ row.unit_type_id }}</td>
+                            <!-- Imagen: la de la variante, bajo la del producto -->
+                            <td class="text-center">
+                                <img
+                                    v-if="v.image_url"
+                                    :src="v.image_url"
+                                    alt=""
+                                    width="28"
+                                    height="28"
+                                    loading="lazy"
+                                    class="ie-vrow__img"
+                                />
+                                <span v-else class="ie-vrow__muted" title="Sin foto propia: usa la del producto">—</span>
+                            </td>
+                            <!-- Nombre de la variante -->
+                            <td class="ie-vrow__name">
+                                <span class="ie-vrow__branch">└</span>
+                                <i
+                                    v-for="ov in colorValues(v)"
+                                    :key="ov.id"
+                                    class="ie-var__dot"
+                                    :style="{ background: ov.color_hex }"
+                                ></i>
+                                {{ v.display_name || ('Variante #' + v.id) }}
+                            </td>
+                            <!-- Precio -->
+                            <td class="text-end" style="white-space:nowrap">
+                                S/ {{ variantRegular(v, row) }}
+                                <small v-if="v.sale_unit_price === null" class="ie-vrow__muted" title="Hereda el precio del producto">(hereda)</small>
+                            </td>
+                            <!-- Precio oferta -->
+                            <td class="text-end">
+                                <span v-if="variantOffer(v, row)" style="color:#e53e3e;font-weight:700">S/ {{ variantOffer(v, row) }}</span>
+                                <span v-else style="color:#9ca3af">—</span>
+                            </td>
+                            <!-- Stock -->
+                            <td class="text-end" style="min-width:90px">
+                                <div style="display:flex;align-items:center;justify-content:flex-end;gap:6px">
+                                    <span :class="{ 'text-danger': Number(v.stock) <= 0 }">{{ fmtQty(v.stock) }}</span>
+                                    <el-button type="text" icon="el-icon-edit" @click="openStockDialog(row)"
+                                               title="Ajustar stock"
+                                               style="padding:0;font-size:15px;color:#409eff"></el-button>
                                 </div>
-                                <template v-else>
-                                    <ul v-if="(variantsOf[row.id] || []).length" class="ie-var__list">
-                                        <li v-for="v in variantsOf[row.id]" :key="v.id" class="ie-var__item">
-                                            <img v-if="v.image_url" :src="v.image_url" alt="" class="ie-var__img" loading="lazy" />
-                                            <span v-else class="ie-var__img ie-var__img--none"></span>
-                                            <span class="ie-var__name">
-                                                <i
-                                                    v-for="ov in colorValues(v)"
-                                                    :key="ov.id"
-                                                    class="ie-var__dot"
-                                                    :style="{ background: ov.color_hex }"
-                                                ></i>
-                                                {{ v.display_name || ('Variante #' + v.id) }}
-                                                <small v-if="v.sku" class="ie-var__sku">{{ v.sku }}</small>
-                                            </span>
-                                            <span class="ie-var__price">S/ {{ variantPrice(v, row) }}</span>
-                                            <span
-                                                class="ie-var__stock"
-                                                :class="{ 'text-danger': Number(v.stock) <= 0 }"
-                                            >{{ fmtQty(v.stock) }} <small>und.</small></span>
-                                        </li>
-                                    </ul>
-                                    <div v-else class="ie-var__empty">Sin variantes activas.</div>
-                                    <div class="ie-var__actions">
-                                        <el-button type="text" size="mini" icon="el-icon-edit" @click="openStockDialog(row)">Ajustar stock</el-button>
-                                        <el-button type="text" size="mini" icon="el-icon-setting" @click="clickCreate(row.id)">Editar variantes</el-button>
-                                    </div>
-                                </template>
-                            </div>
-                        </td>
-                    </tr>
+                            </td>
+                            <!-- Tags, Visible, Marketplace, Saga: son del producto -->
+                            <td></td>
+                            <td></td>
+                            <td></td>
+                            <td v-if="mpStats.has_saga"></td>
+                            <!-- Acciones -->
+                            <td class="text-end">
+                                <el-button type="text" size="mini" @click="clickCreate(row.id)" title="Las variantes se editan en la ficha del producto">Editar</el-button>
+                            </td>
+                        </tr>
+                        </template>
+                    </template>
                     </template>
                 </data-table>
             </div>
@@ -715,12 +757,31 @@ export default {
         colorValues(v) {
             return (v.option_values || []).filter(ov => ov.color_hex);
         },
-        // Precio propio de la variante; si es null hereda el del producto
-        // (misma regla que ItemVariant::inherited: 0 es un precio propio).
-        variantPrice(v, row) {
-            const own = v.sale_unit_price;
-            const val = (own === null || own === undefined || own === '') ? row.amount_sale_unit_price : own;
-            return (parseFloat(val) || 0).toFixed(2);
+        // Subcódigo para mostrar cuando la variante no tiene SKU propio:
+        // código del producto + posición («ROPA-002-03»). Solo se muestra.
+        subCode(row, vi) {
+            const base = row.internal_id || ('P' + row.id);
+            return base + '-' + String(vi + 1).padStart(2, '0');
+        },
+        // Venta y tachado efectivos de la variante. Lo propio gana; lo que es
+        // null se hereda del producto (regla de ItemVariant::inherited: 0 es
+        // un valor propio). La oferta del padre solo se hereda si la variante
+        // tampoco tiene precio propio, o se mezclarían dos precios distintos.
+        variantPrices(v, row) {
+            const isNull = x => x === null || x === undefined || x === '';
+            const sale = parseFloat(isNull(v.sale_unit_price) ? row.amount_sale_unit_price : v.sale_unit_price) || 0;
+            let cap = null;
+            if (!isNull(v.compare_at_price)) cap = parseFloat(v.compare_at_price);
+            else if (isNull(v.sale_unit_price)) cap = parseFloat(row.compare_at_price) || null;
+            return { sale, cap };
+        },
+        variantRegular(v, row) {
+            const { sale, cap } = this.variantPrices(v, row);
+            return (cap && cap > sale ? cap : sale).toFixed(2);
+        },
+        variantOffer(v, row) {
+            const { sale, cap } = this.variantPrices(v, row);
+            return cap && cap > sale ? sale.toFixed(2) : '';
         },
         fmtQty(n) {
             const x = Number(n) || 0;
@@ -951,34 +1012,31 @@ export default {
 .ie-var-toggle:hover { background: #e0e7ff; }
 .ie-var-badge {
     font-size: 11px; color: #4f46e5; background: #eef2ff; border-radius: 10px;
-    padding: 1px 7px; margin-left: 4px; cursor: pointer; white-space: nowrap;
+    padding: 1px 7px; margin-top: 3px; cursor: pointer; white-space: nowrap; display: inline-block;
 }
 .ie-row--open > td { border-bottom-color: transparent; }
-.ie-var-row > td { background: #f8fafc; padding: 0 !important; }
-.ie-var { padding: 6px 12px 8px 36px; max-width: 720px; }
-.ie-var__list { list-style: none; margin: 0; padding: 0; }
-.ie-var__item {
-    display: flex; align-items: center; gap: 10px;
-    padding: 5px 0; border-bottom: 1px dashed #e5e7eb; font-size: 13px;
+/* Filas de variante: mismas columnas que el producto, tono más suave y una
+   guía a la izquierda para que se lean como hijas del producto de arriba. */
+.ie-vrow > td {
+    background: #f8fafc; font-size: 12.5px; color: #475569;
+    padding-top: 4px !important; padding-bottom: 4px !important;
+    border-top: 0 !important; border-bottom: 1px solid #eef2f6;
 }
-.ie-var__item:last-child { border-bottom: 0; }
-.ie-var__img { width: 26px; height: 26px; object-fit: contain; border-radius: 4px; background: #fff; flex: none; }
-.ie-var__img--none { border: 1px solid #e5e7eb; }
-.ie-var__name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ie-vrow > td:first-child { box-shadow: inset 3px 0 0 #c7d2fe; }
+.ie-vrow--last > td { border-bottom: 2px solid #e0e7ff; }
+.ie-vrow--msg > td { color: #64748b; padding: 8px 12px !important; }
+.ie-vrow__code { white-space: nowrap; }
+.ie-vrow__auto { color: #94a3b8; font-style: italic; cursor: help; border-bottom: 1px dotted #cbd5e1; }
+.ie-vrow__muted { color: #94a3b8; font-size: 11px; }
+.ie-vrow__img {
+    display: inline-block; width: 28px; height: 28px; object-fit: contain;
+    border-radius: 4px; background: #fff; border: 1px solid #e5e7eb; vertical-align: middle;
+}
+.ie-vrow__name { white-space: nowrap; }
+.ie-vrow__branch { color: #a5b4fc; margin: 0 4px 0 6px; }
 .ie-var__dot {
     display: inline-block; width: 10px; height: 10px; border-radius: 50%;
     border: 1px solid rgba(0,0,0,.15); margin-right: 3px; vertical-align: -1px;
-}
-.ie-var__sku { color: #9ca3af; margin-left: 4px; }
-.ie-var__price { width: 80px; text-align: right; flex: none; }
-.ie-var__stock { width: 70px; text-align: right; font-weight: 600; flex: none; }
-.ie-var__stock small { font-weight: 400; color: #9ca3af; }
-.ie-var__empty { color: #6b7280; font-size: 13px; padding: 6px 0; }
-.ie-var__actions { display: flex; gap: 12px; padding-top: 2px; }
-@media (max-width: 576px) {
-    .ie-var { padding-left: 12px; }
-    .ie-var__price { width: 64px; }
-    .ie-var__stock { width: 54px; }
 }
 /* ── Banner informativo unificado ── */
 .ie-info-banner {
