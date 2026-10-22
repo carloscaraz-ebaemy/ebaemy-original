@@ -80,10 +80,23 @@
                     No se duplican: viven en el catálogo maestro. Precio, stock y datos de facturación se sincronizan automáticamente.
                 </div>
             </div>
+            <button type="button" class="btn btn-sm ie-info-banner__news" @click="$refs.tour && $refs.tour.start()">
+                ✨ ¿Qué hay de nuevo?
+            </button>
             <a href="/items" class="btn btn-sm btn-outline-success ie-info-banner__cta">
                 Ver catálogo completo →
             </a>
         </div>
+
+        <!-- Guía de novedades: sale una vez por usuario (se guarda en su
+             cuenta). Para una novedad futura en esta pantalla, cambiar la
+             clave y los pasos. Ver components/FeatureTour.vue. -->
+        <feature-tour
+            v-if="itemsCount !== 0"
+            ref="tour"
+            tour-key="tienda-productos-2026-10"
+            :steps="tourSteps"
+        ></feature-tour>
 
         <!-- ── Welcome / Empty state: solo cuando no hay productos ── -->
         <div v-if="itemsCount === 0" class="ie-welcome-card">
@@ -193,7 +206,10 @@
                         </th>
                         <th class="text-end">Precio</th>
                         <th class="text-end">Precio oferta</th>
-                        <th class="text-end">Stock General</th>
+                        <th class="text-end">
+                            Stock General
+                            <span v-if="showNewBadge" class="ie-new-pill" title="Ahora puedes ajustar el stock desde aquí">Nuevo</span>
+                        </th>
                         <th class="text-center">Tags</th>
 
                         <th class="text-center">Visible en Tienda</th>
@@ -275,7 +291,7 @@
                                 <span :class="{ 'text-danger': stock(row.warehouses) <= 0 }">
                                     {{ stock(row.warehouses) }}
                                 </span>
-                                <el-button type="text" icon="el-icon-edit" @click="openStockDialog(row)"
+                                <el-button type="text" icon="el-icon-edit" class="ie-stock-edit" @click="openStockDialog(row)"
                                            title="Ajustar stock"
                                            style="padding:0;font-size:17px;color:#409eff"></el-button>
                             </div>
@@ -605,6 +621,10 @@
 import ItemsForm from "./form.vue";
 import WarehousesDetail from "./partials/warehouses.vue";
 import StockAdjust from "./partials/stock_adjust.vue";
+import FeatureTour from "../../../components/FeatureTour.vue";
+
+// Hasta cuándo se marca «Nuevo» en la cabecera de Stock General.
+const NOVEDAD_STOCK_HASTA = new Date('2026-11-30T23:59:59');
 // import ItemsImport from './import.vue'
 import DataTable from "../../../components/DataTable.vue";
 import { deletable } from "../../../mixins/deletable";
@@ -613,7 +633,7 @@ import { itemRemoval } from "../../../mixins/itemRemoval";
 export default {
     props: [], //'typeUser'
     mixins: [deletable, itemRemoval],
-    components: { ItemsForm, DataTable, WarehousesDetail, StockAdjust }, //ItemsImport
+    components: { ItemsForm, DataTable, WarehousesDetail, StockAdjust, FeatureTour }, //ItemsImport
     data() {
         return {
             showDialog: false,
@@ -621,6 +641,19 @@ export default {
             stockDialogVisible: false,
             stockItemId: null,
             stockRow: null,
+            showNewBadge: new Date() <= NOVEDAD_STOCK_HASTA,
+            tourSteps: [
+                {
+                    target: '.ie-stock-edit',
+                    title: 'Ajusta el stock desde aquí',
+                    body: 'Toca el lápiz para corregir las unidades de un producto, por almacén y por variante, sin ir a Inventario. Cada cambio queda registrado en el kardex y se actualiza al momento en tu tienda y en el marketplace.',
+                },
+                {
+                    target: '.ie-var-toggle',
+                    title: 'Mira las variantes de cada producto',
+                    body: 'Si el producto tiene tallas o colores, despliega esta flecha: verás cada variante en su propia fila con su código, foto, precio y stock.',
+                },
+            ],
             // Variantes desplegadas en la lista: { [itemId]: true }
             openVariants: {},
             variantsOf: {},
@@ -1003,6 +1036,24 @@ export default {
 </script>
 
 <style scoped>
+/* ── Novedades ── */
+.ie-new-pill {
+    display: inline-block; font-size: 9px; font-weight: 700; letter-spacing: .05em;
+    text-transform: uppercase; color: #fff; background: #6366f1; border-radius: 4px;
+    padding: 1px 5px; margin-left: 4px; vertical-align: 1px;
+    animation: ie-pulse 2s ease-in-out infinite;
+}
+@keyframes ie-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, .5); }
+    50% { box-shadow: 0 0 0 4px rgba(99, 102, 241, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .ie-new-pill { animation: none; }
+}
+.ie-info-banner__news {
+    background: #eef2ff; color: #4338ca; border: 1px solid #c7d2fe; font-weight: 600;
+}
+.ie-info-banner__news:hover { background: #e0e7ff; color: #3730a3; }
 /* ── Variantes desplegables en la lista ── */
 .ie-var-toggle {
     border: 0; background: #eef2ff; color: #4f46e5; border-radius: 4px;
