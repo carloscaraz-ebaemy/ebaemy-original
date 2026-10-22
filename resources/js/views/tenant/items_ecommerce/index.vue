@@ -94,7 +94,7 @@
         <feature-tour
             v-if="itemsCount !== 0"
             ref="tour"
-            tour-key="tienda-productos-2026-10"
+            tour-key="tienda-productos-2026-10-v2"
             :steps="tourSteps"
         ></feature-tour>
 
@@ -675,8 +675,8 @@ export default {
                 },
                 {
                     target: '.ie-var-toggle',
-                    title: 'Mira las variantes de cada producto',
-                    body: 'Si el producto tiene tallas o colores, despliega esta flecha: verás cada variante en su propia fila con su código, foto, precio y stock.',
+                    title: 'Mira y edita cada variante',
+                    body: 'Despliega esta flecha: cada talla o color sale en su fila, con su propio lápiz para cambiar su precio, su oferta o su stock. Si una oferta está programada o vencida, lo verás indicado.',
                 },
             ],
             // Variantes desplegadas en la lista: { [itemId]: true }

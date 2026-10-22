@@ -124,6 +124,7 @@ saber qué caduca.
 | Fecha | Pantalla | Clave / pieza | Pasos | Caduca |
 |---|---|---|---|---|
 | 2026-10-22 | Tienda virtual → Productos | `tienda-productos-2026-10` | lápiz de stock · flecha de variantes | NUEVO en Stock General hasta 2026-11-30 |
+| 2026-10-22 | Tienda virtual → Productos | `tienda-productos-2026-10-v2` (sustituye a la anterior) | lápiz de stock · variantes con lápiz propio de precio/oferta/stock y estados de oferta | — |
 
 ## Reglas duras
 
