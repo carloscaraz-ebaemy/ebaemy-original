@@ -212,7 +212,8 @@
                         <th class="text-end">Acciones</th>
                     </tr>
                     <tr></tr>
-                    <tr slot-scope="{ index, row }">
+                    <template slot-scope="{ index, row }">
+                    <tr :class="{ 'ie-row--open': isOpen(row) }">
                         <!-- <td>{{ index }}</td> -->
                         <td>{{ row.internal_id }}</td>
                         <td>{{ row.unit_type_id }}</td>
@@ -229,7 +230,22 @@
                             <!--<img :src="row.image_url_medium"  width="40" height="40" class="img-thumbail img-custom" /> -->
                         </td>
                         <td>
+                            <button
+                                v-if="row.has_variants"
+                                type="button"
+                                class="ie-var-toggle"
+                                :aria-expanded="isOpen(row) ? 'true' : 'false'"
+                                :title="isOpen(row) ? 'Ocultar variantes' : 'Ver variantes'"
+                                @click="toggleVariants(row)"
+                            >
+                                <i :class="isOpen(row) ? 'el-icon-arrow-down' : 'el-icon-arrow-right'"></i>
+                            </button>
                             {{ row.description }}
+                            <span
+                                v-if="row.has_variants"
+                                class="ie-var-badge"
+                                @click="toggleVariants(row)"
+                            >{{ variantsLabel(row) }}</span>
                             <!-- Estado en Saga Falabella -->
                             <template v-if="row.saga_status">
                                 <span v-if="row.saga_status === 'error' || row.saga_qc === 'rejected'" class="ie-saga ie-saga--err" title="Saga Falabella: error / rechazado">🔴 Saga</span>
@@ -342,6 +358,46 @@
                             </div>
                         </td>
                     </tr>
+                    <!-- Variantes del producto: no son productos aparte, viven
+                         dentro de este y se cargan al desplegar la flecha. -->
+                    <tr v-if="row.has_variants && isOpen(row)" class="ie-var-row">
+                        <td colspan="100">
+                            <div class="ie-var">
+                                <div v-if="variantsLoading[row.id]" class="ie-var__empty">
+                                    <i class="el-icon-loading"></i> Cargando variantes…
+                                </div>
+                                <template v-else>
+                                    <ul v-if="(variantsOf[row.id] || []).length" class="ie-var__list">
+                                        <li v-for="v in variantsOf[row.id]" :key="v.id" class="ie-var__item">
+                                            <img v-if="v.image_url" :src="v.image_url" alt="" class="ie-var__img" loading="lazy" />
+                                            <span v-else class="ie-var__img ie-var__img--none"></span>
+                                            <span class="ie-var__name">
+                                                <i
+                                                    v-for="ov in colorValues(v)"
+                                                    :key="ov.id"
+                                                    class="ie-var__dot"
+                                                    :style="{ background: ov.color_hex }"
+                                                ></i>
+                                                {{ v.display_name || ('Variante #' + v.id) }}
+                                                <small v-if="v.sku" class="ie-var__sku">{{ v.sku }}</small>
+                                            </span>
+                                            <span class="ie-var__price">S/ {{ variantPrice(v, row) }}</span>
+                                            <span
+                                                class="ie-var__stock"
+                                                :class="{ 'text-danger': Number(v.stock) <= 0 }"
+                                            >{{ fmtQty(v.stock) }} <small>und.</small></span>
+                                        </li>
+                                    </ul>
+                                    <div v-else class="ie-var__empty">Sin variantes activas.</div>
+                                    <div class="ie-var__actions">
+                                        <el-button type="text" size="mini" icon="el-icon-edit" @click="openStockDialog(row)">Ajustar stock</el-button>
+                                        <el-button type="text" size="mini" icon="el-icon-setting" @click="clickCreate(row.id)">Editar variantes</el-button>
+                                    </div>
+                                </template>
+                            </div>
+                        </td>
+                    </tr>
+                    </template>
                 </data-table>
             </div>
 
@@ -523,6 +579,10 @@ export default {
             stockDialogVisible: false,
             stockItemId: null,
             stockRow: null,
+            // Variantes desplegadas en la lista: { [itemId]: true }
+            openVariants: {},
+            variantsOf: {},
+            variantsLoading: {},
             offerForm: { id: null, regular: 0, offer: null, dateRange: [], _row: null },
             showImportDialog: false,
             showWarehousesDetail: false,
@@ -624,6 +684,48 @@ export default {
             if (p.length < 3) return d;
             return parseInt(p[2],10) + ' de ' + (meses[parseInt(p[1],10)-1] || '') + ' de ' + p[0];
         },
+        isOpen(row) {
+            return !!this.openVariants[row.id];
+        },
+        toggleVariants(row) {
+            const open = !this.isOpen(row);
+            this.$set(this.openVariants, row.id, open);
+            if (open) this.loadVariants(row.id);
+        },
+        // Se piden al desplegar (y se refrescan cada vez): la lista no paga
+        // por las variantes de los productos que nadie abre.
+        loadVariants(itemId) {
+            if (!this.variantsOf[itemId]) this.$set(this.variantsLoading, itemId, true);
+            this.$http
+                .get(`/items/${itemId}/variants`)
+                .then(r => { this.$set(this.variantsOf, itemId, (r.data && r.data.variants) || []); })
+                .catch(() => { this.$message.error('No se pudieron cargar las variantes'); })
+                .then(() => { this.$set(this.variantsLoading, itemId, false); });
+        },
+        // Mismo resumen que el listado del ERP (variants_summary viaja con la fila).
+        variantsLabel(row) {
+            const sum = row.variants_summary;
+            if (!sum || !sum.count) return 'Variantes';
+            const f = n => (parseFloat(n) || 0).toFixed(2);
+            const precio = sum.price_min === sum.price_max
+                ? `S/ ${f(sum.price_min)}`
+                : `S/ ${f(sum.price_min)}–${f(sum.price_max)}`;
+            return `${sum.count} ${sum.count === 1 ? 'variante' : 'variantes'} · ${precio}`;
+        },
+        colorValues(v) {
+            return (v.option_values || []).filter(ov => ov.color_hex);
+        },
+        // Precio propio de la variante; si es null hereda el del producto
+        // (misma regla que ItemVariant::inherited: 0 es un precio propio).
+        variantPrice(v, row) {
+            const own = v.sale_unit_price;
+            const val = (own === null || own === undefined || own === '') ? row.amount_sale_unit_price : own;
+            return (parseFloat(val) || 0).toFixed(2);
+        },
+        fmtQty(n) {
+            const x = Number(n) || 0;
+            return Number.isInteger(x) ? String(x) : x.toFixed(2);
+        },
         openStockDialog(row) {
             this.stockRow = row;
             this.stockItemId = row.id;
@@ -631,6 +733,7 @@ export default {
         },
         // Repinta «Stock General» de la fila sin recargar la tabla.
         onStockSaved({ id, warehouses }) {
+            if (this.openVariants[id]) this.loadVariants(id);
             if (this.stockRow && this.stockRow.id === id && warehouses) {
                 this.stockRow.warehouses = warehouses;
             } else {
@@ -839,6 +942,44 @@ export default {
 </script>
 
 <style scoped>
+/* ── Variantes desplegables en la lista ── */
+.ie-var-toggle {
+    border: 0; background: #eef2ff; color: #4f46e5; border-radius: 4px;
+    width: 20px; height: 20px; padding: 0; margin-right: 4px; cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center; vertical-align: middle;
+}
+.ie-var-toggle:hover { background: #e0e7ff; }
+.ie-var-badge {
+    font-size: 11px; color: #4f46e5; background: #eef2ff; border-radius: 10px;
+    padding: 1px 7px; margin-left: 4px; cursor: pointer; white-space: nowrap;
+}
+.ie-row--open > td { border-bottom-color: transparent; }
+.ie-var-row > td { background: #f8fafc; padding: 0 !important; }
+.ie-var { padding: 6px 12px 8px 36px; max-width: 720px; }
+.ie-var__list { list-style: none; margin: 0; padding: 0; }
+.ie-var__item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 5px 0; border-bottom: 1px dashed #e5e7eb; font-size: 13px;
+}
+.ie-var__item:last-child { border-bottom: 0; }
+.ie-var__img { width: 26px; height: 26px; object-fit: contain; border-radius: 4px; background: #fff; flex: none; }
+.ie-var__img--none { border: 1px solid #e5e7eb; }
+.ie-var__name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ie-var__dot {
+    display: inline-block; width: 10px; height: 10px; border-radius: 50%;
+    border: 1px solid rgba(0,0,0,.15); margin-right: 3px; vertical-align: -1px;
+}
+.ie-var__sku { color: #9ca3af; margin-left: 4px; }
+.ie-var__price { width: 80px; text-align: right; flex: none; }
+.ie-var__stock { width: 70px; text-align: right; font-weight: 600; flex: none; }
+.ie-var__stock small { font-weight: 400; color: #9ca3af; }
+.ie-var__empty { color: #6b7280; font-size: 13px; padding: 6px 0; }
+.ie-var__actions { display: flex; gap: 12px; padding-top: 2px; }
+@media (max-width: 576px) {
+    .ie-var { padding-left: 12px; }
+    .ie-var__price { width: 64px; }
+    .ie-var__stock { width: 54px; }
+}
 /* ── Banner informativo unificado ── */
 .ie-info-banner {
     display: flex;
