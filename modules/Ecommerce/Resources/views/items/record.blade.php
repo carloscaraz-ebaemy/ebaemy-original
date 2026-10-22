@@ -282,33 +282,31 @@
                     <meta itemprop="priceCurrency" content="{{ $record->currency_type_id ?? 'PEN' }}">
                     <meta itemprop="price" content="{{ $record->sale_unit_price }}">
 
-                    @if($hasDiscount)
-                    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:4px">
-                        <span style="text-decoration:line-through;color:#9ca3af;font-size:18px;font-weight:400">
-                            {{ $record->currency_type['symbol'] }} {{ number_format($record->original_price, 2) }}
+                    {{-- Siempre en el DOM (oculto sin descuento): al elegir una variante
+                         el JS cambia tachado, % y ahorro por los de esa variante. --}}
+                    <div id="ec-price-old-row" style="display:{{ $hasDiscount ? 'flex' : 'none' }};align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:4px">
+                        <span id="ec-price-old" style="text-decoration:line-through;color:#9ca3af;font-size:18px;font-weight:400">
+                            {{ $record->currency_type['symbol'] }} {{ number_format($record->original_price ?: 0, 2) }}
                         </span>
-                        <span style="background:#e53e3e;color:#fff;font-size:12px;font-weight:700;padding:3px 10px;border-radius:20px">
+                        <span id="ec-price-pct" style="background:#e53e3e;color:#fff;font-size:12px;font-weight:700;padding:3px 10px;border-radius:20px">
                             -{{ $discountPct }}%
                         </span>
                         @if($record->is_set)
                         <span style="background:#7c3aed;color:#fff;font-size:11px;font-weight:600;padding:3px 10px;border-radius:20px">PACK</span>
                         @endif
                     </div>
-                    @endif
 
                     <span class="product-price" style="font-size:32px;font-weight:800;{{ $hasDiscount ? 'color:#e53e3e' : 'color:#1a1a1a' }}">
                         {{ $record->currency_type['symbol'] }} {{ number_format($record->sale_unit_price, 2) }}
                     </span>
 
-                    @if($hasDiscount)
-                    <p style="color:#16a34a;font-size:13px;font-weight:600;margin:4px 0 0">
+                    <p id="ec-price-save" style="display:{{ $hasDiscount ? 'block' : 'none' }};color:#16a34a;font-size:13px;font-weight:600;margin:4px 0 0">
                         <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none"
                              stroke="currentColor" stroke-width="2.5" style="vertical-align:-2px;margin-right:3px">
                             <polyline points="20 6 9 17 4 12"/>
                         </svg>
-                        Ahorras {{ $record->currency_type['symbol'] }} {{ number_format($record->original_price - $record->sale_unit_price, 2) }}
+                        Ahorras <span id="ec-price-save-amt">{{ $record->currency_type['symbol'] }} {{ number_format(($record->original_price ?: 0) - $record->sale_unit_price, 2) }}</span>
                     </p>
-                    @endif
 
                     @if(!$hasDiscount && $record->is_set)
                     <span style="display:inline-block;background:#7c3aed;color:#fff;font-size:11px;font-weight:600;padding:3px 10px;border-radius:20px;margin-top:6px">PACK ESPECIAL</span>
@@ -457,6 +455,7 @@
                     var variants  = @json($record->item_variants);
                     var options   = @json($record->item_options);
                     var basePrice = {{ $record->sale_unit_price }};
+                    var baseOriginal = {{ $record->original_price ? (float) $record->original_price : 'null' }};
                     var symbol    = '{{ $record->currency_type_symbol }}';
                     var useParentImage = {{ !empty($record->use_parent_image_for_variants) ? 'true' : 'false' }};
                     var primaryValueIds = @json($record->primary_value_ids ?? []);
@@ -531,7 +530,10 @@
                         });
                         if(found && found.is_active && (found.stock||0) > 0){
                             window._ecSelectedVariant = found;
-                            setPriceDisplay(found.sale_unit_price != null ? parseFloat(found.sale_unit_price) : null);
+                            setPriceDisplay(
+                                found.sale_unit_price != null ? parseFloat(found.sale_unit_price) : null,
+                                found.original_price != null ? parseFloat(found.original_price) : null
+                            );
                             updateStockUI(found.stock);
                             if(resEl){ resEl.style.display='block'; resEl.textContent='✓ '+found.display_name; }
                             if(reqEl) reqEl.style.display='none';
@@ -549,15 +551,33 @@
                     }
 
                     // ── Precio con animación flash ───────────────────────────────────
-                    function setPriceDisplay(price){
+                    // Sin variante elegida (price null) vuelve al par del producto.
+                    // `original` es el tachado de ESA variante, o null si no tiene
+                    // oferta vigente: entonces se ocultan tachado, % y «Ahorras».
+                    function setPriceDisplay(price, original){
                         var el = document.querySelector('.product-price');
                         if(!el) return;
                         var p = (price != null) ? price : basePrice;
+                        var o = (price != null) ? original : baseOriginal;
+                        var hay = o != null && o > p;
                         el.classList.add('ec-price-flash');
                         setTimeout(function(){
                             el.textContent = symbol + ' ' + p.toFixed(2);
+                            el.style.color = hay ? '#e53e3e' : '#1a1a1a';
                             el.classList.remove('ec-price-flash');
                         }, 130);
+                        var row = document.getElementById('ec-price-old-row');
+                        var save = document.getElementById('ec-price-save');
+                        if(row) row.style.display = hay ? 'flex' : 'none';
+                        if(save) save.style.display = hay ? 'block' : 'none';
+                        if(hay){
+                            var old = document.getElementById('ec-price-old');
+                            var pct = document.getElementById('ec-price-pct');
+                            var amt = document.getElementById('ec-price-save-amt');
+                            if(old) old.textContent = symbol + ' ' + o.toFixed(2);
+                            if(pct) pct.textContent = '-' + Math.round((1 - p / o) * 100) + '%';
+                            if(amt) amt.textContent = symbol + ' ' + (o - p).toFixed(2);
+                        }
                     }
 
                     // ── Stock UI ─────────────────────────────────────────────────────

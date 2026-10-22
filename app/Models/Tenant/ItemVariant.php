@@ -162,6 +162,57 @@ class ItemVariant extends ModelTenant
     }
 
     /**
+     * La oferta de esta variante, con UNA regla para todos los canales
+     * (lista del panel, tienda del tenant y marketplace):
+     *
+     *  1. Oferta propia (compare_at_price de la variante) → esa.
+     *  2. Sin precio propio → hereda precio Y oferta del producto, juntos.
+     *  3. Precio propio sin oferta propia → sin oferta. El tachado del
+     *     producto no aplica: tacharía un precio que no es el de la variante
+     *     y el «Ahorras S/…» saldría inventado.
+     *
+     * `original` solo viene cuando la oferta está vigente; `status` dice si
+     * está activa, programada o vencida para que el panel lo muestre.
+     *
+     * @return array{price: float, compare_at: ?float, original: ?float, source: ?string,
+     *               status: ?string, from: ?string, until: ?string}
+     */
+    public function offerFor(?Item $item = null): array
+    {
+        $item = $item ?: $this->item;
+        $propioPrecio = $this->sale_unit_price !== null;
+        $precio = $propioPrecio ? (float) $this->sale_unit_price : (float) optional($item)->sale_unit_price;
+
+        $compare = null; $from = null; $until = null; $source = null;
+        if ($this->compare_at_price !== null) {
+            [$compare, $from, $until, $source] = [(float) $this->compare_at_price, $this->compare_at_from, $this->compare_at_until, 'own'];
+        } elseif (!$propioPrecio && $item && $item->compare_at_price !== null) {
+            [$compare, $from, $until, $source] = [(float) $item->compare_at_price, $item->compare_at_from, $item->compare_at_until, 'parent'];
+        }
+
+        // Un tachado que no supera al precio no es una oferta, es un dato mal puesto.
+        if ($compare === null || $compare <= 0 || $compare <= $precio) {
+            return ['price' => $precio, 'compare_at' => null, 'original' => null, 'source' => null,
+                    'status' => null, 'from' => null, 'until' => null];
+        }
+
+        $desde = $from ? \Illuminate\Support\Carbon::parse($from)->startOfDay() : null;
+        $hasta = $until ? \Illuminate\Support\Carbon::parse($until)->endOfDay() : null;
+        $status = ($desde && $desde->gt(now())) ? 'scheduled'
+                : (($hasta && $hasta->lt(now())) ? 'expired' : 'active');
+
+        return [
+            'price'      => $precio,
+            'compare_at' => $compare,
+            'original'   => $status === 'active' ? $compare : null,
+            'source'     => $source,
+            'status'     => $status,
+            'from'       => $desde ? $desde->format('Y-m-d') : null,
+            'until'      => $hasta ? $hasta->format('Y-m-d') : null,
+        ];
+    }
+
+    /**
      * Genera el hash MD5 a partir de un array de option_value_ids.
      */
     public static function buildHash(array $optionValueIds): string

@@ -460,6 +460,11 @@ class EcommerceController extends Controller
                     'image'            => $v->image,
                     'image_url'        => $imageUrl,
                     'option_value_ids' => $v->optionValues->pluck('id')->map(fn($i) => (int) $i)->toArray(),
+                    // Precio propio y oferta propia vigente: los usa el ajuste
+                    // de abajo, cuando ya se conoce el precio final del producto.
+                    'own_price'        => $v->sale_unit_price !== null && $v->sale_unit_price > 0,
+                    'own_original'     => ($o = $v->offerFor($row))['source'] === 'own' ? $o['original'] : null,
+                    'original_price'   => null,
                 ];
             })->toArray();
 
@@ -538,6 +543,32 @@ class EcommerceController extends Controller
             && (empty($row->compare_at_from)  || $row->compare_at_from->startOfDay()->lte(now()))
             && (empty($row->compare_at_until) || $row->compare_at_until->endOfDay()->gte(now()))) {
             $originalPrice = (float) $row->compare_at_price;
+        }
+
+        // Precio y tachado de cada variante con la regla de ItemVariant::offerFor():
+        //  - sin precio propio → el MISMO par que el producto (precio final y su
+        //    tachado, sea flash, pack o compare_at): hereda precio y oferta juntos;
+        //  - con precio propio → su oferta propia vigente, o ninguna. Antes la
+        //    ficha cambiaba solo el precio y dejaba el tachado y el «Ahorras» del
+        //    producto, con cifras que no eran de la variante, y la oferta propia
+        //    de la variante no se mostraba nunca.
+        if (!empty($itemVariants)) {
+            $porId = [];
+            foreach ($itemVariants as $i => $v) {
+                if (!$v['own_price']) {
+                    $itemVariants[$i]['sale_unit_price'] = (float) $finalPrice;
+                    $itemVariants[$i]['original_price']  = $originalPrice > $finalPrice ? (float) $originalPrice : null;
+                } else {
+                    $itemVariants[$i]['original_price']  = $v['own_original'];
+                }
+                $porId[$v['id']] = $itemVariants[$i];
+            }
+            foreach ($variantMap as $k => $m) {
+                if (isset($porId[$m['id']])) {
+                    $variantMap[$k]['price']          = $porId[$m['id']]['sale_unit_price'];
+                    $variantMap[$k]['original_price'] = $porId[$m['id']]['original_price'];
+                }
+            }
         }
 
         $record = (object)[

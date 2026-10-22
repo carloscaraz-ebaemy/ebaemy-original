@@ -860,6 +860,9 @@ class ItemVariantController extends Controller
             'compare_at_price'    => $variant->compare_at_price,
             'compare_at_from'     => optional($variant->compare_at_from)->format('Y-m-d'),
             'compare_at_until'    => optional($variant->compare_at_until)->format('Y-m-d'),
+            // Oferta EFECTIVA (propia o heredada del producto) y su estado.
+            // Las pantallas la pintan tal cual: la regla vive en offerFor().
+            'offer'               => $variant->offerFor(),
             'stock_min'           => $variant->stock_min,
             'min_margin_pct'      => $variant->min_margin_pct,
             'weight'              => $variant->weight,

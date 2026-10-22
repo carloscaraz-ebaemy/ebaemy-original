@@ -433,7 +433,19 @@
                                  igual que el del producto -->
                             <td class="text-end" style="min-width:120px">
                                 <div style="display:flex;align-items:center;justify-content:flex-end;gap:6px">
-                                    <span v-if="variantOffer(v, row)" style="color:#e53e3e;font-weight:700;white-space:nowrap">S/ {{ variantOffer(v, row) }}</span>
+                                    <el-tooltip v-if="variantOffer(v, row)" placement="top" effect="dark">
+                                        <div slot="content">
+                                            <div><strong>La oferta está {{ variantOfferStatus(v) }}</strong></div>
+                                            <div v-if="v.offer.source === 'parent'">Heredada del producto (la variante no tiene precio propio)</div>
+                                            <div>Desde: {{ fmtDate(v.offer.from) }}</div>
+                                            <div>Hasta: {{ fmtDate(v.offer.until) }}</div>
+                                        </div>
+                                        <span class="ie-voffer" :class="'ie-voffer--' + v.offer.status">
+                                            S/ {{ variantOffer(v, row) }}
+                                            <small v-if="v.offer.status !== 'active'" class="ie-voffer__st">{{ variantOfferStatus(v) }}</small>
+                                            <small v-else-if="v.offer.source === 'parent'" class="ie-voffer__st">del producto</small>
+                                        </span>
+                                    </el-tooltip>
                                     <span v-else style="color:#9ca3af">—</span>
                                     <el-button type="text" icon="el-icon-edit" @click="openVariantPriceDialog(row, v)"
                                                title="Editar precio de la variante"
@@ -823,16 +835,16 @@ export default {
             const base = row.internal_id || ('P' + row.id);
             return base + '-' + String(vi + 1).padStart(2, '0');
         },
-        // Venta y tachado efectivos de la variante. Lo propio gana; lo que es
-        // null se hereda del producto (regla de ItemVariant::inherited: 0 es
-        // un valor propio). La oferta del padre solo se hereda si la variante
-        // tampoco tiene precio propio, o se mezclarían dos precios distintos.
+        // Venta y tachado de la variante. La regla (oferta propia; sin precio
+        // propio hereda precio y oferta del producto; precio propio sin oferta
+        // propia = sin oferta) vive en ItemVariant::offerFor() y llega en
+        // `v.offer`: aquí solo se pinta, para que el panel diga lo mismo que la
+        // tienda y el marketplace.
         variantPrices(v, row) {
-            const isNull = x => x === null || x === undefined || x === '';
-            const sale = parseFloat(isNull(v.sale_unit_price) ? row.amount_sale_unit_price : v.sale_unit_price) || 0;
-            let cap = null;
-            if (!isNull(v.compare_at_price)) cap = parseFloat(v.compare_at_price);
-            else if (isNull(v.sale_unit_price)) cap = parseFloat(row.compare_at_price) || null;
+            const o = v.offer || {};
+            const sale = parseFloat(o.price != null ? o.price
+                : (v.sale_unit_price != null ? v.sale_unit_price : row.amount_sale_unit_price)) || 0;
+            const cap = o.compare_at != null ? parseFloat(o.compare_at) : null;
             return { sale, cap };
         },
         variantRegular(v, row) {
@@ -842,6 +854,10 @@ export default {
         variantOffer(v, row) {
             const { sale, cap } = this.variantPrices(v, row);
             return cap && cap > sale ? sale.toFixed(2) : '';
+        },
+        variantOfferStatus(v) {
+            const s = (v.offer || {}).status;
+            return s === 'scheduled' ? 'Programado' : s === 'expired' ? 'Vencido' : 'Activo';
         },
         fmtQty(n) {
             const x = Number(n) || 0;
@@ -886,8 +902,8 @@ export default {
                 id: row.id,
                 regular: parseFloat(this.variantRegular(v, row)),
                 offer: offerStr === '' ? null : parseFloat(offerStr),
-                dateRange: (v.compare_at_from || v.compare_at_until)
-                    ? [v.compare_at_from || '', v.compare_at_until || ''] : [],
+                dateRange: (v.offer && (v.offer.from || v.offer.until))
+                    ? [v.offer.from || '', v.offer.until || ''] : [],
                 _row: row,
                 _variant: v,
                 inherit: v.sale_unit_price === null,
@@ -1126,6 +1142,17 @@ export default {
 /* ── Precio de una variante (mismo diálogo que el del producto) ── */
 .ie-offer-variant { font-weight: 600; color: #3730a3; margin: 0 0 8px; }
 .ie-offer-off { opacity: .45; pointer-events: none; }
+/* Oferta de una variante: roja si está vigente; gris y con su estado si está
+   programada o vencida (el comprador no la ve). */
+.ie-voffer { white-space: nowrap; font-weight: 700; cursor: help; }
+.ie-voffer--active { color: #e53e3e; }
+.ie-voffer--scheduled, .ie-voffer--expired { color: #94a3b8; text-decoration: line-through dotted; }
+.ie-voffer__st {
+    display: block; font-size: 10px; font-weight: 600; text-decoration: none;
+    color: #6366f1; text-align: right; line-height: 1.1;
+}
+.ie-voffer--scheduled .ie-voffer__st { color: #d97706; }
+.ie-voffer--expired .ie-voffer__st { color: #94a3b8; }
 /* ── Novedades ── */
 .ie-new-pill {
     display: inline-block; font-size: 9px; font-weight: 700; letter-spacing: .05em;

@@ -1084,6 +1084,23 @@ class MarketplaceListingSyncService
             return $propia;
         }
 
+        // Sin precio propio la variante hereda precio Y oferta del producto,
+        // juntos (regla de ItemVariant::offerFor(), la misma que la tienda del
+        // tenant). Antes heredaba el precio rebajado pero perdía el tachado, y
+        // en ebaemy.com salía sin oferta lo que en la tienda sí la tenía.
+        if (!isset($variant->compare_at_price) && ($variant->sale_unit_price ?? null) === null) {
+            $padre = isset($item->compare_at_price) ? (float) $item->compare_at_price : 0.0;
+            if ($padre > $price && $this->compareAtActive($item)) {
+                return [
+                    'price'          => $price,
+                    'is_on_offer'    => true,
+                    'original_price' => $padre,
+                    'offer_ends_at'  => $item->compare_at_until ?? null,
+                    'discount_pct'   => (int) round((1 - $price / $padre) * 100),
+                ];
+            }
+        }
+
         if (!$channel) {
             return [
                 'price'          => $price,
