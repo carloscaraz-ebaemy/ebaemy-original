@@ -668,8 +668,12 @@ class PurchaseOrderController extends Controller
     ): void {
         $reference = trim(($po->prefix ? $po->prefix . '-' : 'OC-') . $po->id);
 
-        // (1) Movimiento de inventario + kardex físico vía observer Inventory::created
-        \Modules\Inventory\Models\Inventory::create([
+        // (1) Movimiento de inventario + kardex físico vía observer Inventory::created.
+        // Con variantes el stock lo aplica el paso (2) en la variante de la
+        // línea; el observer solo deja el kardex. Si además moviera el stock,
+        // applyStockDelta() sumaría la recepción OTRA vez a la variante
+        // principal (ver Inventory::soloKardex()).
+        $registrar = fn () => \Modules\Inventory\Models\Inventory::create([
             'type'         => 1,
             'description'  => 'Recepción ' . $reference,
             'item_id'      => $item->id,
@@ -677,6 +681,9 @@ class PurchaseOrderController extends Controller
             'quantity'     => $delta,
             'comments'     => 'Ingreso por recepción de orden de compra ' . $reference,
         ]);
+        $item->has_variants
+            ? \Modules\Inventory\Models\Inventory::soloKardex($registrar)
+            : $registrar();
 
         if ($item->has_variants) {
             // (2) Variant-safe: enrutar a la variante de la línea y propagar.

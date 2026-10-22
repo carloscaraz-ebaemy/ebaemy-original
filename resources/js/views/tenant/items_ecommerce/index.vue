@@ -256,13 +256,15 @@
                                            style="padding:0;font-size:17px;color:#409eff"></el-button>
                             </div>
                         </td>
-                        <td
-                            class="text-end"
-                            :class="{
-                                'text-danger': stock(row.warehouses) <= 0
-                            }"
-                        >
-                            {{ stock(row.warehouses) }}
+                        <td class="text-end" style="min-width:90px">
+                            <div style="display:flex;align-items:center;justify-content:flex-end;gap:6px">
+                                <span :class="{ 'text-danger': stock(row.warehouses) <= 0 }">
+                                    {{ stock(row.warehouses) }}
+                                </span>
+                                <el-button type="text" icon="el-icon-edit" @click="openStockDialog(row)"
+                                           title="Ajustar stock"
+                                           style="padding:0;font-size:17px;color:#409eff"></el-button>
+                            </div>
                         </td>
                         <td class="text-center">
                             <el-tag
@@ -404,6 +406,13 @@
                 </div>
             </el-dialog>
 
+            <!-- Popup: ajustar stock (mismo servicio que la pestaña de variantes) -->
+            <stock-adjust
+                :visible.sync="stockDialogVisible"
+                :item-id="stockItemId"
+                @saved="onStockSaved"
+            ></stock-adjust>
+
             <!-- Popup: editar precio oferta + duración (estilo Saga) -->
             <el-dialog title="Editar precio" :visible.sync="offerDialogVisible" width="380px" append-to-body>
                 <div class="form-group">
@@ -497,6 +506,7 @@
 <script>
 import ItemsForm from "./form.vue";
 import WarehousesDetail from "./partials/warehouses.vue";
+import StockAdjust from "./partials/stock_adjust.vue";
 // import ItemsImport from './import.vue'
 import DataTable from "../../../components/DataTable.vue";
 import { deletable } from "../../../mixins/deletable";
@@ -505,11 +515,14 @@ import { itemRemoval } from "../../../mixins/itemRemoval";
 export default {
     props: [], //'typeUser'
     mixins: [deletable, itemRemoval],
-    components: { ItemsForm, DataTable, WarehousesDetail }, //ItemsImport
+    components: { ItemsForm, DataTable, WarehousesDetail, StockAdjust }, //ItemsImport
     data() {
         return {
             showDialog: false,
             offerDialogVisible: false,
+            stockDialogVisible: false,
+            stockItemId: null,
+            stockRow: null,
             offerForm: { id: null, regular: 0, offer: null, dateRange: [], _row: null },
             showImportDialog: false,
             showWarehousesDetail: false,
@@ -610,6 +623,19 @@ export default {
             var p = String(d).split('-');
             if (p.length < 3) return d;
             return parseInt(p[2],10) + ' de ' + (meses[parseInt(p[1],10)-1] || '') + ' de ' + p[0];
+        },
+        openStockDialog(row) {
+            this.stockRow = row;
+            this.stockItemId = row.id;
+            this.stockDialogVisible = true;
+        },
+        // Repinta «Stock General» de la fila sin recargar la tabla.
+        onStockSaved({ id, warehouses }) {
+            if (this.stockRow && this.stockRow.id === id && warehouses) {
+                this.stockRow.warehouses = warehouses;
+            } else {
+                this.$eventHub.$emit("reloadData");
+            }
         },
         openOfferDialog(row) {
             var regular = parseFloat(this.regularOf(row));

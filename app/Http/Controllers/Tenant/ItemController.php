@@ -1683,6 +1683,80 @@ class ItemController extends Controller
     }
 
     /**
+     * Stock por almacén (y por variante) para el diálogo «Ajustar stock» del
+     * panel de la Tienda virtual.
+     */
+    public function quickStockRecord($id)
+    {
+        $item = Item::findOrFail($id);
+
+        return app(\App\Services\Tenant\StockAdjustmentService::class)->estado($item);
+    }
+
+    /**
+     * Ajuste rápido de stock desde la Tienda virtual. No es un camino propio:
+     * pasa por StockAdjustmentService, el mismo de la pestaña de variantes, que
+     * deja kardex y respeta la regla de variantes (skill `ebaemy-stock-flow`).
+     *
+     * Recibe una lista de cambios para guardar en un solo paso lo que el
+     * vendedor tocó en varios almacenes o variantes: o se aplican todos o
+     * ninguno.
+     */
+    public function quickStock(Request $request)
+    {
+        $data = $request->validate([
+            'id'                     => 'required|integer',
+            'reason'                 => 'nullable|string|max:150',
+            'changes'                => 'required|array|min:1|max:200',
+            'changes.*.warehouse_id' => 'required|integer|exists:tenant.warehouses,id',
+            'changes.*.variant_id'   => 'nullable|integer',
+            'changes.*.stock'        => 'required|numeric|min:0|max:9999999',
+        ]);
+
+        $item = Item::findOrFail($data['id']);
+        $service = app(\App\Services\Tenant\StockAdjustmentService::class);
+
+        try {
+            DB::connection('tenant')->transaction(function () use ($item, $data, $service) {
+                foreach ($data['changes'] as $c) {
+                    $warehouseId = (int) $c['warehouse_id'];
+                    $stock = (float) $c['stock'];
+
+                    if ($item->has_variants) {
+                        $variant = \App\Models\Tenant\ItemVariant::where('item_id', $item->id)
+                            ->where('id', (int) ($c['variant_id'] ?? 0))
+                            ->first();
+                        if (!$variant) {
+                            throw new \InvalidArgumentException('Indica la variante a ajustar.');
+                        }
+                        $service->ajustarVariante($item, $variant, $warehouseId, $stock, $data['reason'] ?? null);
+                    } else {
+                        $service->ajustarProducto($item, $warehouseId, $stock, $data['reason'] ?? null);
+                    }
+                }
+            });
+        } catch (\InvalidArgumentException $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
+        }
+
+        $item->refresh();
+        $service->sincronizarMarketplace($item);
+
+        $estado = $service->estado($item);
+
+        return [
+            'success'    => true,
+            'message'    => 'Stock actualizado',
+            'record'     => $estado,
+            // Lo que la fila del listado necesita para repintar «Stock General».
+            'warehouses' => $item->warehouses()->with('warehouse')->get()->map(fn ($w) => [
+                'warehouse_description' => optional($w->warehouse)->description,
+                'stock'                 => $w->stock,
+            ]),
+        ];
+    }
+
+    /**
      * Publica o despublica el item en el marketplace central (ebaemy.com).
      * Requiere internal_id para que el sync pueda identificar el producto.
      * Sincroniza al instante al índice central para evitar esperar al cron.

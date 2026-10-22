@@ -48,11 +48,14 @@ Los comandos de reconciliación existen precisamente porque las dos verdades se 
 | Devolución | `devolutions` / `logistic_returns` reingresan |
 | Anulación de pedido | Libera la reserva; **no reingresa lo ya despachado** — revisar |
 | Restauración de pedido | **No recompromete stock, a propósito** |
-| Ajuste manual | `InventoryController` + kardex |
+| Ajuste manual (módulo Inventario) | `InventoryController@stock` + kardex |
+| Ajuste manual (Tienda virtual y pestaña de variantes) | **`StockAdjustmentService`** — único camino para fijar un valor absoluto; deja `inventories`/kardex + `stock_movements` y alinea `stock_physical` |
 | Transferencia | `inventories_transfer` + `inventory_transfer_items` |
 | Importación Saga | Siembra sólo en items nuevos; nunca pisa el stock de uno existente |
 
 ## Trampas conocidas
+
+- **Crear un `Inventory` MUEVE stock** (observer `InventoryChangeServiceProvider`). Si tu código ya aplicó el stock —variantes, recepción de OC— y solo quieres el kardex, envuélvelo en `Inventory::soloKardex(fn)`. Sin eso, con variantes el delta se suma OTRA vez a la variante principal (`applyStockDelta`): ajustar 7→10 dejaba 13 (corregido 2026-10-22).
 
 - **El `DataTable` manda siempre `warehouse_id='all'`.** Leerlo con un `if` truthy vacía el listado con HTTP 200 y sin error.
 - **Variantes desactivadas siguen sumando** al stock del padre si el cálculo no las excluye. Quedan 126 unidades atrapadas en variantes desactivadas en dos tenants y `stock:reconcile --fix` sin correr.

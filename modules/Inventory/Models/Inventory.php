@@ -48,6 +48,33 @@ class Inventory extends ModelTenant
 {
     use UsesTenantConnection;
 
+    /**
+     * Mientras está activo, el observer `Inventory::created` deja el kardex y
+     * NO mueve el stock. Ver soloKardex().
+     */
+    public static bool $soloKardex = false;
+
+    /**
+     * Ejecuta $fn registrando los movimientos solo en el kardex.
+     *
+     * Para quien YA aplicó el stock por su cuenta y solo quiere dejar rastro.
+     * Caso típico: ajustar una variante. `updateVariantStock()` escribe la
+     * variante y propaga; si el observer además movía el stock, desde que
+     * `InventoryTrait::updateStock()` delega en `applyStockDelta()` (2026-10-07)
+     * el mismo delta se sumaba OTRA vez a la variante principal: pedir 10 en
+     * una variante con 7 dejaba 13. Ver la skill `ebaemy-stock-flow`.
+     */
+    public static function soloKardex(callable $fn)
+    {
+        $prev = self::$soloKardex;
+        self::$soloKardex = true;
+        try {
+            return $fn();
+        } finally {
+            self::$soloKardex = $prev;
+        }
+    }
+
     protected $with = [
         'transaction',
         'warehouse',

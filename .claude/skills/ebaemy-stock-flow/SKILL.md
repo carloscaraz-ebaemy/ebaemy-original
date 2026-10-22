@@ -47,6 +47,28 @@ ItemVariantService::updateVariantStock($variant, $warehouseId, $stock)
 
 **Nunca lee `items.stock` directo** — solo como último fallback. Por eso el marketplace nunca se desincroniza aunque `items.stock` esté desactualizado.
 
+## Flujo correcto: ajuste manual «pongo el número que conté»
+
+`App\Services\Tenant\StockAdjustmentService` es el ÚNICO camino para fijar el stock a
+un valor absoluto desde una pantalla. Lo usan la pestaña de variantes
+(`ItemVariantController::updateStock`) y el lápiz de «Stock General» en
+`/items_ecommerce` (`GET items/quick-stock/{id}`, `POST items/quick-stock`).
+
+- Sin variantes → `ajustarProducto()`: crea el `Inventory` (tipo 1 entrada / 3 salida,
+  con `system_stock` y `real_stock`), el observer mueve `item_warehouse.stock`, y después
+  se alinea `stock_physical` al contado (la venta lee el físico).
+- Con variantes → `ajustarVariante()`: `updateVariantStock()` + kardex dentro de
+  `Inventory::soloKardex()`.
+- Ambos dejan `stock_movements` (`ADJUSTMENT_IN/OUT`). El controlador sincroniza el marketplace.
+- Rechaza servicios (`ZZ`), packs (`is_set`) y productos con lotes/series (esos van por Inventario).
+
+### Bug «ajusté a 10 y quedó en 13» (corregido 2026-10-22)
+
+Crear un `Inventory` dispara el observer, que mueve stock. Desde 2026-10-07 esa rama, con
+variantes, delega en `applyStockDelta()` → el delta caía OTRA vez sobre la variante principal.
+Quien ya aplicó el stock y solo quiere el kardex usa `Inventory::soloKardex(fn)`. Afectaba a la
+pestaña de variantes y a la recepción de OC con variantes.
+
 ## Bugs conocidos y cómo identificarlos
 
 ### Bug "se actualiza el stock del padre al editar variantes"
@@ -81,6 +103,8 @@ foreach (\App\Models\Tenant\Item::where("has_variants", true)->cursor() as $i) {
 ❌ **NUNCA** escribas directo a `items.stock` o `item_warehouse.stock` cuando el item tiene variantes. Si lo haces, el bug del padre vuelve.
 
 ❌ **NUNCA** confíes en `items.stock` para tomar decisiones — siempre lee `item_variant_warehouse` directamente o llama a `Item::getStockByWarehouse()` (que ya hace el cálculo correcto).
+
+❌ **NUNCA** crees un `Inventory` para un producto con variantes cuyo stock ya aplicaste sin `Inventory::soloKardex()`: se cuenta dos veces.
 
 ❌ **NUNCA** modifiques `propagateStock()` para que sea condicional ("solo si X"). Es la única red de seguridad.
 

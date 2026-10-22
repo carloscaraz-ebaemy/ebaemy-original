@@ -50,19 +50,19 @@ class InventoryChangeServiceProvider extends ServiceProvider
             switch ($inventory->type) {
                 case 1:
                     $this->createInventoryKardex($inventory, $inventory->item_id, $inventory->quantity, $inventory->warehouse_id);
-                    $this->updateStock($inventory->item_id, $inventory->quantity, $inventory->warehouse_id);
+                    $this->moverStock($inventory->item_id, $inventory->quantity, $inventory->warehouse_id);
                     break;
                 case 2:
                     //Origin
                     $this->createInventoryKardex($inventory, $inventory->item_id, -1 * $inventory->quantity, $inventory->warehouse_id);
-                    $this->updateStock($inventory->item_id, -1 * $inventory->quantity, $inventory->warehouse_id);
+                    $this->moverStock($inventory->item_id, -1 * $inventory->quantity, $inventory->warehouse_id);
                     //Arrival
                     $this->createInventoryKardex($inventory, $inventory->item_id, $inventory->quantity, $inventory->warehouse_destination_id);
-                    $this->updateStock($inventory->item_id, $inventory->quantity, $inventory->warehouse_destination_id);
+                    $this->moverStock($inventory->item_id, $inventory->quantity, $inventory->warehouse_destination_id);
                     break;
                 case 3:
                     $this->createInventoryKardex($inventory, $inventory->item_id, -1 * $inventory->quantity, $inventory->warehouse_id);
-                    $this->updateStock($inventory->item_id, -1 * $inventory->quantity, $inventory->warehouse_id);
+                    $this->moverStock($inventory->item_id, -1 * $inventory->quantity, $inventory->warehouse_id);
                     break;
                 default:
                     //aqui en el defualt tendria que acceder a la inventory_transactions y determinar el tipo de transaccion
@@ -72,17 +72,30 @@ class InventoryChangeServiceProvider extends ServiceProvider
                     if($inventory_transaction->type === 'input'){
 
                         $this->createInventoryKardex($inventory, $inventory->item_id, $inventory->quantity, $inventory->warehouse_id);
-                        $this->updateStock($inventory->item_id, $inventory->quantity, $inventory->warehouse_id);
+                        $this->moverStock($inventory->item_id, $inventory->quantity, $inventory->warehouse_id);
 
                     }else{
 
                         $this->createInventoryKardex($inventory, $inventory->item_id, -1 * $inventory->quantity, $inventory->warehouse_id);
-                        $this->updateStock($inventory->item_id, -1 * $inventory->quantity, $inventory->warehouse_id);
+                        $this->moverStock($inventory->item_id, -1 * $inventory->quantity, $inventory->warehouse_id);
 
                     }
                     break;
             }
         });
+    }
+
+    /**
+     * El movimiento de stock del observer, salvo cuando quien crea el
+     * Inventory ya lo aplicó y solo pide el kardex (Inventory::soloKardex()).
+     */
+    private function moverStock($item_id, $quantity, $warehouse_id)
+    {
+        if (Inventory::$soloKardex) {
+            return;
+        }
+
+        $this->updateStock($item_id, $quantity, $warehouse_id);
     }
 
 }

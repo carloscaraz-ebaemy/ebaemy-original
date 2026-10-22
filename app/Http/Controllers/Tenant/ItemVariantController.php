@@ -818,19 +818,16 @@ class ItemVariantController extends Controller
             'reason'       => 'nullable|string|max:255',
         ]);
 
-        // Delta ANTES de escribir: el ajuste llega como valor absoluto y el
-        // kardex necesita el movimiento. Sin esto el ajuste no dejaba rastro —
-        // no había quién ni por qué— a diferencia de la recepción de compras,
-        // que sí registra movimiento.
-        $anterior = (float) (ItemVariantWarehouse::where('item_variant_id', $variant->id)
-            ->where('warehouse_id', (int) $data['warehouse_id'])
-            ->value('stock_physical') ?? 0);
-
-        $delta = (float) $data['stock'] - $anterior;
-
-        $this->service->updateVariantStock($variant, $data['warehouse_id'], $data['stock']);
-
-        $this->logStockAdjustment($item, $variant, (int) $data['warehouse_id'], $delta, $data['reason'] ?? null);
+        // Mismo camino que el panel de la Tienda virtual: escribe la variante,
+        // propaga al padre y deja el movimiento en el kardex sin contarlo dos
+        // veces. Ver StockAdjustmentService.
+        app(\App\Services\Tenant\StockAdjustmentService::class)->ajustarVariante(
+            $item,
+            $variant,
+            (int) $data['warehouse_id'],
+            (float) $data['stock'],
+            $data['reason'] ?? null
+        );
 
         // Un ajuste de stock puede dejar la variante en cero —y entonces el
         // marketplace debe dejar de ofrecerla— o sacarla de cero, y entonces
@@ -843,60 +840,6 @@ class ItemVariantController extends Controller
             'success' => true,
             'variant' => $this->formatVariant($variant),
         ]);
-    }
-
-    /**
-     * Deja el ajuste manual de stock en el kardex de inventario.
-     *
-     * El observer de Inventory suma o resta item_warehouse.stock por su cuenta,
-     * lo que para un producto con variantes sería doble conteo — pero
-     * updateVariantStock() ya llamó a propagateStock(), que recalcula el padre
-     * desde las variantes y sobrescribe ese bump. Es el mismo razonamiento que
-     * documenta la recepción de órdenes de compra.
-     *
-     * Best-effort: si el kardex falla, el ajuste de stock ya está hecho y es
-     * correcto. Perder la anotación es peor que perder el ajuste, pero no
-     * justifica deshacerlo.
-     */
-    private function logStockAdjustment(
-        Item $item,
-        ItemVariant $variant,
-        int $warehouseId,
-        float $delta,
-        ?string $reason
-    ): void {
-        if (abs($delta) < 0.0001) {
-            return; // No hubo cambio: no se ensucia el kardex.
-        }
-
-        try {
-            $quien   = optional(auth()->user())->name ?? 'sistema';
-            $qué     = $variant->display_name ?: ('variante #' . $variant->id);
-            $motivo  = $reason ? (' — ' . $reason) : '';
-            $signo   = $delta > 0 ? '+' : '';
-
-            \Modules\Inventory\Models\Inventory::create([
-                'type'         => $delta > 0 ? 1 : 3,   // 1 entrada, 3 salida
-                'description'  => 'Ajuste de variante ' . $qué . $motivo,
-                'item_id'      => $item->id,
-                'warehouse_id' => $warehouseId,
-                'quantity'     => abs($delta),
-                'comments'     => sprintf(
-                    'Ajuste manual de stock (%s%s) en "%s" por %s',
-                    $signo,
-                    rtrim(rtrim(number_format($delta, 4, '.', ''), '0'), '.'),
-                    $qué,
-                    $quien
-                ),
-            ]);
-        } catch (\Throwable $e) {
-            Log::warning('[ItemVariantController] no se pudo registrar el ajuste en kardex', [
-                'item_id'    => $item->id,
-                'variant_id' => $variant->id,
-                'delta'      => $delta,
-                'error'      => $e->getMessage(),
-            ]);
-        }
     }
 
     // ────────────────────────────────────────────────────────────────────────

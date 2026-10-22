@@ -858,6 +858,9 @@ if ($hostname) {
             Route::post('items/remove-background', 'Tenant\ItemBackgroundController@remove');
             Route::post('items/visible_store', 'Tenant\ItemController@visibleStore');
             Route::post('items/quick-price', 'Tenant\ItemController@quickPrice');
+            // Ajustar stock desde la Tienda virtual (mismo servicio que variantes)
+            Route::get('items/quick-stock/{id}', 'Tenant\ItemController@quickStockRecord');
+            Route::post('items/quick-stock', 'Tenant\ItemController@quickStock');
             Route::post('items/marketplace-toggle', 'Tenant\ItemController@marketplaceToggle');
             Route::post('items/saga-toggle',         'Tenant\ItemController@sagaToggle');
             Route::get('items/marketplace-stats',    'Tenant\ItemController@marketplaceStats');
