@@ -39,8 +39,13 @@ Un agente dueño + revisores obligatorios + orden de ejecución. El orden por de
 
 ```
 A16 migraciones → A01 catálogo → A02 inventario → A03 pedidos
-  → A04/A05/A09 en paralelo → A13/A14/A15 en paralelo → A18 QA → A19 despliegue
+  → A04/A05/A09 en paralelo → A13/A14/A15 en paralelo
+  → A22 novedades (si el cliente lo verá) → A18 QA → A19 despliegue
 ```
+
+**A22 no es opcional** cuando el cambio es visible para el dueño de la tienda (botón,
+columna, diálogo, regla de precio/stock/oferta): su propuesta de guía/NUEVO/textos se
+pregunta al usuario antes de QA. Un cambio visible sin ese paso no se despliega.
 
 ### 4. Arbitrar
 - **Mismo archivo:** se serializan; el dueño va primero. Si es `routes/web.php`, una migración o `tests/`, lo edita su dueño transversal con ambos cambios juntos.

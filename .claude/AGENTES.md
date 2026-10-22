@@ -43,6 +43,7 @@ Cualquier agente puede leer este fichero cuando necesite el mapa completo.
 | A19 | Plataforma y Despliegue | crítica | — |
 | A20 | Imágenes | controlada | — |
 | A21 | Crecimiento (SEO y publicidad) | controlada | — |
+| A22 | Novedades (experiencia del cliente) | controlada | — |
 
 ---
 
@@ -87,6 +88,7 @@ Cualquier agente puede leer este fichero cuando necesite el mapa completo.
 4. A03 Pedidos ............. antes que pagos, documentos y envíos
 5. A04 · A05 · A09 ......... en paralelo entre sí
 6. A13 · A14 · A15 ......... en paralelo con todo
+6b. A22 Novedades ......... si el cliente verá el cambio: propuesta aprobada antes de QA
 7. A18 QA .................. tras cada agente y al final
 8. A19 Despliegue .......... serializado, último
 ```
