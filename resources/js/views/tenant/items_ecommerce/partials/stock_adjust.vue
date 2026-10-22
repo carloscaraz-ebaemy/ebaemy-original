@@ -5,79 +5,76 @@
     <el-dialog
         :title="record ? 'Ajustar stock' : 'Cargando…'"
         :visible="visible"
-        width="92%"
+        width="360px"
+        top="12vh"
         custom-class="sa-dialog"
         append-to-body
         @close="close"
     >
         <div v-loading="loading" class="sa">
             <template v-if="record">
-                <p class="sa__name">{{ record.description }}</p>
+                <p class="sa__name" :title="record.description">{{ record.description }}</p>
 
                 <div v-if="record.bloqueo" class="sa__block">
                     {{ record.bloqueo }}
                 </div>
 
                 <template v-else>
-                    <div v-if="record.warehouses.length > 1" class="sa__wh">
-                        <label class="control-label">Almacén</label>
-                        <el-radio-group v-model="warehouseId" size="small">
-                            <el-radio-button
-                                v-for="w in record.warehouses"
-                                :key="w.id"
-                                :label="w.id"
-                            >{{ w.description }}</el-radio-button>
-                        </el-radio-group>
-                    </div>
-                    <p v-else-if="record.warehouses.length" class="sa__hint">
-                        {{ record.warehouses[0].description }}
-                    </p>
-
-                    <p class="sa__hint">
-                        Escribe las unidades que tienes en físico. El cambio se registra en el
-                        kardex y se refleja en ventas, tienda y marketplace.
-                    </p>
+                    <el-select
+                        v-if="record.warehouses.length > 1"
+                        v-model="warehouseId"
+                        size="mini"
+                        class="sa__wh"
+                    >
+                        <el-option
+                            v-for="w in record.warehouses"
+                            :key="w.id"
+                            :label="w.description"
+                            :value="w.id"
+                        ></el-option>
+                    </el-select>
 
                     <div class="sa__rows">
                         <div v-for="r in rows" :key="r.key" class="sa__row">
                             <div class="sa__label">
-                                <strong>{{ r.label }}</strong>
-                                <small class="text-muted">
-                                    Actual: {{ fmt(current(r)) }}
-                                    <span v-if="committed(r) > 0"> · {{ fmt(committed(r)) }} reservado</span>
+                                <span class="sa__title">{{ r.label }}</span>
+                                <small>
+                                    Actual {{ fmt(current(r)) }}<template v-if="committed(r) > 0"> · {{ fmt(committed(r)) }} reserv.</template>
+                                    <b
+                                        v-if="diff(r) !== 0"
+                                        :class="diff(r) > 0 ? 'sa__up' : 'sa__down'"
+                                    >{{ diff(r) > 0 ? '+' : '' }}{{ fmt(diff(r)) }}</b>
                                 </small>
                             </div>
-                            <div class="sa__input">
-                                <el-input-number
-                                    v-model="draft[draftKey(r)]"
-                                    :min="0"
-                                    :step="1"
-                                    size="small"
-                                    controls-position="right"
-                                ></el-input-number>
-                                <span
-                                    v-if="diff(r) !== 0"
-                                    class="sa__diff"
-                                    :class="diff(r) > 0 ? 'sa__diff--up' : 'sa__diff--down'"
-                                >{{ diff(r) > 0 ? '+' : '' }}{{ fmt(diff(r)) }}</span>
-                            </div>
+                            <el-input-number
+                                v-model="draft[draftKey(r)]"
+                                :min="0"
+                                :step="1"
+                                size="mini"
+                                controls-position="right"
+                                class="sa__num"
+                            ></el-input-number>
                         </div>
-                        <p v-if="!rows.length" class="sa__hint">Este producto no tiene variantes activas.</p>
+                        <p v-if="!rows.length" class="sa__hint">Sin variantes activas.</p>
                     </div>
 
-                    <div class="form-group" style="margin-top:12px">
-                        <label class="control-label">Motivo (opcional)</label>
-                        <el-input v-model="reason" maxlength="150" placeholder="Ej. Conteo físico, mercadería dañada"></el-input>
-                    </div>
+                    <el-input
+                        v-model="reason"
+                        size="mini"
+                        maxlength="150"
+                        class="sa__reason"
+                        placeholder="Motivo (opcional)"
+                    ></el-input>
                 </template>
             </template>
         </div>
 
         <span slot="footer">
-            <el-button @click="close">Cancelar</el-button>
+            <el-button size="small" @click="close">Cancelar</el-button>
             <el-button
                 v-if="record && !record.bloqueo"
                 type="primary"
+                size="small"
                 :loading="saving"
                 :disabled="!changes.length"
                 @click="save"
@@ -224,28 +221,40 @@ export default {
 </script>
 
 <style scoped>
-.sa { min-height: 80px; }
-.sa__name { font-weight: 600; margin: 0 0 10px; }
-.sa__hint { color: #6b7280; font-size: 13px; margin: 0 0 10px; }
+.sa { min-height: 60px; font-size: 13px; }
+.sa__name {
+    font-weight: 600; margin: 0 0 8px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.sa__hint { color: #6b7280; font-size: 12px; margin: 0; }
 .sa__block {
     background: #fff7ed; border: 1px solid #fed7aa; color: #9a3412;
-    border-radius: 8px; padding: 10px 12px; font-size: 13px;
+    border-radius: 6px; padding: 8px 10px; font-size: 12px;
 }
-.sa__wh { margin-bottom: 10px; }
-.sa__wh .el-radio-group { display: flex; flex-wrap: wrap; gap: 4px; }
-.sa__rows { display: flex; flex-direction: column; gap: 8px; max-height: 50vh; overflow-y: auto; }
+.sa__rows { display: flex; flex-direction: column; max-height: 40vh; overflow-y: auto; }
 .sa__row {
-    display: flex; align-items: center; justify-content: space-between; gap: 10px;
-    padding: 8px 10px; border: 1px solid #e5e7eb; border-radius: 8px; flex-wrap: wrap;
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    padding: 6px 0; border-bottom: 1px solid #f1f5f9;
 }
-.sa__label { display: flex; flex-direction: column; min-width: 0; flex: 1 1 160px; }
-.sa__label strong { overflow-wrap: anywhere; }
-.sa__input { display: flex; align-items: center; gap: 8px; }
-.sa__diff { font-size: 12px; font-weight: 700; min-width: 36px; }
-.sa__diff--up { color: #059669; }
-.sa__diff--down { color: #dc2626; }
+.sa__row:last-child { border-bottom: 0; }
+.sa__label { display: flex; flex-direction: column; min-width: 0; flex: 1; line-height: 1.3; }
+.sa__title { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sa__label small { color: #6b7280; font-size: 11px; }
+.sa__up { color: #059669; margin-left: 4px; }
+.sa__down { color: #dc2626; margin-left: 4px; }
 </style>
 
 <style>
-.sa-dialog { max-width: 480px; }
+/* erp-redesign.scss fuerza en TODO diálogo `max-width: 95vw !important` y los
+   inputs a `width: 100% !important`; sin la especificidad extra el diálogo se
+   abría casi a pantalla completa y cada fila ocupaba dos líneas. */
+.el-dialog.sa-dialog { width: 360px !important; max-width: 94vw !important; }
+.el-dialog.sa-dialog .el-dialog__header { padding: 12px 16px 6px; }
+.el-dialog.sa-dialog .el-dialog__body { padding: 6px 16px 4px !important; }
+.el-dialog.sa-dialog .el-dialog__footer { padding: 8px 16px 12px; }
+.el-dialog.sa-dialog .sa__num { width: 96px !important; margin: 0 !important; flex: none; }
+.el-dialog.sa-dialog .sa__num .el-input { margin: 0 !important; }
+.el-dialog.sa-dialog .sa__wh { width: 100% !important; margin: 0 0 6px !important; }
+.el-dialog.sa-dialog .sa__reason { margin: 8px 0 0 !important; }
+.el-dialog.sa-dialog .el-dialog__footer .el-button { width: auto !important; margin: 0 0 0 6px !important; }
 </style>
