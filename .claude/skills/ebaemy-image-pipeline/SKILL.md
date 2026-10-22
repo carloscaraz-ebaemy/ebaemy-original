@@ -12,7 +12,7 @@ description: Pipeline de procesamiento de imágenes en EBAEMY (HEIC + EXIF + que
 | **F1** | ✅ Listo | HEIC client (heic2any) + Imagick backend + corrección EXIF orientation |
 | **F2** | ✅ Backend listo, frontend POC en galería | Queue + polling + UI progreso ("Subiendo / Procesando / Listo") |
 | F3 | Pendiente | Tabla `item_image_versions` para versiones por canal |
-| F4 | ⛔ **Postergado** (decisión 2026-05-09) | Remove-bg requiere presupuesto ($99+/mes API o $150+/mes GPU). Retomar cuando se valide adopción del seller con UI sin remoción. |
+| **F4** | 🟡 **Construido, apagado** (2026-10-22, 07267d9fb) | Botón «Quitar el fondo» bajo la principal, con antes/después. `BackgroundRemovalService` + `PhotoroomRemover` (~0,02 USD/foto, no los 99 USD/mes de remove.bg). Se enciende con `PHOTOROOM_API_KEY` en `.env` + `config:cache`; cupo `BG_REMOVAL_MONTHLY_LIMIT` (100/tienda/mes, contador en cache). |
 | F5 | En espera de F4 | UI moderna: dropzone + selector de fondo. Sin F4 solo aporta colores planos, no remoción real. |
 | F6 | 🟡 Parcial | Versiones `_mp` (1080 cuadrado) y `_mobile` (640) se generan en cada upload nuevo. Comando `images:backfill-variants` regenera items viejos. Falta cambiar el sync para usar `_mp` (decidir después del backfill). |
 | F7 | Pendiente (no requiere F4) | Storage S3/R2 con prefix por tenant |
