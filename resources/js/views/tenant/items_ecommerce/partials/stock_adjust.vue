@@ -3,7 +3,7 @@
          guarda por /items/quick-stock, que pasa por StockAdjustmentService (el
          mismo camino que la pestaña de variantes) y deja kardex. -->
     <el-dialog
-        :title="record ? 'Ajustar stock' : 'Cargando…'"
+        :title="record ? (variantId ? 'Ajustar stock de la variante' : 'Ajustar stock') : 'Cargando…'"
         :visible="visible"
         width="360px"
         top="12vh"
@@ -76,7 +76,6 @@
                 type="primary"
                 size="small"
                 :loading="saving"
-                :disabled="!changes.length"
                 @click="save"
             >Guardar{{ changes.length > 1 ? ` (${changes.length})` : '' }}</el-button>
         </span>
@@ -88,6 +87,8 @@ export default {
     props: {
         visible: { type: Boolean, default: false },
         itemId: { type: Number, default: null },
+        // Con una variante: solo esa fila (el lápiz de la fila de la variante).
+        variantId: { type: Number, default: null },
     },
     data() {
         return {
@@ -104,7 +105,9 @@ export default {
         rows() {
             if (!this.record) return [];
             if (this.record.has_variants) {
-                return this.record.variants.map(v => ({
+                return this.record.variants
+                    .filter(v => !this.variantId || v.id === this.variantId)
+                    .map(v => ({
                     key: 'v' + v.id,
                     variantId: v.id,
                     label: v.display_name + (v.sku ? ` · ${v.sku}` : ''),
@@ -188,8 +191,19 @@ export default {
         fmt(n) {
             return Number.isInteger(n) ? String(n) : Number(n).toFixed(2);
         },
+        // La casilla numérica solo confirma su valor al perder el foco: sin
+        // esto, escribir y pulsar Guardar (o Enter en el celular) mandaba el
+        // número viejo. Se confirma y se guarda en el siguiente ciclo.
         save() {
-            if (!this.changes.length) return;
+            const el = document.activeElement;
+            if (el && typeof el.blur === 'function') el.blur();
+            this.$nextTick(() => this.send());
+        },
+        send() {
+            if (!this.changes.length) {
+                this.$message.info('No hay cambios que guardar');
+                return;
+            }
             this.saving = true;
             this.$http
                 .post('/items/quick-stock', {

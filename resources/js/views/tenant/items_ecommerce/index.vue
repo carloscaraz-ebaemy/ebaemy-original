@@ -429,29 +429,32 @@
                                 S/ {{ variantRegular(v, row) }}
                                 <small v-if="v.sale_unit_price === null" class="ie-vrow__muted" title="Hereda el precio del producto">(hereda)</small>
                             </td>
-                            <!-- Precio oferta -->
-                            <td class="text-end">
-                                <span v-if="variantOffer(v, row)" style="color:#e53e3e;font-weight:700">S/ {{ variantOffer(v, row) }}</span>
-                                <span v-else style="color:#9ca3af">—</span>
+                            <!-- Precio oferta: lápiz para el precio de ESTA variante,
+                                 igual que el del producto -->
+                            <td class="text-end" style="min-width:120px">
+                                <div style="display:flex;align-items:center;justify-content:flex-end;gap:6px">
+                                    <span v-if="variantOffer(v, row)" style="color:#e53e3e;font-weight:700;white-space:nowrap">S/ {{ variantOffer(v, row) }}</span>
+                                    <span v-else style="color:#9ca3af">—</span>
+                                    <el-button type="text" icon="el-icon-edit" @click="openVariantPriceDialog(row, v)"
+                                               title="Editar precio de la variante"
+                                               style="padding:0;font-size:17px;color:#409eff"></el-button>
+                                </div>
                             </td>
-                            <!-- Stock -->
+                            <!-- Stock: lápiz para el stock de ESTA variante -->
                             <td class="text-end" style="min-width:90px">
                                 <div style="display:flex;align-items:center;justify-content:flex-end;gap:6px">
                                     <span :class="{ 'text-danger': Number(v.stock) <= 0 }">{{ fmtQty(v.stock) }}</span>
-                                    <el-button type="text" icon="el-icon-edit" @click="openStockDialog(row)"
-                                               title="Ajustar stock"
-                                               style="padding:0;font-size:15px;color:#409eff"></el-button>
+                                    <el-button type="text" icon="el-icon-edit" @click="openStockDialog(row, v)"
+                                               title="Ajustar stock de la variante"
+                                               style="padding:0;font-size:17px;color:#409eff"></el-button>
                                 </div>
                             </td>
-                            <!-- Tags, Visible, Marketplace, Saga: son del producto -->
+                            <!-- Tags, Visible, Marketplace, Saga y Acciones: son del producto -->
                             <td></td>
                             <td></td>
                             <td></td>
                             <td v-if="mpStats.has_saga"></td>
-                            <!-- Acciones -->
-                            <td class="text-end">
-                                <el-button type="text" size="mini" @click="clickCreate(row.id)" title="Las variantes se editan en la ficha del producto">Editar</el-button>
-                            </td>
+                            <td></td>
                         </tr>
                         </template>
                     </template>
@@ -524,21 +527,30 @@
             <stock-adjust
                 :visible.sync="stockDialogVisible"
                 :item-id="stockItemId"
+                :variant-id="stockVariantId"
                 @saved="onStockSaved"
             ></stock-adjust>
 
             <!-- Popup: editar precio oferta + duración (estilo Saga) -->
-            <el-dialog title="Editar precio" :visible.sync="offerDialogVisible" width="380px" append-to-body>
-                <div class="form-group">
+            <el-dialog :title="offerForm._variant ? 'Precio de la variante' : 'Editar precio'" :visible.sync="offerDialogVisible" width="380px" append-to-body>
+                <template v-if="offerForm._variant">
+                    <p class="ie-offer-variant">
+                        <span class="ie-vrow__tag">Variante</span>{{ offerForm._variant.display_name }}
+                    </p>
+                    <el-checkbox v-model="offerForm.inherit" style="margin-bottom:10px">
+                        Usar el precio del producto (S/ {{ offerForm.parentPrice }})
+                    </el-checkbox>
+                </template>
+                <div class="form-group" :class="{ 'ie-offer-off': offerForm.inherit }">
                     <label class="control-label">Precio normal</label>
                     <el-input v-model.number="offerForm.regular" type="number" min="0" step="0.01" placeholder="Ej. 200"></el-input>
                 </div>
-                <div class="form-group">
+                <div class="form-group" :class="{ 'ie-offer-off': offerForm.inherit }">
                     <label class="control-label">Precio de venta (oferta)</label>
                     <el-input v-model.number="offerForm.offer" type="number" min="0" step="0.01" placeholder="Ej. 109"></el-input>
                     <small class="text-muted">Debe ser menor al normal. Deja vacío para quitar la oferta.</small>
                 </div>
-                <div class="form-group">
+                <div class="form-group" :class="{ 'ie-offer-off': offerForm.inherit }">
                     <label class="control-label">Duración oferta</label>
                     <el-date-picker v-model="offerForm.dateRange" type="daterange" value-format="yyyy-MM-dd"
                                     format="dd/MM/yyyy" range-separator="→"
@@ -641,6 +653,7 @@ export default {
             stockDialogVisible: false,
             stockItemId: null,
             stockRow: null,
+            stockVariantId: null,
             showNewBadge: new Date() <= NOVEDAD_STOCK_HASTA,
             tourSteps: [
                 {
@@ -658,7 +671,7 @@ export default {
             openVariants: {},
             variantsOf: {},
             variantsLoading: {},
-            offerForm: { id: null, regular: 0, offer: null, dateRange: [], _row: null },
+            offerForm: { id: null, regular: 0, offer: null, dateRange: [], _row: null, _variant: null, inherit: false, parentPrice: '' },
             showImportDialog: false,
             showWarehousesDetail: false,
             showImageDetail: false,
@@ -769,11 +782,25 @@ export default {
         },
         // Se piden al desplegar (y se refrescan cada vez): la lista no paga
         // por las variantes de los productos que nadie abre.
-        loadVariants(itemId) {
+        // Con `row`, también rehace su resumen («12 variantes · S/ 69.90–89.90»)
+        // tras editar un precio o un stock, sin recargar la tabla.
+        loadVariants(itemId, row = null) {
             if (!this.variantsOf[itemId]) this.$set(this.variantsLoading, itemId, true);
             this.$http
                 .get(`/items/${itemId}/variants`)
-                .then(r => { this.$set(this.variantsOf, itemId, (r.data && r.data.variants) || []); })
+                .then(r => {
+                    const list = (r.data && r.data.variants) || [];
+                    this.$set(this.variantsOf, itemId, list);
+                    if (row && list.length) {
+                        const precios = list.map(v => this.variantPrices(v, row).sale);
+                        row.variants_summary = {
+                            count: list.length,
+                            price_min: Math.min(...precios),
+                            price_max: Math.max(...precios),
+                            stock: list.reduce((t, v) => t + (Number(v.stock) || 0), 0),
+                        };
+                    }
+                })
                 .catch(() => { this.$message.error('No se pudieron cargar las variantes'); })
                 .then(() => { this.$set(this.variantsLoading, itemId, false); });
         },
@@ -820,14 +847,16 @@ export default {
             const x = Number(n) || 0;
             return Number.isInteger(x) ? String(x) : x.toFixed(2);
         },
-        openStockDialog(row) {
+        // Con `v`, el diálogo muestra solo esa variante (lápiz de su fila).
+        openStockDialog(row, v = null) {
             this.stockRow = row;
             this.stockItemId = row.id;
+            this.stockVariantId = v ? v.id : null;
             this.stockDialogVisible = true;
         },
         // Repinta «Stock General» de la fila sin recargar la tabla.
         onStockSaved({ id, warehouses }) {
-            if (this.openVariants[id]) this.loadVariants(id);
+            if (this.openVariants[id]) this.loadVariants(id, this.stockRow && this.stockRow.id === id ? this.stockRow : null);
             if (this.stockRow && this.stockRow.id === id && warehouses) {
                 this.stockRow.warehouses = warehouses;
             } else {
@@ -844,11 +873,62 @@ export default {
                 dateRange: (row.compare_at_from || row.compare_at_until)
                     ? [row.compare_at_from || '', row.compare_at_until || ''] : [],
                 _row: row,
+                _variant: null,
+                inherit: false,
+                parentPrice: '',
             };
             this.offerDialogVisible = true;
         },
+        // Mismo diálogo, para el precio de UNA variante (lápiz de su fila).
+        openVariantPriceDialog(row, v) {
+            const offerStr = this.variantOffer(v, row);
+            this.offerForm = {
+                id: row.id,
+                regular: parseFloat(this.variantRegular(v, row)),
+                offer: offerStr === '' ? null : parseFloat(offerStr),
+                dateRange: (v.compare_at_from || v.compare_at_until)
+                    ? [v.compare_at_from || '', v.compare_at_until || ''] : [],
+                _row: row,
+                _variant: v,
+                inherit: v.sale_unit_price === null,
+                parentPrice: this.regularOf(row),
+            };
+            this.offerDialogVisible = true;
+        },
+        // PATCH al endpoint de la ficha de variantes: valida el margen mínimo y
+        // resincroniza el marketplace. null en los campos = hereda del producto.
+        saveVariantPrice(f, offer, from, until) {
+            const v = f._variant;
+            const row = f._row;
+            let payload;
+            if (f.inherit) {
+                payload = { sale_unit_price: null, compare_at_price: null, compare_at_from: null, compare_at_until: null };
+            } else if (offer !== null) {
+                payload = { sale_unit_price: offer, compare_at_price: f.regular, compare_at_from: from, compare_at_until: until };
+            } else {
+                payload = { sale_unit_price: f.regular, compare_at_price: null, compare_at_from: null, compare_at_until: null };
+            }
+            this.$http
+                .patch(`/items/${row.id}/variants/${v.id}`, payload)
+                .then(response => {
+                    if (response.data && response.data.success) {
+                        this.$message.success('Precio de la variante actualizado');
+                        this.offerDialogVisible = false;
+                        this.loadVariants(row.id, row);
+                    } else {
+                        this.$message.error((response.data && response.data.message) || 'No se pudo actualizar');
+                    }
+                })
+                .catch(e => {
+                    const d = e.response && e.response.data;
+                    this.$message.error((d && (d.message || (d.errors && Object.values(d.errors)[0][0]))) || 'Error al actualizar precio');
+                });
+        },
         saveOffer() {
             var f = this.offerForm;
+            if (f._variant && f.inherit) {
+                return this.saveVariantPrice(f, null, null, null);
+            }
             var offer = (f.offer === '' || f.offer === null || f.offer === undefined) ? null : parseFloat(f.offer);
             if (offer !== null && offer >= f.regular) {
                 this.$message.warning('La oferta debe ser menor al precio normal');
@@ -856,6 +936,13 @@ export default {
             }
             var from = (f.dateRange && f.dateRange.length) ? (f.dateRange[0] || null) : null;
             var until = (f.dateRange && f.dateRange.length) ? (f.dateRange[1] || null) : null;
+            if (!(f.regular > 0)) {
+                this.$message.warning('El precio debe ser mayor a 0');
+                return;
+            }
+            if (f._variant) {
+                return this.saveVariantPrice(f, offer, from, until);
+            }
             this.$http
                 .post(`/${this.resource}/quick-price`, {
                     id: f.id, regular_price: f.regular, offer_price: offer,
@@ -1036,6 +1123,9 @@ export default {
 </script>
 
 <style scoped>
+/* ── Precio de una variante (mismo diálogo que el del producto) ── */
+.ie-offer-variant { font-weight: 600; color: #3730a3; margin: 0 0 8px; }
+.ie-offer-off { opacity: .45; pointer-events: none; }
 /* ── Novedades ── */
 .ie-new-pill {
     display: inline-block; font-size: 9px; font-weight: 700; letter-spacing: .05em;
