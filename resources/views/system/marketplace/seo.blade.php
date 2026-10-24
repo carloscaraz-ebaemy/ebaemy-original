@@ -108,6 +108,41 @@
                 </div>
             </div>
 
+            {{-- ═════════ Verificación de dominio ═════════ --}}
+            <div class="card mt-3">
+                <div class="card-body">
+                    <h6 class="mb-1" style="font-weight:700">🔐 Verificación de dominio</h6>
+                    <p class="text-muted small mb-3">
+                        Meta, Google y TikTok piden demostrar que ebaemy.com es tuyo. Elige el método
+                        «etiqueta meta» en cada plataforma y pega aquí lo que te den: la etiqueta completa o
+                        solo el código. Se publica en la portada del marketplace.
+                    </p>
+                    <div class="mb-3">
+                        <label class="form-label">Meta (Facebook) — facebook-domain-verification</label>
+                        <input type="text" name="marketplace_fb_domain_verification" class="form-control"
+                               value="{{ old('marketplace_fb_domain_verification', $config->marketplace_fb_domain_verification ?? '') }}"
+                               placeholder='<meta name="facebook-domain-verification" content="..." />'>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Google (Search Console / Merchant Center) — google-site-verification</label>
+                        <input type="text" name="marketplace_google_site_verification" class="form-control"
+                               value="{{ old('marketplace_google_site_verification', $config->marketplace_google_site_verification ?? '') }}"
+                               placeholder='<meta name="google-site-verification" content="..." />'>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">TikTok — tiktok-developers-site-verification</label>
+                        <input type="text" name="marketplace_tiktok_site_verification" class="form-control"
+                               value="{{ old('marketplace_tiktok_site_verification', $config->marketplace_tiktok_site_verification ?? '') }}"
+                               placeholder='<meta name="tiktok-developers-site-verification" content="..." />'>
+                    </div>
+                    <small class="text-muted d-block mb-3">
+                        Si una plataforma no lo reconoce (la portada redirige a /marketplace), usa su método de
+                        registro DNS.
+                    </small>
+                    <button type="submit" class="btn btn-primary">💾 Guardar</button>
+                </div>
+            </div>
+
             {{-- ═════════ Medición de publicidad ═════════ --}}
             <div class="card mt-3">
                 <div class="card-body">

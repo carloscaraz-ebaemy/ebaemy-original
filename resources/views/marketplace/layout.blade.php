@@ -88,6 +88,17 @@
     <meta name="keywords"    content="@yield('keywords', $mpKeywords)">
     <meta name="robots"      content="@yield('robots', 'index, follow')">
     <meta name="theme-color" content="#0f8a82">
+    {{-- Verificación de dominio (Meta / Google / TikTok), pegada en /admin/marketplace/seo.
+         El código ya viene saneado por MarketplaceAdminController::verificationCode(). --}}
+    @if(!empty($mpCfg->marketplace_fb_domain_verification))
+    <meta name="facebook-domain-verification" content="{{ $mpCfg->marketplace_fb_domain_verification }}">
+    @endif
+    @if(!empty($mpCfg->marketplace_google_site_verification))
+    <meta name="google-site-verification" content="{{ $mpCfg->marketplace_google_site_verification }}">
+    @endif
+    @if(!empty($mpCfg->marketplace_tiktok_site_verification))
+    <meta name="tiktok-developers-site-verification" content="{{ $mpCfg->marketplace_tiktok_site_verification }}">
+    @endif
 
     {{-- PWA — instalable como app del marketplace (scope /marketplace).
          Usa manifest e íconos propios, NO colisiona con la PWA del

@@ -487,6 +487,10 @@ class MarketplaceAdminController extends Controller
             'marketplace_tiktok_capi_token'=> 'nullable|string|max:1000',
             'marketplace_ga4_id'           => 'nullable|string|max:40|regex:/^G-[A-Za-z0-9]+$/',
             'marketplace_ads_test_code'    => 'nullable|string|max:80',
+            // Verificación de dominio: el código suelto o la <meta> entera.
+            'marketplace_fb_domain_verification'   => 'nullable|string|max:300',
+            'marketplace_google_site_verification' => 'nullable|string|max:300',
+            'marketplace_tiktok_site_verification' => 'nullable|string|max:300',
         ], [
             'marketplace_meta_pixel_id.regex'   => 'El ID del pixel de Meta son solo digitos.',
             'marketplace_tiktok_pixel_id.regex' => 'El ID del pixel de TikTok es alfanumerico, sin espacios.',
@@ -511,6 +515,13 @@ class MarketplaceAdminController extends Controller
         $config->marketplace_tiktok_capi_token = $request->input('marketplace_tiktok_capi_token');
         $config->marketplace_ga4_id            = $request->input('marketplace_ga4_id');
         $config->marketplace_ads_test_code     = $request->input('marketplace_ads_test_code');
+
+        // Verificación de dominio. Se acepta la etiqueta completa que copia la
+        // plataforma (<meta name="..." content="CODIGO" />) o solo el código;
+        // se guarda solo el código, con caracteres seguros para el <head>.
+        foreach (['marketplace_fb_domain_verification', 'marketplace_google_site_verification', 'marketplace_tiktok_site_verification'] as $campo) {
+            $config->{$campo} = self::verificationCode($request->input($campo));
+        }
 
         if ($request->hasFile('og_image')) {
             $file = $request->file('og_image');
@@ -864,5 +875,22 @@ class MarketplaceAdminController extends Controller
             });
             fclose($out);
         }, $filename, ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
+    /**
+     * «<meta name="x" content="ABC" />» o «ABC» → «ABC». null si no queda un
+     * código válido: solo caracteres que no pueden romper el <head>.
+     */
+    public static function verificationCode(?string $raw): ?string
+    {
+        $raw = trim((string) $raw);
+        if ($raw === '') {
+            return null;
+        }
+        if (preg_match('/content\s*=\s*["\']([^"\']+)["\']/i', $raw, $m)) {
+            $raw = trim($m[1]);
+        }
+
+        return preg_match('/^[A-Za-z0-9_\-=.]{4,120}$/', $raw) ? $raw : null;
     }
 }
