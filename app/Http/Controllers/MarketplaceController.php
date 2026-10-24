@@ -2288,12 +2288,25 @@ class MarketplaceController extends Controller
      *   - g:product_highlight si es pack (lista de componentes)
      *   - g:custom_label_1 con el discount_source para segmentar campañas
      */
+    private ?\App\Services\Marketplace\ProductFeedFormatter $feedFormatter = null;
+
+    /** Una instancia por petición: carga el árbol de categorías una sola vez. */
+    private function feedFormatter(): \App\Services\Marketplace\ProductFeedFormatter
+    {
+        return $this->feedFormatter ??= new \App\Services\Marketplace\ProductFeedFormatter();
+    }
+
     private function productFeedItemXml(MarketplaceListing $l): string
     {
         $esc = fn($s) => htmlspecialchars((string) $s, ENT_XML1);
 
         $availability = $l->stock > 0 ? 'in stock' : 'out of stock';
-        $description  = mb_substr(trim(strip_tags($l->description ?? $l->title)), 0, 5000);
+        // Texto limpio (sin «&nbsp;» ni etiquetas), marca real o la de la tienda y
+        // categoría de Google: ver ProductFeedFormatter.
+        $description  = \App\Services\Marketplace\ProductFeedFormatter::text($l->description ?? $l->title);
+        $title        = \App\Services\Marketplace\ProductFeedFormatter::text($l->title, 150);
+        $brand        = \App\Services\Marketplace\ProductFeedFormatter::brand($l->brand_name, $l->seller_display);
+        $gpc          = $this->feedFormatter()->googleCategory($l->marketplace_category_id);
 
         // Precio principal: el del listing (display_price ya respeta mp_price si lo hay).
         // sale_price aparece SOLO si hay oferta vigente — Google muestra precio
@@ -2308,8 +2321,8 @@ class MarketplaceController extends Controller
 
         $xml  = "  <item>\n";
         $xml .= '    <g:id>mp_' . $l->id . "</g:id>\n";
-        $xml .= '    <g:title>' . $esc(mb_substr($l->title, 0, 150)) . "</g:title>\n";
-        $xml .= '    <g:description>' . $esc($description ?: $l->title) . "</g:description>\n";
+        $xml .= '    <g:title>' . $esc($title) . "</g:title>\n";
+        $xml .= '    <g:description>' . $esc($description ?: $title) . "</g:description>\n";
         $xml .= '    <g:link>' . $esc($l->public_url) . "</g:link>\n";
         if ($l->image_url) {
             $xml .= '    <g:image_link>' . $esc($l->image_url) . "</g:image_link>\n";
@@ -2338,8 +2351,11 @@ class MarketplaceController extends Controller
         }
         $xml .= '    <g:condition>new</g:condition>' . "\n";
         $xml .= '    <g:identifier_exists>no</g:identifier_exists>' . "\n";
-        if ($l->brand_name) {
-            $xml .= '    <g:brand>' . $esc(mb_substr($l->brand_name, 0, 70)) . "</g:brand>\n";
+        if ($brand) {
+            $xml .= '    <g:brand>' . $esc($brand) . "</g:brand>\n";
+        }
+        if ($gpc) {
+            $xml .= '    <g:google_product_category>' . $gpc . "</g:google_product_category>\n";
         }
         if ($l->category_name) {
             $xml .= '    <g:product_type>' . $esc(mb_substr($l->category_name, 0, 250)) . "</g:product_type>\n";
@@ -2407,7 +2423,8 @@ class MarketplaceController extends Controller
 
         // Título: padre + nombre de la variante (color/talla) para distinguirlas.
         $suffix = $v->display_name ?: trim(implode(' ', array_filter([$color, $size])));
-        $title  = $suffix ? ($l->title . ' - ' . $suffix) : $l->title;
+        $base   = \App\Services\Marketplace\ProductFeedFormatter::text($l->title, 150);
+        $title  = $suffix ? ($base . ' - ' . $suffix) : $base;
 
         // Precio/oferta de la variante (cae al del padre si la variante no trae).
         $unit    = (float) ($v->price ?: $l->display_price);
@@ -2417,7 +2434,9 @@ class MarketplaceController extends Controller
 
         $availability = ($v->stock > 0) ? 'in stock' : 'out of stock';
         $image        = $v->image_url ?: $l->image_url;
-        $description  = mb_substr(trim(strip_tags($l->description ?? $l->title)), 0, 5000);
+        $description  = \App\Services\Marketplace\ProductFeedFormatter::text($l->description ?? $l->title);
+        $brand        = \App\Services\Marketplace\ProductFeedFormatter::brand($l->brand_name, $l->seller_display);
+        $gpc          = $this->feedFormatter()->googleCategory($l->marketplace_category_id);
 
         // item_group_id: el mismo que usa el padre (agrupa todas las variantes).
         $group = (!empty($l->remote_item_id) && !empty($l->hostname_id))
@@ -2443,8 +2462,11 @@ class MarketplaceController extends Controller
         if ($v->sku) {
             $xml .= '    <g:mpn>' . $esc(mb_substr($v->sku, 0, 70)) . "</g:mpn>\n";
         }
-        if ($l->brand_name) {
-            $xml .= '    <g:brand>' . $esc(mb_substr($l->brand_name, 0, 70)) . "</g:brand>\n";
+        if ($brand) {
+            $xml .= '    <g:brand>' . $esc($brand) . "</g:brand>\n";
+        }
+        if ($gpc) {
+            $xml .= '    <g:google_product_category>' . $gpc . "</g:google_product_category>\n";
         }
         if ($l->category_name) {
             $xml .= '    <g:product_type>' . $esc(mb_substr($l->category_name, 0, 250)) . "</g:product_type>\n";

@@ -1,0 +1,102 @@
+<?php
+
+namespace App\Services\Marketplace;
+
+use App\Models\System\MarketplaceCategory;
+
+/**
+ * Lo que el feed /feeds/meta-catalog.xml necesita limpiar antes de mandarlo a
+ * Google Merchant Center, Meta y TikTok. Tres problemas medidos el 2026-10-24
+ * en producción (271 items):
+ *
+ *  1. 116 descripciones llegaban con «&nbsp;» escrito: el texto viene del
+ *     editor con entidades HTML, strip_tags() quita las etiquetas pero no
+ *     traduce las entidades, y al escapar para XML quedaba «&amp;nbsp;» —
+ *     que el anuncio muestra tal cual.
+ *  2. 123 items sin marca y 123 con «OEM» (más «GENERICO»). Meta exige marca y
+ *     Google, sin ella, limita el producto. Sin marca real se usa el nombre de
+ *     la tienda: es quien lo vende y es lo que el comprador reconoce.
+ *  3. Ningún item llevaba google_product_category. Se resuelve desde la
+ *     categoría oficial del marketplace con config/marketplace_google_categories.php.
+ */
+class ProductFeedFormatter
+{
+    /** Marcas que no son marca: se tratan como «sin marca». */
+    private const NO_MARCA = [
+        'oem', 'generico', 'generica', 'generic', 'sin marca', 'sinmarca', 's/m', 'sm',
+        'ninguna', 'ninguno', 'n/a', 'na', 'no aplica', 'no brand', 'otros', 'otra',
+        'varios', 'varias', '-', '.', '0',
+    ];
+
+    /** @var array<int,string>|null id de categoría → full_slug, una consulta por petición */
+    private ?array $slugs = null;
+
+    /**
+     * Texto plano para título o descripción: sin etiquetas, sin entidades HTML,
+     * sin espacios duros ni saltos repetidos.
+     */
+    public static function text(?string $html, int $max = 5000): string
+    {
+        $s = (string) $html;
+        // Que los bloques no se peguen al quitar las etiquetas, ni al abrir ni al
+        // cerrar («Uno</p><p>Dos», «Idiomas<p>Inglés»).
+        $s = preg_replace('~<\s*/?\s*(br|p|li|ul|ol|div|h[1-6]|tr|td|th)\b[^>]*>~i', ' ', $s);
+        $s = strip_tags($s);
+        // Dos pasadas: hay textos guardados ya escapados una vez («&amp;nbsp;»).
+        $s = html_entity_decode(html_entity_decode($s, ENT_QUOTES | ENT_HTML5, 'UTF-8'), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $s = str_replace("\u{00A0}", ' ', $s);
+        $s = preg_replace('/\s+/u', ' ', $s);
+
+        return mb_substr(trim($s), 0, $max);
+    }
+
+    /**
+     * Marca para el feed: la real si es una marca; si no, el nombre de la tienda.
+     */
+    public static function brand(?string $brand, ?string $store): ?string
+    {
+        $b = trim(self::text($brand, 70));
+        $clave = mb_strtolower(strtr($b, ['á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u', 'Á' => 'a', 'É' => 'e', 'Í' => 'i', 'Ó' => 'o', 'Ú' => 'u']));
+        if ($b !== '' && !in_array($clave, self::NO_MARCA, true)) {
+            return $b;
+        }
+
+        $tienda = trim(self::text($store, 70));
+        if ($tienda === '') {
+            return null;
+        }
+        // «floristería pétalo & encanto» → «Floristería Pétalo & Encanto».
+        return $tienda === mb_strtolower($tienda) ? mb_convert_case($tienda, MB_CASE_TITLE, 'UTF-8') : $tienda;
+    }
+
+    /**
+     * ID de la taxonomía de Google para una categoría oficial del marketplace,
+     * por el prefijo de full_slug más largo del mapa. null si no aplica.
+     */
+    public function googleCategory(?int $categoryId): ?int
+    {
+        if (!$categoryId) {
+            return null;
+        }
+        if ($this->slugs === null) {
+            $this->slugs = MarketplaceCategory::query()->pluck('full_slug', 'id')->all();
+        }
+
+        return self::resolve($this->slugs[$categoryId] ?? null, config('marketplace_google_categories', []));
+    }
+
+    /** @param array<string,int> $map */
+    public static function resolve(?string $fullSlug, array $map): ?int
+    {
+        $slug = trim((string) $fullSlug, '/');
+        while ($slug !== '') {
+            if (isset($map[$slug])) {
+                return (int) $map[$slug];
+            }
+            $pos = strrpos($slug, '/');
+            $slug = $pos === false ? '' : substr($slug, 0, $pos);
+        }
+
+        return null;
+    }
+}
