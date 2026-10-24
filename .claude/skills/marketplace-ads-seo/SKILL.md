@@ -26,6 +26,8 @@ escribir una línea, abre estos archivos. Todo lo de esta tabla **está en produ
 | Analítica interna: vistas y clics por producto y día | `marketplace_listing_stats_daily`, `MarketplaceController@recordDailyStat` | ✅ |
 | Feeds TikTok y Meta **por tenant** (canal externo, otra cosa) | `app/Services/Marketplace/TikTokService.php`, `MetaFeedService.php` | ✅ |
 
+| **Verificación de dominio** Meta/Google/TikTok por `<meta>` (se pega la etiqueta o el código; la raíz redirige a `/marketplace`, que la emite) | `/admin/marketplace/seo` → `MarketplaceAdminController::verificationCode()` + `marketplace/layout.blade.php` | ✅ 2026-10-24 (`3d9caca83`) |
+| **Política de devoluciones para Merchant Center/Meta** | `/marketplace/envios-y-devoluciones` (condiciones de cada tienda) | ✅ 2026-10-24 |
 | **Texto limpio, marca y categoría de Google en el feed** | `App\Services\Marketplace\ProductFeedFormatter` + `config/marketplace_google_categories.php` | ✅ 2026-10-24 (`cb212c003`) |
 
 **Calidad del feed (2026-10-24):** el feed llegaba con 116 descripciones con `&nbsp;`
