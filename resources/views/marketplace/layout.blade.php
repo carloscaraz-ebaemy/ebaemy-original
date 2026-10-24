@@ -863,6 +863,7 @@
                 <li><a href="mailto:soporte@ebaemy.com">Contacto</a></li>
                 <li><a href="{{ route('marketplace.faq') }}">Preguntas frecuentes</a></li>
                 <li><a href="{{ route('marketplace.terms') }}">Términos y condiciones</a></li>
+                <li><a href="{{ route('marketplace.shipping_returns') }}">Envíos y devoluciones</a></li>
                 <li><a href="{{ route('marketplace.privacy') }}">Política de privacidad</a></li>
             </ul>
         </div>

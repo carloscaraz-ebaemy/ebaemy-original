@@ -113,6 +113,24 @@ class ShippingSummaryText
     }
 
     /**
+     * «Cambios hasta 7 días por falla · cambios de talla o color en 7 días».
+     * null si la tienda no definió su política de cambios.
+     */
+    public static function returns(?array $s): ?string
+    {
+        $r = $s['returns'] ?? null;
+        if (!$r || empty($r['defect_days'])) {
+            return null;
+        }
+        $txt = 'Cambios por falla hasta ' . self::n((int) $r['defect_days'], 'día', 'días');
+        if (!empty($r['change_days'])) {
+            $txt .= ' · por talla o color hasta ' . self::n((int) $r['change_days'], 'día', 'días');
+        }
+
+        return $txt;
+    }
+
+    /**
      * La única etiqueta que va en la card del listado, y solo si es cierta.
      * Más de una satura la card y deja de leerse.
      */

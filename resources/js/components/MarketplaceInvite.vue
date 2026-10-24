@@ -5,7 +5,7 @@
           - kind=publish:  publicar en ebaemy.com lo que aún no está.
          Cada uno se cierra para siempre con «Ahora no». -->
     <div v-if="data && data.show && !closed" class="mpi" role="region" :aria-label="title">
-        <div class="mpi__icon" aria-hidden="true">{{ isShipping ? '🚚' : '🌐' }}</div>
+        <div class="mpi__icon" aria-hidden="true">{{ isShipping ? '🚚' : (isReturns ? '↩️' : '🌐') }}</div>
         <div class="mpi__text">
             <span class="mpi__badge">Nuevo</span>
             <h3 class="mpi__title">{{ title }}</h3>
@@ -18,6 +18,13 @@
                     Mientras tanto, tus productos en ebaemy.com dicen «A coordinar con la tienda».
                 </p>
             </template>
+            <template v-else-if="isReturns">
+                <p class="mpi__body">
+                    Tus compradores quieren saber si pueden cambiar o devolver. Indica tus condiciones
+                    (días, quién paga el envío) y armamos el texto por ti.
+                </p>
+                <p class="mpi__stat">Hoy tu página «Cambios y devoluciones» está vacía.</p>
+            </template>
             <template v-else>
                 <p class="mpi__body">
                     Publícalos gratis en ebaemy.com. Estamos preparando campañas en Google, Facebook,
@@ -29,14 +36,14 @@
             </template>
         </div>
         <div class="mpi__actions">
-            <button type="button" class="mpi__btn" @click="go">{{ isShipping ? 'Configurar envíos' : 'Publicar mis productos' }}</button>
+            <button type="button" class="mpi__btn" @click="go">{{ isShipping ? 'Configurar envíos' : (isReturns ? 'Completar política' : 'Publicar mis productos') }}</button>
             <button type="button" class="mpi__later" @click="later">Ahora no</button>
         </div>
     </div>
 </template>
 
 <script>
-const KEYS = { publish: 'aviso-marketplace-2026-10', shipping: 'aviso-envios-2026-10' };
+const KEYS = { publish: 'aviso-marketplace-2026-10', shipping: 'aviso-envios-2026-10', returns: 'aviso-cambios-2026-10' };
 
 export default {
     name: 'MarketplaceInvite',
@@ -45,8 +52,11 @@ export default {
     },
     computed: {
         isShipping() { return this.data && this.data.kind === 'shipping'; },
+        isReturns() { return this.data && this.data.kind === 'returns'; },
         title() {
-            return this.isShipping ? 'Confirma cómo envías tus productos' : 'Tus productos pueden llegar a más clientes';
+            if (this.isShipping) return 'Confirma cómo envías tus productos';
+            if (this.isReturns) return 'Publica tu política de cambios';
+            return 'Tus productos pueden llegar a más clientes';
         },
     },
     mounted() {
@@ -59,11 +69,10 @@ export default {
             return this.$http.post(`/feature-tours/${KEYS[this.data.kind] || KEYS.publish}`, { status }).catch(() => {});
         },
         go() {
-            if (this.isShipping) {
-                // No se marca como visto: si no lo guarda, la tarjeta vuelve a salir.
-                window.location.href = '/items_ecommerce?envios=1';
-                return;
-            }
+            // Envíos y cambios no se marcan como vistos al pulsar: si no los
+            // guarda, la tarjeta vuelve a salir.
+            if (this.isShipping) { window.location.href = '/items_ecommerce?envios=1'; return; }
+            if (this.isReturns) { window.location.href = '/items_ecommerce?cambios=1'; return; }
             // Lleva a Productos, donde una guía señala «Publicar todos en Marketplace».
             this.mark('completed').then(() => { window.location.href = '/items_ecommerce?publicar=1'; });
         },

@@ -127,6 +127,7 @@ saber qué caduca.
 | 2026-10-22 | Tienda virtual → Productos | `tienda-productos-2026-10-v2` (sustituye a la anterior) | lápiz de stock · variantes con lápiz propio de precio/oferta/stock y estados de oferta | — |
 | 2026-10-24 | Inicio (Panel Operativo) + Productos | `aviso-marketplace-2026-10` (tarjeta) · `publicar-marketplace-2026-10` (globo) | «Tus productos pueden llegar a más clientes» → señala «Publicar todos en Marketplace». Solo admin con productos sin publicar (`items/marketplace-invite`) | — |
 | 2026-10-24 | Inicio + Productos | `aviso-envios-2026-10` (tarjeta, prioridad sobre la de publicar) | «Confirma cómo envías tus productos» → `/items_ecommerce?envios=1` abre el formulario. Solo admin de tiendas que venden en línea sin política confirmada. No se marca al pulsar: vuelve hasta que la guarde | — |
+| 2026-10-24 | Inicio + Productos | `aviso-cambios-2026-10` (tarjeta, entre envíos y publicar) | «Publica tu política de cambios» → `/items_ecommerce?cambios=1` abre el formulario. Solo tiendas que venden en línea sin `preferences.returns_policy`. No se marca al pulsar | — |
 
 **Ojo:** el Inicio real es `modules/Dashboard/.../DashV2.vue` («Panel Operativo»), no `views/index.vue`, que ya no se monta.
 

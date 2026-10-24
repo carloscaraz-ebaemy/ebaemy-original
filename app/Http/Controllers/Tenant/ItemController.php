@@ -2115,6 +2115,13 @@ class ItemController extends Controller
             }
         }
 
+        // Después, la política de cambios: Google y la ley la piden, y hoy la
+        // página «Cambios y devoluciones» de las tiendas está vacía.
+        if ($candidates->count() > 0 && !app(\App\Services\Tenant\StoreReturnsPolicy::class)->isConfigured()
+            && !$cerro('aviso-cambios-2026-10')) {
+            return ['show' => true, 'kind' => 'returns', 'published' => $published];
+        }
+
         if ($pending <= 0 || $cerro('aviso-marketplace-2026-10')) {
             return $no;
         }

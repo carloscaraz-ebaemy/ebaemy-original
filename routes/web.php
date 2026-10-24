@@ -865,6 +865,10 @@ if ($hostname) {
             Route::get('store-shipping', 'Tenant\StoreShippingController@show');
             Route::post('store-shipping', 'Tenant\StoreShippingController@save');
             Route::post('store-shipping/preview', 'Tenant\StoreShippingController@preview');
+            // Política de cambios y devoluciones (datos → texto de la página pública)
+            Route::get('store-returns', 'Tenant\StoreReturnsController@show');
+            Route::post('store-returns', 'Tenant\StoreReturnsController@save');
+            Route::post('store-returns/preview', 'Tenant\StoreReturnsController@preview');
             // Guías de novedades: ¿ya la vio este usuario? (FeatureTour.vue)
             Route::get('feature-tours/{key}', 'Tenant\FeatureTourController@show');
             Route::post('feature-tours/{key}', 'Tenant\FeatureTourController@store');
@@ -1744,6 +1748,7 @@ if ($hostname) {
         Route::get('marketplace/faq',             'MarketplaceController@faq')->name('marketplace.faq');
         Route::get('marketplace/terminos',        'MarketplaceController@terms')->name('marketplace.terms');
         Route::get('marketplace/privacidad',      'MarketplaceController@privacy')->name('marketplace.privacy');
+        Route::get('marketplace/envios-y-devoluciones', 'MarketplaceController@shippingReturns')->name('marketplace.shipping_returns');
 
         // ─── Auth del comprador (cross-tenant) ───────────────────────────────
         // Magic link + codigo 6 digitos. Cuenta opcional: no requerido

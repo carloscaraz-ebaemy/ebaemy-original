@@ -190,7 +190,19 @@ class StoreShipping
             ] : null,
             'free_from' => $umbral > 0 ? $umbral : null,
             'cutoff'    => $st->cutoff_hhmm,
+            // Cambios y devoluciones (StoreReturnsPolicy): viaja en el mismo
+            // resumen para que la ficha diga «Cambios hasta N días».
+            'returns'   => $this->returnsSummary(),
         ];
+    }
+
+    private function returnsSummary(): ?array
+    {
+        try {
+            return app(StoreReturnsPolicy::class)->summary();
+        } catch (\Throwable $e) {
+            return null;
+        }
     }
 
     /** Datos para el formulario: lo guardado, o una propuesta a partir de lo que ya hay. */

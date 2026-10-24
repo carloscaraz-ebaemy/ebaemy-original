@@ -1231,6 +1231,15 @@
             @else
                 <p class="mp-ship__pending">{{ \App\Services\Marketplace\ShippingSummaryText::PENDING }}: te dirán el costo y el plazo al confirmar tu pedido.</p>
             @endif
+            @php $mpReturns = \App\Services\Marketplace\ShippingSummaryText::returns($mpShip); @endphp
+            @if($mpReturns)
+                <p class="mp-ship__returns">
+                    {{ $mpReturns }}
+                    @if($listing->tenant_fqdn)
+                        · <a href="https://{{ $listing->tenant_fqdn }}/ecommerce/cambios-devolucion" target="_blank" rel="noopener">Ver condiciones</a>
+                    @endif
+                </p>
+            @endif
             <p class="mp-ship__seller">
                 Vendido y despachado por <strong>{{ $listing->seller_display }}</strong>
                 @if($listing->tenant_fqdn)
@@ -1252,6 +1261,8 @@
         .mp-ship__det { flex-basis: 100%; font-size: 12.5px; color: #6b7280; }
         .mp-ship__note { font-size: 12.5px; color: #0f766e; margin: 6px 0 0; }
         .mp-ship__pending { font-size: 13px; color: #6b7280; margin: 0; }
+        .mp-ship__returns { font-size: 12.5px; color: #374151; margin: 8px 0 0; padding-top: 8px; border-top: 1px solid #f3f4f6; }
+        .mp-ship__returns a { color: var(--mp-primary, #0f8a82); }
         .mp-ship__seller { font-size: 12.5px; color: #6b7280; margin: 10px 0 0; padding-top: 8px; border-top: 1px dashed #e5e7eb; }
         .mp-ship__seller a { color: var(--mp-primary, #0f8a82); }
         </style>

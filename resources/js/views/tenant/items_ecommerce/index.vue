@@ -42,6 +42,10 @@
                             title="Costos y plazos de envío de tu tienda" @click="askShipping()">
                         🚚 Envíos
                     </button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary mt-2 me-2 ie-returns-btn"
+                            title="Tu política de cambios y devoluciones" @click="returnsDialogVisible = true">
+                        ↩️ Cambios
+                    </button>
                     <a href="/marketplace-dashboard"
                        class="btn btn-sm btn-outline-info mt-2 me-2"
                        title="Ver métricas del marketplace">
@@ -106,7 +110,7 @@
             :steps="tourPublicarSteps"
         ></feature-tour>
         <feature-tour
-            v-if="itemsCount !== 0 && !fromInvite && !fromShippingInvite"
+            v-if="itemsCount !== 0 && !fromInvite && !fromShippingInvite && !fromReturnsInvite"
             ref="tour"
             tour-key="tienda-productos-2026-10-v2"
             :steps="tourSteps"
@@ -556,6 +560,9 @@
                 @saved="onShippingSaved"
             ></store-shipping-settings>
 
+            <!-- Popup: política de cambios y devoluciones (datos → texto publicado) -->
+            <store-returns-settings :visible.sync="returnsDialogVisible"></store-returns-settings>
+
             <!-- Popup: ajustar stock (mismo servicio que la pestaña de variantes) -->
             <stock-adjust
                 :visible.sync="stockDialogVisible"
@@ -667,6 +674,7 @@ import ItemsForm from "./form.vue";
 import WarehousesDetail from "./partials/warehouses.vue";
 import StockAdjust from "./partials/stock_adjust.vue";
 import StoreShippingSettings from "../../../components/StoreShippingSettings.vue";
+import StoreReturnsSettings from "../../../components/StoreReturnsSettings.vue";
 import FeatureTour from "../../../components/FeatureTour.vue";
 
 // Hasta cuándo se marca «Nuevo» en la cabecera de Stock General.
@@ -679,7 +687,7 @@ import { itemRemoval } from "../../../mixins/itemRemoval";
 export default {
     props: [], //'typeUser'
     mixins: [deletable, itemRemoval],
-    components: { ItemsForm, DataTable, WarehousesDetail, StockAdjust, FeatureTour, StoreShippingSettings }, //ItemsImport
+    components: { ItemsForm, DataTable, WarehousesDetail, StockAdjust, FeatureTour, StoreShippingSettings, StoreReturnsSettings }, //ItemsImport
     data() {
         return {
             showDialog: false,
@@ -691,6 +699,8 @@ export default {
             shippingDialogVisible: false,
             shippingReason: '',
             shippingThen: null,
+            returnsDialogVisible: false,
+            fromReturnsInvite: new URLSearchParams(window.location.search).get('cambios') === '1',
             showNewBadge: new Date() <= NOVEDAD_STOCK_HASTA,
             fromInvite: new URLSearchParams(window.location.search).get('publicar') === '1',
             fromShippingInvite: new URLSearchParams(window.location.search).get('envios') === '1',
@@ -755,6 +765,11 @@ export default {
         // recargar no vuelva a lanzar la guía.
         if (this.fromInvite) {
             this.$nextTick(() => { if (this.$refs.tourPublicar) this.$refs.tourPublicar.start(); });
+            try { window.history.replaceState(null, '', window.location.pathname); } catch (e) { /* sin historial */ }
+        }
+        // Viene del aviso de cambios y devoluciones: abrir su formulario.
+        if (this.fromReturnsInvite) {
+            this.returnsDialogVisible = true;
             try { window.history.replaceState(null, '', window.location.pathname); } catch (e) { /* sin historial */ }
         }
         // Viene de «Confirma cómo envías tus productos»: abrir el formulario.

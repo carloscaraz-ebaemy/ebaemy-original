@@ -387,8 +387,31 @@ class EcommerceController extends Controller
     public function politicaEnvio()
     {
         $config = ConfigurationEcommerce::firstCached();
+        $terms  = $config ? (string) $config->politica_envio : '';
+
+        // Sin texto propio, la página se arma con la política de envío que la
+        // tienda confirmó (StoreShipping): las mismas frases que el marketplace.
+        // Antes salía vacía en las 9 tiendas activas.
+        if (trim(strip_tags($terms)) === '') {
+            $summary = app(\App\Services\Tenant\StoreShipping::class)->summary();
+            $lines   = \App\Services\Marketplace\ShippingSummaryText::lines($summary);
+            if ($lines) {
+                $e = fn ($s) => htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
+                $terms = '<ul>';
+                foreach ($lines as $l) {
+                    $terms .= '<li><strong>' . $e($l['title']) . ':</strong> ' . $e($l['price'])
+                        . ($l['detail'] ? '. ' . $e($l['detail']) : '') . '.</li>';
+                }
+                $terms .= '</ul>';
+                foreach (\App\Services\Marketplace\ShippingSummaryText::notes($summary) as $n) {
+                    $terms .= '<p>' . $e($n) . '.</p>';
+                }
+                $terms .= '<p>Revisa el producto al recibirlo. Si llega dañado, avísanos lo antes posible con una foto.</p>';
+            }
+        }
+
         return view('ecommerce::layouts.terminos_condiciones.politica_envio', [
-            'terms' => $config ? $config->politica_envio : ''
+            'terms' => $terms,
         ]);
     }
 
