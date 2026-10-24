@@ -2513,14 +2513,15 @@ class MarketplaceController extends Controller
      */
     public function shippingReturns()
     {
-        $stores = \Illuminate\Support\Facades\Cache::remember('mp_shipping_returns_v1', 600, function () {
+        $stores = \Illuminate\Support\Facades\Cache::remember('mp_shipping_returns_v2', 600, function () {
             return MarketplaceListing::published()
                 ->orderByDesc('updated_at')
                 ->get(['hostname_id', 'tenant_fqdn', 'tenant_name', 'shipping'])
                 ->unique('hostname_id')
                 ->sortBy(fn ($l) => mb_strtolower((string) $l->seller_display))
                 ->map(fn ($l) => [
-                    'name'    => $l->seller_display,
+                    // Algunos nombres se guardaron con la entidad («pétalo &amp; encanto»).
+                    'name'    => html_entity_decode((string) $l->seller_display, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
                     'fqdn'    => $l->tenant_fqdn,
                     'sub'     => $l->subdomain,
                     'ship'    => \App\Services\Marketplace\ShippingSummaryText::short(is_array($l->shipping) ? $l->shipping : null),
