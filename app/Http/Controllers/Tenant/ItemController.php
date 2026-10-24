@@ -2056,6 +2056,56 @@ class ItemController extends Controller
      *   - Valida la cuota global ANTES de iterar; si excede, rechaza todo.
      *   - Sincroniza cada item al índice central (no bloqueante por item).
      */
+    /**
+     * ¿Le toca a esta tienda el aviso «publica tus productos en el marketplace»
+     * del Inicio? Solo al administrador, solo si tiene productos de su tienda
+     * sin publicar, si su plan lo permite y si no lo cerró ya. Cuenta con el
+     * MISMO criterio que publishAllStoreToMarketplace(), para que el número
+     * del aviso sea el que después se publica. Calixto (sin tienda) no lo ve.
+     */
+    public function marketplaceInvite()
+    {
+        $no = ['show' => false];
+
+        if (optional(auth()->user())->type !== 'admin') {
+            return $no;
+        }
+
+        try {
+            if (\Illuminate\Support\Facades\Schema::connection('tenant')->hasTable('user_feature_tours')
+                && \App\Models\Tenant\UserFeatureTour::where('user_id', auth()->id())
+                    ->where('tour_key', 'aviso-marketplace-2026-10')->exists()) {
+                return $no;
+            }
+        } catch (\Throwable $e) {
+            return $no;
+        }
+
+        $candidates = Item::where('apply_store', 1)
+            ->whereNotNull('internal_id')
+            ->where('internal_id', '!=', '')
+            ->get(['id', 'marketplace_publishable', 'mp_status']);
+
+        $published = $candidates->filter(fn ($it) => $it->marketplace_publishable && $it->mp_status === 'active')->count();
+        $pending   = $candidates->count() - $published;
+
+        if ($pending <= 0) {
+            return $no;
+        }
+
+        $quota = app(\App\Services\Tenant\MarketplaceQuotaService::class)->canPublish(1);
+        if (!$quota['allowed']) {
+            return $no;
+        }
+
+        return [
+            'show'      => true,
+            'total'     => $candidates->count(),
+            'published' => $published,
+            'pending'   => $pending,
+        ];
+    }
+
     public function publishAllStoreToMarketplace()
     {
         $candidates = Item::where('apply_store', 1)

@@ -70,6 +70,10 @@
       </div>
     </transition-group>
 
+    <!-- Invitación a publicar en el marketplace: el servidor decide si aplica
+         (solo admin, con productos de su tienda sin publicar). -->
+    <marketplace-invite></marketplace-invite>
+
     <!-- ═══════════════════════════════════════════════════════
          KPIs
     ════════════════════════════════════════════════════════ -->
@@ -846,6 +850,7 @@
 <script>
 import Chart from 'chart.js';
 import moment from 'moment';
+import MarketplaceInvite from '../../../../../../resources/js/components/MarketplaceInvite.vue';
 
 function debounce(fn, ms) {
   let t;
@@ -862,6 +867,8 @@ const PAY_COLORS = [
 
 export default {
   name: 'DashV2',
+
+  components: { MarketplaceInvite },
 
   props: {
     establishments: { type: Array, default: () => [] },

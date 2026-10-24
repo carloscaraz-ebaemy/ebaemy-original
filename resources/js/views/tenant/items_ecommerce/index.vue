@@ -49,7 +49,7 @@
                     >
                         <button
                             type="button"
-                            class="btn btn-sm mt-2 me-2"
+                            class="btn btn-sm mt-2 me-2 ie-publish-all"
                             style="background:#8b5cf6;border:1px solid #7c3aed;color:#fff"
                             :disabled="publishingAll"
                             @click.prevent="publishAllToMarketplace()"
@@ -91,8 +91,18 @@
         <!-- Guía de novedades: sale una vez por usuario (se guarda en su
              cuenta). Para una novedad futura en esta pantalla, cambiar la
              clave y los pasos. Ver components/FeatureTour.vue. -->
+        <!-- Llegada desde el aviso del Inicio (?publicar=1): señala el botón de
+             publicar todo. La guía general no arranca en ese caso, para no
+             encimar dos recorridos. -->
         <feature-tour
             v-if="itemsCount !== 0"
+            ref="tourPublicar"
+            tour-key="publicar-marketplace-2026-10"
+            :auto-start="false"
+            :steps="tourPublicarSteps"
+        ></feature-tour>
+        <feature-tour
+            v-if="itemsCount !== 0 && !fromInvite"
             ref="tour"
             tour-key="tienda-productos-2026-10-v2"
             :steps="tourSteps"
@@ -667,6 +677,14 @@ export default {
             stockRow: null,
             stockVariantId: null,
             showNewBadge: new Date() <= NOVEDAD_STOCK_HASTA,
+            fromInvite: new URLSearchParams(window.location.search).get('publicar') === '1',
+            tourPublicarSteps: [
+                {
+                    target: '.ie-publish-all',
+                    title: 'Publica todo con un clic',
+                    body: 'Este botón publica en ebaemy.com todos los productos de tu tienda que aún no están en el marketplace. Antes te pedirá confirmación.',
+                },
+            ],
             tourSteps: [
                 {
                     target: '.ie-stock-edit',
@@ -715,6 +733,14 @@ export default {
     created() {
         this.loadMarketplaceStats();
         this.loadItemsCount();
+    },
+    mounted() {
+        // Viene del aviso del Inicio: señalar el botón y limpiar la URL para que
+        // recargar no vuelva a lanzar la guía.
+        if (this.fromInvite) {
+            this.$nextTick(() => { if (this.$refs.tourPublicar) this.$refs.tourPublicar.start(); });
+            try { window.history.replaceState(null, '', window.location.pathname); } catch (e) { /* sin historial */ }
+        }
     },
     methods: {
         handleSortChange(sort) {

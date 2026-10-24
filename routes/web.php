@@ -874,6 +874,8 @@ if ($hostname) {
             Route::get('items/marketplace-dashboard-data',       'Tenant\ItemController@marketplaceDashboardData');
             Route::post('items/bulk-channel',        'Tenant\ItemController@bulkChannel');
             Route::post('items/marketplace-publish-all-store', 'Tenant\ItemController@publishAllStoreToMarketplace');
+            // Aviso del Inicio: «publica tus productos en el marketplace»
+            Route::get('items/marketplace-invite', 'Tenant\ItemController@marketplaceInvite');
             Route::get('items/channel-stats',        'Tenant\ItemController@channelStats');
 
             // Shipping zones (configuración del tenant)
