@@ -106,7 +106,7 @@
             :steps="tourPublicarSteps"
         ></feature-tour>
         <feature-tour
-            v-if="itemsCount !== 0 && !fromInvite"
+            v-if="itemsCount !== 0 && !fromInvite && !fromShippingInvite"
             ref="tour"
             tour-key="tienda-productos-2026-10-v2"
             :steps="tourSteps"
@@ -693,6 +693,7 @@ export default {
             shippingThen: null,
             showNewBadge: new Date() <= NOVEDAD_STOCK_HASTA,
             fromInvite: new URLSearchParams(window.location.search).get('publicar') === '1',
+            fromShippingInvite: new URLSearchParams(window.location.search).get('envios') === '1',
             tourPublicarSteps: [
                 {
                     target: '.ie-publish-all',
@@ -754,6 +755,11 @@ export default {
         // recargar no vuelva a lanzar la guía.
         if (this.fromInvite) {
             this.$nextTick(() => { if (this.$refs.tourPublicar) this.$refs.tourPublicar.start(); });
+            try { window.history.replaceState(null, '', window.location.pathname); } catch (e) { /* sin historial */ }
+        }
+        // Viene de «Confirma cómo envías tus productos»: abrir el formulario.
+        if (this.fromShippingInvite) {
+            this.askShipping();
             try { window.history.replaceState(null, '', window.location.pathname); } catch (e) { /* sin historial */ }
         }
     },

@@ -1,35 +1,53 @@
 <template>
-    <!-- Aviso del Inicio: invita a publicar en el marketplace los productos de
-         la tienda que aún no están. Decide si se muestra el servidor
-         (/items/marketplace-invite): solo admin, con productos sin publicar,
-         plan que lo permita y sin haberlo cerrado. Sale una vez por usuario. -->
-    <div v-if="data && data.show && !closed" class="mpi" role="region" aria-label="Publica tus productos en ebaemy.com">
-        <div class="mpi__icon" aria-hidden="true">🌐</div>
+    <!-- Aviso del Inicio. El servidor (/items/marketplace-invite) decide si se
+         muestra y cuál (solo admin, solo tiendas que venden en línea):
+          - kind=shipping: confirmar cómo envía. Va primero, publicar lo exige.
+          - kind=publish:  publicar en ebaemy.com lo que aún no está.
+         Cada uno se cierra para siempre con «Ahora no». -->
+    <div v-if="data && data.show && !closed" class="mpi" role="region" :aria-label="title">
+        <div class="mpi__icon" aria-hidden="true">{{ isShipping ? '🚚' : '🌐' }}</div>
         <div class="mpi__text">
             <span class="mpi__badge">Nuevo</span>
-            <h3 class="mpi__title">Tus productos pueden llegar a más clientes</h3>
-            <p class="mpi__body">
-                Publícalos gratis en ebaemy.com. Estamos preparando campañas en Google, Facebook,
-                Instagram y TikTok con los productos del marketplace.
-            </p>
-            <p class="mpi__stat">
-                Hoy tienes <strong>{{ data.published }} de {{ data.total }}</strong> productos publicados.
-            </p>
+            <h3 class="mpi__title">{{ title }}</h3>
+            <template v-if="isShipping">
+                <p class="mpi__body">
+                    Ahora tus clientes ven el costo y el plazo de envío en tu tienda y en ebaemy.com.
+                    Configúralo una vez: Lima, provincias y recojo.
+                </p>
+                <p v-if="data.published > 0" class="mpi__stat">
+                    Mientras tanto, tus productos en ebaemy.com dicen «A coordinar con la tienda».
+                </p>
+            </template>
+            <template v-else>
+                <p class="mpi__body">
+                    Publícalos gratis en ebaemy.com. Estamos preparando campañas en Google, Facebook,
+                    Instagram y TikTok con los productos del marketplace.
+                </p>
+                <p class="mpi__stat">
+                    Hoy tienes <strong>{{ data.published }} de {{ data.total }}</strong> productos publicados.
+                </p>
+            </template>
         </div>
         <div class="mpi__actions">
-            <button type="button" class="mpi__btn" @click="go">Publicar mis productos</button>
+            <button type="button" class="mpi__btn" @click="go">{{ isShipping ? 'Configurar envíos' : 'Publicar mis productos' }}</button>
             <button type="button" class="mpi__later" @click="later">Ahora no</button>
         </div>
     </div>
 </template>
 
 <script>
-const KEY = 'aviso-marketplace-2026-10';
+const KEYS = { publish: 'aviso-marketplace-2026-10', shipping: 'aviso-envios-2026-10' };
 
 export default {
     name: 'MarketplaceInvite',
     data() {
         return { data: null, closed: false };
+    },
+    computed: {
+        isShipping() { return this.data && this.data.kind === 'shipping'; },
+        title() {
+            return this.isShipping ? 'Confirma cómo envías tus productos' : 'Tus productos pueden llegar a más clientes';
+        },
     },
     mounted() {
         this.$http.get('/items/marketplace-invite')
@@ -38,9 +56,14 @@ export default {
     },
     methods: {
         mark(status) {
-            return this.$http.post(`/feature-tours/${KEY}`, { status }).catch(() => {});
+            return this.$http.post(`/feature-tours/${KEYS[this.data.kind] || KEYS.publish}`, { status }).catch(() => {});
         },
         go() {
+            if (this.isShipping) {
+                // No se marca como visto: si no lo guarda, la tarjeta vuelve a salir.
+                window.location.href = '/items_ecommerce?envios=1';
+                return;
+            }
             // Lleva a Productos, donde una guía señala «Publicar todos en Marketplace».
             this.mark('completed').then(() => { window.location.href = '/items_ecommerce?publicar=1'; });
         },

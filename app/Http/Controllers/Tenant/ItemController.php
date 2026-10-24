@@ -2081,15 +2081,17 @@ class ItemController extends Controller
             return $no;
         }
 
+        // Sin la tabla de «visto» (tenant sin migrar) no se muestra nada: no
+        // habría forma de cerrar la tarjeta para siempre.
         try {
-            if (\Illuminate\Support\Facades\Schema::connection('tenant')->hasTable('user_feature_tours')
-                && \App\Models\Tenant\UserFeatureTour::where('user_id', auth()->id())
-                    ->where('tour_key', 'aviso-marketplace-2026-10')->exists()) {
+            if (!\Illuminate\Support\Facades\Schema::connection('tenant')->hasTable('user_feature_tours')) {
                 return $no;
             }
         } catch (\Throwable $e) {
             return $no;
         }
+        $cerro = fn (string $key) => \App\Models\Tenant\UserFeatureTour::where('user_id', auth()->id())
+            ->where('tour_key', $key)->exists();
 
         $candidates = Item::where('apply_store', 1)
             ->whereNotNull('internal_id')
@@ -2099,7 +2101,21 @@ class ItemController extends Controller
         $published = $candidates->filter(fn ($it) => $it->marketplace_publishable && $it->mp_status === 'active')->count();
         $pending   = $candidates->count() - $published;
 
-        if ($pending <= 0) {
+        // Primero los envíos: publicar los exige, y sin ellos la tienda online
+        // y el marketplace no pueden decir cuánto cuesta ni cuándo llega.
+        // Solo a tiendas que venden en línea (Calixto, sin tienda, no lo ve).
+        $shipping = app(\App\Services\Tenant\StoreShipping::class);
+        if ($candidates->count() > 0 && $shipping->available() && !$shipping->isConfirmed()) {
+            if (!$cerro('aviso-envios-2026-10')) {
+                return [
+                    'show'      => true,
+                    'kind'      => 'shipping',
+                    'published' => $published,
+                ];
+            }
+        }
+
+        if ($pending <= 0 || $cerro('aviso-marketplace-2026-10')) {
             return $no;
         }
 
@@ -2110,6 +2126,7 @@ class ItemController extends Controller
 
         return [
             'show'      => true,
+            'kind'      => 'publish',
             'total'     => $candidates->count(),
             'published' => $published,
             'pending'   => $pending,
