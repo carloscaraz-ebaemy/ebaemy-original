@@ -85,6 +85,8 @@ class MarketplaceCartService
                 'remote_item_id' => (int) $listing->remote_item_id,
                 'tenant_subdomain' => $listing->subdomain,
                 'tenant_logo_url'  => $listing->tenant_logo_url,
+                // Política de envío de la tienda (null = sin confirmar).
+                'shipping'         => is_array($listing->shipping ?? null) ? $listing->shipping : null,
                 // Marca pack para mostrar badge "📦 Pack ×N" en el cart y
                 // recordarle al cliente que está comprando un combo.
                 'is_pack'        => (bool) ($listing->is_pack ?? false),
@@ -173,6 +175,7 @@ class MarketplaceCartService
             $cart['items'][$key]['tenant_fqdn']     = $listing->tenant_fqdn;
             $cart['items'][$key]['tenant_subdomain'] = $listing->subdomain;
             $cart['items'][$key]['tenant_logo_url'] = $listing->tenant_logo_url;
+            $cart['items'][$key]['shipping']        = is_array($listing->shipping ?? null) ? $listing->shipping : null;
         }
 
         $cart['updated_at'] = time();
@@ -206,6 +209,7 @@ class MarketplaceCartService
                     'tenant_fqdn'      => $first['tenant_fqdn'] ?? null,
                     'tenant_subdomain' => $first['tenant_subdomain'] ?? null,
                     'tenant_logo_url'  => $first['tenant_logo_url'] ?? null,
+                    'shipping'         => $first['shipping'] ?? null,
                     'items'            => $lines->values()->all(),
                     'subtotal'         => round($subtotal, 2),
                     'item_count'       => (int) $itemCount,

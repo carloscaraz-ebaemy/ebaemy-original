@@ -28,6 +28,12 @@ class ShippingSetting extends Model
         'max_business_days',
         'aging_skip_holidays',
         'cutoff_time',
+        // Política de envío (Lima / provincias / recojo) — ver StoreShipping.
+        'lima_mode', 'lima_cost', 'lima_days_min', 'lima_days_max',
+        'province_mode', 'province_cost', 'province_handling_days',
+        'province_transit_min', 'province_transit_max', 'province_agencies',
+        'pickup_enabled', 'pickup_district', 'pickup_ready_hours',
+        'shipping_confirmed_at',
     ];
 
     protected $casts = [
@@ -41,6 +47,11 @@ class ShippingSetting extends Model
         'require_payment_code' => 'boolean',
         'max_business_days'   => 'integer',
         'aging_skip_holidays' => 'boolean',
+        'lima_cost'           => 'decimal:2',
+        'province_cost'       => 'decimal:2',
+        'province_agencies'   => 'array',
+        'pickup_enabled'      => 'boolean',
+        'shipping_confirmed_at' => 'datetime',
     ];
 
     // ── Cobro del servicio tienda → agencia ────────────────────────────────

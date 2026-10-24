@@ -413,7 +413,9 @@
                         Envío · @{{ shipping.zone_name }}
                         <small v-if="shipping.estimated_days > 0" style="color:#64748b">(@{{ shipping.estimated_days }}d)</small>
                     </span>
-                    <span v-if="shipping.cost > 0">S/ @{{ shipping.cost.toFixed(2) }}</span>
+                    {{-- «A cotizar» / «pago en destino»: no es gratis ni suma al total. --}}
+                    <span v-if="shipping.cost_known === false" style="color:#b45309;font-weight:600;text-align:right">@{{ shipping.label }}</span>
+                    <span v-else-if="shipping.cost > 0">S/ @{{ shipping.cost.toFixed(2) }}</span>
                     <span v-else style="color:#16a34a;font-weight:700">Gratis</span>
                 </div>
                 {{-- Incentivo: cuánto falta para envío gratis --}}
@@ -793,6 +795,8 @@
                 is_pickup: false,
                 free_applied: false,
                 free_threshold: 0,
+                cost_known: true,
+                label: '',
             },
             loading_payment: false,
             wantsInvoice: false, // comprobante fiscal opcional
@@ -1025,6 +1029,8 @@
                         this.shipping.is_pickup = !!r.data.is_pickup;
                         this.shipping.free_applied = !!r.data.free_shipping_applied;
                         this.shipping.free_threshold = parseFloat(r.data.free_shipping_threshold) || 0;
+                        this.shipping.cost_known = r.data.cost_known !== false;
+                        this.shipping.label = r.data.label || '';
                     } else {
                         this.shipping.loaded = false;
                         this.shipping.cost = 0;

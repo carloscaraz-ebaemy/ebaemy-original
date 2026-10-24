@@ -2351,6 +2351,7 @@ class MarketplaceController extends Controller
         }
         $xml .= '    <g:condition>new</g:condition>' . "\n";
         $xml .= '    <g:identifier_exists>no</g:identifier_exists>' . "\n";
+        $xml .= \App\Services\Marketplace\ProductFeedFormatter::shippingXml(is_array($l->shipping ?? null) ? $l->shipping : null);
         if ($brand) {
             $xml .= '    <g:brand>' . $esc($brand) . "</g:brand>\n";
         }
@@ -2459,6 +2460,7 @@ class MarketplaceController extends Controller
         }
         $xml .= '    <g:condition>new</g:condition>' . "\n";
         $xml .= '    <g:identifier_exists>no</g:identifier_exists>' . "\n";
+        $xml .= \App\Services\Marketplace\ProductFeedFormatter::shippingXml(is_array($l->shipping ?? null) ? $l->shipping : null);
         if ($v->sku) {
             $xml .= '    <g:mpn>' . $esc(mb_substr($v->sku, 0, 70)) . "</g:mpn>\n";
         }

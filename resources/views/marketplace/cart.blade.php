@@ -190,7 +190,8 @@
                                 {{ $store['tenant_name'] }}
                             @endif
                             <div style="font-weight:400;font-size:12px;color:#6b7280;margin-top:2px">
-                                <span data-store-count>{{ $store['item_count'] }}</span> <span data-store-count-word>{{ $store['item_count'] === 1 ? 'unidad' : 'unidades' }}</span> · esta tienda gestiona su entrega
+                                <span data-store-count>{{ $store['item_count'] }}</span> <span data-store-count-word>{{ $store['item_count'] === 1 ? 'unidad' : 'unidades' }}</span>
+                                · Envío: {{ \App\Services\Marketplace\ShippingSummaryText::short($store['shipping'] ?? null) }}
                             </div>
                         </div>
                         <div class="mp-cart-store-subtotal" data-store-subtotal>S/ {{ number_format($store['subtotal'], 2) }}</div>
@@ -235,7 +236,9 @@
             <div class="mp-cart-summary-row"><span>Productos</span><span data-summary-count>{{ $summary['count'] }}</span></div>
             <div class="mp-cart-summary-row"><span>Tiendas</span><span>{{ $stores->count() }}</span></div>
             <div class="mp-cart-summary-row"><span>Subtotal</span><span data-summary-subtotal>S/ {{ number_format($summary['subtotal'], 2) }}</span></div>
-            <div class="mp-cart-summary-row" style="color:#6b7280"><span>Envío</span><span>Lo coordina cada tienda</span></div>
+            {{-- El marketplace no cobra el envío: lo paga el comprador a cada tienda
+                 al coordinar. Por eso no se suma al total, y se dice. --}}
+            <div class="mp-cart-summary-row" style="color:#6b7280"><span>Envío</span><span>No incluido · lo pagas a cada tienda</span></div>
             <div class="mp-cart-summary-total" style="display:flex;justify-content:space-between;align-items:center">
                 <span class="label">Total</span>
                 <span class="value" data-summary-total>S/ {{ number_format($summary['total'], 2) }}</span>

@@ -11,8 +11,8 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="1" y="3" width="15" height="13" rx="1"/><path d="M16 8h4l3 4v4h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
         </span>
         <span class="mp-grid-trust__txt">
-            <strong>Envíos a todo el Perú</strong>
-            <small>Rápido y seguro</small>
+            <strong>Envíos a Lima y provincias</strong>
+            <small>Costo y plazo según cada tienda</small>
         </span>
     </div>
     <div class="mp-grid-trust__item" role="listitem">

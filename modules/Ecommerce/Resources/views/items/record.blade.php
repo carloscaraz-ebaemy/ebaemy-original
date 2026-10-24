@@ -1100,9 +1100,12 @@
                             }
                             var cost = parseFloat(data.cost||0);
                             var days = parseInt(data.estimated_days||0,10);
-                            var icon = cost === 0 ? checkSvg : truckSvg;
-                            var costTxt = cost === 0 ? 'Envío gratis' : ('Envío: S/ ' + cost.toFixed(2));
-                            var daysTxt = days > 0 ? (' — Entrega aprox. en ' + days + ' día' + (days>1?'s':'') + ' hábil' + (days>1?'es':'')) : '';
+                            var dmin = data.days_min != null ? parseInt(data.days_min,10) : null;
+                            var known = data.cost_known !== false;
+                            var icon = (known && cost === 0) ? checkSvg : truckSvg;
+                            var costTxt = !known ? data.label : (cost === 0 ? 'Envío gratis' : ('Envío: S/ ' + cost.toFixed(2)));
+                            var rango = (dmin != null && dmin !== days && days > 0) ? (dmin + ' a ' + days + ' días hábiles') : (days + ' día' + (days>1?'s':'') + ' hábil' + (days>1?'es':''));
+                            var daysTxt = days > 0 ? (' — Entrega aprox. en ' + rango) : '';
                             result.innerHTML = '<div class="ec-ship-ok">'+icon+' <strong>'+costTxt+'</strong>'+daysTxt+'</div>';
                         }).catch(function(){
                             result.innerHTML = '<div class="ec-ship-ok">'+truckSvg+' Costo de envío disponible en el checkout.</div>';

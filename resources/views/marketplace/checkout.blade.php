@@ -350,8 +350,17 @@ input.mp-co-invalid, select.mp-co-invalid, textarea.mp-co-invalid {
                         <span style="color:#16a34a;font-weight:700">-S/ {{ number_format($platDiscount, 2) }}</span>
                     </div>
                 @endif
-                <div class="mp-co-line"><span>Envío</span><span style="color:#6b7280">A coordinar con cada tienda</span></div>
-                <div class="total"><span><strong>Total</strong></span><span class="v" data-summary-total>S/ {{ number_format($totalAfterPlat, 2) }}</span></div>
+                {{-- El envío no se cobra aquí: cada tienda lo cobra al coordinar.
+                     Se muestra su política para que el total no sorprenda. --}}
+                <div class="mp-co-line"><span>Envío</span><span style="color:#6b7280">No incluido en el total</span></div>
+                @foreach($stores as $st)
+                    <div class="mp-co-line" style="font-size:12.5px;color:#6b7280;padding-top:0">
+                        <span>{{ $st['tenant_name'] }}</span>
+                        <span style="text-align:right">{{ \App\Services\Marketplace\ShippingSummaryText::short($st['shipping'] ?? null) }}</span>
+                    </div>
+                @endforeach
+                <div class="total"><span><strong>Total productos</strong></span><span class="v" data-summary-total>S/ {{ number_format($totalAfterPlat, 2) }}</span></div>
+                <p style="font-size:12px;color:#6b7280;margin:6px 0 0">El envío lo pagas a cada tienda al coordinar la entrega.</p>
             </div>
 
             <button type="submit" class="mp-co-submit">Confirmar pedido →</button>

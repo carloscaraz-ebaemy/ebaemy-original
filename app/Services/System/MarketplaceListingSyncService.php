@@ -270,6 +270,8 @@ class MarketplaceListingSyncService
             'tenant_logo_url'   => $tenantLogoUrl,
             'tenant_verified'   => (bool) ($client->is_verified ?? false),
             'seller_whatsapp'   => $sellerWhatsapp,
+            // Política de envío de la tienda (null = sin confirmar → «A coordinar»).
+            'shipping'          => $this->storeShippingSummary($hostnameId),
             'client_id'         => $client->id,
             'remote_item_id'    => $item->id,
             'title'             => Str::limit((string) ($item->description ?: $item->name ?: 'Producto'), 250, ''),
@@ -1239,6 +1241,43 @@ class MarketplaceListingSyncService
      *
      * @return array{nombre: string, cambiados: int}
      */
+    /** @var array<int,?array> resumen de envío por hostname, una vez por petición */
+    private array $shippingByHostname = [];
+
+    /**
+     * Resumen de envío de la tienda en contexto (tenant). Se calcula una vez
+     * por tienda: el sync masivo llama a buildPayload() por cada producto.
+     */
+    private function storeShippingSummary(int $hostnameId): ?array
+    {
+        if (!array_key_exists($hostnameId, $this->shippingByHostname)) {
+            try {
+                $this->shippingByHostname[$hostnameId] = app(\App\Services\Tenant\StoreShipping::class)->summary();
+            } catch (\Throwable $e) {
+                $this->shippingByHostname[$hostnameId] = null;
+            }
+        }
+
+        return $this->shippingByHostname[$hostnameId];
+    }
+
+    /**
+     * Copia la política de envío en todos los listings de una tienda, cuando
+     * la tienda la guarda (StoreShipping::save()). Mismo patrón que
+     * refreshBranding(): es un dato de la tienda repetido en cada listing.
+     */
+    public function refreshShipping(int $hostnameId, ?array $summary): int
+    {
+        $this->shippingByHostname[$hostnameId] = $summary;
+
+        return DB::connection('system')->table('marketplace_listings')
+            ->where('hostname_id', $hostnameId)
+            ->update([
+                'shipping'   => $summary ? json_encode($summary, JSON_UNESCAPED_UNICODE) : null,
+                'updated_at' => now(),
+            ]);
+    }
+
     public function refreshBranding(string $fqdn, Client $client): array
     {
         [$nombre, $logoUrl] = $this->resolveTenantBranding($fqdn, $client);

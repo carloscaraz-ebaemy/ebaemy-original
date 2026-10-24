@@ -85,6 +85,37 @@ class ProductFeedFormatter
         return self::resolve($this->slugs[$categoryId] ?? null, config('marketplace_google_categories', []));
     }
 
+    /**
+     * Envío para el feed, a partir de la política que confirmó la tienda
+     * (marketplace_listings.shipping). Solo lo que es cierto para TODO el
+     * país, porque Google no admite regiones de Perú en el atributo por item:
+     *
+     *  - <g:shipping> precio 0 solo si la tienda envía gratis a Lima Y provincias.
+     *  - <g:min/max_handling_time>: los días hábiles que tarda en despachar.
+     *
+     * Los costos por zona (Lima S/10, provincias…) van en la configuración de
+     * envío de la cuenta de Merchant Center, no aquí. Sin política → nada: el
+     * feed no inventa un envío.
+     */
+    public static function shippingXml(?array $s): string
+    {
+        if (!$s) {
+            return '';
+        }
+        $xml = '';
+        if (($s['lima']['mode'] ?? null) === 'free' && ($s['province']['mode'] ?? null) === 'free') {
+            $xml .= "    <g:shipping>\n      <g:country>PE</g:country>\n      <g:service>Envío gratis</g:service>\n      <g:price>0.00 PEN</g:price>\n    </g:shipping>\n";
+        }
+        $handling = $s['province']['handling'] ?? null;
+        if ($handling !== null) {
+            $h = max(0, (int) $handling);
+            $xml .= "    <g:min_handling_time>{$h}</g:min_handling_time>\n";
+            $xml .= "    <g:max_handling_time>{$h}</g:max_handling_time>\n";
+        }
+
+        return $xml;
+    }
+
     /** @param array<string,int> $map */
     public static function resolve(?string $fullSlug, array $map): ?int
     {

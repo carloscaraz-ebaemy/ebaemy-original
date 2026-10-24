@@ -34,6 +34,8 @@ class MarketplaceListing extends Model
         'secondary_image_url',
         'gallery_image_urls',
         'seller_whatsapp',
+        // Resumen de la política de envío de la tienda (ver StoreShipping::summary()).
+        'shipping',
         'category_name',
         'marketplace_category_id',
         'brand_name',
@@ -79,6 +81,7 @@ class MarketplaceListing extends Model
 
     protected $casts = [
         'is_active'         => 'boolean',
+        'shipping'          => 'array',
         'tenant_verified'   => 'boolean',
         'is_featured'       => 'boolean',
         'is_on_offer'       => 'boolean',

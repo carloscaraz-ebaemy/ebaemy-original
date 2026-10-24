@@ -1,0 +1,52 @@
+<?php
+
+namespace App\Http\Controllers\Tenant;
+
+use App\Http\Controllers\Controller;
+use App\Services\Tenant\StoreShipping;
+use Illuminate\Http\Request;
+
+/**
+ * Formulario «¿Cómo envías tus productos?»: la política de envío de la tienda
+ * que usan su tienda online, el marketplace y el catálogo de anuncios.
+ */
+class StoreShippingController extends Controller
+{
+    public function show(StoreShipping $shipping)
+    {
+        if (!$shipping->available()) {
+            return response()->json(['available' => false]);
+        }
+
+        return ['available' => true] + $shipping->formData();
+    }
+
+    /** «Así lo verá el comprador» con los datos del formulario, sin guardar. */
+    public function preview(Request $request, StoreShipping $shipping)
+    {
+        return $shipping->preview($request->all());
+    }
+
+    public function save(Request $request, StoreShipping $shipping)
+    {
+        abort_unless($shipping->available(), 409, 'Falta actualizar la base de datos de la tienda.');
+        abort_unless(optional(auth()->user())->type === 'admin', 403, 'Solo el administrador puede cambiar los envíos.');
+
+        $data = $request->validate(StoreShipping::rules(), [
+            'lima_cost.required_if'     => 'Indica cuánto cobras por el envío en Lima.',
+            'province_cost.required_if' => 'Indica cuánto cobras por el envío a provincias.',
+            'agency_fee.required_if'    => 'Indica cuánto cobras por llevarlo a la agencia.',
+            'pickup_district.required_if' => 'Indica en qué distrito se recoge.',
+            'lima_days_max.gte'         => 'El máximo de días en Lima no puede ser menor que el mínimo.',
+            'province_transit_max.gte'  => 'El máximo de días de viaje no puede ser menor que el mínimo.',
+        ]);
+
+        $shipping->save($data);
+
+        return [
+            'success' => true,
+            'message' => 'Envíos guardados. Ya se muestran en tu tienda y en ebaemy.com.',
+            'record'  => $shipping->formData(),
+        ];
+    }
+}

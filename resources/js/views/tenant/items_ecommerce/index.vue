@@ -38,6 +38,10 @@
                     <!-- Acceso rápido al dashboard analítico del marketplace.
                          Solo se muestra cuando hay productos (sino no hay nada
                          que medir). Iconos lucide-like estilo light. -->
+                    <button type="button" class="btn btn-sm btn-outline-secondary mt-2 me-2 ie-shipping-btn"
+                            title="Costos y plazos de envío de tu tienda" @click="askShipping()">
+                        🚚 Envíos
+                    </button>
                     <a href="/marketplace-dashboard"
                        class="btn btn-sm btn-outline-info mt-2 me-2"
                        title="Ver métricas del marketplace">
@@ -325,7 +329,7 @@
                             <el-switch
                                 v-model="row.marketplace_publishable"
                                 active-color="#8b5cf6"
-                                @change="toggleMarketplace($event, row.id)"
+                                @change="toggleMarketplace($event, row.id, row)"
                             ></el-switch>
                         </td>
                         <td v-if="mpStats.has_saga" class="text-center">
@@ -545,6 +549,13 @@
                 </div>
             </el-dialog>
 
+            <!-- Popup: política de envío de la tienda (obligatoria para el marketplace) -->
+            <store-shipping-settings
+                :visible.sync="shippingDialogVisible"
+                :reason="shippingReason"
+                @saved="onShippingSaved"
+            ></store-shipping-settings>
+
             <!-- Popup: ajustar stock (mismo servicio que la pestaña de variantes) -->
             <stock-adjust
                 :visible.sync="stockDialogVisible"
@@ -655,6 +666,7 @@
 import ItemsForm from "./form.vue";
 import WarehousesDetail from "./partials/warehouses.vue";
 import StockAdjust from "./partials/stock_adjust.vue";
+import StoreShippingSettings from "../../../components/StoreShippingSettings.vue";
 import FeatureTour from "../../../components/FeatureTour.vue";
 
 // Hasta cuándo se marca «Nuevo» en la cabecera de Stock General.
@@ -667,7 +679,7 @@ import { itemRemoval } from "../../../mixins/itemRemoval";
 export default {
     props: [], //'typeUser'
     mixins: [deletable, itemRemoval],
-    components: { ItemsForm, DataTable, WarehousesDetail, StockAdjust, FeatureTour }, //ItemsImport
+    components: { ItemsForm, DataTable, WarehousesDetail, StockAdjust, FeatureTour, StoreShippingSettings }, //ItemsImport
     data() {
         return {
             showDialog: false,
@@ -676,6 +688,9 @@ export default {
             stockItemId: null,
             stockRow: null,
             stockVariantId: null,
+            shippingDialogVisible: false,
+            shippingReason: '',
+            shippingThen: null,
             showNewBadge: new Date() <= NOVEDAD_STOCK_HASTA,
             fromInvite: new URLSearchParams(window.location.search).get('publicar') === '1',
             tourPublicarSteps: [
@@ -1006,10 +1021,19 @@ export default {
                 })
                 .catch(() => this.$message.error('Error al actualizar precio'));
         },
-        toggleMarketplace(value, id) {
+        toggleMarketplace(value, id, row = null) {
             this.$http
                 .post(`/items/marketplace-toggle`, { id, marketplace_publishable: value })
                 .then(response => {
+                    if (response.data.needs_shipping) {
+                        // Falta confirmar los envíos: se revierte el switch, se
+                        // abre el formulario y al guardar se reintenta.
+                        if (row) row.marketplace_publishable = !value;
+                        return this.askShipping(response.data.message, () => {
+                            if (row) row.marketplace_publishable = value;
+                            this.toggleMarketplace(value, id, row);
+                        });
+                    }
                     if (response.data.success) {
                         value
                             ? this.$message.success(response.data.message)
@@ -1071,6 +1095,18 @@ export default {
                 })
                 .catch(() => { this.itemsCount = null })
         },
+        // Abre «¿Cómo envías tus productos?»; `then` se ejecuta al guardar
+        // (reintenta la publicación que el servidor frenó).
+        askShipping(reason = '', then = null) {
+            this.shippingReason = reason || '';
+            this.shippingThen = then;
+            this.shippingDialogVisible = true;
+        },
+        onShippingSaved() {
+            const then = this.shippingThen;
+            this.shippingThen = null;
+            if (typeof then === 'function') this.$nextTick(then);
+        },
         publishAllToMarketplace() {
             this.$confirm(
                 'Se publicarán en ebaemy.com/marketplace todos los productos de tu tienda online que aún no estén publicados. ¿Continuar?',
@@ -1086,6 +1122,9 @@ export default {
                     .post('/items/marketplace-publish-all-store')
                     .then(response => {
                         const data = response.data || {};
+                        if (data.needs_shipping) {
+                            return this.askShipping(data.message, () => this.publishAllToMarketplace());
+                        }
                         if (data.success) {
                             if ((data.updated || 0) > 0) {
                                 this.$message.success(data.message);

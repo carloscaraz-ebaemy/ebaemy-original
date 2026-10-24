@@ -35,7 +35,7 @@
     <p>Los pagos se procesan a través de pasarelas autorizadas (MercadoPago, Yape, Plin, transferencia bancaria) bajo los términos de cada operador. ebaemy no almacena datos de tarjetas. Los reembolsos siguen la política de la pasarela y del Vendedor.</p>
 
     <h2>6. Envíos y entregas</h2>
-    <p>El envío, embalaje y entrega es responsabilidad del Vendedor. Los plazos y condiciones varían por tienda y se muestran en cada producto antes de comprar. Si tu pedido se retrasa o no llega, contacta primero al Vendedor; si no obtienes respuesta en 48h hábiles, escríbenos a <a href="mailto:soporte@ebaemy.com">soporte@ebaemy.com</a>.</p>
+    <p>El envío, embalaje y entrega es responsabilidad del Vendedor. Los costos, plazos y condiciones los define cada tienda: se muestran en la ficha del producto cuando la tienda los ha indicado y, si no, el Vendedor te los informa al coordinar el pedido, antes de que pagues. Si tu pedido se retrasa o no llega, contacta primero al Vendedor; si no obtienes respuesta en 48h hábiles, escríbenos a <a href="mailto:soporte@ebaemy.com">soporte@ebaemy.com</a>.</p>
 
     <h2>7. Devoluciones y garantías</h2>
     <p>Aplican la <strong>Ley 29571 — Código de Protección y Defensa del Consumidor</strong> y las garantías legales del Perú. Mínimo 7 días calendario para arrepentimiento en ventas a distancia, contados desde la recepción del producto, salvo excepciones legales (productos perecibles, personalizados, abiertos).</p>

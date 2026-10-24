@@ -295,7 +295,7 @@
 <div class="mp-topbar">
     <div class="mp-topbar-inner">
         <div class="mp-topbar-left">
-            <span>🚚 Envío a todo el Perú</span>
+            <span>🚚 Envíos a Lima y provincias</span>
             <span>✓ Compra 100% segura</span>
             <span>⭐ {{ \App\Models\System\Client::query()->where('is_verified', true)->count() }}+ tiendas verificadas</span>
         </div>
@@ -688,7 +688,7 @@
         </span>
         <span class="mp-trust-sticky-item">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="13" height="10" rx="2"/><path d="M15 9h5l2 4v4h-7V9z"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/></svg>
-            <span>Envío <strong>a todo Perú</strong></span>
+            <span>Envíos a <strong>Lima y provincias</strong></span>
         </span>
         <span class="mp-trust-sticky-item">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.39 5.42L20 8.27l-4 4.15.94 5.58L12 15.77l-4.94 2.23L8 12.42 4 8.27l5.61-.85L12 2z"/></svg>
@@ -696,7 +696,7 @@
         </span>
         <span class="mp-trust-sticky-item">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
-            <span>Pago <strong>contra entrega</strong></span>
+            <span>Pagas <strong>directo a la tienda</strong></span>
         </span>
         <span class="mp-trust-sticky-item">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>

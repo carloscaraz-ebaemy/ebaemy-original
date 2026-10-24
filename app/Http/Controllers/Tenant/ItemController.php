@@ -698,6 +698,9 @@ class ItemController extends Controller
         $mpEnablingNow = $item->marketplace_publishable
             && $item->mp_status === 'active'
             && !$mpPublishableBefore;
+        if ($mpEnablingNow && ($gate = $this->marketplaceShippingGate())) {
+            return $gate;
+        }
         if ($mpEnablingNow) {
             $quota = app(\App\Services\Tenant\MarketplaceQuotaService::class)
                 ->canPublish(1, $item->exists ? (int) $item->id : null);
@@ -1874,6 +1877,9 @@ class ItemController extends Controller
 
         if ($enable) {
             $alreadyActive = $item->marketplace_publishable && $item->mp_status === 'active';
+            if (!$alreadyActive && ($gate = $this->marketplaceShippingGate())) {
+                return $gate;
+            }
             if (!$alreadyActive) {
                 $quota = app(\App\Services\Tenant\MarketplaceQuotaService::class)
                     ->canPublish(1, (int) $item->id);
@@ -1979,6 +1985,10 @@ class ItemController extends Controller
         // Si vamos a publicar, validar la cuota global ANTES del bucle —
         // contamos cuántos vendrían a sumarse (los que aún no están activos)
         // y rechazamos toda la operación si supera el límite del plan.
+        if ($enabled && ($gate = $this->marketplaceShippingGate())) {
+            return $gate;
+        }
+
         $quotaSkipped = [];
         $quotaLimitMessage = null;
         if ($enabled) {
@@ -2106,8 +2116,32 @@ class ItemController extends Controller
         ];
     }
 
+    /**
+     * Para publicar en el marketplace la tienda tiene que haber confirmado cómo
+     * envía (StoreShipping): sin eso el comprador no sabe cuánto ni cuándo, y
+     * Google rechaza el catálogo. El front abre el formulario al ver
+     * `needs_shipping`. Tenant sin la migración: no se bloquea.
+     */
+    private function marketplaceShippingGate(): ?array
+    {
+        $shipping = app(\App\Services\Tenant\StoreShipping::class);
+        if (!$shipping->available() || $shipping->isConfirmed()) {
+            return null;
+        }
+
+        return [
+            'success'        => false,
+            'needs_shipping' => true,
+            'message'        => 'Antes de publicar en ebaemy.com, confirma cómo envías tus productos (costos y plazos). Solo se hace una vez.',
+        ];
+    }
+
     public function publishAllStoreToMarketplace()
     {
+        if ($gate = $this->marketplaceShippingGate()) {
+            return $gate;
+        }
+
         $candidates = Item::where('apply_store', 1)
             ->whereNotNull('internal_id')
             ->where('internal_id', '!=', '')

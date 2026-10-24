@@ -861,6 +861,10 @@ if ($hostname) {
             // Ajustar stock desde la Tienda virtual (mismo servicio que variantes)
             Route::get('items/quick-stock/{id}', 'Tenant\ItemController@quickStockRecord');
             Route::post('items/quick-stock', 'Tenant\ItemController@quickStock');
+            // Política de envío de la tienda (tienda online + marketplace + anuncios)
+            Route::get('store-shipping', 'Tenant\StoreShippingController@show');
+            Route::post('store-shipping', 'Tenant\StoreShippingController@save');
+            Route::post('store-shipping/preview', 'Tenant\StoreShippingController@preview');
             // Guías de novedades: ¿ya la vio este usuario? (FeatureTour.vue)
             Route::get('feature-tours/{key}', 'Tenant\FeatureTourController@show');
             Route::post('feature-tours/{key}', 'Tenant\FeatureTourController@store');

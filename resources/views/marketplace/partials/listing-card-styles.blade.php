@@ -112,6 +112,12 @@
 
     /* Pill "También en N tiendas" — feature de comparación. Click va a
        /marketplace?q=<titulo> para que el comprador vea todas las opciones. */
+    /* «Envío gratis en Lima»: solo si la tienda lo confirmó (ShippingSummaryText::badge). */
+    .mp-card-ship {
+        display: inline-flex; align-items: center; gap: 4px; margin-top: 6px;
+        font-size: 11.5px; font-weight: 600; color: #15803d;
+        background: #f0fdf4; border-radius: 6px; padding: 2px 7px;
+    }
     .mp-card-alsoin {
         display: inline-flex; align-items: center; gap: 5px;
         margin-top: 8px;

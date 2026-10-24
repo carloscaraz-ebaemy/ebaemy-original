@@ -1377,22 +1377,39 @@ class EcommerceController extends Controller
                 // barata). Si es entrega a domicilio y no hay zona resoluble, NO se
                 // permite continuar con envío en 0 silencioso.
                 $districtId   = $customer['ubigeo'] ?? null;
-                $shippingZone = \App\Models\Tenant\ShippingZone::resolveForDistrict($districtId, $isPickup);
+                $shippingZone = null;
                 $shippingCost = 0.0;
-                if ($shippingZone && $shippingZone->is_active) {
-                    $shippingCost = (float) $shippingZone->cost;
-                } elseif (!$isPickup) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'No pudimos calcular el costo de envío para tu distrito. Verifica tu distrito o elige recojo en tienda.',
-                    ], 422);
-                }
+                $storeShipping = app(\App\Services\Tenant\StoreShipping::class);
 
-                // Envío gratis por umbral: si el subtotal (tras descuentos) alcanza
-                // el monto configurado, el envío a domicilio sale 0.
-                $freeShipThreshold = (float) (\App\Models\Tenant\Configuration::first()->ecommerce_free_shipping_threshold ?? 0);
-                if (!$isPickup && $freeShipThreshold > 0 && $finalTotal >= $freeShipThreshold) {
-                    $shippingCost = 0.0;
+                if ($storeShipping->isConfirmed()) {
+                    // Política de envío confirmada por la tienda: la MISMA que ve el
+                    // comprador en el marketplace. «A cotizar» y «pago en destino»
+                    // no suman al total (cost null): se pagan al coordinar.
+                    if ($isPickup && !$storeShipping->settings()->pickup_enabled) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'Esta tienda no ofrece recojo. Elige envío a domicilio.',
+                        ], 422);
+                    }
+                    $quote = $storeShipping->quote($districtId, $isPickup, (float) $finalTotal);
+                    $shippingCost = (float) ($quote['cost'] ?? 0);
+                } else {
+                    $shippingZone = \App\Models\Tenant\ShippingZone::resolveForDistrict($districtId, $isPickup);
+                    if ($shippingZone && $shippingZone->is_active) {
+                        $shippingCost = (float) $shippingZone->cost;
+                    } elseif (!$isPickup) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'No pudimos calcular el costo de envío para tu distrito. Verifica tu distrito o elige recojo en tienda.',
+                        ], 422);
+                    }
+
+                    // Envío gratis por umbral: si el subtotal (tras descuentos) alcanza
+                    // el monto configurado, el envío a domicilio sale 0.
+                    $freeShipThreshold = (float) (\App\Models\Tenant\Configuration::first()->ecommerce_free_shipping_threshold ?? 0);
+                    if (!$isPickup && $freeShipThreshold > 0 && $finalTotal >= $freeShipThreshold) {
+                        $shippingCost = 0.0;
+                    }
                 }
 
                 $finalTotal += $shippingCost;
@@ -2320,6 +2337,34 @@ class EcommerceController extends Controller
     {
         $districtId = $request->input('district_id');
         $deliveryType = $request->input('delivery_type', 'delivery'); // delivery | pickup
+
+        // Política de envío confirmada: la misma que el marketplace. `cost_known`
+        // false = «a cotizar» o «pago en destino»: el front muestra `label` y no
+        // suma nada al total, en vez de un «Envío: S/ 0.00» que parece gratis.
+        $storeShipping = app(\App\Services\Tenant\StoreShipping::class);
+        if ($storeShipping->isConfirmed()) {
+            $pickup = $deliveryType === 'pickup';
+            if ($pickup && !$storeShipping->settings()->pickup_enabled) {
+                return response()->json(['success' => false, 'message' => 'Esta tienda no ofrece recojo.', 'cost' => 0]);
+            }
+            $q = $storeShipping->quote($districtId, $pickup, (float) $request->input('subtotal', 0));
+            $umbral = (float) (\App\Models\Tenant\Configuration::first()->ecommerce_free_shipping_threshold ?? 0);
+
+            return response()->json([
+                'success'        => true,
+                'zone_id'        => null,
+                'zone_name'      => ['lima' => 'Lima y Callao', 'province' => 'Provincias', 'pickup' => 'Recojo en tienda'][$q['type']] ?? '',
+                'cost'           => (float) ($q['cost'] ?? 0),
+                'cost_known'     => $q['cost'] !== null,
+                'label'          => $q['label'],
+                'estimated_days' => (int) ($q['days_max'] ?? 0),
+                'days_min'       => $q['days_min'],
+                'days_max'       => $q['days_max'],
+                'is_pickup'      => $q['type'] === 'pickup',
+                'free_shipping_threshold' => $umbral,
+                'free_shipping_applied'   => $q['free_applied'],
+            ]);
+        }
 
         $zone = \App\Models\Tenant\ShippingZone::resolveForDistrict(
             $districtId,

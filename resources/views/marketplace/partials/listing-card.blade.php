@@ -281,6 +281,16 @@
             </span>
         @endif
 
+        {{-- Envío gratis: UNA etiqueta como mucho y solo si la tienda lo
+             confirmó (ShippingSummaryText::badge). Más texto satura la card. --}}
+        @php $cardShipBadge = \App\Services\Marketplace\ShippingSummaryText::badge(is_array($listing->shipping ?? null) ? $listing->shipping : null); @endphp
+        @if($cardShipBadge)
+            <span class="mp-card-ship">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="13" height="10" rx="2"/><path d="M15 9h5l2 4v4h-7V9z"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/></svg>
+                {{ $cardShipBadge }}
+            </span>
+        @endif
+
         {{-- Nombre de la tienda removido del card de listado (saturaba el grid).
              Sigue visible en la página de detalle del producto y en el cart.
              Si lo quieres reactivar para alguna vista puntual, pasa

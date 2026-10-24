@@ -1202,6 +1202,61 @@
         </style>
         @endpush
 
+        {{-- Envío y entrega: la política que confirmó la tienda (StoreShipping),
+             con las mismas frases que su tienda online. Sin confirmar → «A
+             coordinar con la tienda», que es la verdad: no se promete nada. --}}
+        @php
+            $mpShip      = is_array($listing->shipping ?? null) ? $listing->shipping : null;
+            $mpShipLines = \App\Services\Marketplace\ShippingSummaryText::lines($mpShip);
+            $mpShipNotes = \App\Services\Marketplace\ShippingSummaryText::notes($mpShip);
+        @endphp
+        <section class="mp-ship" aria-label="Envío y entrega">
+            <h3 class="mp-ship__t">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="13" height="10" rx="2"/><path d="M15 9h5l2 4v4h-7V9z"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/></svg>
+                Envío y entrega
+            </h3>
+            @if($mpShipLines)
+                <ul class="mp-ship__list">
+                    @foreach($mpShipLines as $l)
+                        <li class="mp-ship__row">
+                            <span class="mp-ship__dest">{{ $l['title'] }}</span>
+                            <span class="mp-ship__price {{ $l['free'] ? 'mp-ship__price--free' : '' }}">{{ $l['price'] }}</span>
+                            @if($l['detail'])<span class="mp-ship__det">{{ $l['detail'] }}</span>@endif
+                        </li>
+                    @endforeach
+                </ul>
+                @foreach($mpShipNotes as $n)
+                    <p class="mp-ship__note">{{ $n }}</p>
+                @endforeach
+            @else
+                <p class="mp-ship__pending">{{ \App\Services\Marketplace\ShippingSummaryText::PENDING }}: te dirán el costo y el plazo al confirmar tu pedido.</p>
+            @endif
+            <p class="mp-ship__seller">
+                Vendido y despachado por <strong>{{ $listing->seller_display }}</strong>
+                @if($listing->tenant_fqdn)
+                    · <a href="https://{{ $listing->tenant_fqdn }}/ecommerce/libro-reclamaciones" target="_blank" rel="noopener">Libro de Reclamaciones</a>
+                @endif
+            </p>
+        </section>
+        @push('styles')
+        <style>
+        .mp-ship { border: 1px solid #e5e7eb; border-radius: 12px; padding: 12px 14px; margin: 12px 0; background: #fff; }
+        .mp-ship__t { display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 700; color: #111827; margin: 0 0 8px; }
+        .mp-ship__t svg { color: var(--mp-primary, #0f8a82); }
+        .mp-ship__list { list-style: none; margin: 0; padding: 0; }
+        .mp-ship__row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; padding: 6px 0; border-top: 1px solid #f3f4f6; }
+        .mp-ship__row:first-child { border-top: 0; }
+        .mp-ship__dest { font-size: 13.5px; color: #374151; flex: 1 1 auto; }
+        .mp-ship__price { font-size: 13.5px; font-weight: 700; color: #111827; text-align: right; }
+        .mp-ship__price--free { color: #15803d; }
+        .mp-ship__det { flex-basis: 100%; font-size: 12.5px; color: #6b7280; }
+        .mp-ship__note { font-size: 12.5px; color: #0f766e; margin: 6px 0 0; }
+        .mp-ship__pending { font-size: 13px; color: #6b7280; margin: 0; }
+        .mp-ship__seller { font-size: 12.5px; color: #6b7280; margin: 10px 0 0; padding-top: 8px; border-top: 1px dashed #e5e7eb; }
+        .mp-ship__seller a { color: var(--mp-primary, #0f8a82); }
+        </style>
+        @endpush
+
         {{-- Badges de confianza mini (dentro de la columna de compra) --}}
         <div class="mp-trust-mini">
             <div class="mp-trust-mini-item">
@@ -1214,7 +1269,7 @@
                 <span class="mp-trust-mini-icon">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="13" height="10" rx="2"/><path d="M15 9h5l2 4v4h-7V9z"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/></svg>
                 </span>
-                <span>Envío coordinado por el vendedor</span>
+                <span>{{ $mpShipLines ? 'Costos y plazos indicados por la tienda' : 'Envío coordinado por el vendedor' }}</span>
             </div>
             <div class="mp-trust-mini-item">
                 <span class="mp-trust-mini-icon">
