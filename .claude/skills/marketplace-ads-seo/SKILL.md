@@ -26,6 +26,19 @@ escribir una línea, abre estos archivos. Todo lo de esta tabla **está en produ
 | Analítica interna: vistas y clics por producto y día | `marketplace_listing_stats_daily`, `MarketplaceController@recordDailyStat` | ✅ |
 | Feeds TikTok y Meta **por tenant** (canal externo, otra cosa) | `app/Services/Marketplace/TikTokService.php`, `MetaFeedService.php` | ✅ |
 
+| **Texto limpio, marca y categoría de Google en el feed** | `App\Services\Marketplace\ProductFeedFormatter` + `config/marketplace_google_categories.php` | ✅ 2026-10-24 (`cb212c003`) |
+
+**Calidad del feed (2026-10-24):** el feed llegaba con 116 descripciones con `&nbsp;`
+escrito, 123 items sin marca y 131 con «OEM»/«GENERICO», y 0 con
+`google_product_category`. Ahora todo pasa por `ProductFeedFormatter`: texto sin
+etiquetas ni entidades; sin marca real → **nombre de la tienda** (Meta exige marca);
+categoría de Google por el prefijo de `full_slug` más largo (77 IDs verificados contra
+la taxonomía oficial es-ES; `servicios` sin fila a propósito, Shopping no los admite).
+**Al añadir una categoría al árbol del marketplace, añade su fila al mapa** o hereda la
+de su madre. Las fotos del feed miden ≥720 px (mínimo de Meta: 500): el «pesa más de
+300 KB» de `images:audit` no afecta a los anuncios — y `--fix` no reescribe la
+principal; recomprimirla es irreversible.
+
 **Los dos filtros del feed son la pieza clave** de lo que pide el negocio: anunciar
 *por tienda* y *por categoría*. Funcionan por query string **y el panel ya los
 expone**, con un selector por tienda y otro por categoría
