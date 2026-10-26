@@ -116,6 +116,45 @@ class ProductFeedFormatter
         return $xml;
     }
 
+    /**
+     * Categoría raíz del marketplace («hogar», «moda»…) para el custom_label
+     * con el que se arman los conjuntos de productos por categoría en Meta.
+     */
+    public function rootCategory(?int $categoryId): ?string
+    {
+        if (!$categoryId) {
+            return null;
+        }
+        if ($this->slugs === null) {
+            $this->slugs = MarketplaceCategory::query()->pluck('full_slug', 'id')->all();
+        }
+        $slug = trim((string) ($this->slugs[$categoryId] ?? ''), '/');
+
+        return $slug === '' ? null : explode('/', $slug)[0];
+    }
+
+    /**
+     * Etiquetas ESTABLES para armar conjuntos de productos y campañas por tienda
+     * y por categoría (Meta/Google/TikTok filtran por custom_label):
+     *  - custom_label_2 = «tienda_<subdominio>»: no cambia aunque la tienda se
+     *    renombre (custom_label_0 lleva el nombre comercial, que sí cambia y
+     *    dejaría vacío el conjunto sin avisar).
+     *  - custom_label_3 = «cat_<categoría raíz>».
+     */
+    public function campaignLabelsXml(?string $subdomain, ?int $categoryId): string
+    {
+        $esc = fn ($s) => htmlspecialchars((string) $s, ENT_XML1);
+        $xml = '';
+        if ($subdomain) {
+            $xml .= '    <g:custom_label_2>' . $esc('tienda_' . mb_strtolower($subdomain)) . "</g:custom_label_2>\n";
+        }
+        if ($root = $this->rootCategory($categoryId)) {
+            $xml .= '    <g:custom_label_3>' . $esc('cat_' . $root) . "</g:custom_label_3>\n";
+        }
+
+        return $xml;
+    }
+
     /** @param array<string,int> $map */
     public static function resolve(?string $fullSlug, array $map): ?int
     {

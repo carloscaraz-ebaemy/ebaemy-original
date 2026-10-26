@@ -2379,6 +2379,7 @@ class MarketplaceController extends Controller
         }
         // Tienda dueña — Meta lo usa para mostrar atribución
         $xml .= '    <g:custom_label_0>' . $esc(mb_substr($l->seller_display, 0, 100)) . "</g:custom_label_0>\n";
+        $xml .= $this->feedFormatter()->campaignLabelsXml($l->subdomain, $l->marketplace_category_id);
         // Tipo de descuento (cuando hay oferta) — útil para segmentar campañas
         // (ej. ads solo de flash sales con bid distinto al de descuentos regulares).
         if (!empty($l->is_on_offer) && !empty($l->discount_source)) {
@@ -2480,6 +2481,7 @@ class MarketplaceController extends Controller
             $xml .= '    <g:size>' . $esc(mb_substr($size, 0, 100)) . "</g:size>\n";
         }
         $xml .= '    <g:custom_label_0>' . $esc(mb_substr($l->seller_display, 0, 100)) . "</g:custom_label_0>\n";
+        $xml .= $this->feedFormatter()->campaignLabelsXml($l->subdomain, $l->marketplace_category_id);
         $xml .= "  </item>\n";
 
         return $xml;
