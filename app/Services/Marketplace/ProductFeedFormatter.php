@@ -31,6 +31,9 @@ class ProductFeedFormatter
     /** @var array<int,string>|null id de categoría → full_slug, una consulta por petición */
     private ?array $slugs = null;
 
+    /** @var array<string,string>|null full_slug → nombre visible */
+    private ?array $names = null;
+
     /**
      * Texto plano para título o descripción: sin etiquetas, sin entidades HTML,
      * sin espacios duros ni saltos repetidos.
@@ -139,11 +142,13 @@ class ProductFeedFormatter
      *  - custom_label_2 = «tienda_<subdominio>»: no cambia aunque la tienda se
      *    renombre (custom_label_0 lleva el nombre comercial, que sí cambia y
      *    dejaría vacío el conjunto sin avisar).
-     *  - custom_label_3 = «cat_<categoría raíz>»: la rama entera (Navidad con
-     *    todas sus subcategorías).
-     *  - custom_label_4 = «sub_<raíz>_<subcategoría>»: una sola subcategoría
-     *    («sub_navidad_arboles-de-navidad»). El product_type no sirve para
-     *    esto: lleva la categoría que cada tienda inventó («Navidad 2025»).
+     *  - custom_label_3 = nombre de la categoría raíz («Navidad»): la rama
+     *    entera con todas sus subcategorías.
+     *  - custom_label_4 = «Raíz > Subcategoría» («Navidad > Árboles de
+     *    Navidad»): una sola subcategoría. El product_type no sirve para esto:
+     *    lleva la categoría que cada tienda inventó («Navidad 2025»).
+     * Las categorías van con su NOMBRE, no el slug: es lo que se elige a mano
+     * en el desplegable de conjuntos de Meta.
      */
     public function campaignLabelsXml(?string $subdomain, ?int $categoryId): string
     {
@@ -152,11 +157,14 @@ class ProductFeedFormatter
         if ($subdomain) {
             $xml .= '    <g:custom_label_2>' . $esc('tienda_' . mb_strtolower($subdomain)) . "</g:custom_label_2>\n";
         }
-        if ($root = $this->rootCategory($categoryId)) {
-            $xml .= '    <g:custom_label_3>' . $esc('cat_' . $root) . "</g:custom_label_3>\n";
+        if ($this->rootCategory($categoryId)) {
+            $this->names ??= MarketplaceCategory::query()->pluck('name', 'full_slug')->all();
             $parts = explode('/', trim((string) ($this->slugs[$categoryId] ?? ''), '/'));
+            $root  = $this->names[$parts[0]] ?? $parts[0];
+            $xml  .= '    <g:custom_label_3>' . $esc(mb_substr($root, 0, 100)) . "</g:custom_label_3>\n";
             if (count($parts) > 1) {
-                $xml .= '    <g:custom_label_4>' . $esc(mb_substr('sub_' . $parts[0] . '_' . $parts[1], 0, 100)) . "</g:custom_label_4>\n";
+                $sub  = $this->names[$parts[0] . '/' . $parts[1]] ?? $parts[1];
+                $xml .= '    <g:custom_label_4>' . $esc(mb_substr($root . ' > ' . $sub, 0, 100)) . "</g:custom_label_4>\n";
             }
         }
 
