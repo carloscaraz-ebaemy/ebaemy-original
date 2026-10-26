@@ -37,7 +37,11 @@ class SettingsAudit
         }
     }
 
-    /** «•••• ZDZD · 207 caracteres» */
+    /**
+     * «•••• CaPQZDZD · 207 caracteres». Ocho caracteres y no cuatro: los
+     * tokens de Meta suelen terminar todos en «ZDZD», así que con cuatro el
+     * historial no distinguía un token de su reemplazo.
+     */
     public static function mask(?string $v): ?string
     {
         $v = (string) $v;
@@ -45,7 +49,7 @@ class SettingsAudit
             return null;
         }
 
-        return '•••• ' . substr($v, -4) . ' · ' . strlen($v) . ' caracteres';
+        return '•••• ' . substr($v, -8) . ' · ' . strlen($v) . ' caracteres';
     }
 
     public static function display(string $field, $value): ?string
