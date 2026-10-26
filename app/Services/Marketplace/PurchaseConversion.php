@@ -58,7 +58,7 @@ class PurchaseConversion
         $payload = AdsTracking::payload(
             'purchase',
             $order->items->map(fn ($i) => [
-                'content_id'   => AdsTracking::contentId($i->listing_id),
+                'content_id'   => AdsTracking::catalogId($i->listing_id),
                 'content_name' => (string) $i->title,
                 'quantity'     => (int) $i->quantity,
                 'price'        => round((float) $i->unit_price, 2),

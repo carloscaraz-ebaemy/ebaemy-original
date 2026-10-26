@@ -323,7 +323,7 @@ window.mpBindGallery = mpBindGallery;
                     currency: 'PEN',
                     value: Math.round((data.line.price || 0) * (data.line.quantity || 1) * 100) / 100,
                     items: [{
-                        content_id: 'mp_' + data.line.listing_id,
+                        content_id: data.line.content_id || ('mp_' + data.line.listing_id),
                         content_name: data.line.title || '',
                         quantity: data.line.quantity || 1,
                         price: data.line.price || 0

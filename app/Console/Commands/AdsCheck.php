@@ -65,7 +65,7 @@ class AdsCheck extends Command
             $this->warn('No hay ningún producto publicado: no se puede comprobar el content_id.');
         } else {
             $this->line('');
-            $this->line('content_id de ejemplo: <info>' . AdsTracking::contentId($sample->id) . '</info>');
+            $this->line('content_id de ejemplo: <info>' . AdsTracking::catalogId($sample->id) . '</info>');
             $this->line('Tiene que ser idéntico al <g:id> del feed /feeds/meta-catalog.xml.');
         }
 
@@ -97,7 +97,7 @@ class AdsCheck extends Command
         $payload = AdsTracking::payload(
             'view_content',
             [[
-                'content_id'   => $sample ? AdsTracking::contentId($sample->id) : 'mp_0',
+                'content_id'   => $sample ? AdsTracking::catalogId($sample->id) : 'mp_0',
                 'content_name' => $sample->title ?? 'Prueba',
                 'quantity'     => 1,
                 'price'        => $sample ? round((float) $sample->display_price, 2) : 1.0,

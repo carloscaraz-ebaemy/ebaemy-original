@@ -132,6 +132,50 @@ class AdsTracking
         return 'mp_' . (int) $listingId;
     }
 
+    /** @var array<int,string> listing → id de catálogo, una consulta por listing y petición */
+    private static array $catalogIds = [];
+
+    /**
+     * El id con el que este producto EXISTE en el catálogo, que es el que
+     * tienen que llevar los eventos (ViewContent, AddToCart, Purchase…).
+     *
+     * Un producto con variantes no tiene item propio en el feed: el feed emite
+     * una entrada por variante, `mp_{listing}_v{variante}`, agrupadas por
+     * item_group_id. Mandar `mp_{listing}` para esos productos no casa con
+     * nada del catálogo y Meta lo reporta como «los productos no coinciden con
+     * los eventos». Sin variante concreta se usa la principal, en el mismo
+     * orden que el feed (is_primary primero, luego id). Ver
+     * MarketplaceController::metaCatalog().
+     */
+    public static function catalogId($listingId, $variantId = null): string
+    {
+        $listingId = (int) $listingId;
+        if ($variantId) {
+            return 'mp_' . $listingId . '_v' . (int) $variantId;
+        }
+        if (isset(self::$catalogIds[$listingId])) {
+            return self::$catalogIds[$listingId];
+        }
+
+        $id = 'mp_' . $listingId;
+        try {
+            $conVariantes = (bool) \Illuminate\Support\Facades\DB::connection('system')
+                ->table('marketplace_listings')->where('id', $listingId)->value('has_variants');
+            if ($conVariantes) {
+                $v = \Illuminate\Support\Facades\DB::connection('system')->table('marketplace_listing_variants')
+                    ->where('listing_id', $listingId)->where('is_active', true)
+                    ->orderByDesc('is_primary')->orderBy('id')->value('id');
+                if ($v) {
+                    $id = 'mp_' . $listingId . '_v' . (int) $v;
+                }
+            }
+        } catch (\Throwable $e) {
+            // Sin conexión a la base del marketplace: el id simple, como antes.
+        }
+
+        return self::$catalogIds[$listingId] = $id;
+    }
+
     /**
      * Id de evento compartido entre navegador y servidor. Determinista cuando
      * se le pasa una semilla (el número de pedido), porque el Purchase del

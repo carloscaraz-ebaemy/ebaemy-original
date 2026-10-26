@@ -71,6 +71,10 @@ class MarketplaceCartController extends Controller
             ], 404);
         }
 
+        // Id con el que el producto existe en el catálogo de Meta/TikTok, para
+        // el AddToCart del navegador (AdsTracking::catalogId).
+        $line['content_id'] = \App\Services\Marketplace\AdsTracking::catalogId($line['listing_id'] ?? 0);
+
         return response()->json([
             'success' => true,
             'message' => 'Producto añadido al carrito',

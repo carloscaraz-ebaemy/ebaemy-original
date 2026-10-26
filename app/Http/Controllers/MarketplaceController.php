@@ -1948,7 +1948,7 @@ class MarketplaceController extends Controller
         $adsLeadPayload = \App\Services\Marketplace\AdsTracking::payload(
             'lead',
             [[
-                'content_id'   => \App\Services\Marketplace\AdsTracking::contentId($listing->id),
+                'content_id'   => \App\Services\Marketplace\AdsTracking::catalogId($listing->id),
                 'content_name' => (string) $listing->title,
                 'quantity'     => (int) ($data['quantity'] ?? 1),
                 'price'        => round((float) $listing->display_price, 2),

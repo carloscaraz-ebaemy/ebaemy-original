@@ -99,7 +99,7 @@
     // mismo <g:id> que emite el feed (mp_{listing_id}): si no coincide, Meta y
     // TikTok reportan 0 % de coincidencia de catalogo.
     $adsItem = [[
-        'content_id'   => \App\Services\Marketplace\AdsTracking::contentId($listing->id),
+        'content_id'   => \App\Services\Marketplace\AdsTracking::catalogId($listing->id),
         'content_name' => $listing->title,
         'quantity'     => 1,
         'price'        => round((float) $listing->display_price, 2),

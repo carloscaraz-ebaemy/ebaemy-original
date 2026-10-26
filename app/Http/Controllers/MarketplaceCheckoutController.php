@@ -518,7 +518,7 @@ class MarketplaceCheckoutController extends Controller
         $adsPurchasePayload = \App\Services\Marketplace\AdsTracking::payload(
             'purchase',
             $order->items->map(fn ($i) => [
-                'content_id'   => \App\Services\Marketplace\AdsTracking::contentId($i->listing_id),
+                'content_id'   => \App\Services\Marketplace\AdsTracking::catalogId($i->listing_id),
                 'content_name' => (string) $i->title,
                 'quantity'     => (int) $i->quantity,
                 'price'        => round((float) $i->unit_price, 2),
