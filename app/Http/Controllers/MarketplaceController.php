@@ -2227,8 +2227,12 @@ class MarketplaceController extends Controller
         $attrsByVariant    = collect();
         $variantListingIds = $listings->where('has_variants', true)->pluck('id');
         if ($variantListingIds->isNotEmpty()) {
+            // Solo variantes con foto PROPIA: con la del padre el anuncio enseña
+            // otro color/modelo del que se vende (19 de 31 el 2026-10-26). Misma
+            // regla en AdsTracking::catalogId() para que los eventos casen.
             $variantsByListing = \App\Models\System\MarketplaceListingVariant::whereIn('listing_id', $variantListingIds)
                 ->where('is_active', true)
+                ->whereNotNull('image_url')->where('image_url', '<>', '')
                 ->orderBy('listing_id')
                 ->orderByDesc('is_primary')
                 ->orderBy('id')
@@ -2261,8 +2265,9 @@ class MarketplaceController extends Controller
                 foreach ($variants as $v) {
                     $xml .= $this->variantFeedItemXml($l, $v, $attrsByVariant->get($v->id, collect()));
                 }
-            } else {
-                // Producto simple (o variantes no sincronizadas) → item del padre.
+            } elseif ($l->image_url) {
+                // Producto simple, variantes no sincronizadas o ninguna variante
+                // con foto propia → un solo item del padre. Sin foto, fuera.
                 $xml .= $this->productFeedItemXml($l);
             }
         }

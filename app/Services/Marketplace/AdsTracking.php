@@ -135,6 +135,9 @@ class AdsTracking
     /** @var array<int,string> listing → id de catálogo, una consulta por listing y petición */
     private static array $catalogIds = [];
 
+    /** @var array<int,bool> id de variante → tiene foto propia (está en el feed) */
+    private static array $variantsWithImage = [];
+
     /**
      * El id con el que este producto EXISTE en el catálogo, que es el que
      * tienen que llevar los eventos (ViewContent, AddToCart, Purchase…).
@@ -150,8 +153,21 @@ class AdsTracking
     public static function catalogId($listingId, $variantId = null): string
     {
         $listingId = (int) $listingId;
+        // El feed solo emite variantes con foto propia: una sin foto no está en
+        // el catálogo y su evento se atribuye al item que representa al grupo.
         if ($variantId) {
-            return 'mp_' . $listingId . '_v' . (int) $variantId;
+            $conFoto = self::$variantsWithImage[(int) $variantId] ??= (function () use ($variantId) {
+                try {
+                    return (bool) \Illuminate\Support\Facades\DB::connection('system')
+                        ->table('marketplace_listing_variants')->where('id', (int) $variantId)
+                        ->whereNotNull('image_url')->where('image_url', '<>', '')->exists();
+                } catch (\Throwable $e) {
+                    return true;
+                }
+            })();
+            if ($conFoto) {
+                return 'mp_' . $listingId . '_v' . (int) $variantId;
+            }
         }
         if (isset(self::$catalogIds[$listingId])) {
             return self::$catalogIds[$listingId];
@@ -162,8 +178,10 @@ class AdsTracking
             $conVariantes = (bool) \Illuminate\Support\Facades\DB::connection('system')
                 ->table('marketplace_listings')->where('id', $listingId)->value('has_variants');
             if ($conVariantes) {
+                // Mismo filtro y orden que MarketplaceController::metaCatalog().
                 $v = \Illuminate\Support\Facades\DB::connection('system')->table('marketplace_listing_variants')
                     ->where('listing_id', $listingId)->where('is_active', true)
+                    ->whereNotNull('image_url')->where('image_url', '<>', '')
                     ->orderByDesc('is_primary')->orderBy('id')->value('id');
                 if ($v) {
                     $id = 'mp_' . $listingId . '_v' . (int) $v;
