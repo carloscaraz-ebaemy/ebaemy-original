@@ -182,6 +182,9 @@
                             Es lo que permite medir la compra cuando el navegador no la reporta (iOS, bloqueadores).
                             Sin token, se pierde parte de las ventas en el informe.
                         </small>
+                        <div class="small mt-1" style="color:{{ $capiMasked ? '#15803d' : '#b45309' }}">
+                            {{ $capiMasked ? '✔ Token guardado: ' . $capiMasked : '✖ Sin token guardado' }}
+                        </div>
                     </div>
 
                     <div class="mb-3">
@@ -217,6 +220,31 @@
                     </div>
 
                     <button type="submit" class="btn btn-primary">💾 Guardar</button>
+
+                    {{-- Historial: quién cambió qué y cuándo (los tokens, enmascarados). --}}
+                    <div class="mt-4">
+                        <h6 class="mb-2" style="font-weight:700">🗂️ Historial de cambios</h6>
+                        @if(!empty($adsLog))
+                            <div class="table-responsive">
+                                <table class="table table-sm mb-0" style="font-size:12.5px">
+                                    <thead><tr><th>Fecha</th><th>Quién</th><th>Qué</th><th>Acción</th><th>Valor</th></tr></thead>
+                                    <tbody>
+                                    @foreach($adsLog as $l)
+                                        <tr>
+                                            <td style="white-space:nowrap">{{ \Carbon\Carbon::parse($l['when'])->format('d/m/Y H:i') }}</td>
+                                            <td>{{ $l['who'] }}</td>
+                                            <td>{{ $l['label'] }}</td>
+                                            <td>{{ $l['action'] }}</td>
+                                            <td>{{ $l['value'] ?? '—' }}@if($l['note'])<div class="text-muted">{{ $l['note'] }}</div>@endif</td>
+                                        </tr>
+                                    @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
+                        @else
+                            <p class="text-muted small mb-0">Aún no hay cambios registrados.</p>
+                        @endif
+                    </div>
 
                     <div class="alert alert-light border mt-3 mb-0 small">
                         <strong>Para comprobar que funciona:</strong> instalá la extensión

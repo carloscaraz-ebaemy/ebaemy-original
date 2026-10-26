@@ -462,7 +462,9 @@ class MarketplaceAdminController extends Controller
     public function seo()
     {
         $config = \App\Models\System\Configuration::firstCached();
-        return view('system.marketplace.seo', compact('config'));
+        $adsLog = \App\Services\Marketplace\SettingsAudit::latest(20);
+        $capiMasked = \App\Services\Marketplace\SettingsAudit::mask($config->marketplace_meta_capi_token ?? null);
+        return view('system.marketplace.seo', compact('config', 'adsLog', 'capiMasked'));
     }
 
     public function seoUpdate(Request $request)
@@ -498,6 +500,11 @@ class MarketplaceAdminController extends Controller
         ]);
 
         $config = \App\Models\System\Configuration::firstOrCreate(['id' => 1]);
+        // Foto de lo sensible antes de guardar, para el historial de cambios.
+        $auditAntes = [];
+        foreach (array_keys(\App\Services\Marketplace\SettingsAudit::FIELDS) as $f) {
+            $auditAntes[$f] = $config->{$f} ?? null;
+        }
         $config->marketplace_og_title       = $request->input('marketplace_og_title');
         $config->marketplace_og_description = $request->input('marketplace_og_description');
         $config->marketplace_meta_keywords  = $request->input('marketplace_meta_keywords');
@@ -534,6 +541,14 @@ class MarketplaceAdminController extends Controller
             $config->marketplace_og_image = $filename;
         }
         $config->save();
+
+        // Historial: quién cambió píxeles, tokens (enmascarados), código de
+        // prueba, verificaciones o el interruptor de medición.
+        $auditDespues = [];
+        foreach (array_keys(\App\Services\Marketplace\SettingsAudit::FIELDS) as $f) {
+            $auditDespues[$f] = $config->{$f} ?? null;
+        }
+        \App\Services\Marketplace\SettingsAudit::recordChanges($auditAntes, $auditDespues, 'Desde el panel');
 
         \Cache::forget('system_config');
 
