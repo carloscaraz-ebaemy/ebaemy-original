@@ -139,7 +139,11 @@ class ProductFeedFormatter
      *  - custom_label_2 = «tienda_<subdominio>»: no cambia aunque la tienda se
      *    renombre (custom_label_0 lleva el nombre comercial, que sí cambia y
      *    dejaría vacío el conjunto sin avisar).
-     *  - custom_label_3 = «cat_<categoría raíz>».
+     *  - custom_label_3 = «cat_<categoría raíz>»: la rama entera (Navidad con
+     *    todas sus subcategorías).
+     *  - custom_label_4 = «sub_<raíz>_<subcategoría>»: una sola subcategoría
+     *    («sub_navidad_arboles-de-navidad»). El product_type no sirve para
+     *    esto: lleva la categoría que cada tienda inventó («Navidad 2025»).
      */
     public function campaignLabelsXml(?string $subdomain, ?int $categoryId): string
     {
@@ -150,6 +154,10 @@ class ProductFeedFormatter
         }
         if ($root = $this->rootCategory($categoryId)) {
             $xml .= '    <g:custom_label_3>' . $esc('cat_' . $root) . "</g:custom_label_3>\n";
+            $parts = explode('/', trim((string) ($this->slugs[$categoryId] ?? ''), '/'));
+            if (count($parts) > 1) {
+                $xml .= '    <g:custom_label_4>' . $esc(mb_substr('sub_' . $parts[0] . '_' . $parts[1], 0, 100)) . "</g:custom_label_4>\n";
+            }
         }
 
         return $xml;
