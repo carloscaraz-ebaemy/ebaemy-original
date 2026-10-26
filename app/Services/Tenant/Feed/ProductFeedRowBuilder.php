@@ -69,10 +69,22 @@ class ProductFeedRowBuilder
         foreach ($items as $item) {
             $variants = $item->has_variants ? $item->variants : collect();
 
-            // has_variants=1 sin variantes activas sigue siendo un producto
-            // vendible: cae a la fila del padre en vez de desaparecer del feed.
+            // Sin foto no se anuncia: antes viajaba el placeholder «imagen no
+            // disponible» y Meta lo publicaba tal cual (76 en alasitas el
+            // 2026-10-26). La variante necesita foto PROPIA, salvo que el
+            // producto pida usar la del padre para todas; con la del padre
+            // heredada el anuncio enseña otro color/modelo.
+            $variants = $variants->filter(fn ($v) => $item->use_parent_image_for_variants
+                ? $this->usable($item->image)
+                : $this->usable($v->image));
+
+            // has_variants=1 sin variantes activas (o ninguna con foto) sigue
+            // siendo un producto vendible: cae a la fila del padre en vez de
+            // desaparecer del feed, siempre que tenga alguna foto.
             if ($variants->isEmpty()) {
-                $rows->push($this->parentRow($item));
+                if ($this->itemImage($item) !== null) {
+                    $rows->push($this->parentRow($item));
+                }
                 continue;
             }
 
@@ -218,7 +230,8 @@ class ProductFeedRowBuilder
         return asset('storage/uploads/items/' . $image);
     }
 
-    private function itemImage(Item $item): string
+    /** null = el producto no tiene ninguna foto real y no entra al feed. */
+    private function itemImage(Item $item): ?string
     {
         if ($this->usable($item->image)) {
             return $this->uploadUrl($item->image);
@@ -230,7 +243,7 @@ class ProductFeedRowBuilder
             return $this->uploadUrl($fromVariant);
         }
 
-        return asset('logo/' . self::NO_IMAGE);
+        return null;
     }
 
     private function extraImages(Item $item): array

@@ -129,15 +129,8 @@ class MetaFeedService
         $xml .= "  <link href=\"{$this->baseUrl}\" rel=\"alternate\" type=\"text/html\"/>\n";
         $xml .= "  <updated>" . now()->toIso8601String() . "</updated>\n";
 
-        foreach ($items as $item) {
-            if ($item->has_variants && $item->variants->where('is_active', true)->count() > 0) {
-                // Generar una entrada por variante
-                foreach ($item->variants->where('is_active', true) as $variant) {
-                    $xml .= $this->buildEntry($item, $variant);
-                }
-            } else {
-                $xml .= $this->buildEntry($item);
-            }
+        foreach ($this->feedEntries($items) as [$item, $variant]) {
+            $xml .= $this->buildEntry($item, $variant);
         }
 
         $xml .= "</feed>\n";
@@ -152,6 +145,33 @@ class MetaFeedService
         });
 
         return $xml;
+    }
+
+    /**
+     * Qué entra al catálogo: [item, variante|null]. Sin foto no se anuncia
+     * (antes viajaba el placeholder «imagen no disponible»). La variante
+     * necesita foto propia; si ninguna la tiene, va el padre con la suya.
+     * Misma regla que ProductFeedRowBuilder y el feed del marketplace.
+     */
+    protected function feedEntries($items): array
+    {
+        $conFoto = fn ($img) => $img && $img !== 'imagen-no-disponible.jpg';
+        $entries = [];
+
+        foreach ($items as $item) {
+            $variants = $item->has_variants ? $item->variants->where('is_active', true) : collect();
+            $withImage = $variants->filter(fn ($v) => $conFoto($v->image));
+
+            if ($withImage->isNotEmpty()) {
+                foreach ($withImage as $variant) {
+                    $entries[] = [$item, $variant];
+                }
+            } elseif ($conFoto($item->image)) {
+                $entries[] = [$item, null];
+            }
+        }
+
+        return $entries;
     }
 
     protected function buildEntry(Item $item, $variant = null): string
@@ -268,14 +288,8 @@ class MetaFeedService
         $header = "id,item_group_id,title,description,availability,condition,price,link,image_link,brand,product_type,color,size,inventory\n";
         $rows = '';
 
-        foreach ($items as $item) {
-            if ($item->has_variants && $item->variants->where('is_active', true)->count() > 0) {
-                foreach ($item->variants->where('is_active', true) as $variant) {
-                    $rows .= $this->buildCsvRow($item, $variant);
-                }
-            } else {
-                $rows .= $this->buildCsvRow($item);
-            }
+        foreach ($this->feedEntries($items) as [$item, $variant]) {
+            $rows .= $this->buildCsvRow($item, $variant);
         }
 
         $csv = $header . $rows;
