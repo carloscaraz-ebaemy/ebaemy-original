@@ -95,6 +95,9 @@ Disallow: /system
 Disallow: /api/
 Disallow: /tenancy/
 Disallow: /storage/uploads/
+# La imagen para compartir (og:image) vive aqui: sin este Allow, Facebook
+# respeta el Disallow y da «Imagen danada» al compartir ebaemy.com.
+Allow: /storage/uploads/system/
 Disallow: /seller/application/
 Disallow: /marketplace/gracias/
 
