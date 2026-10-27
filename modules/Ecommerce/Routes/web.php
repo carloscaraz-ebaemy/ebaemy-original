@@ -29,7 +29,12 @@ Route::get('/libro-reclamaciones', function () {
 // ========== SEO - Rutas públicas (sin auth ni middleware) ==========
 // `/sitemap.xml` es la ubicacion que los rastreadores sondean por costumbre,
 // asi que se conserva como redireccion permanente a la de verdad.
-Route::get('/sitemap.xml', fn () => redirect('/ecommerce/sitemap.xml', 301));
+// En el dominio central (ebaemy.com) no hay sitemap de tienda: el 301 a
+// /ecommerce/sitemap.xml acababa en 404 y Search Console marcaba «Error de
+// procesamiento». Alli /sitemap.xml lleva al del marketplace.
+Route::get('/sitemap.xml', fn () => app(\Hyn\Tenancy\Environment::class)->tenant()
+    ? redirect('/ecommerce/sitemap.xml', 301)
+    : redirect('/sitemap-marketplace.xml', 301));
 Route::get('/robots.txt', '\Modules\Ecommerce\Http\Controllers\RobotsController@index');
 // La direccion BUENA del sitemap es esta, dentro de /ecommerce/.
 //
