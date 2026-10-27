@@ -1661,6 +1661,27 @@ class MarketplaceController extends Controller
     }
 
     /**
+     * Enlaces cortos para anuncios y redes: /m, /m/t/{tienda}, /m/c/{categoría}.
+     * 301 a la URL canónica CONSERVANDO la query: los utm_* y el fbclid del
+     * anuncio tienen que llegar a la página de destino, que es donde
+     * mp.attribution los registra.
+     */
+    public function shortLink(Request $request)
+    {
+        // Por nombre: Laravel pasa los parámetros por posición y los defaults
+        // de la ruta van al final, así que una firma ($kind, $path) se cruza.
+        $path = (string) $request->route('path');
+        $url = match ($request->route('kind')) {
+            't'     => route('marketplace.tenant', strtolower($path)),
+            'c'     => route('marketplace.category_official', strtolower($path)),
+            default => route('marketplace.index'),
+        };
+        $qs = $request->getQueryString();
+
+        return redirect()->to($qs ? $url . '?' . $qs : $url, 301);
+    }
+
+    /**
      * Página pública de una tienda dentro del marketplace central.
      * URL: /marketplace/tienda/{subdomain}
      *

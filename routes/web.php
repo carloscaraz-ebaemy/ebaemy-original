@@ -1734,6 +1734,12 @@ if ($hostname) {
              ->where('subdomain', '[a-z0-9][a-z0-9\-]{1,62}')
              ->middleware('mp.attribution')
              ->name('marketplace.tenant');
+        // Enlaces cortos para anuncios: ebaemy.com/m/t/alasitas → la tienda.
+        Route::get('m',                                 'MarketplaceController@shortLink')->name('marketplace.short');
+        Route::get('m/t/{path}',                        'MarketplaceController@shortLink')
+             ->where('path', '[A-Za-z0-9][A-Za-z0-9\-]{1,62}')->defaults('kind', 't')->name('marketplace.short.tenant');
+        Route::get('m/c/{path}',                        'MarketplaceController@shortLink')
+             ->where('path', '[A-Za-z0-9\-/]+')->defaults('kind', 'c')->name('marketplace.short.category');
         Route::get('marketplace/item/{slug}',           'MarketplaceController@show')
              ->middleware('mp.attribution')->name('marketplace.item');
         Route::get('marketplace/go/{slug}',       'MarketplaceController@go')->name('marketplace.go');
