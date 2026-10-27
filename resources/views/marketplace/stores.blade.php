@@ -61,8 +61,10 @@
 .mp-store { background: #fff; border: 1px solid var(--mp-line, #e5e7eb); border-radius: 16px; overflow: hidden; display: flex; flex-direction: column; text-decoration: none; color: inherit; transition: box-shadow .15s, transform .15s, border-color .15s; }
 .mp-store:hover { box-shadow: 0 10px 28px rgba(15,23,42,.10); transform: translateY(-2px); border-color: #cbd5e1; text-decoration: none; color: inherit; }
 .mp-store:focus-visible { outline: 3px solid var(--mp-primary, #0f8a82); outline-offset: 2px; }
-.mp-store__photos { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px; background: #f1f5f9; aspect-ratio: 4 / 1; }
-.mp-store__photos img { width: 100%; height: 100%; object-fit: contain; background: #fff; display: block; }
+/* Cuatro cuadrados iguales: la foto entera (contain, nunca recortada) sobre blanco. */
+.mp-store__photos { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px; background: #f1f5f9; }
+.mp-store__photos > * { aspect-ratio: 1 / 1; width: 100%; height: auto; min-width: 0; background: #fff; display: block; }
+.mp-store__photos img { object-fit: contain; }
 .mp-store__body { padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 10px; flex: 1; }
 .mp-store__who { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .mp-store__logo { width: 48px; height: 48px; border-radius: 12px; border: 1px solid var(--mp-line, #e5e7eb); background: #fff; object-fit: contain; flex: none; }
