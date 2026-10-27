@@ -1938,8 +1938,18 @@ if ($hostname) {
         // acumularse en la que de verdad queremos posicionar. Con 301 se
         // consolida toda en /marketplace, que es la que tiene el titulo, la
         // descripcion y el JSON-LD de la marca.
-        Route::get('/', function () {
-            return redirect()->route('marketplace.index', [], 301);
+        //
+        // Excepcion: los lectores de vista previa (WhatsApp, Facebook,
+        // Telegram...) no siempre siguen el 301, y entonces «ebaemy.com»
+        // compartido sale sin foto ni titulo. A ellos se les sirve una ficha
+        // con las etiquetas del marketplace y canonical a /marketplace.
+        // Google no esta en la lista: sigue viendo el 301.
+        Route::get('/', function (\Illuminate\Http\Request $request) {
+            $previewBots = '/facebookexternalhit|Facebot|WhatsApp|Twitterbot|TelegramBot|Slackbot|LinkedInBot|Discordbot|Pinterest|SkypeUriPreview|redditbot|Viber|vkShare|Embedly/i';
+            if (preg_match($previewBots, (string) $request->userAgent())) {
+                return response()->view('marketplace.share-card')->header('Vary', 'User-Agent');
+            }
+            return redirect()->route('marketplace.index', [], 301)->header('Vary', 'User-Agent');
         });
 
         Route::middleware('auth:admin')->group(function () {
