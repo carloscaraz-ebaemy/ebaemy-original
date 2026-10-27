@@ -39,6 +39,8 @@ class StoreShippingController extends Controller
             'pickup_district.required_if' => 'Indica en qué distrito se recoge.',
             'lima_days_max.gte'         => 'El máximo de días en Lima no puede ser menor que el mínimo.',
             'province_transit_max.gte'  => 'El máximo de días de viaje no puede ser menor que el mínimo.',
+            'province_agencies.max'     => 'Elige como máximo ' . StoreShipping::MAX_AGENCIES . ' agencias.',
+            'cutoff_time.date_format'   => 'La hora de corte no es válida.',
         ]);
 
         $shipping->save($data);

@@ -83,6 +83,7 @@
                     <div class="ss__row">
                         <span>Agencias</span>
                         <el-select v-model="f.province_agencies" multiple filterable allow-create default-first-option
+                                   :multiple-limit="12"
                                    size="small" placeholder="Shalom, Olva…" class="ss__sel ss__sel--wide">
                             <el-option v-for="a in catalog" :key="a" :label="a" :value="a"></el-option>
                         </el-select>
@@ -206,12 +207,31 @@ export default {
                         this.close();
                     })
                     .catch(e => {
-                        const d = e.response && e.response.data;
-                        const msg = (d && d.errors && Object.values(d.errors)[0][0]) || (d && d.message) || 'No se pudo guardar';
-                        this.$message.error(msg);
+                        this.$message.error(this.motivoDelError(e));
                     })
                     .then(() => { this.saving = false; });
             });
+        },
+        /**
+         * El motivo que da el servidor, venga como venga.
+         *
+         * En el panel, `Handler::convertValidationExceptionToResponse` manda
+         * los errores SIN el envoltorio de Laravel: `{"campo": ["msg"]}`, no
+         * `{"errors": {...}}`. Buscando solo `errors` y `message`, cualquier
+         * 422 acababa en «No se pudo guardar» y el vendedor no sabia que
+         * corregir. Se aceptan las dos formas.
+         */
+        motivoDelError(e) {
+            const d = e && e.response && e.response.data;
+            if (d && typeof d === 'object') {
+                const mapa = (d.errors && typeof d.errors === 'object') ? d.errors : d;
+                for (const k of Object.keys(mapa)) {
+                    const v = mapa[k];
+                    if (Array.isArray(v) && typeof v[0] === 'string') return v[0];
+                }
+                if (typeof d.message === 'string' && d.message) return d.message;
+            }
+            return 'No se pudo guardar. Revisa los datos e inténtalo otra vez.';
         },
         close() {
             this.$emit('update:visible', false);

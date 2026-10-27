@@ -27,6 +27,7 @@ class StoreShipping
 {
     public const LIMA_MODES     = ['free', 'fixed', 'quote'];
     public const PROVINCE_MODES = ['free', 'fixed', 'destination', 'quote'];
+    public const MAX_AGENCIES   = 12;
 
     private ?ShippingSetting $settings = null;
 
@@ -247,7 +248,10 @@ class StoreShipping
             'province_handling_days' => ['required', 'integer', 'min:0', 'max:15'],
             'province_transit_min'   => ['required', 'integer', 'min:0', 'max:30'],
             'province_transit_max'   => ['required', 'integer', 'min:0', 'max:30', 'gte:province_transit_min'],
-            'province_agencies'      => ['nullable', 'array', 'max:6'],
+            // El mismo tope que el selector (`MAX_AGENCIES` en el formulario).
+            // Estaba en 6 sin que el selector lo supiera: elegir 7 agencias
+            // devolvia 422 y el vendedor veia «No se pudo guardar».
+            'province_agencies'      => ['nullable', 'array', 'max:' . self::MAX_AGENCIES],
             'province_agencies.*'    => ['string', 'max:60'],
             'agency_fee_mode'        => ['nullable', Rule::in(array_keys(ShippingSetting::FEE_MODES))],
             'agency_fee'             => ['nullable', 'numeric', 'min:0', 'max:999', 'required_if:agency_fee_mode,amount'],
