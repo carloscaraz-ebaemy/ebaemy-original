@@ -56,7 +56,9 @@
 .mp-co-store-block + .mp-co-store-block { border-top: 1px dashed #e5e7eb; }
 .mp-co-store-block .name { font-weight: 600; font-size: 13px; color: var(--mp-ink, #111827); }
 .mp-co-store-block .meta { font-size: 12px; color: #6b7280; }
-.mp-co-line { display: flex; justify-content: space-between; padding: 4px 0; font-size: 13px; }
+.mp-co-line { display: flex; justify-content: space-between; gap: 12px; padding: 4px 0; font-size: 13px; }
+/* El importe nunca se parte («S/» en una linea y la cifra en otra). */
+.mp-co-line .price, .mp-co-line [data-summary-subtotal], .mp-co-line [data-summary-discount] { white-space: nowrap; }
 .mp-co-line .price { color: #6b7280; }
 .mp-co-totals { padding-top: 14px; border-top: 1px solid #e5e7eb; margin-top: 12px; }
 .mp-co-totals .total {
