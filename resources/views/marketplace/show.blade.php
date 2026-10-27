@@ -10,6 +10,8 @@
     $seoKeywords    = $listing->title . ', ' . ($listing->category_name ?? '') . ', ' . $listing->seller_display . ', marketplace ebaemy';
     $seoImage       = $listing->image_url ?: asset('logo/logo.png');
     $canonical      = route('marketplace.item', $listing->slug);
+    $shareImage     = $listing->image_url ? route('marketplace.share.image', $listing->id) : $seoImage;
+    $shortUrl       = route('marketplace.share.product', $listing->id);
     $ldDescription  = \Illuminate\Support\Str::limit(strip_tags($listing->description ?? $listing->title), 500);
     $ldUrl          = route('marketplace.item', $listing->slug);
     $ldPrice        = number_format($listing->display_price, 2, '.', '');
@@ -118,9 +120,10 @@
 @section('keywords', $seoKeywords)
 @section('og_title', $listing->title)
 @section('og_description', $seoDescription)
-@section('og_image', $seoImage)
-{{-- La imagen social es la variante _mp, cuadrada 1080x1080. Declaramos esas
-     dimensiones exactas para que WhatsApp/Facebook NO descarten el preview. --}}
+{{-- La imagen social es la foto en JPG 1080x1080 (/m/i/{id}): el catalogo
+     solo tiene WebP y con WebP WhatsApp a menudo deja el enlace sin foto.
+     Declaramos esas dimensiones exactas para que no descarten el preview. --}}
+@section('og_image', $shareImage)
 @section('og_image_width', '1080')
 @section('og_image_height', '1080')
 @section('og_type', 'product')
@@ -971,7 +974,7 @@
                            . (!empty($listing->is_on_offer) && !empty($listing->discount_pct)
                                 ? "\n⚡ ¡Oferta -" . $listing->discount_pct . '%! Solo S/ ' . number_format($listing->display_price, 2)
                                 : "\nDesde S/ " . number_format($listing->display_price, 2))
-                           . "\n\n" . route('marketplace.item', $listing->slug);
+                           . "\n\n" . $shortUrl;
                 $shareUrl = 'https://wa.me/?text=' . rawurlencode($shareText);
             @endphp
             <a href="{{ $shareUrl }}" target="_blank" rel="noopener nofollow"

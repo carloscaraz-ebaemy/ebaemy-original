@@ -1743,6 +1743,13 @@ if ($hostname) {
              ->where('path', '[A-Za-z0-9][A-Za-z0-9\-]{1,62}')->defaults('kind', 't')->name('marketplace.short.tenant');
         Route::get('m/c/{path}',                        'MarketplaceController@shortLink')
              ->where('path', '[A-Za-z0-9\-/]+')->defaults('kind', 'c')->name('marketplace.short.category');
+        // Compartir un producto: enlace corto y foto JPG para la vista previa.
+        // m/i va SIN .jpg: nginx sirve como estatico todo lo que acaba en .jpg
+        // y daria 404 sin llegar a PHP.
+        Route::get('m/p/{id}',                          'MarketplaceController@shareProduct')
+             ->whereNumber('id')->name('marketplace.share.product');
+        Route::get('m/i/{id}',                          'MarketplaceController@shareImage')
+             ->whereNumber('id')->name('marketplace.share.image');
         Route::get('marketplace/item/{slug}',           'MarketplaceController@show')
              ->middleware('mp.attribution')->name('marketplace.item');
         Route::get('marketplace/go/{slug}',       'MarketplaceController@go')->name('marketplace.go');
@@ -1945,8 +1952,7 @@ if ($hostname) {
         // con las etiquetas del marketplace y canonical a /marketplace.
         // Google no esta en la lista: sigue viendo el 301.
         Route::get('/', function (\Illuminate\Http\Request $request) {
-            $previewBots = '/facebookexternalhit|Facebot|WhatsApp|Twitterbot|TelegramBot|Slackbot|LinkedInBot|Discordbot|Pinterest|SkypeUriPreview|redditbot|Viber|vkShare|Embedly/i';
-            if (preg_match($previewBots, (string) $request->userAgent())) {
+            if (\App\Http\Controllers\MarketplaceController::isPreviewBot($request)) {
                 return response()->view('marketplace.share-card')->header('Vary', 'User-Agent');
             }
             return redirect()->route('marketplace.index', [], 301)->header('Vary', 'User-Agent');

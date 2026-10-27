@@ -1682,6 +1682,103 @@ class MarketplaceController extends Controller
     }
 
     /**
+     * Lectores de vista previa de enlaces. No siempre siguen un 301, asi que
+     * a ellos se les sirve la ficha con las etiquetas og en vez de redirigir.
+     * Google no esta: sigue viendo los 301 y el SEO no cambia.
+     */
+    public const PREVIEW_BOTS = '/facebookexternalhit|Facebot|WhatsApp|Twitterbot|TelegramBot|Slackbot|LinkedInBot|Discordbot|Pinterest|SkypeUriPreview|redditbot|Viber|vkShare|Embedly/i';
+
+    public static function isPreviewBot(Request $request): bool
+    {
+        return (bool) preg_match(self::PREVIEW_BOTS, (string) $request->userAgent());
+    }
+
+    /**
+     * Enlace corto para compartir un producto: ebaemy.com/m/p/{id}.
+     * La persona va a la ficha (301); WhatsApp/Facebook reciben la ficha de
+     * vista previa con la foto del producto en JPG.
+     */
+    public function shareProduct(Request $request, int $id)
+    {
+        $listing = MarketplaceListing::published()->find($id);
+        if (!$listing) {
+            abort(404);
+        }
+        $url = route('marketplace.item', $listing->slug);
+
+        if (self::isPreviewBot($request)) {
+            $card = [
+                'type'        => 'product',
+                'title'       => $listing->title,
+                'description' => 'S/ ' . number_format($listing->display_price, 2) . ' · ' . $listing->seller_display . ' en ebaemy',
+                'image'       => $listing->image_url ? route('marketplace.share.image', $listing->id) : null,
+                'width'       => $listing->image_url ? 1080 : null,
+                'height'      => $listing->image_url ? 1080 : null,
+                'url'         => $url,
+            ];
+            return response()->view('marketplace.share-card', compact('card'))->header('Vary', 'User-Agent');
+        }
+
+        $qs = $request->getQueryString();
+        return redirect()->to($qs ? $url . '?' . $qs : $url, 301)->header('Vary', 'User-Agent');
+    }
+
+    /**
+     * Foto del producto en JPG 1080x1080 para las vistas previas.
+     *
+     * El catalogo guarda solo WebP y WhatsApp a menudo no pinta la vista
+     * previa con WebP: el enlace sale sin foto. Se genera una vez a partir de
+     * la version `_mp` (cuadrada) y se guarda; si la foto del producto cambia,
+     * cambia el nombre del archivo y se regenera sola.
+     */
+    public function shareImage(int $id)
+    {
+        $listing = MarketplaceListing::published()->find($id);
+        if (!$listing || !$listing->image_url) {
+            abort(404);
+        }
+
+        $dir  = storage_path('app/public/uploads/share');
+        $file = $dir . '/p' . $listing->id . '-' . substr(md5($listing->image_url), 0, 10) . '.jpg';
+
+        if (!is_file($file)) {
+            $rel   = parse_url($listing->image_url, PHP_URL_PATH);
+            $local = $rel && str_starts_with($rel, '/storage/')
+                ? storage_path('app/public/' . substr($rel, strlen('/storage/')))
+                : null;
+            $bytes = ($local && is_file($local)) ? @file_get_contents($local) : @file_get_contents($listing->image_url);
+            $src   = $bytes ? @imagecreatefromstring($bytes) : false;
+            if (!$src) {
+                return redirect()->to($listing->image_url, 302);
+            }
+
+            // Lienzo blanco 1080x1080 con la foto entera y centrada: nunca se
+            // recorta el producto ni se deforma.
+            $size = 1080;
+            $dst  = imagecreatetruecolor($size, $size);
+            imagefill($dst, 0, 0, imagecolorallocate($dst, 255, 255, 255));
+            $w = imagesx($src);
+            $h = imagesy($src);
+            $scale = min($size / $w, $size / $h);
+            $nw = (int) round($w * $scale);
+            $nh = (int) round($h * $scale);
+            imagecopyresampled($dst, $src, (int) (($size - $nw) / 2), (int) (($size - $nh) / 2), 0, 0, $nw, $nh, $w, $h);
+
+            if (!is_dir($dir)) {
+                @mkdir($dir, 0775, true);
+            }
+            imagejpeg($dst, $file, 85);
+            imagedestroy($src);
+            imagedestroy($dst);
+        }
+
+        return response()->file($file, [
+            'Content-Type'  => 'image/jpeg',
+            'Cache-Control' => 'public, max-age=604800',
+        ]);
+    }
+
+    /**
      * Página pública de una tienda dentro del marketplace central.
      * URL: /marketplace/tienda/{subdomain}
      *

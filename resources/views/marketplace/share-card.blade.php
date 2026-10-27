@@ -1,4 +1,4 @@
-{{-- Ficha de vista previa de ebaemy.com para WhatsApp/Facebook/Telegram (ver la ruta «/»). Mismos datos que marketplace/layout. --}}
+{{-- Ficha de vista previa para WhatsApp/Facebook/Telegram: la de ebaemy.com (ruta «/») y la de cada producto (/m/p/{id}). --}}
 @php
     $mpCfg     = \App\Models\System\Configuration::firstCached();
     $mpOgTitle = $mpCfg->marketplace_og_title ?? 'Marketplace ebaemy — Compra de tiendas verificadas';
@@ -6,6 +6,15 @@
     $mpOgImage = $mpCfg ? $mpCfg->marketplace_og_image_url : asset('logo/logo.jpg');
     $mpOgMeta  = $mpCfg ? $mpCfg->marketplaceOgImageMeta() : null;
     $mpUrl     = route('marketplace.index');
+    // Ficha de un producto (MarketplaceController@shareProduct): sus datos
+    // sustituyen a los del marketplace.
+    if (!empty($card)) {
+        $mpOgTitle = $card['title'];
+        $mpOgDesc  = $card['description'];
+        $mpOgImage = $card['image'] ?: $mpOgImage;
+        $mpOgMeta  = $card['image'] ? ['width' => $card['width'], 'height' => $card['height']] : $mpOgMeta;
+        $mpUrl     = $card['url'];
+    }
 @endphp
 <!doctype html>
 <html lang="es">
@@ -16,7 +25,7 @@
     <link rel="canonical" href="{{ $mpUrl }}">
     <meta property="og:site_name" content="ebaemy Marketplace">
     <meta property="og:locale" content="es_PE">
-    <meta property="og:type" content="website">
+    <meta property="og:type" content="{{ $card['type'] ?? 'website' }}">
     <meta property="og:title" content="{{ $mpOgTitle }}">
     <meta property="og:description" content="{{ $mpOgDesc }}">
     <meta property="og:image" content="{{ $mpOgImage }}">
