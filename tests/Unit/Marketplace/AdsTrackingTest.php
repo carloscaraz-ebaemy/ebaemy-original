@@ -240,6 +240,23 @@ class AdsTrackingTest extends TestCase
         $this->assertSame([], AdsTracking::consentColumn());
     }
 
+    /**
+     * La sesion caduca a las 2 h: la decision tiene que sobrevivir en la
+     * cookie, o el aviso de cookies vuelve a salir cada vez que se regresa.
+     */
+    public function test_la_decision_se_recuerda_por_cookie_sin_sesion()
+    {
+        $container = \Illuminate\Container\Container::getInstance();
+        $container->instance('request', new Request([], [], [], [AdsTracking::CONSENT_KEY => 'denied']));
+
+        try {
+            $this->assertSame('denied', AdsTracking::consentState());
+            $this->assertFalse(AdsTracking::hasConsent());
+        } finally {
+            $container->forgetInstance('request');
+        }
+    }
+
     // ── Identificadores desde el pedido (webhook de la pasarela) ──────────
 
     /**
@@ -300,6 +317,7 @@ class AdsTrackingTest extends TestCase
 
         $container = new \Illuminate\Container\Container();
         $container->instance('session', $this->sesion);
+        \Illuminate\Container\Container::setInstance($container);
         \Illuminate\Support\Facades\Facade::setFacadeApplication($container);
     }
 

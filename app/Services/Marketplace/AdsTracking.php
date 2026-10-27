@@ -34,6 +34,9 @@ class AdsTracking
     /** Clave de sesión del consentimiento de cookies de medición. */
     public const CONSENT_KEY = 'mp_ads_consent';
 
+    /** Cuanto se recuerda la decision del aviso de cookies en el dispositivo. */
+    public const CONSENT_DAYS = 365;
+
     // ══════════════════════════════════════════════════════════════
     // Configuración
     // ══════════════════════════════════════════════════════════════
@@ -89,7 +92,7 @@ class AdsTracking
      */
     public static function hasConsent(): bool
     {
-        return Session::get(self::CONSENT_KEY) === 'granted';
+        return static::consentState() === 'granted';
     }
 
     /**
@@ -100,7 +103,12 @@ class AdsTracking
      */
     public static function consentState(): ?string
     {
-        $v = Session::get(self::CONSENT_KEY);
+        // La sesion caduca a las 2 h sin uso: si solo se guardara ahi, el
+        // aviso de cookies volvia a salir cada vez que el comprador regresaba.
+        // La cookie de CONSENT_DAYS recuerda la decision en el dispositivo.
+        // Sin peticion (colas, consola) no hay cookie que leer.
+        $v = Session::get(self::CONSENT_KEY)
+            ?: (app()->bound('request') ? request()->cookie(self::CONSENT_KEY) : null);
 
         return in_array($v, ['granted', 'denied'], true) ? $v : null;
     }

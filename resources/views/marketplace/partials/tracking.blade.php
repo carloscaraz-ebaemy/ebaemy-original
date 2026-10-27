@@ -29,6 +29,8 @@
     // duplicaría, además de meter el banner de cookies dentro del sheet.
     $adsOn       = AdsTracking::browserEnabled() && !request('embed');
     $adsConsent  = AdsTracking::hasConsent();
+    // El aviso sale solo si aun no decidio: antes salia tambien tras «Rechazar».
+    $adsDecided  = AdsTracking::consentState() !== null;
     $adsConsentUrl = route('marketplace.ads.consent');
 
     // Lo que el JS necesita saber. Los tokens de servidor NO salen de aquí:
@@ -220,7 +222,7 @@
 })();
 </script>
 
-@unless($adsConsent)
+@unless($adsDecided)
 {{-- Banner de consentimiento. Hasta que el comprador decida, no se ha cargado
      ningún píxel: el marketplace es público y de cara a consumidores peruanos
      (Ley 29733). Mobile-first: el aviso es una barra inferior que no tapa el

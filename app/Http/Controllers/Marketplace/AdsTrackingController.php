@@ -32,6 +32,6 @@ class AdsTrackingController extends Controller
         return response()->json([
             'success' => true,
             'consent' => $data['consent'],
-        ]);
+        ])->cookie(AdsTracking::CONSENT_KEY, $data['consent'], AdsTracking::CONSENT_DAYS * 24 * 60);
     }
 }
