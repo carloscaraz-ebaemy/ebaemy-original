@@ -32,6 +32,7 @@
             'priceCurrency' => 'PEN',
             'price'         => $ldPrice,
             'availability'  => $ldAvailability,
+            'itemCondition' => 'https://schema.org/NewCondition',
             'seller'        => [
                 '@type' => 'Organization',
                 'name'  => $listing->seller_display,

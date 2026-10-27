@@ -85,6 +85,14 @@
             ->first();
     }
 @endphp
+{{-- La portada no tenia <h1>: el encabezado principal es lo primero que
+     Google lee para saber de que trata la pagina, y aqui debe decir «tiendas»
+     junto a la marca, que es como nos buscan («ebaemy tiendas»). Oculto a la
+     vista (el diseno ya tiene su cabecera) pero presente para buscadores y
+     lectores de pantalla. --}}
+<h1 style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0">
+    @if($q)Resultados para «{{ $q }}» en ebaemy@else ebaemy: tiendas peruanas verificadas en un solo marketplace@endif
+</h1>
 {{-- Banner de cupones por vencer (item 8 roadmap visibilidad).
      Solo se renderiza si el comprador logueado tiene cupones que
      vencen en <=72h. Muestra los 3 ms prximos como pills con

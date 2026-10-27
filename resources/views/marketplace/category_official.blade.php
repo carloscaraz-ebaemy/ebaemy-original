@@ -55,6 +55,10 @@
 @section('og_title', $category->name . ' en Marketplace ebaemy')
 @section('og_description', $total . ' productos de ' . $category->name . ' en ebaemy.com.')
 @section('canonical', $categoryUrl)
+{{-- Sin productos no aporta nada al buscador y diluye el sitio: fuera del indice hasta que tenga. --}}
+@if(empty($total))
+@section('robots', 'noindex, follow')
+@endif
 
 @push('styles')
 <script type="application/ld+json">

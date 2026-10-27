@@ -2102,13 +2102,6 @@ class MarketplaceController extends Controller
             ->limit(40000) // límite seguro, sitemap máx 50k
             ->get(['slug', 'updated_at', 'image_url', 'title']);
 
-        // Categorías publicadas — cada una expone una página canónica con SEO propio
-        $categories = MarketplaceListing::published()
-            ->whereNotNull('category_name')
-            ->select('category_name')
-            ->groupBy('category_name')
-            ->pluck('category_name');
-
         $xml  = '<?xml version="1.0" encoding="UTF-8"?>' . "\n";
         $xml .= '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" '
               . 'xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">' . "\n";
@@ -2121,7 +2114,25 @@ class MarketplaceController extends Controller
             ->visible()
             ->orderBy('full_slug')
             ->get(['full_slug', 'updated_at']);
+        // Solo las que tienen productos (propios o de alguna subcategoria):
+        // 148 de 226 estaban vacias y le pedian a Google indexar paginas sin
+        // contenido. Esas paginas llevan ademas `noindex`.
+        $conProductos = [];
+        $slugsConListings = MarketplaceCategory::query()
+            ->whereIn('id', MarketplaceListing::published()->whereNotNull('marketplace_category_id')
+                ->distinct()->pluck('marketplace_category_id'))
+            ->pluck('full_slug');
+        foreach ($slugsConListings as $slug) {
+            $partes = explode('/', (string) $slug);
+            while ($partes) {
+                $conProductos[implode('/', $partes)] = true;
+                array_pop($partes);
+            }
+        }
         foreach ($officialCategories as $oc) {
+            if (!isset($conProductos[$oc->full_slug])) {
+                continue;
+            }
             $xml .= $this->sitemapUrl(
                 url('/marketplace/c/' . $oc->full_slug),
                 $oc->updated_at ?: now(),
@@ -2130,15 +2141,9 @@ class MarketplaceController extends Controller
             );
         }
 
-        // Legacy category_name — transición. Google seguirá las 301s al índice oficial.
-        foreach ($categories as $cat) {
-            $xml .= $this->sitemapUrl(
-                url('/marketplace/categoria/' . \Illuminate\Support\Str::slug($cat)),
-                now(),
-                '0.5',
-                'daily'
-            );
-        }
+        // Las categorias legacy (/marketplace/categoria/...) ya no se anuncian:
+        // repetian el contenido de las oficiales y algunas eran 301. Las
+        // paginas siguen respondiendo para los enlaces que ya existen.
 
         // Páginas públicas por tienda — una entrada por seller activo.
         // Tomamos el subdominio del FQDN denormalizado en marketplace_listings
