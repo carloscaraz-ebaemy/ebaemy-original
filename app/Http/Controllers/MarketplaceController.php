@@ -1447,7 +1447,8 @@ class MarketplaceController extends Controller
                         'is_on_offer'    => (bool) $v->is_on_offer,
                         'discount_pct'   => $v->discount_pct ? (int) $v->discount_pct : null,
                         'stock'          => (int) $v->stock,
-                        'image_url'      => $v->image_url,
+                        // Sin foto propia → la del padre (la de la ficha).
+                        'image_url'      => $v->image_url ?: ($listing->image_full_url ?: null),
                         'display_name'   => $v->display_name,
                     ];
                 }
