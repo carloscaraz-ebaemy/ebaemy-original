@@ -231,9 +231,9 @@
 .mp-footer:has(> .mp-footer-newsletter:first-child) > .mp-footer-grid { padding-top: 40px; }
 /* A 320px el buscador y el boletin se salian de la pantalla. */
 .mp-search-input-wrap { min-width: 0; }
-.mp-footer-newsletter__head { min-width: min(260px, 100%); }
-.mp-footer-newsletter__form { min-width: min(280px, 100%); }
-.mp-footer-newsletter__form input { min-width: 0; }
+.mp-footer .mp-footer-newsletter__head { min-width: min(260px, 100%); }
+.mp-footer .mp-footer-newsletter__form { min-width: min(280px, 100%); }
+.mp-footer .mp-footer-newsletter__form input { min-width: 0; width: 0; flex: 1 1 0; }
 .mp-footer-newsletter {
     background: linear-gradient(135deg, #0a6f68 0%, #1fb1a6 100%);
     padding: 22px 16px;
