@@ -807,32 +807,41 @@
                     // producto en la página (Falabella-style — varias copias
                     // sincronizadas pueden existir). Mismo enfoque que el
                     // ecommerce tenant.
-                    if (v.image_url) {
-                        var imgs = Array.from(document.querySelectorAll('img')).filter(function (i) {
-                            return i.src && i.src.indexOf('/uploads/items/') !== -1
-                                && i.offsetWidth >= 200;
-                        });
-                        if (!imgs.length) {
-                            var fallback = document.querySelector('#mpGalleryMain, .mp-gallery img');
-                            if (fallback) imgs = [fallback];
-                        }
-                        imgs.forEach(function (img) {
-                            img.style.transition = 'opacity .15s ease, transform .15s ease';
-                            img.style.opacity = '0';
-                            // Reset del zoom hover (si el cursor sigue sobre la imagen
-                            // al cambiar variante, mouseleave no se dispara — la
-                            // imagen nueva quedaría con scale 1.8). Volvemos a scale 1
-                            // y origin centro para que la imagen entre completa en
-                            // su contenedor.
-                            img.style.transform = 'scale(1)';
-                            img.style.transformOrigin = 'center center';
-                            setTimeout(function () {
-                                img.src = v.image_url;
-                                if (img.dataset.zoomImage !== undefined) img.dataset.zoomImage = v.image_url;
-                                img.style.opacity = '1';
-                            }, 120);
-                        });
+                    //
+                    // Variante SIN foto propia (image_url null): vuelve a la foto
+                    // del producto. Antes se quedaba la del color anterior y el
+                    // comprador veia siempre el mismo color/modelo.
+                    var imgs = Array.from(document.querySelectorAll('img')).filter(function (i) {
+                        return i.src && (i.dataset.mpOrigSrc || i.src.indexOf('/uploads/items/') !== -1)
+                            && i.offsetWidth >= 200;
+                    });
+                    if (!imgs.length) {
+                        var fallback = document.querySelector('#mpGalleryMain, .mp-gallery img');
+                        if (fallback) imgs = [fallback];
                     }
+                    imgs.forEach(function (img) {
+                        if (!img.dataset.mpOrigSrc) img.dataset.mpOrigSrc = img.src;
+                    });
+                    imgs = imgs.filter(function (img) {
+                        return img.src !== (v.image_url || img.dataset.mpOrigSrc);
+                    });
+                    imgs.forEach(function (img) {
+                        var next = v.image_url || img.dataset.mpOrigSrc;
+                        img.style.transition = 'opacity .15s ease, transform .15s ease';
+                        img.style.opacity = '0';
+                        // Reset del zoom hover (si el cursor sigue sobre la imagen
+                        // al cambiar variante, mouseleave no se dispara — la
+                        // imagen nueva quedaría con scale 1.8). Volvemos a scale 1
+                        // y origin centro para que la imagen entre completa en
+                        // su contenedor.
+                        img.style.transform = 'scale(1)';
+                        img.style.transformOrigin = 'center center';
+                        setTimeout(function () {
+                            img.src = next;
+                            if (img.dataset.zoomImage !== undefined) img.dataset.zoomImage = next;
+                            img.style.opacity = '1';
+                        }, 120);
+                    });
                     // Botón Comprar — habilitar/deshabilitar por stock
                     var cartBtn = document.getElementById('mpAddToCartBtn');
                     if (cartBtn) {
