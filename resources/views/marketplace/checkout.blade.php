@@ -26,6 +26,22 @@
     width: 100%; padding: 10px 12px; border: 1px solid #e5e7eb; border-radius: 8px;
     font-size: 14px; font-family: inherit;
 }
+/* La regla de arriba ponia width:100% tambien a la casilla de promociones,
+   que se quedaba flotando en medio de la tarjeta. */
+.mp-co-card input[type=checkbox], .mp-co-card input[type=radio] {
+    width: 18px; height: 18px; padding: 0; flex: none; accent-color: var(--mp-primary, #0f8a82);
+}
+.mp-co-optin { display: flex !important; gap: 12px; align-items: flex-start; cursor: pointer; margin: 0 !important; font-size: 14px; line-height: 1.5; }
+.mp-co-optin input { margin-top: 2px; }
+/* Mismo alto y misma flecha en todos los campos: los <select> nativos salian
+   mas altos, con otra flecha y otro color de texto. */
+.mp-co-card input:not([type=checkbox]):not([type=radio]), .mp-co-card select { height: 44px; }
+.mp-co-card select {
+    -webkit-appearance: none; appearance: none; background-color: #fff; color: var(--mp-ink, #111827);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 12px center; padding-right: 34px;
+}
+.mp-co-card select:disabled { background-color: #f9fafb; color: #9ca3af; cursor: not-allowed; }
 .mp-co-card input:focus, .mp-co-card select:focus, .mp-co-card textarea:focus {
     outline: none; border-color: var(--mp-primary, #0f8a82);
     box-shadow: 0 0 0 3px rgba(15,138,130,.1);
@@ -33,8 +49,11 @@
 .mp-co-summary {
     position: sticky; top: 16px; height: fit-content;
 }
-.mp-co-store-block { padding: 12px 0; border-bottom: 1px dashed #f3f4f6; }
-.mp-co-store-block:last-child { border-bottom: none; }
+/* Separador ENTRE tiendas, no despues de la ultima: el ultimo bloque no es
+   el ultimo hijo (vienen los totales), asi que :last-child nunca aplicaba y
+   salia una linea punteada suelta encima de la de los totales. */
+.mp-co-store-block { padding: 12px 0; }
+.mp-co-store-block + .mp-co-store-block { border-top: 1px dashed #e5e7eb; }
 .mp-co-store-block .name { font-weight: 600; font-size: 13px; color: var(--mp-ink, #111827); }
 .mp-co-store-block .meta { font-size: 12px; color: #6b7280; }
 .mp-co-line { display: flex; justify-content: space-between; padding: 4px 0; font-size: 13px; }
@@ -233,8 +252,8 @@ input.mp-co-invalid, select.mp-co-invalid, textarea.mp-co-invalid {
             </section>
 
             <section class="mp-co-card">
-                <label style="display:flex;gap:10px;align-items:flex-start;cursor:pointer;font-size:14px">
-                    <input type="checkbox" name="accepts_marketing" value="1" {{ old('accepts_marketing') ? 'checked' : '' }} style="margin-top:3px">
+                <label class="mp-co-optin">
+                    <input type="checkbox" name="accepts_marketing" value="1" {{ old('accepts_marketing') ? 'checked' : '' }}>
                     <span>
                         <strong>Acepto recibir promociones y novedades</strong> de ebaemy y sus tiendas verificadas por WhatsApp/email.
                         Podré cancelar la suscripción en cualquier momento desde el enlace incluido en cada mensaje.
@@ -286,11 +305,8 @@ input.mp-co-invalid, select.mp-co-invalid, textarea.mp-co-invalid {
                                 </button>
                             @endif
                         </div>
-                        <div class="mp-co-coupon__msg {{ $appliedCoupon ? 'is-ok' : '' }}" data-coupon-msg>
-                            @if($appliedCoupon)
-                                ✓ Cupón aplicado: -S/ {{ number_format($appliedCoupon['discount'], 2) }}
-                            @endif
-                        </div>
+                        {{-- Sin espacios dentro: vacio tiene que ser :empty para que no deje hueco. --}}
+                        <div class="mp-co-coupon__msg {{ $appliedCoupon ? 'is-ok' : '' }}" data-coupon-msg>{{ $appliedCoupon ? '✓ Cupón aplicado: -S/ ' . number_format($appliedCoupon['discount'], 2) : '' }}</div>
                         <input type="hidden" name="coupons[{{ $store['hostname_id'] }}]" data-coupon-hidden value="{{ $appliedCoupon['code'] ?? '' }}">
                         <input type="hidden" data-applied-discount value="{{ $appliedCoupon['discount'] ?? 0 }}">
                     </div>
@@ -426,8 +442,10 @@ input.mp-co-invalid, select.mp-co-invalid, textarea.mp-co-invalid {
 .mp-co-coupon__msg {
     font-size: 11.5px;
     margin-top: 5px;
-    min-height: 14px;
 }
+.mp-co-coupon__msg:empty { display: none; }
+.mp-co-card .mp-co-coupon__input { height: 40px; padding: 0 12px; border-radius: 8px; }
+.mp-co-coupon__btn { border-radius: 8px; padding: 0 16px; height: 40px; }
 .mp-co-coupon__msg.is-ok    { color: #16a34a; font-weight: 600; }
 .mp-co-coupon__msg.is-error { color: #b91c1c; font-weight: 500; }
 

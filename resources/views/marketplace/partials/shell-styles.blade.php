@@ -222,6 +222,18 @@
 </style>
 
 <style>
+/* Pie sin huecos sueltos: el pie empezaba con 60px de margen gris y 48px de
+   franja oscura vacia antes del boletin, que es su primera pieza. El aire se
+   pasa a la rejilla de enlaces, que es donde hacia falta. */
+.mp-trust-sticky--footer { margin-bottom: 0; }
+.mp-trust-sticky--footer + .mp-footer { margin-top: 0; }
+.mp-footer:has(> .mp-footer-newsletter:first-child) { padding-top: 0; }
+.mp-footer:has(> .mp-footer-newsletter:first-child) > .mp-footer-grid { padding-top: 40px; }
+/* A 320px el buscador y el boletin se salian de la pantalla. */
+.mp-search-input-wrap { min-width: 0; }
+.mp-footer-newsletter__head { min-width: min(260px, 100%); }
+.mp-footer-newsletter__form { min-width: min(280px, 100%); }
+.mp-footer-newsletter__form input { min-width: 0; }
 .mp-footer-newsletter {
     background: linear-gradient(135deg, #0a6f68 0%, #1fb1a6 100%);
     padding: 22px 16px;
