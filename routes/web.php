@@ -869,6 +869,9 @@ if ($hostname) {
             Route::get('store-returns', 'Tenant\StoreReturnsController@show');
             Route::post('store-returns', 'Tenant\StoreReturnsController@save');
             Route::post('store-returns/preview', 'Tenant\StoreReturnsController@preview');
+            // Solicitar publicidad de la tienda a ebaemy (Tienda virtual → Publicidad)
+            Route::get('ad-requests', 'Tenant\AdRequestController@index');
+            Route::post('ad-requests', 'Tenant\AdRequestController@store');
             // Guías de novedades: ¿ya la vio este usuario? (FeatureTour.vue)
             Route::get('feature-tours/{key}', 'Tenant\FeatureTourController@show');
             Route::post('feature-tours/{key}', 'Tenant\FeatureTourController@store');
@@ -2044,6 +2047,8 @@ if ($hostname) {
                 Route::get('reviews',                   'System\MarketplaceAdminController@reviews')->name('reviews');
                 Route::post('reviews/{id}/approve',     'System\MarketplaceAdminController@approveReview')->name('reviews.approve');
                 Route::post('reviews/{id}/reject',      'System\MarketplaceAdminController@rejectReview')->name('reviews.reject');
+                Route::get('publicidad',              'System\MarketplaceAdRequestController@index')->name('ads');
+                Route::post('publicidad/{id}',        'System\MarketplaceAdRequestController@update')->name('ads.update')->whereNumber('id');
                 Route::get('seo',                     'System\MarketplaceAdminController@seo')->name('seo');
                 Route::post('seo',                    'System\MarketplaceAdminController@seoUpdate')->name('seo.update');
                 Route::get('leads',                   'System\MarketplaceAdminController@leads')->name('leads');

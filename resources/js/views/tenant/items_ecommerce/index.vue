@@ -46,6 +46,10 @@
                             title="Tu política de cambios y devoluciones" @click="returnsDialogVisible = true">
                         ↩️ Cambios
                     </button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary mt-2 me-2 ie-ads-btn"
+                            title="Pide a ebaemy que anuncie tus productos en Facebook e Instagram" @click="adsDialogVisible = true">
+                        📣 Publicidad
+                    </button>
                     <a href="/marketplace-dashboard"
                        class="btn btn-sm btn-outline-info mt-2 me-2"
                        title="Ver métricas del marketplace">
@@ -563,6 +567,9 @@
             <!-- Popup: política de cambios y devoluciones (datos → texto publicado) -->
             <store-returns-settings :visible.sync="returnsDialogVisible"></store-returns-settings>
 
+            <!-- Popup: pedir a ebaemy una campaña de publicidad -->
+            <ad-request-settings :visible.sync="adsDialogVisible"></ad-request-settings>
+
             <!-- Popup: ajustar stock (mismo servicio que la pestaña de variantes) -->
             <stock-adjust
                 :visible.sync="stockDialogVisible"
@@ -675,6 +682,7 @@ import WarehousesDetail from "./partials/warehouses.vue";
 import StockAdjust from "./partials/stock_adjust.vue";
 import StoreShippingSettings from "../../../components/StoreShippingSettings.vue";
 import StoreReturnsSettings from "../../../components/StoreReturnsSettings.vue";
+import AdRequestSettings from "../../../components/AdRequestSettings.vue";
 import FeatureTour from "../../../components/FeatureTour.vue";
 
 // Hasta cuándo se marca «Nuevo» en la cabecera de Stock General.
@@ -687,7 +695,7 @@ import { itemRemoval } from "../../../mixins/itemRemoval";
 export default {
     props: [], //'typeUser'
     mixins: [deletable, itemRemoval],
-    components: { ItemsForm, DataTable, WarehousesDetail, StockAdjust, FeatureTour, StoreShippingSettings, StoreReturnsSettings }, //ItemsImport
+    components: { ItemsForm, DataTable, WarehousesDetail, StockAdjust, FeatureTour, StoreShippingSettings, StoreReturnsSettings, AdRequestSettings }, //ItemsImport
     data() {
         return {
             showDialog: false,
@@ -700,6 +708,7 @@ export default {
             shippingReason: '',
             shippingThen: null,
             returnsDialogVisible: false,
+            adsDialogVisible: new URLSearchParams(window.location.search).get('publicidad') === '1',
             fromReturnsInvite: new URLSearchParams(window.location.search).get('cambios') === '1',
             showNewBadge: new Date() <= NOVEDAD_STOCK_HASTA,
             fromInvite: new URLSearchParams(window.location.search).get('publicar') === '1',
