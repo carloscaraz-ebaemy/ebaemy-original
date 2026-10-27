@@ -96,8 +96,8 @@ class AdRequestController extends Controller
                 'ad_request',
                 'Publicidad: ' . $store . ' pide una campaña',
                 'S/ ' . number_format($r->budget, 2) . ' · ' . $r->days . ' días · ' . (MarketplaceAdRequest::SCOPES[$r->scope] ?? $r->scope) . ' · WhatsApp ' . $r->contact_phone,
-                url('/admin/marketplace/publicidad'),
-                'megaphone',
+                '/admin/marketplace/publicidad',
+                '📣',
                 MarketplaceAdRequest::class,
                 $r->id
             );
