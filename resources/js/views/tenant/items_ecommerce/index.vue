@@ -48,7 +48,7 @@
                     </button>
                     <button type="button" class="btn btn-sm btn-outline-secondary mt-2 me-2 ie-ads-btn"
                             title="Pide a ebaemy que anuncie tus productos en Facebook e Instagram" @click="adsDialogVisible = true">
-                        📣 Publicidad
+                        📣 Publicidad<span v-if="showAdsNewBadge" class="ie-new-pill">Nuevo</span>
                     </button>
                     <a href="/marketplace-dashboard"
                        class="btn btn-sm btn-outline-info mt-2 me-2"
@@ -113,8 +113,16 @@
             :auto-start="false"
             :steps="tourPublicarSteps"
         ></feature-tour>
+        <!-- Publicidad (2026-10): un globo sobre el botón, una vez por usuario.
+             Si también toca la guía general, espera su turno (FeatureTour). -->
         <feature-tour
-            v-if="itemsCount !== 0 && !fromInvite && !fromShippingInvite && !fromReturnsInvite"
+            v-if="itemsCount !== 0 && !fromInvite && !fromShippingInvite && !fromReturnsInvite && !fromAdsInvite"
+            tour-key="publicidad-2026-10"
+            :delay="1500"
+            :steps="tourAdsSteps"
+        ></feature-tour>
+        <feature-tour
+            v-if="itemsCount !== 0 && !fromInvite && !fromShippingInvite && !fromReturnsInvite && !fromAdsInvite"
             ref="tour"
             tour-key="tienda-productos-2026-10-v2"
             :steps="tourSteps"
@@ -687,6 +695,7 @@ import FeatureTour from "../../../components/FeatureTour.vue";
 
 // Hasta cuándo se marca «Nuevo» en la cabecera de Stock General.
 const NOVEDAD_STOCK_HASTA = new Date('2026-11-30T23:59:59');
+const NOVEDAD_PUBLICIDAD_HASTA = new Date('2026-12-07T23:59:59');
 // import ItemsImport from './import.vue'
 import DataTable from "../../../components/DataTable.vue";
 import { deletable } from "../../../mixins/deletable";
@@ -709,6 +718,13 @@ export default {
             shippingThen: null,
             returnsDialogVisible: false,
             adsDialogVisible: new URLSearchParams(window.location.search).get('publicidad') === '1',
+            fromAdsInvite: new URLSearchParams(window.location.search).get('publicidad') === '1',
+            showAdsNewBadge: new Date() <= NOVEDAD_PUBLICIDAD_HASTA,
+            tourAdsSteps: [{
+                target: '.ie-ads-btn',
+                title: 'Pide publicidad desde aquí',
+                body: 'Toca Publicidad para que ebaemy anuncie tus productos en Facebook e Instagram. Tú eliges qué anunciar, el presupuesto y los días; te escribimos por WhatsApp para coordinar.',
+            }],
             fromReturnsInvite: new URLSearchParams(window.location.search).get('cambios') === '1',
             showNewBadge: new Date() <= NOVEDAD_STOCK_HASTA,
             fromInvite: new URLSearchParams(window.location.search).get('publicar') === '1',
@@ -774,6 +790,10 @@ export default {
         // recargar no vuelva a lanzar la guía.
         if (this.fromInvite) {
             this.$nextTick(() => { if (this.$refs.tourPublicar) this.$refs.tourPublicar.start(); });
+            try { window.history.replaceState(null, '', window.location.pathname); } catch (e) { /* sin historial */ }
+        }
+        // Viene del aviso de publicidad del Inicio: la ventana ya se abrió.
+        if (this.fromAdsInvite) {
             try { window.history.replaceState(null, '', window.location.pathname); } catch (e) { /* sin historial */ }
         }
         // Viene del aviso de cambios y devoluciones: abrir su formulario.
@@ -1255,6 +1275,9 @@ export default {
     padding: 1px 5px; margin-left: 4px; vertical-align: 1px;
     animation: ie-pulse 2s ease-in-out infinite;
 }
+/* En móvil los botones de la cabecera ocupan todo el ancho y sus hijos
+   heredaban width 100%: la pastilla salía como una barra. */
+.ie-ads-btn .ie-new-pill { display: inline-block !important; width: auto !important; vertical-align: 2px; }
 @keyframes ie-pulse {
     0%, 100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, .5); }
     50% { box-shadow: 0 0 0 4px rgba(99, 102, 241, 0); }

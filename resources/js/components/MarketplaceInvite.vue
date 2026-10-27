@@ -2,10 +2,11 @@
     <!-- Aviso del Inicio. El servidor (/items/marketplace-invite) decide si se
          muestra y cuál (solo admin, solo tiendas que venden en línea):
           - kind=shipping: confirmar cómo envía. Va primero, publicar lo exige.
+          - kind=ads:      pedir a ebaemy una campaña (botón «📣 Publicidad»).
           - kind=publish:  publicar en ebaemy.com lo que aún no está.
          Cada uno se cierra para siempre con «Ahora no». -->
     <div v-if="data && data.show && !closed" class="mpi" role="region" :aria-label="title">
-        <div class="mpi__icon" aria-hidden="true">{{ isShipping ? '🚚' : (isReturns ? '↩️' : '🌐') }}</div>
+        <div class="mpi__icon" aria-hidden="true">{{ isShipping ? '🚚' : (isReturns ? '↩️' : (isAds ? '📣' : '🌐')) }}</div>
         <div class="mpi__text">
             <span class="mpi__badge">Nuevo</span>
             <h3 class="mpi__title">{{ title }}</h3>
@@ -25,6 +26,13 @@
                 </p>
                 <p class="mpi__stat">Hoy tu página «Cambios y devoluciones» está vacía.</p>
             </template>
+            <template v-else-if="isAds">
+                <p class="mpi__body">
+                    ebaemy crea la campaña por ti. Tú eliges qué anunciar, cuánto invertir y por cuántos días;
+                    te escribimos por WhatsApp para coordinar.
+                </p>
+                <p class="mpi__stat">Tus {{ data.published }} productos en ebaemy.com ya pueden anunciarse.</p>
+            </template>
             <template v-else>
                 <p class="mpi__body">
                     Publícalos gratis en ebaemy.com. Estamos preparando campañas en Google, Facebook,
@@ -36,14 +44,14 @@
             </template>
         </div>
         <div class="mpi__actions">
-            <button type="button" class="mpi__btn" @click="go">{{ isShipping ? 'Configurar envíos' : (isReturns ? 'Completar política' : 'Publicar mis productos') }}</button>
+            <button type="button" class="mpi__btn" @click="go">{{ isShipping ? 'Configurar envíos' : (isReturns ? 'Completar política' : (isAds ? 'Ver cómo funciona' : 'Publicar mis productos')) }}</button>
             <button type="button" class="mpi__later" @click="later">Ahora no</button>
         </div>
     </div>
 </template>
 
 <script>
-const KEYS = { publish: 'aviso-marketplace-2026-10', shipping: 'aviso-envios-2026-10', returns: 'aviso-cambios-2026-10' };
+const KEYS = { publish: 'aviso-marketplace-2026-10', shipping: 'aviso-envios-2026-10', returns: 'aviso-cambios-2026-10', ads: 'aviso-publicidad-2026-10' };
 
 export default {
     name: 'MarketplaceInvite',
@@ -53,9 +61,11 @@ export default {
     computed: {
         isShipping() { return this.data && this.data.kind === 'shipping'; },
         isReturns() { return this.data && this.data.kind === 'returns'; },
+        isAds() { return this.data && this.data.kind === 'ads'; },
         title() {
             if (this.isShipping) return 'Confirma cómo envías tus productos';
             if (this.isReturns) return 'Publica tu política de cambios';
+            if (this.isAds) return 'Anuncia tus productos en Facebook e Instagram';
             return 'Tus productos pueden llegar a más clientes';
         },
     },
@@ -73,6 +83,8 @@ export default {
             // guarda, la tarjeta vuelve a salir.
             if (this.isShipping) { window.location.href = '/items_ecommerce?envios=1'; return; }
             if (this.isReturns) { window.location.href = '/items_ecommerce?cambios=1'; return; }
+            // Publicidad sí se marca: es un aviso, no una tarea pendiente.
+            if (this.isAds) { this.mark('completed').then(() => { window.location.href = '/items_ecommerce?publicidad=1'; }); return; }
             // Lleva a Productos, donde una guía señala «Publicar todos en Marketplace».
             this.mark('completed').then(() => { window.location.href = '/items_ecommerce?publicar=1'; });
         },

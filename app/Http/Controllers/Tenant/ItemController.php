@@ -2122,6 +2122,12 @@ class ItemController extends Controller
             return ['show' => true, 'kind' => 'returns', 'published' => $published];
         }
 
+        // Publicidad: solo a quien ya tiene productos en ebaemy.com, que es a
+        // donde lleva el anuncio. Botón «📣 Publicidad» de la Tienda virtual.
+        if ($published > 0 && !$cerro('aviso-publicidad-2026-10')) {
+            return ['show' => true, 'kind' => 'ads', 'published' => $published];
+        }
+
         if ($pending <= 0 || $cerro('aviso-marketplace-2026-10')) {
             return $no;
         }

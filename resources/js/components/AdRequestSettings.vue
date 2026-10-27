@@ -12,15 +12,23 @@
         :close-on-click-modal="false"
         @close="close"
     >
-        <div v-loading="loading" class="ss">
+        <div v-loading="loading" class="ss ar">
             <p class="ss__hint">
                 ebaemy anuncia tus productos en Facebook e Instagram. Quien hace clic llega a tu tienda en
                 ebaemy.com y los pedidos te llegan al panel como siempre.
             </p>
 
+            <!-- Cómo funciona: siempre visible, para que nadie tenga que preguntar -->
+            <ol class="ar__how" aria-label="Cómo funciona">
+                <li v-for="(p, i) in how" :key="i" class="ar__how-step">
+                    <span class="ar__how-n">{{ i + 1 }}</span>
+                    <span class="ar__how-t">{{ p }}</span>
+                </li>
+            </ol>
+
             <template v-if="data">
-                <section v-if="data.records.length" class="ss__block">
-                    <h4 class="ss__h">Tus solicitudes</h4>
+                <section v-if="data.records.length" class="ar__card">
+                    <h4 class="ar__h">Tus solicitudes</h4>
                     <div v-for="r in data.records" :key="r.id" class="ar__rec">
                         <div class="ar__rec-top">
                             <span>{{ r.created_at }} · S/ {{ money(r.budget) }} · {{ r.days }} días</span>
@@ -48,14 +56,20 @@
                 </p>
 
                 <template v-else>
-                    <section class="ss__block">
-                        <h4 class="ss__h">¿Qué quieres anunciar?</h4>
-                        <el-radio-group v-model="f.scope" size="small" class="ar__scope">
-                            <el-radio label="tienda">Lo más atractivo de mi tienda</el-radio>
-                            <el-radio label="categoria">Una categoría</el-radio>
-                            <el-radio label="productos">Productos concretos</el-radio>
-                        </el-radio-group>
-                        <p v-if="f.scope === 'tienda'" class="ss__small">Elegimos los productos con mejor foto y precio de tus {{ data.published }} publicados.</p>
+                    <section class="ar__card">
+                        <h4 class="ar__h"><span class="ar__hn">1</span> ¿Qué quieres anunciar?</h4>
+                        <div class="ar__opts" role="radiogroup" aria-label="Qué anunciar">
+                            <button v-for="o in scopes" :key="o.value" type="button" role="radio"
+                                    class="ar__opt" :class="{ 'is-on': f.scope === o.value }"
+                                    :aria-checked="f.scope === o.value ? 'true' : 'false'"
+                                    @click="f.scope = o.value">
+                                <span class="ar__opt-ico" aria-hidden="true">{{ o.icon }}</span>
+                                <span class="ar__opt-txt">
+                                    <b>{{ o.label }}</b>
+                                    <small>{{ o.value === 'tienda' ? 'Elegimos los de mejor foto y precio de tus ' + data.published : o.hint }}</small>
+                                </span>
+                            </button>
+                        </div>
                         <el-select v-if="f.scope === 'categoria'" v-model="f.scope_detail" size="small" placeholder="Elige la categoría" class="ss__sel ss__sel--wide ar__mt">
                             <el-option v-for="c in data.categories" :key="c" :label="c" :value="c"></el-option>
                         </el-select>
@@ -63,34 +77,30 @@
                                   placeholder="Ej. palmeras, árboles de cerezo y el pino navideño" class="ar__mt"></el-input>
                     </section>
 
-                    <section class="ss__block">
-                        <h4 class="ss__h">Presupuesto y duración</h4>
-                        <div class="ss__row">
-                            <span>Presupuesto total</span>
-                            <el-radio-group v-model="f.budget" size="small">
-                                <el-radio-button v-for="b in budgets" :key="b" :label="b">S/ {{ b }}</el-radio-button>
-                            </el-radio-group>
+                    <section class="ar__card">
+                        <h4 class="ar__h"><span class="ar__hn">2</span> Presupuesto y duración</h4>
+                        <div class="ar__lbl">Presupuesto total</div>
+                        <div class="ar__chips">
+                            <button v-for="b in budgets" :key="b" type="button" class="ar__chip"
+                                    :class="{ 'is-on': f.budget === b }" @click="f.budget = b">S/ {{ b }}</button>
                         </div>
-                        <div class="ss__row">
-                            <span>Durante</span>
-                            <el-radio-group v-model="f.days" size="small">
-                                <el-radio-button :label="7">7 días</el-radio-button>
-                                <el-radio-button :label="14">14 días</el-radio-button>
-                                <el-radio-button :label="30">30 días</el-radio-button>
-                            </el-radio-group>
+                        <div class="ar__lbl">Durante</div>
+                        <div class="ar__chips">
+                            <button v-for="d in [7, 14, 30]" :key="d" type="button" class="ar__chip"
+                                    :class="{ 'is-on': f.days === d }" @click="f.days = d">{{ d }} días</button>
                         </div>
-                        <p class="ss__small">Unos S/ {{ money(f.budget / f.days) }} al día. Es lo que se invierte en Facebook e Instagram.</p>
-                        <div class="ss__row">
-                            <span>Mostrar a personas de</span>
-                            <el-radio-group v-model="f.zone" size="small">
-                                <el-radio-button label="lima">Lima</el-radio-button>
-                                <el-radio-button label="peru">Todo el Perú</el-radio-button>
-                            </el-radio-group>
+                        <div class="ar__lbl">Mostrar a personas de</div>
+                        <div class="ar__chips">
+                            <button type="button" class="ar__chip" :class="{ 'is-on': f.zone === 'lima' }" @click="f.zone = 'lima'">Lima</button>
+                            <button type="button" class="ar__chip" :class="{ 'is-on': f.zone === 'peru' }" @click="f.zone = 'peru'">Todo el Perú</button>
                         </div>
+                        <p class="ar__sum">
+                            Unos <b>S/ {{ money(f.budget / f.days) }}</b> al día. Todo se invierte en Facebook e Instagram.
+                        </p>
                     </section>
 
-                    <section class="ss__block">
-                        <h4 class="ss__h">¿Dónde te escribimos?</h4>
+                    <section class="ar__card">
+                        <h4 class="ar__h"><span class="ar__hn">3</span> ¿Dónde te escribimos?</h4>
                         <div class="ss__row">
                             <span>WhatsApp</span>
                             <el-input v-model="f.contact_phone" size="small" maxlength="30" placeholder="Ej. 987 654 321" class="ss__sel"></el-input>
@@ -99,9 +109,9 @@
                                   placeholder="Algo que debamos saber (opcional). Ej. tengo stock grande de palmeras"></el-input>
                     </section>
 
-                    <p class="ss__small ar__foot">
-                        Aquí no se cobra nada. Te escribimos por WhatsApp para confirmar y coordinar el pago;
-                        la campaña empieza cuando esté pagada y verás sus resultados en esta ventana.
+                    <p class="ar__foot">
+                        🔒 Aquí no se cobra nada. Te escribimos por WhatsApp para confirmar y coordinar el pago;
+                        la campaña empieza cuando esté pagada.
                     </p>
                 </template>
             </template>
@@ -124,6 +134,12 @@ export default {
             saving: false,
             data: null,
             budgets: [100, 150, 300, 500],
+            how: ['Pides aquí', 'Te escribimos por WhatsApp y pagas', 'Lanzamos tu campaña', 'Ves tus pedidos y consultas aquí'],
+            scopes: [
+                { value: 'tienda', icon: '⭐', label: 'Lo más atractivo de mi tienda', hint: '' },
+                { value: 'categoria', icon: '🗂️', label: 'Una categoría', hint: 'Por ejemplo, solo Decoración' },
+                { value: 'productos', icon: '🎯', label: 'Productos concretos', hint: 'Nos dices cuáles' },
+            ],
             f: { scope: 'tienda', scope_detail: '', budget: 150, days: 7, zone: 'lima', contact_phone: '', notes: '' },
         };
     },
@@ -202,9 +218,40 @@ export default {
 .ss__h { font-size: 14px; font-weight: 700; color: #1e293b; margin: 0 0 8px; }
 .ss__row { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-top: 6px; color: #334155; }
 .ss__small { color: #64748b; font-size: 12px; margin: 4px 0 0; }
-.ar__scope { display: flex; flex-direction: column; gap: 6px; }
 .ar__mt { margin-top: 8px; }
-.ar__foot { background: #f8fafc; border-radius: 8px; padding: 8px 10px; }
+.ar__how { list-style: none; margin: 0 0 12px; padding: 10px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;
+    background: linear-gradient(135deg, #eef2ff, #f5f3ff); border: 1px solid #e0e7ff; border-radius: 12px; }
+.ar__how-step { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 4px; }
+.ar__how-n { width: 24px; height: 24px; border-radius: 50%; background: #4f46e5; color: #fff; font-weight: 700; font-size: 12px;
+    display: inline-flex; align-items: center; justify-content: center; }
+.ar__how-t { font-size: 11.5px; line-height: 1.3; color: #3730a3; font-weight: 600; }
+.ar__card { border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px; margin-bottom: 10px; background: #fff; }
+.ar__h { font-size: 14px; font-weight: 700; color: #1e293b; margin: 0 0 10px; display: flex; align-items: center; gap: 8px; }
+.ar__hn { width: 22px; height: 22px; border-radius: 6px; background: #eef2ff; color: #4f46e5; font-size: 12px;
+    display: inline-flex; align-items: center; justify-content: center; flex: none; }
+.ar__opts { display: flex; flex-direction: column; gap: 8px; }
+.ar__opt { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; cursor: pointer;
+    border: 1.5px solid #e2e8f0; border-radius: 10px; background: #fff; padding: 10px 12px; min-height: 48px;
+    transition: border-color .15s, background .15s; }
+.ar__opt:hover { border-color: #a5b4fc; }
+.ar__opt.is-on { border-color: #4f46e5; background: #eef2ff; box-shadow: 0 0 0 3px rgba(79, 70, 229, .12); }
+.ar__opt-ico { font-size: 20px; flex: none; }
+.ar__opt-txt { display: flex; flex-direction: column; min-width: 0; }
+.ar__opt-txt b { font-size: 13.5px; color: #1e293b; }
+.ar__opt-txt small { font-size: 12px; color: #64748b; }
+.ar__lbl { font-size: 12px; font-weight: 600; color: #475569; margin: 10px 0 6px; }
+.ar__chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.ar__chip { border: 1.5px solid #e2e8f0; background: #fff; color: #334155; border-radius: 999px; padding: 6px 14px;
+    font-size: 13px; font-weight: 600; cursor: pointer; min-height: 36px; }
+.ar__chip:hover { border-color: #a5b4fc; }
+.ar__chip.is-on { background: #4f46e5; border-color: #4f46e5; color: #fff; }
+.ar__sum { margin: 12px 0 0; padding: 8px 10px; border-radius: 8px; background: #f0fdf4; color: #166534; font-size: 12.5px; line-height: 1.4; }
+.ar__foot { background: #f8fafc; border-radius: 8px; padding: 8px 10px; color: #475569; font-size: 12px; margin: 0; }
+.ar__opt:focus-visible, .ar__chip:focus-visible { outline: 2px solid #4f46e5; outline-offset: 2px; }
+.ar__card .ar__rec:last-child { margin-bottom: 0; }
+@media (max-width: 480px) {
+    .ar__how { grid-template-columns: repeat(2, 1fr); }
+}
 .ar__rec { border: 1px solid #e2e8f0; border-radius: 10px; padding: 8px 10px; margin-bottom: 8px; }
 .ar__rec-top { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; color: #1e293b; font-weight: 600; }
 .ar__res { margin-top: 4px; color: #0c6b65; }

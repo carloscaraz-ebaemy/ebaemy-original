@@ -84,6 +84,7 @@ export default {
         window.removeEventListener('resize', this.measure);
         window.removeEventListener('scroll', this.measure, true);
         window.removeEventListener('keydown', this.onKey);
+        if (window.__ebTourActive === this._uid) window.__ebTourActive = null;
     },
     methods: {
         checkAndStart() {
@@ -93,6 +94,12 @@ export default {
         },
         // Público: también lo llama el botón «¿Qué hay de nuevo?».
         start(intentos = 15) {
+            // Una guía a la vez: si otra de la pantalla está abierta, esta
+            // espera su turno en vez de encimarse.
+            if (window.__ebTourActive && window.__ebTourActive !== this._uid) {
+                setTimeout(() => this.start(intentos), 1000);
+                return;
+            }
             this.steps_ = this.steps.filter(s => this.find(s.target));
             if (!this.steps_.length) {
                 // La tabla puede seguir cargando: se reintenta unos segundos.
@@ -100,6 +107,7 @@ export default {
                 return;
             }
             this.active = true;
+            window.__ebTourActive = this._uid;
             this.go(0);
         },
         find(sel) {
@@ -137,6 +145,7 @@ export default {
         finish(status) {
             this.active = false;
             this.rect = null;
+            if (window.__ebTourActive === this._uid) window.__ebTourActive = null;
             this.$http.post(`/feature-tours/${this.tourKey}`, { status }).catch(() => {});
             this.$emit('finished', status);
         },

@@ -128,6 +128,9 @@ saber qué caduca.
 | 2026-10-24 | Inicio (Panel Operativo) + Productos | `aviso-marketplace-2026-10` (tarjeta) · `publicar-marketplace-2026-10` (globo) | «Tus productos pueden llegar a más clientes» → señala «Publicar todos en Marketplace». Solo admin con productos sin publicar (`items/marketplace-invite`) | — |
 | 2026-10-24 | Inicio + Productos | `aviso-envios-2026-10` (tarjeta, prioridad sobre la de publicar) | «Confirma cómo envías tus productos» → `/items_ecommerce?envios=1` abre el formulario. Solo admin de tiendas que venden en línea sin política confirmada. No se marca al pulsar: vuelve hasta que la guarde | — |
 | 2026-10-24 | Inicio + Productos | `aviso-cambios-2026-10` (tarjeta, entre envíos y publicar) | «Publica tu política de cambios» → `/items_ecommerce?cambios=1` abre el formulario. Solo tiendas que venden en línea sin `preferences.returns_policy`. No se marca al pulsar | — |
+| 2026-10-26 | Inicio + Productos | `aviso-publicidad-2026-10` (tarjeta, después de cambios y antes de publicar) · `publicidad-2026-10` (globo sobre `.ie-ads-btn`) · NUEVO en «📣 Publicidad» | «Anuncia tus productos en Facebook e Instagram» → `/items_ecommerce?publicidad=1` abre la ventana. Solo admin con productos ya publicados. Sí se marca al pulsar. La ventana lleva un «Cómo funciona» de 4 pasos fijo | NUEVO hasta 2026-12-07 |
+
+**Guías que coinciden en una pantalla:** desde 2026-10-26 `FeatureTour` espera turno (`window.__ebTourActive`): si otra está abierta, la nueva sale al cerrarse esa.
 
 **Ojo:** el Inicio real es `modules/Dashboard/.../DashV2.vue` («Panel Operativo»), no `views/index.vue`, que ya no se monta.
 
