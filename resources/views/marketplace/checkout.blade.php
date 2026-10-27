@@ -444,8 +444,9 @@ input.mp-co-invalid, select.mp-co-invalid, textarea.mp-co-invalid {
     margin-top: 5px;
 }
 .mp-co-coupon__msg:empty { display: none; }
-.mp-co-card .mp-co-coupon__input { height: 40px; padding: 0 12px; border-radius: 8px; }
-.mp-co-coupon__btn { border-radius: 8px; padding: 0 16px; height: 40px; }
+.mp-co-card .mp-co-coupon__input { padding: 0 12px; border-radius: 8px; }
+.mp-co-coupon__input::placeholder { text-transform: none; }
+.mp-co-coupon__btn { border-radius: 8px; padding: 0 16px; height: 44px; }
 .mp-co-coupon__msg.is-ok    { color: #16a34a; font-weight: 600; }
 .mp-co-coupon__msg.is-error { color: #b91c1c; font-weight: 500; }
 
