@@ -1070,6 +1070,7 @@
                 </h2>
                 <p class="mp-section-subtitle">Empresas peruanas reales con RUC verificado vendiendo en ebaemy.</p>
             </div>
+            <a href="{{ route('marketplace.stores') }}" style="font-weight:700;font-size:14px;color:var(--mp-primary,#0f8a82);white-space:nowrap;align-self:center">Ver todas las tiendas →</a>
         </div>
         <div class="mp-shops-row">
             @foreach($featuredShops as $shop)

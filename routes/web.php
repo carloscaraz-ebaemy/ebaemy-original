@@ -1733,6 +1733,9 @@ if ($hostname) {
              ->name('marketplace.category_official');
         Route::get('marketplace/categoria/{categorySlug}', 'MarketplaceController@category')
              ->middleware('mp.attribution')->name('marketplace.category');
+        // Directorio de todas las tiendas (antes que tienda/{subdomain}).
+        Route::get('marketplace/tiendas',               'MarketplaceController@stores')
+             ->middleware('mp.attribution')->name('marketplace.stores');
         Route::get('marketplace/tienda/{subdomain}',    'MarketplaceController@tenantPage')
              ->where('subdomain', '[a-z0-9][a-z0-9\-]{1,62}')
              ->middleware('mp.attribution')

@@ -854,6 +854,7 @@
             <h4>Comprar</h4>
             <ul>
                 <li><a href="{{ route('marketplace.index') }}">Explorar marketplace</a></li>
+                <li><a href="{{ route('marketplace.stores') }}">Tiendas</a></li>
                 <li><a href="{{ route('marketplace.index', ['sort' => 'newest']) }}">Novedades</a></li>
                 <li><a href="{{ route('marketplace.index', ['on_offer' => 1]) }}">Ofertas</a></li>
             </ul>

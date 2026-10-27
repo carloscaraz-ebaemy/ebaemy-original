@@ -1683,6 +1683,69 @@ class MarketplaceController extends Controller
     }
 
     /**
+     * Directorio de tiendas: ebaemy.com/marketplace/tiendas.
+     *
+     * Es la pagina que responde a «ebaemy tiendas»: antes no existia y Google
+     * solo encontraba las paginas sueltas de cada tienda. Cada tarjeta enlaza a
+     * la pagina de la tienda DENTRO del marketplace (enlace interno).
+     */
+    public function stores()
+    {
+        $stores = Cache::remember('mp_stores_dir_v1', 1800, function () {
+            $rows = MarketplaceListing::published()
+                ->whereNotNull('tenant_fqdn')
+                ->select('hostname_id', \DB::raw('COUNT(*) as products'), \DB::raw('MAX(updated_at) as last_update'))
+                ->groupBy('hostname_id')
+                ->get();
+
+            // Arbol de categorias en memoria (son unos cientos) para subir
+            // cada producto a su categoria raiz sin una consulta por tienda.
+            $cats = MarketplaceCategory::query()->active()->visible()
+                ->get(['id', 'name', 'full_slug', 'depth_path'])->keyBy('id');
+            $rootOf = function ($id) use ($cats) {
+                $c = $cats->get($id);
+                if (!$c) return null;
+                $parts = array_values(array_filter(explode('/', trim((string) $c->depth_path, '/'))));
+                return $cats->get((int) ($parts[0] ?? $c->id)) ?: $c;
+            };
+
+            return $rows->map(function ($row) use ($rootOf) {
+                $listings = MarketplaceListing::published()
+                    ->where('hostname_id', $row->hostname_id)
+                    ->orderByDesc('sort_score')->orderByDesc('view_count')
+                    ->get(['id', 'slug', 'title', 'image_url', 'thumb_image_url', 'marketplace_category_id',
+                           'tenant_name', 'tenant_logo_url', 'tenant_verified', 'tenant_fqdn']);
+                $first = $listings->first();
+                if (!$first || !$first->subdomain) {
+                    return null;
+                }
+
+                $roots = [];
+                foreach ($listings as $l) {
+                    if ($r = $rootOf($l->marketplace_category_id)) {
+                        $roots[$r->id] = ['name' => $r->name, 'slug' => $r->full_slug, 'n' => ($roots[$r->id]['n'] ?? 0) + 1];
+                    }
+                }
+                usort($roots, fn ($a, $b) => $b['n'] <=> $a['n']);
+
+                return (object) [
+                    'subdomain'  => $first->subdomain,
+                    'name'       => html_entity_decode((string) $first->seller_display, ENT_QUOTES | ENT_HTML5, 'UTF-8'),
+                    'logo'       => $first->tenant_logo_url,
+                    'verified'   => (bool) $first->tenant_verified,
+                    'products'   => (int) $row->products,
+                    'categories' => array_slice($roots, 0, 3),
+                    'photos'     => $listings->filter(fn ($l) => $l->image_url)->take(4)
+                        ->map(fn ($l) => ['src' => $l->thumb_image_url ?: $l->image_url, 'alt' => $l->title])->values()->all(),
+                    'updated'    => $row->last_update,
+                ];
+            })->filter()->sortByDesc('products')->values();
+        });
+
+        return view('marketplace.stores', compact('stores'));
+    }
+
+    /**
      * Lectores de vista previa de enlaces. No siempre siguen un 301, asi que
      * a ellos se les sirve la ficha con las etiquetas og en vez de redirigir.
      * Google no esta: sigue viendo los 301 y el SEO no cambia.
@@ -2242,6 +2305,9 @@ class MarketplaceController extends Controller
         // Las categorias legacy (/marketplace/categoria/...) ya no se anuncian:
         // repetian el contenido de las oficiales y algunas eran 301. Las
         // paginas siguen respondiendo para los enlaces que ya existen.
+
+        // Directorio de tiendas (la pagina que responde a «ebaemy tiendas»).
+        $xml .= $this->sitemapUrl(route('marketplace.stores'), now(), '0.9', 'daily');
 
         // Páginas públicas por tienda — una entrada por seller activo.
         // Tomamos el subdominio del FQDN denormalizado en marketplace_listings
