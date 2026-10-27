@@ -38,7 +38,8 @@
     <p>El envío, embalaje y entrega es responsabilidad del Vendedor. Los costos, plazos y condiciones los define cada tienda: se muestran en la ficha del producto cuando la tienda los ha indicado y, si no, el Vendedor te los informa al coordinar el pedido, antes de que pagues. Si tu pedido se retrasa o no llega, contacta primero al Vendedor; si no obtienes respuesta en 48h hábiles, escríbenos a <a href="mailto:soporte@ebaemy.com">soporte@ebaemy.com</a>.</p>
 
     <h2>7. Devoluciones y garantías</h2>
-    <p>Aplican la <strong>Ley 29571 — Código de Protección y Defensa del Consumidor</strong> y las garantías legales del Perú. Mínimo 7 días calendario para arrepentimiento en ventas a distancia, contados desde la recepción del producto, salvo excepciones legales (productos perecibles, personalizados, abiertos).</p>
+    <p>Aplican la <strong>Ley 29571 — Código de Protección y Defensa del Consumidor</strong> y las garantías legales del Perú.</p>
+    <p>Además, todo Vendedor de ebaemy se compromete a la <a href="{{ route('marketplace.shipping_returns') }}#garantia-7-dias">garantía mínima de 7 días</a>: si el producto llega dañado, con falla o no corresponde a lo pedido, el Comprador puede pedir el cambio o la devolución del dinero dentro de los 7 días calendario siguientes a la recepción, y el Vendedor asume el costo del envío de vuelta. Las devoluciones por otros motivos se rigen por las condiciones que publique cada Vendedor, que pueden ser más amplias pero nunca reducir esta garantía.</p>
 
     <h2>8. Reseñas y contenido del usuario</h2>
     <p>Al publicar una reseña aceptas que sea revisable por ebaemy. Está prohibido publicar contenido falso, ofensivo, difamatorio o que viole derechos de terceros. ebaemy puede eliminar reseñas que incumplan estos criterios.</p>

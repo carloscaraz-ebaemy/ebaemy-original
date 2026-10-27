@@ -35,6 +35,17 @@
             'price'         => $ldPrice,
             'availability'  => $ldAvailability,
             'itemCondition' => 'https://schema.org/NewCondition',
+            // Garantia minima del marketplace: 7 dias por dano, falla o error,
+            // devolucion sin costo (ver /marketplace/envios-y-devoluciones).
+            'hasMerchantReturnPolicy' => [
+                '@type'                => 'MerchantReturnPolicy',
+                'applicableCountry'    => 'PE',
+                'returnPolicyCategory' => 'https://schema.org/MerchantReturnFiniteReturnWindow',
+                'merchantReturnDays'   => 7,
+                'returnMethod'         => 'https://schema.org/ReturnByMail',
+                'itemDefectReturnFees' => 'https://schema.org/FreeReturn',
+                'merchantReturnLink'   => route('marketplace.shipping_returns') . '#garantia-7-dias',
+            ],
             'seller'        => [
                 '@type' => 'Organization',
                 'name'  => $listing->seller_display,
