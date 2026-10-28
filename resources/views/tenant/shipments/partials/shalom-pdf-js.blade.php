@@ -23,6 +23,8 @@ window.ShalomPdf = (function () {
         't58':    { label: 'Ticketera 58 mm',      desc: 'Ticketera chica.', w: 58 * MM,  h: null, slots: 1 },
         'a4':     { label: 'A4',                   desc: 'Impresora de oficina, a tamaño real.', w: 210 * MM, h: 297 * MM, slots: 1, arriba: true },
     };
+    // PDF ya bajados en esta pantalla: cambiar de papel no vuelve a pedirlos.
+    var MEMO = {};
     var POR_DOC = { rotulo: ['a4-2', 'a4-1', 'a5', 'e10x15'], ticket: ['t80', 't58', 'a4'] };
 
     function ajustar(sw, sh, bw, bh, sinAgrandar) {
@@ -40,13 +42,28 @@ window.ShalomPdf = (function () {
         var margen = (F.h === null ? 2 : 6) * MM;
         var cola = [];
 
-        for (var i = 0; i < fuentes.length; i++) {
-            if (alAvanzar) alAvanzar(i, fuentes.length);
-            var r = await fetch(fuentes[i].url, { credentials: 'same-origin' });
-            if (!r.ok || (r.headers.get('content-type') || '').indexOf('pdf') === -1) {
-                throw new Error('Shalom no entregó el PDF de ' + (fuentes[i].nombre || 'un envío') + '.');
+        // Se bajan en paralelo (de a 4) y se arman en orden: uno tras otro, un
+        // lote de 20 envíos sumaba el tiempo de cada PDF.
+        var bufs = new Array(fuentes.length), hechos = 0, sig = 0;
+        async function bajar() {
+            while (sig < fuentes.length) {
+                var i = sig++;
+                if (MEMO[fuentes[i].url]) { bufs[i] = MEMO[fuentes[i].url]; if (alAvanzar) alAvanzar(hechos++, fuentes.length); continue; }
+                var r = await fetch(fuentes[i].url, { credentials: 'same-origin' });
+                if (!r.ok || (r.headers.get('content-type') || '').indexOf('pdf') === -1) {
+                    throw new Error('Shalom no entregó el PDF de ' + (fuentes[i].nombre || 'un envío') + '.');
+                }
+                bufs[i] = MEMO[fuentes[i].url] = await r.arrayBuffer();
+                if (alAvanzar) alAvanzar(hechos++, fuentes.length);
             }
-            var src = await L.PDFDocument.load(await r.arrayBuffer(), { ignoreEncryption: true });
+        }
+        var trabajadores = [];
+        for (var w = 0; w < Math.min(4, fuentes.length); w++) trabajadores.push(bajar());
+        await Promise.all(trabajadores);
+
+        for (var i = 0; i < fuentes.length; i++) {
+            // Copia: pdf-lib puede dejar el ArrayBuffer inutilizable tras leerlo.
+            var src = await L.PDFDocument.load(bufs[i].slice(0), { ignoreEncryption: true });
             var pags = await out.embedPdf(src, src.getPageIndices());
             for (var c = 0; c < Math.max(1, fuentes[i].copies || 1); c++) {
                 pags.forEach(function (p) { cola.push(p); });

@@ -203,6 +203,7 @@ class ShalomGuide
         $tr = app(ShalomTracking::class);
         $tr->watch($s);
         $tr->refresh($s);
+        $this->warmPdfs($s);
 
         return $found + ['clave' => $clave];
     }
@@ -219,7 +220,7 @@ class ShalomGuide
             throw new RuntimeException('El envío todavía no tiene guía de Shalom.');
         }
 
-        return $this->api->voucher($st->shalom_instance_id, $ose ? ['ose_id' => $ose] : ['orderNumber' => $s->tracking_number, 'orderCode' => $s->tracking_code]);
+        return $this->cached($s, 'ticket', fn () => $this->api->voucher($st->shalom_instance_id, $ose ? ['ose_id' => $ose] : ['orderNumber' => $s->tracking_number, 'orderCode' => $s->tracking_code]));
     }
 
     /** Rótulo oficial de Shalom (PDF). */
@@ -235,7 +236,51 @@ class ShalomGuide
             throw new RuntimeException('El envío todavía no tiene guía de Shalom.');
         }
 
-        return $this->api->officialLabel($st->shalom_instance_id, $guide);
+        return $this->cached($s, 'rotulo', fn () => $this->api->officialLabel($st->shalom_instance_id, $guide));
+    }
+
+    /**
+     * El PDF de Shalom se guarda la primera vez que se baja.
+     *
+     * Cada apertura del rótulo lo pedía a Shalom en vivo (varios segundos por
+     * envío, y en un lote se sumaban), y para una misma guía el PDF no cambia.
+     * El nombre lleva la guía: si se quita y se crea otra, sale un archivo
+     * nuevo y el viejo no se vuelve a servir. Solo se guarda si es un PDF.
+     */
+    private function cached(ShippingRequest $s, string $doc, callable $bajar): string
+    {
+        $ce = $s->carrier_events ?? [];
+        $guia = md5(($ce['ose_id'] ?? '') . '|' . $s->tracking_number . '|' . $s->tracking_code);
+        $ruta = 'shalom-pdf/' . $s->getConnection()->getDatabaseName() . '/' . $s->id . '-' . $doc . '-' . $guia . '.pdf';
+        $disco = \Illuminate\Support\Facades\Storage::disk('local');
+
+        if ($disco->exists($ruta)) {
+            return $disco->get($ruta);
+        }
+        $pdf = $bajar();
+        if (is_string($pdf) && str_starts_with($pdf, '%PDF')) {
+            $disco->put($ruta, $pdf);
+        }
+
+        return $pdf;
+    }
+
+    /**
+     * Deja el rótulo y el ticket ya guardados, para que la primera vez que se
+     * abran también salgan al instante. Corre después de responder: crear la
+     * guía no espera por esto, y si falla, se bajan al abrirlos como antes.
+     */
+    public function warmPdfs(ShippingRequest $s): void
+    {
+        app()->terminating(function () use ($s) {
+            foreach (['label', 'voucher'] as $m) {
+                try {
+                    $this->{$m}($s->fresh());
+                } catch (\Throwable $e) {
+                    \Illuminate\Support\Facades\Log::info('Shalom: no se pudo adelantar el ' . $m . ' del envío ' . $s->id . ': ' . $e->getMessage());
+                }
+            }
+        });
     }
 
     /**

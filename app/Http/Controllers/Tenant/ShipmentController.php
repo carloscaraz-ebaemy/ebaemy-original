@@ -1162,6 +1162,8 @@ class ShipmentController extends Controller
 
         return response($pdf, 200, [
             'Content-Type'        => 'application/pdf',
+            // El PDF de una guía no cambia: el navegador puede reusarlo.
+            'Cache-Control'       => 'private, max-age=86400',
             'Content-Disposition' => 'inline; filename="ticket-shalom-' . ($shipment->tracking_number ?: $shipment->shipment_code) . '.pdf"',
         ]);
     }
@@ -1178,6 +1180,8 @@ class ShipmentController extends Controller
 
         return response($pdf, 200, [
             'Content-Type'        => 'application/pdf',
+            // El PDF de una guía no cambia: el navegador puede reusarlo.
+            'Cache-Control'       => 'private, max-age=86400',
             'Content-Disposition' => 'inline; filename="rotulo-shalom-' . ($shipment->tracking_number ?: $shipment->shipment_code) . '.pdf"',
         ]);
     }
