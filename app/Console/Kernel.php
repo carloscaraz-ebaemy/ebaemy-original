@@ -105,6 +105,12 @@ class Kernel extends ConsoleKernel
                  ->withoutOverlapping()
                  ->appendOutputTo(storage_path('logs/shalom_agencies.log'));
 
+        // Seguimiento de las guías de Shalom en camino (estado que ve el cliente).
+        $schedule->command('shalom:sync-tracking')
+                 ->cron('41 */2 * * *')
+                 ->withoutOverlapping()
+                 ->appendOutputTo(storage_path('logs/shalom_tracking.log'));
+
         // Detecta divergencias de inventario (dry-run, solo reporta — no corrige)
         // Para corregir manualmente: php artisan stock:reconcile --fix
         $schedule->command('stock:reconcile --threshold=0.01')

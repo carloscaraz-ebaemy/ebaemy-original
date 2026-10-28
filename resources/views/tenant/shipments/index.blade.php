@@ -1611,7 +1611,13 @@
 
           <div class="mb-3">
             <label class="form-label fw-semibold">Número de guía</label>
-            <input type="text" name="tracking_number" class="form-control" placeholder="Ejemplo: SH-458712" required>
+            <input type="text" name="tracking_number" class="form-control" placeholder="Ejemplo: 66479331" required>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Código de la guía <span class="text-muted fw-normal small">(Shalom: 4 caracteres)</span></label>
+            <input type="text" name="tracking_code" class="form-control" maxlength="12" placeholder="Ejemplo: 3KTH" style="max-width:160px;text-transform:uppercase;">
+            <div class="form-text">Está en el ticket de Shalom. Con él el cliente ve dónde está su paquete.</div>
           </div>
 
           <div class="mb-3">

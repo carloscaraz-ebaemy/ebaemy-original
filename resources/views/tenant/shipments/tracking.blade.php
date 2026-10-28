@@ -122,8 +122,37 @@
                     @if($shipment->tracking_number)
                         <div class="guide">
                             <div style="font-size:11px;text-transform:uppercase;color:#16a34a;">N° de guía · {{ $shipment->shipping_agency }}</div>
-                            <div class="g">{{ $shipment->tracking_number }}</div>
+                            <div class="g">{{ $shipment->tracking_number }}@if($shipment->tracking_code ?? null) <span style="font-size:14px;color:#15803d;">· Código {{ $shipment->tracking_code }}</span>@endif</div>
                             @if($shipment->sent_at)<div style="font-size:12px;color:#15803d;margin-top:2px;">Enviado el {{ \Carbon\Carbon::parse($shipment->sent_at)->format('d/m/Y') }}</div>@endif
+                        </div>
+                    @endif
+
+                    {{-- Seguimiento de Shalom: sus hitos y fechas, como en su web
+                         (ver ShalomTracking). Solo informa. --}}
+                    @php $ce = $shipment->carrier_events ?? null; @endphp
+                    @if(!empty($ce['events']))
+                        <div style="margin-top:14px;border:1px solid var(--line);border-radius:14px;padding:14px 16px;">
+                            <div style="font-weight:800;font-size:15px;margin-bottom:4px;">Seguimiento en Shalom</div>
+                            @if(!empty($ce['origin']) || !empty($ce['dest']))
+                                <div style="font-size:12.5px;color:var(--muted);margin-bottom:10px;">{{ $ce['origin'] ?? '' }} → {{ $ce['dest'] ?? '' }}@if(!empty($ce['eta'])) · llega en {{ $ce['eta'] }}@endif</div>
+                            @endif
+                            @if(!empty($ce['delay']))
+                                <div style="font-size:13px;background:#fff5e0;color:#7a4a00;border-radius:10px;padding:8px 10px;margin-bottom:10px;">Shalom reporta demora en esta ruta.</div>
+                            @endif
+                            <ul style="list-style:none;margin:0;padding:0;">
+                                @foreach($ce['events'] as $ev)
+                                    <li style="display:flex;gap:10px;align-items:flex-start;padding:5px 0;">
+                                        <span style="flex:0 0 auto;width:18px;height:18px;margin-top:1px;border-radius:99px;display:grid;place-items:center;font-size:11px;color:#fff;background:{{ $ev['at'] ? '#16a34a' : '#e5e7eb' }};">{{ $ev['at'] ? '✓' : '' }}</span>
+                                        <span style="font-size:14px;{{ $ev['at'] ? 'font-weight:700;' : 'color:#94a3b8;' }}">
+                                            {{ \App\Services\Tenant\ShalomTracking::STEPS[$ev['key']] ?? $ev['key'] }}
+                                            @if($ev['at'])<small style="display:block;font-weight:400;color:var(--muted);font-size:12.5px;">{{ \Carbon\Carbon::parse($ev['at'])->locale('es')->isoFormat('ddd D [de] MMM, h:mm a') }}</small>@endif
+                                        </span>
+                                    </li>
+                                @endforeach
+                            </ul>
+                            @if($shipment->carrier_checked_at)
+                                <div style="font-size:11.5px;color:var(--muted);margin-top:8px;">Actualizado {{ $shipment->carrier_checked_at->diffForHumans() }}</div>
+                            @endif
                         </div>
                     @endif
 

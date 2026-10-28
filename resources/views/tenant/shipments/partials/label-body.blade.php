@@ -207,8 +207,16 @@
 
         @if($shipment->tracking_number)
             <div class="guide-box">
-                <div class="l">Guía</div>
-                <div class="n">{{ $shipment->tracking_number }}</div>
+                <div class="l">Guía{{ ($shipment->tracking_code ?? null) ? ' · Código' : '' }}</div>
+                <div class="n">{{ $shipment->tracking_number }}@if($shipment->tracking_code ?? null) · {{ $shipment->tracking_code }}@endif</div>
+            </div>
+        @elseif($shipment->shipping_agency === 'Shalom')
+            {{-- El rótulo se imprime ANTES de ir a Shalom: la guía aún no
+                 existe. Se deja el espacio para anotarla a mano; al subirla
+                 en el panel, el rótulo reimpreso ya la trae. --}}
+            <div class="guide-box" style="border-style:dashed;display:flex;gap:10px;align-items:flex-end;text-align:left;">
+                <div style="flex:2;"><div class="l">Guía Shalom N°</div><div style="border-bottom:1px solid #555;height:22px;"></div></div>
+                <div style="flex:1;"><div class="l">Código</div><div style="border-bottom:1px solid #555;height:22px;"></div></div>
             </div>
         @else
             <div class="guide-box" style="border-style:dashed;">

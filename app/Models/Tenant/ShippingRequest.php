@@ -84,6 +84,12 @@ class ShippingRequest extends Model
         'weight',
         'notes',
         'tracking_number',
+        // Código de 4 caracteres del ticket de Shalom y lo último que reportó
+        // su seguimiento (ver ShalomTracking).
+        'tracking_code',
+        'carrier_status',
+        'carrier_events',
+        'carrier_checked_at',
         'shipping_guide_path',
         'observation',
         'status',
@@ -114,6 +120,8 @@ class ShippingRequest extends Model
     ];
 
     protected $casts = [
+        'carrier_events'     => 'array',
+        'carrier_checked_at' => 'datetime',
         'accepted_terms' => 'boolean',
         'sent_at'        => 'datetime',
         'order_id'       => 'integer',

@@ -16,6 +16,15 @@
         </div>
 
         <div class="sg-field">
+            <label>Código de la guía <small style="font-weight:400;color:#64748b">(Shalom: 4 caracteres)</small></label>
+            <el-input v-model="codigo" maxlength="12" placeholder="Ej. 3KTH" style="max-width:160px"></el-input>
+            <small class="sg-hint">
+                Está en el ticket de Shalom junto al N.º de orden. Con él el cliente
+                ve en su seguimiento dónde está su paquete.
+            </small>
+        </div>
+
+        <div class="sg-field">
             <label>Archivo de la guía <span class="sg-req">*</span></label>
             <input
                 ref="archivo"
@@ -65,6 +74,7 @@ export default {
     data() {
         return {
             tracking: "",
+            codigo: "",
             observacion: "",
             fichero: null,
             subiendo: false,
@@ -79,6 +89,7 @@ export default {
     methods: {
         abrir() {
             this.tracking = "";
+            this.codigo = "";
             this.observacion = "";
             this.fichero = null;
             this.error = null;
@@ -96,6 +107,7 @@ export default {
 
             const datos = new FormData();
             datos.append("tracking_number", this.tracking.trim());
+            if ((this.codigo || "").trim()) datos.append("tracking_code", this.codigo.trim().toUpperCase());
             datos.append("guide_file", this.fichero);
             if (this.observacion) datos.append("observation", this.observacion);
 

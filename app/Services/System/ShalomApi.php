@@ -101,6 +101,12 @@ class ShalomApi
         ];
     }
 
+    /** POST /track — búsqueda y estados de una guía (espejo de Shalom). */
+    public function track(string $orderNumber, string $orderCode): array
+    {
+        return $this->send('post', '/track', ['orderNumber' => $orderNumber, 'orderCode' => $orderCode], null, 25);
+    }
+
     private function get(string $path, array $query, ?string $key, int $timeout): array
     {
         return $this->send('get', $path, $query, $key, $timeout);

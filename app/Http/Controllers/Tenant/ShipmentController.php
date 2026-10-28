@@ -937,12 +937,21 @@ class ShipmentController extends Controller
 
         $request->validate([
             'tracking_number' => 'required|string|max:120',
+            // Código del ticket de Shalom (4 caracteres): sin él no se puede
+            // rastrear la guía. Opcional para las demás agencias.
+            'tracking_code'   => 'nullable|string|max:12',
             'guide_file'      => 'required|file|mimes:jpg,jpeg,png,pdf|max:8192',
             'observation'     => 'nullable|string|max:255',
         ], [], [
             'tracking_number' => 'número de guía',
+            'tracking_code'   => 'código de la guía',
             'guide_file'      => 'archivo de la guía',
         ]);
+
+        $esShalom = $shipment->shipping_agency === 'Shalom';
+        $numero = $esShalom
+            ? \App\Services\Tenant\ShalomTracking::normalizeNumber($request->tracking_number)
+            : trim((string) $request->tracking_number);
 
         $uuid = app(Environment::class)->tenant()?->uuid ?? 'default';
         $path = $request->file('guide_file')->store("tenants/{$uuid}/shipping_guides");
@@ -952,13 +961,32 @@ class ShipmentController extends Controller
             Storage::delete($shipment->shipping_guide_path);
         }
 
-        $shipment->update([
-            'tracking_number'     => $request->tracking_number,
+        $datosGuia = [
+            'tracking_number'     => $numero,
             'shipping_guide_path' => $path,
             'observation'         => $request->filled('observation') ? $request->observation : $shipment->observation,
             'status'              => ShippingRequest::STATUS_EN_AGENCIA,
             'sent_at'             => now(),
-        ]);
+        ];
+        $rastreo = \App\Services\Tenant\ShalomTracking::supported();
+        if ($rastreo) {
+            $datosGuia['tracking_code'] = \App\Services\Tenant\ShalomTracking::normalizeCode($request->tracking_code);
+            // Guía nueva: lo que se sabía de la anterior ya no vale.
+            $datosGuia['carrier_status'] = null;
+            $datosGuia['carrier_events'] = null;
+            $datosGuia['carrier_checked_at'] = null;
+        }
+        $shipment->update($datosGuia);
+
+        // Primera consulta en el momento: confirma que la guía y el código
+        // existen en Shalom. Si aún no aparece, se reintenta cada 2 h.
+        $avisoShalom = '';
+        if ($rastreo && $esShalom && $shipment->tracking_code) {
+            $ok = app(\App\Services\Tenant\ShalomTracking::class)->refresh($shipment);
+            $avisoShalom = $ok
+                ? ' Seguimiento de Shalom activado.'
+                : ' Shalom todavía no muestra esa guía; la volvemos a consultar cada 2 horas.';
+        }
 
         // Avisar al cliente por WhatsApp que su envío salió (async, best-effort).
         $this->notifyClientShipped($shipment);
@@ -966,7 +994,7 @@ class ShipmentController extends Controller
         // Subir la guía ES el despacho: el pedido pasa a "Enviado".
         $this->syncOrder($shipment);
 
-        return back()->with('success', "Guía {$shipment->tracking_number} cargada. Envío marcado como Enviado.");
+        return back()->with('success', "Guía {$shipment->tracking_number} cargada. Envío marcado como Enviado." . $avisoShalom);
     }
 
     /** Cambiar el estado del paquete (preparando / listo / entregado / …). */
@@ -3239,6 +3267,13 @@ class ShipmentController extends Controller
             }
 
             $notFound = !$shipment;
+        }
+
+        // Guía de Shalom: se refresca al abrir si lo guardado tiene más de 30 min.
+        if ($shipment && \App\Services\Tenant\ShalomTracking::supported()
+            && \App\Services\Tenant\ShalomTracking::applies($shipment)
+            && \App\Services\Tenant\ShalomTracking::stale($shipment)) {
+            app(\App\Services\Tenant\ShalomTracking::class)->refresh($shipment);
         }
 
         return view('tenant.shipments.tracking', [
