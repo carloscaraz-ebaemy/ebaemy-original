@@ -237,6 +237,58 @@
             results.appendChild(box);
             results.hidden = false;
         }
+        // Ya eligió y vuelve a tocar el campo: lo más probable es que quiera
+        // OTRO distrito de la misma provincia (Pariñas → El Alto). Antes solo
+        // salían las ciudades frecuentes y había que borrar y escribir de nuevo.
+        function vecinos() {
+            if (!sel.prov) { sugerencias(); return; }
+            var prov = sel.prov, provN = sel.provN || '', depN = sel.depN || '', actual = String(sel.dist);
+            results.innerHTML = ''; filas = []; cursor = -1;
+            results.appendChild(seccion('Otros distritos de ' + provN));
+            var cargando = document.createElement('div'); cargando.className = 'ub-void-s'; cargando.style.padding = '8px 14px';
+            cargando.textContent = 'Cargando…';
+            results.appendChild(cargando);
+            results.hidden = false;
+            var mio = ++seq;
+            ubJSON(UB_SEARCH + '?v=2' + agParam + '&q=' + encodeURIComponent(provN)).then(function (rows) {
+                if (mio !== seq) return;
+                var lista = (rows || []).filter(function (r) { return r.type === 'district' && String(r.province_id) === String(prov); });
+                var pinta = function (lst) {
+                    cargando.remove();
+                    var sec = results.querySelector('.ub-sec');
+                    lst.filter(function (r) { return String(r.district_id) !== actual; }).forEach(function (r) {
+                        var el = fila(r, function () { elegir(r); });
+                        results.insertBefore(el, sec ? sec.nextSibling : null);
+                        sec = el;
+                        filas.push({ el: el });
+                    });
+                    var frec = seccion('Ciudades frecuentes');
+                    results.appendChild(frec);
+                    var box = document.createElement('div'); box.className = 'ub-pop-chips';
+                    POPULARES.forEach(function (c) {
+                        var b = document.createElement('button'); b.type = 'button'; b.className = 'ub-pop-chip';
+                        b.textContent = c[1];
+                        b.addEventListener('click', function (e) {
+                            e.stopPropagation();
+                            elegir({ district_id: c[0], province_id: c[0].substr(0, 4), department_id: c[0].substr(0, 2),
+                                     name: c[1], province_name: c[1], department_name: c[2] });
+                        });
+                        box.appendChild(b);
+                    });
+                    results.appendChild(box);
+                };
+                if (lista.length) { pinta(lista); return; }
+                // La búsqueda no trajo los distritos: se piden por provincia.
+                ubJSON(UB_DIST + '/' + prov).then(function (ds) {
+                    if (mio !== seq) return;
+                    pinta((ds || []).map(function (d) {
+                        return { type: 'district', district_id: d.id, province_id: prov, department_id: sel.dep,
+                                 name: d.description, province_name: provN, department_name: depN };
+                    }));
+                });
+            });
+        }
+
         function ubLabel(name, prov, dep) {
             var ctx = [prov, dep].filter(function (x, i, a) { return x && a.indexOf(x) === i && x !== name; });
             return name + (ctx.length ? ', ' + ctx.join(', ') : '');
@@ -543,7 +595,7 @@
             search.addEventListener('focus', function () {
                 ubCerrarTodos();
                 pop.hidden = false; cerrarManual();
-                if (label && search.value === label) { try { search.select(); } catch (e) {} sugerencias(); }
+                if (label && search.value === label) { try { search.select(); } catch (e) {} vecinos(); }
                 else if (search.value.trim().length >= 2) buscar();
                 else sugerencias();
             });

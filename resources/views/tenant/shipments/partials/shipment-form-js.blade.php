@@ -218,7 +218,11 @@
         var d = shDistrito();
         if (d === SH.district && !SH.loading) { shPintar(); return; }
         SH.district = d; SH.offices = []; SH.scope = '';
-        if (!d) { shPintar(); return; }
+        // Ciudad nueva: la vía y los precios de la anterior ya no valen.
+        quoteSeq++; QUOTES = { t: null, a: null };
+        if (modeBox) modeBox.hidden = true;
+        if (airInp) airInp.value = '0';
+        if (!d) { shPintar(); shSinCotizacion(); return; }
 
         SH.loading = true; shPintar();
         fetch(SH.url + '/' + encodeURIComponent(d), { headers: { 'Accept': 'application/json' } })
@@ -260,6 +264,13 @@
     function shMoneda(n) { return 'S/ ' + (Math.round(n * 100) / 100).toFixed(n % 1 ? 2 : 0); }
     function shSinCotizacion() {
         if (quoteEl) quoteEl.hidden = true;
+        if (modeBox) modeBox.hidden = true;
+        // Con oficinas a la vista pero ninguna elegida: decir qué falta, en
+        // vez de que el selector de vía desaparezca sin explicación.
+        if (quoteEl && shEsShalom() && SH.offices.length && !shElegida() && !(SH.unknown && SH.unknown.checked)) {
+            quoteEl.textContent = 'Toca tu oficina para ver cuánto tarda y cuánto cuesta' + (AIR_OK ? ' (terrestre y aéreo)' : '') + '.';
+            quoteEl.hidden = false;
+        }
         if (fleteV) fleteV.textContent = FLETE_V0;
         if (fleteSub) fleteSub.textContent = FLETE_S0;
         var li = document.querySelector('#eta-agencia .js-eta-arrive');
@@ -312,6 +323,10 @@
         if (!o || !shEsShalom()) { if (airInp) airInp.value = '0'; shSinCotizacion(); return; }
         var conAereo = AIR_OK && !!o.air;
         if (!conAereo && airInp) airInp.value = '0';
+        if (quoteEl) {
+            quoteEl.textContent = 'Calculando con Shalom cuánto tarda y cuánto cuesta' + (conAereo ? ' (terrestre y aéreo)' : '') + '…';
+            quoteEl.hidden = false;
+        }
         Promise.all([shPedir(o.id, false), conAereo ? shPedir(o.id, true) : Promise.resolve(null)])
             .then(function (rs) {
                 if (mio !== quoteSeq) return;
