@@ -960,10 +960,13 @@ input.mp-co-invalid, select.mp-co-invalid, textarea.mp-co-invalid {
         const fold = (t) => (t || '').toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
         const title = (t) => (t || '').toString().toLowerCase().replace(/(^|[\s(-])\S/g, c => c.toUpperCase());
         let index = [], hits = [], active = -1;
+        // Algunos distritos vienen en MAYUSCULAS en el dataset: solo se muestran
+        // en formato normal; el valor que se guarda no cambia.
+        const pretty = (t) => (t && t === t.toUpperCase()) ? title(t).replace(/ (De|Del|La|Las|Los|Y) /g, m => m.toLowerCase()) : t;
 
         function syncPlace() {
             if (!placeIn || !distSel.value) return;
-            placeIn.value = distSel.value + ', ' + provSel.value
+            placeIn.value = pretty(distSel.value) + ', ' + provSel.value
                 + (norm(provSel.value) !== norm(depSel.value) ? ' (' + title(depSel.value) + ')' : '');
         }
         function closeList() {
@@ -980,7 +983,7 @@ input.mp-co-invalid, select.mp-co-invalid, textarea.mp-co-invalid {
                 li.setAttribute('role', 'option');
                 li.setAttribute('aria-selected', i === active ? 'true' : 'false');
                 li.innerHTML = '<strong></strong><small></small>';
-                li.firstChild.textContent = h.dist;
+                li.firstChild.textContent = pretty(h.dist);
                 li.lastChild.textContent = h.prov + ', ' + title(h.dep);
                 li.addEventListener('mousedown', (e) => { e.preventDefault(); pick(h); });
                 placeList.appendChild(li);
