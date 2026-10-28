@@ -293,7 +293,9 @@
                         <style>
                             .sh-box{margin-top:4px}
                             .sh-tools{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin:2px 0 8px}
-                            .sh-near{border:1.5px solid var(--line-2);background:var(--surface);border-radius:999px;padding:6px 12px;font-size:13px;font-weight:650;color:var(--ink-2);cursor:pointer;min-height:36px}
+                            .sh-near{display:inline-flex;align-items:center;gap:6px;border:1.5px solid var(--accent);background:var(--accent-soft);border-radius:999px;padding:7px 14px;font-size:13.5px;font-weight:700;color:var(--accent);cursor:pointer;min-height:40px}
+                            .sh-near.is-on{border-color:var(--line-2);background:var(--surface);color:var(--ink-2)}
+                            .sh-opt i.sh-best{background:var(--ok-soft);color:var(--ok)}
                             .sh-list{display:grid;gap:8px;max-height:360px;overflow-y:auto;padding:2px}
                             .sh-list.is-bad{outline:2px solid var(--bad);outline-offset:2px;border-radius:12px}
                             .sh-opt{display:block;width:100%;text-align:left;border:1.5px solid var(--line);background:var(--surface);border-radius:var(--r);padding:12px 14px;cursor:pointer;font:inherit;color:var(--ink)}
@@ -314,7 +316,7 @@
                             <label class="req">¿En qué oficina de Shalom recogerás?</label>
                             <div class="sh-tools">
                                 <small class="hint" id="{{ $p }}sh_scope"></small>
-                                <button type="button" class="sh-near" id="{{ $p }}sh_near" hidden>Ordenar por cercanía</button>
+                                <button type="button" class="sh-near" id="{{ $p }}sh_near" hidden>📍 Ver la más cercana a mí</button>
                             </div>
                             <div class="sh-list" id="{{ $p }}sh_list" role="radiogroup" aria-label="Oficinas de Shalom"></div>
                             <input type="hidden" name="agency_office_id" id="{{ $p }}agency_office_id" value="{{ old('agency_office_id') }}">

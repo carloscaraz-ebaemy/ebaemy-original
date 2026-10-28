@@ -196,12 +196,15 @@
             : (SH.offices.length === 1 ? '1 oficina en tu distrito' : SH.offices.length + ' oficinas en tu distrito');
 
         var sel = SH.id ? SH.id.value : '';
-        SH.list.innerHTML = SH.offices.map(function (o) {
+        SH.list.innerHTML = SH.offices.map(function (o, i) {
             var km = (SH.origin && o.lat != null && o.lng != null) ? shKm(SH.origin, o) : null;
+            // Ya ordenadas por GPS, la primera con coordenadas es la más cercana.
+            var best = i === 0 && km !== null;
             return '<button type="button" class="sh-opt" role="radio" data-id="' + o.id + '" aria-checked="' + (String(o.id) === sel) + '">'
                 + '<b>' + shEsc(o.name) + '</b>'
                 + (o.address ? '<span>' + shEsc(o.address) + '</span>' : '')
                 + (o.hours ? '<span>🕒 ' + shEsc(o.hours) + '</span>' : '')
+                + (best ? '<i class="sh-best">Más cercana a ti</i>' : '')
                 + (km !== null ? '<i>a ' + (km < 10 ? km.toFixed(1) : Math.round(km)) + ' km</i>' : '')
                 + (SH.scope === 'province' && o.district ? '<i>' + shEsc(o.district) + '</i>' : '')
                 + (o.home_delivery ? '<i>Hace reparto a domicilio</i>' : '')
@@ -398,11 +401,14 @@
         navigator.geolocation.getCurrentPosition(function (pos) {
             SH.origin = { lat: pos.coords.latitude, lng: pos.coords.longitude };
             shOrdenar(); shPintar();
-            SH.near.disabled = false; SH.near.textContent = 'Ordenadas por cercanía';
-        }, function () {
-            SH.near.disabled = false; SH.near.textContent = 'Ordenar por cercanía';
-            SH.scopeEl.textContent = 'No pudimos usar tu ubicación. Busca tu oficina en la lista.';
-        }, { timeout: 10000, maximumAge: 600000 });
+            SH.near.disabled = false; SH.near.classList.add('is-on');
+            SH.near.textContent = '✓ Ordenadas por cercanía';
+        }, function (err) {
+            SH.near.disabled = false; SH.near.textContent = '📍 Ver la más cercana a mí';
+            SH.scopeEl.textContent = err && err.code === 1
+                ? 'No diste permiso para ver tu ubicación. Actívalo en el candado de la barra de direcciones o busca tu oficina en la lista.'
+                : 'No pudimos obtener tu ubicación. Revisa que el GPS esté encendido o busca tu oficina en la lista.';
+        }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 600000 });
     });
 
     document.addEventListener('change', function (ev) {
