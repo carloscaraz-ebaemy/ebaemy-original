@@ -266,9 +266,9 @@
         navigator.geolocation.getCurrentPosition(function (pos) {
             SH.origin = { lat: pos.coords.latitude, lng: pos.coords.longitude };
             shOrdenar(); shPintar();
-            SH.near.disabled = false; SH.near.textContent = '📍 Ordenadas por cercanía';
+            SH.near.disabled = false; SH.near.textContent = 'Ordenadas por cercanía';
         }, function () {
-            SH.near.disabled = false; SH.near.textContent = '📍 Ver las más cercanas a mí';
+            SH.near.disabled = false; SH.near.textContent = 'Ordenar por cercanía';
             SH.scopeEl.textContent = 'No pudimos usar tu ubicación. Busca tu oficina en la lista.';
         }, { timeout: 10000, maximumAge: 600000 });
     });
@@ -490,23 +490,23 @@
     // recojo en tienda no hay destino que pedir, y llamarlo «destino» ahi
     // confundiria al cliente que solo va a pasar por la tienda.
     function ajustarPasoDestino() {
-        var h   = document.querySelector('.step[data-step="2"] .step-h');
+        var h   = document.querySelector('.step[data-step="2"] .js-dest-h');
         var sub = document.getElementById('{{ $p }}dest_sub');
         var sec = document.getElementById('conf_sec_entrega');
         if (!h || !sub) return;
 
         if (selectedType === DTYPE.TIENDA) {
-            h.textContent = 'Recojo en tienda';
-            sub.textContent = 'Te avisamos por WhatsApp cuando tu pedido este listo.';
-            if (sec) sec.textContent = 'Recojo';
+            h.textContent = '¿Cuándo pasas a recogerlo?';
+            sub.textContent = 'Te avisamos por WhatsApp cuando esté listo.';
+            if (sec) sec.textContent = 'Recojo en tienda';
         } else if (selectedType === DTYPE.DOM) {
-            h.textContent = 'Donde te lo entregamos';
-            sub.textContent = 'Escribe tu direccion y ajusta el marcador en el mapa.';
+            h.textContent = '¿Dónde te lo entregamos?';
+            sub.textContent = 'Escribe tu dirección y ajusta el punto en el mapa.';
             if (sec) sec.textContent = 'Entrega a domicilio';
         } else {
-            h.textContent = 'A donde enviamos tu pedido';
-            sub.textContent = 'Elige tu ciudad y la agencia por la que lo recogeras.';
-            if (sec) sec.textContent = 'Envio por agencia';
+            h.textContent = '¿A qué ciudad lo enviamos?';
+            sub.textContent = 'Elige tu ciudad, la agencia y la oficina donde lo recoges.';
+            if (sec) sec.textContent = 'Envío por agencia';
         }
     }
 
@@ -587,7 +587,7 @@
                 var e = document.querySelector('.js-phone-err');
                 if (e) e.textContent = '';
             }
-            problemas.push({ msg: 'Revisa tu numero de celular', el: phone });
+            problemas.push({ msg: 'Revisa tu número de celular', el: phone });
         } else limpiar(phone);
 
         // Empresa: sin la persona que recoge, la agencia no entrega el paquete.
@@ -597,7 +597,7 @@
             var pdig2 = pd ? (pd.value || '').replace(/\D+/g, '') : '';
 
             if (!pn || !pn.value.trim()) {
-                if (!silencioso) marcar(pn, 'Nombre de la persona que recogera el paquete.');
+                if (!silencioso) marcar(pn, 'Nombre de la persona que recogerá el paquete.');
                 problemas.push({ msg: 'Falta quien recoge el paquete', el: pn });
             } else limpiar(pn);
 
@@ -626,15 +626,15 @@
         if (selectedType === DTYPE.DOM) {
             var addr = document.getElementById('{{ $p }}addr_domicilio');
             if (!addr.value.trim()) {
-                if (!silencioso) marcar(addr, 'Escribe tu calle, avenida o jiron y el numero.');
-                problemas.push({ msg: 'Falta tu direccion de entrega', el: addr });
+                if (!silencioso) marcar(addr, 'Escribe tu calle, avenida o jirón y el número.');
+                problemas.push({ msg: 'Falta tu dirección de entrega', el: addr });
             } else limpiar(addr);
         } else {
             var dist = document.querySelector('[data-ubigeo-group="pub"] [data-ub="district"]');
             var disp = document.querySelector('[data-ubigeo-group="pub"] .ubigeo-display');
             if (!dist || !dist.value) {
                 if (!silencioso && disp) disp.classList.add('is-bad');
-                problemas.push({ msg: 'Elige a que ciudad o distrito enviamos', el: disp });
+                problemas.push({ msg: 'Elige a qué ciudad o distrito lo enviamos', el: disp });
             } else if (disp) disp.classList.remove('is-bad');
 
             // La AGENCIA es obligatoria: sin ella el almacen no sabe donde dejar
@@ -672,7 +672,7 @@
                 var faltaDir = agHome && agHome.checked && !(casa && casa.value.trim());
                 de.style.color = '#a16207';
                 de.textContent = faltaDir
-                    ? 'Pediste que la agencia lleve el paquete a tu domicilio pero no escribiste la direccion; podras indicarla despues.'
+                    ? 'Pediste que la agencia lleve el paquete a tu domicilio pero no escribiste la dirección; podrás indicarla después.'
                     : '';
                 de.hidden = !faltaDir;
             }
@@ -700,8 +700,8 @@
         if (homeExtra) homeExtra.hidden = true;
 
         document.getElementById('c_type').textContent = isPickup
-            ? '🏬 Recojo en tienda'
-            : (isDom ? '🏍️ Entrega a domicilio · LIMA' : '📦 Envío por agencia · PROVINCIA');
+            ? 'Recojo en tienda'
+            : (isDom ? 'A domicilio en Lima' : 'Por agencia a provincia');
         document.getElementById('c_name').textContent = txt('{{ $p }}full_name') || '—';
         var dt = document.querySelector('input[name="document_type"]:checked');
         var dtv = dt ? dt.value : 'dni';
@@ -765,9 +765,14 @@
             document.getElementById('c_dir').textContent = txt('{{ $p }}addr_agencia') || 'Recojo en la agencia';
             document.getElementById('k_ref').textContent = 'Oficina de recojo';
             var ofi = shEsShalom() ? shElegida() : null;
-            document.getElementById('c_ref').textContent = ofi
-                ? (ofi.name + (ofi.address ? ' — ' + ofi.address : ''))
-                : (txt('{{ $p }}reference_ag') || '—');
+            var cRef = document.getElementById('c_ref');
+            cRef.textContent = ofi ? ofi.name : (txt('{{ $p }}reference_ag') || '—');
+            if (ofi && ofi.address) {
+                var dir = document.createElement('small');
+                dir.style.cssText = 'display:block;font-weight:400;color:var(--muted);font-size:12.5px;margin-top:2px';
+                dir.textContent = ofi.address;
+                cRef.appendChild(dir);
+            }
             document.getElementById('c_ag').textContent = txt('{{ $p }}shipping_agency') || '—';
         }
     }
@@ -856,9 +861,13 @@
         caja.hidden = false;
         caja.classList.toggle('is-done', pct === 100);
         document.getElementById('progFill').style.width = pct + '%';
-        document.getElementById('progText').textContent = pct === 100
-            ? 'Listo: ya tenemos todo lo necesario'
-            : ('Tu informacion esta ' + pct + '% completa');
+        // Cuántos datos faltan, no un porcentaje: «0% completa» al entrar
+        // desanimaba antes de empezar.
+        var faltan = lista.length - hechos;
+        caja.hidden = hechos === 0;
+        document.getElementById('progText').textContent = faltan === 0
+            ? '✓ Ya tenemos todo lo necesario'
+            : (faltan === 1 ? 'Te falta 1 dato obligatorio' : 'Te faltan ' + faltan + ' datos obligatorios');
     }
 
     // ── Borrador ──────────────────────────────────────────────────────

@@ -3332,8 +3332,20 @@ class ShipmentController extends Controller
         $sent = session('shipment_code');
         $sentShipment = $sent ? ShippingRequest::where('shipment_code', $sent)->first() : null;
 
+        try {
+            $storeColor = \App\Models\Tenant\ConfigurationEcommerce::first()->color_ecommerce ?? null;
+        } catch (\Throwable $e) {
+            $storeColor = null;
+        }
+
         return view('tenant.shipments.public', [
             'company'      => $company,
+            'storeName'    => optional($company)->title_web ?: (optional($company)->trade_name ?: (optional($company)->name ?: 'la tienda')),
+            // Color de la tienda, oscurecido si hace falta para que se lea.
+            'brand'        => \App\Services\Tenant\StoreBrandColor::palette($storeColor),
+            // Cuándo sale y cuándo llega, por modalidad (política de envío).
+            'eta'          => (new \App\Services\Tenant\ShippingEta())->forForm($store),
+            'orderSummary' => isset($orderContext['order']) ? $this->publicOrderSummary($orderContext['order']) : null,
             'sent'         => $sent,
             'sentType'     => session('shipment_type'),
             'sentShipment' => $sentShipment,
@@ -3367,6 +3379,41 @@ class ShipmentController extends Controller
                 ? route('shipments.public.order_store', ['external_id' => $orderContext['order']->external_id])
                 : route('shipments.public.store'),
         ]);
+    }
+
+    /**
+     * Lo que compró, para que el cliente reconozca su pedido en el formulario.
+     * Solo nombre, cantidad, miniatura e importe: nada de costos ni datos
+     * internos del ítem.
+     */
+    private function publicOrderSummary(\App\Models\Tenant\Order $order): array
+    {
+        $lines = [];
+        foreach ((array) $order->items as $it) {
+            $it = (array) $it;
+            $name = trim((string) ($it['description'] ?? $it['name'] ?? ''));
+            if ($name === '') {
+                continue;
+            }
+            $img = trim((string) ($it['image_small'] ?? $it['image'] ?? ''));
+            if ($img !== '' && !str_contains($img, 'imagen-no-disponible') && !preg_match('#^https?://#', $img)) {
+                $img = asset('storage/uploads/items/' . $img);
+            }
+            $qty = (float) ($it['quantity'] ?? 1);
+            $lines[] = [
+                'name'  => \Illuminate\Support\Str::limit($name, 70),
+                'qty'   => $qty == (int) $qty ? (int) $qty : $qty,
+                'image' => ($img !== '' && !str_contains($img, 'imagen-no-disponible')) ? $img : null,
+                'total' => (float) ($it['subtotal'] ?? ((float) ($it['sale_unit_price'] ?? $it['unit_price'] ?? 0) * $qty)),
+            ];
+        }
+
+        return [
+            'number' => str_pad($order->id, 6, '0', STR_PAD_LEFT),
+            'lines'  => array_slice($lines, 0, 6),
+            'more'   => max(0, count($lines) - 6),
+            'total'  => (float) $order->total,
+        ];
     }
 
     /**

@@ -3,274 +3,323 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Registro de envío — {{ $company->title_web ?? $company->trade_name ?? $company->name ?? 'ebaemy' }}</title>
+    <title>Datos de envío · {{ $storeName }}</title>
+    @php
+        // Color de la tienda ya ajustado para contraste (StoreBrandColor).
+        $accent = $brand['accent'] ?? '#b4472c';
+    @endphp
+    <meta name="theme-color" content="{{ $accent }}">
     <style>
-        :root { --brand:#2563eb; --brand-d:#1d4ed8; --ink:#0f172a; --line:#e5e7eb; --muted:#6b7280; --ok:#16a34a; --bg:#f1f5f9; --moto:#7c3aed; }
-        * { box-sizing: border-box; }
-        body { margin:0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background:var(--bg); color:var(--ink); -webkit-font-smoothing:antialiased; }
-        .wrap { max-width: 560px; margin: 0 auto; padding: 18px 14px 48px; }
-        .card { background:#fff; border:1px solid var(--line); border-radius:20px; padding:22px; box-shadow:0 10px 40px -16px rgba(15,23,42,.2); }
-        .head { text-align:center; margin-bottom:16px; }
-        .brand { font-size:13px; font-weight:800; text-transform:uppercase; color:var(--brand); letter-spacing:.4px; }
-        .head h1 { font-size:20px; margin:6px 0 2px; }
-        .head p { margin:0; color:var(--muted); font-size:13px; }
-
-        /* ── Stepper ── */
-        .stepper { display:flex; align-items:center; justify-content:space-between; margin:18px 2px 22px; }
-        .st { display:flex; flex-direction:column; align-items:center; gap:6px; flex:0 0 auto; width:70px; text-align:center; }
-        .st .dot { width:32px; height:32px; border-radius:999px; background:#e2e8f0; color:#94a3b8; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:13px; transition:.25s; }
-        .st .t { font-size:11px; color:#94a3b8; font-weight:600; transition:.25s; }
-        .st.active .dot { background:var(--brand); color:#fff; box-shadow:0 0 0 5px rgba(37,99,235,.15); }
-        .st.active .t { color:var(--ink); }
-        .st.done .dot { background:var(--ok); color:#fff; }
-        .st.done .t { color:var(--ink); }
-        .st-line { flex:1; height:3px; background:#e2e8f0; border-radius:2px; margin:0 -4px; align-self:flex-start; margin-top:15px; }
-        .st-line.done { background:var(--ok); }
-
-        label { display:block; font-size:13px; font-weight:600; margin:14px 0 5px; }
-        .step > label:first-of-type { margin-top:0; }
-        .req::after { content:" *"; color:#dc2626; }
-        input[type=text], input[type=tel], select, textarea {
-            width:100%; padding:12px 13px; border:1.5px solid var(--line); border-radius:12px; font-size:15px; background:#fff; transition:.15s;
+        /* Diseño: comprador en un Android de gama media que abre el enlace
+           desde WhatsApp, muchas veces en la calle. Tema claro, contraste
+           alto, objetivos de 44px. Neutros cálidos; el color de la TIENDA
+           solo en acciones y selección. Ver PRODUCT.md. */
+        :root {
+            --accent: {{ $accent }};
+            --accent-soft: #f6efe9;
+            --accent-line: #e3cfc4;
+            --paper: #faf8f5;
+            --surface: #fffefc;
+            --ink: #26211d;
+            --ink-2: #5a524b;
+            --muted: #6b635b;
+            --line: #e7e1d9;
+            --line-2: #d7cfc5;
+            --ok: #1f7a46; --ok-soft: #eaf6ee;
+            --warn: #7a4a00; --warn-soft: #fff5e0; --warn-line: #f2d9a6;
+            --bad: #b42318; --bad-soft: #fdf0ee;
+            --brand: var(--accent); --brand-d: var(--accent); --bg: var(--paper); --moto: var(--accent);
+            --r-sm: 10px; --r: 14px; --r-lg: 18px;
+            --ease: cubic-bezier(.22,1,.36,1);
         }
-        input:focus, select:focus, textarea:focus { outline:none; border-color:var(--brand); box-shadow:0 0 0 3px rgba(37,99,235,.12); }
-        .hint { font-size:12px; color:var(--muted); margin-top:3px; display:block; }
-        /* Tipo de documento */
-        .doc-types { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:8px; }
+        @supports (background: color-mix(in srgb, red 10%, white)) {
+            :root {
+                --accent-soft: color-mix(in srgb, var(--accent) 8%, var(--surface));
+                --accent-line: color-mix(in srgb, var(--accent) 38%, var(--surface));
+            }
+        }
+        * { box-sizing: border-box; }
+        html { -webkit-text-size-adjust: 100%; }
+        body { margin:0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif; background:var(--paper); color:var(--ink); -webkit-font-smoothing:antialiased; line-height:1.45; }
+        button, input, select, textarea { font: inherit; color: inherit; }
+        :focus-visible { outline: 3px solid var(--accent-line); outline-offset: 2px; }
+        .wrap { max-width: 540px; margin: 0 auto; padding: 0 16px 40px; }
+
+        /* En el teléfono el formulario ES la página: sin tarjeta flotante. */
+        .card { padding: 4px 0 0; }
+        @media (min-width: 600px) {
+            .wrap { padding-top: 28px; }
+            .card { background:var(--surface); border:1px solid var(--line); border-radius:22px; padding:26px 28px; box-shadow:0 1px 2px rgba(38,33,29,.04), 0 18px 48px -28px rgba(38,33,29,.28); }
+        }
+
+        /* ── Cabecera: la tienda primero ── */
+        .head { display:flex; align-items:center; gap:12px; padding:16px 0 14px; border-bottom:1px solid var(--line); margin-bottom:16px; }
+        .head__logo { flex:0 0 auto; width:52px; height:52px; border-radius:14px; background:var(--surface); border:1px solid var(--line); display:grid; place-items:center; overflow:hidden; }
+        .head__logo img { max-width:44px; max-height:44px; object-fit:contain; }
+        .head__logo b { font-size:22px; color:var(--accent); }
+        .head__tx { min-width:0; }
+        .head__store { font-size:16px; font-weight:750; letter-spacing:-.01em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .head__sub { font-size:13px; color:var(--muted); display:flex; align-items:center; gap:5px; margin-top:1px; }
+        .head__sub svg { flex:0 0 auto; color:var(--ok); }
+
+        /* ── Pasos: barra segmentada ── */
+        .stepper { display:flex; gap:6px; margin:0 0 18px; }
+        .st { flex:1; display:flex; flex-direction:column; gap:6px; }
+        .st .dot { height:4px; border-radius:99px; background:var(--line); font-size:0; color:transparent; transition:background .25s var(--ease); }
+        .st .t { font-size:12px; font-weight:600; color:var(--muted); }
+        .st.active .dot { background:var(--accent); }
+        .st.active .t { color:var(--ink); font-weight:700; }
+        .st.done .dot { background:var(--accent); opacity:.45; }
+        .st.done .t { color:var(--ink-2); }
+        .st-line { display:none; }
+
+        /* ── Encabezado de cada paso ── */
+        .step-head { margin:4px 0 16px; }
+        .step-h { font-size:22px; line-height:1.2; font-weight:800; margin:0 0 4px; letter-spacing:-.02em; }
+        .step-sub { font-size:14px; color:var(--muted); margin:0; }
+        .sec-h { display:flex; align-items:center; gap:10px; font-size:16px; font-weight:750; margin:26px 0 2px; }
+        .sec-h i { font-style:normal; flex:0 0 auto; width:26px; height:26px; border-radius:99px; background:var(--accent-soft); color:var(--accent); display:grid; place-items:center; font-size:13px; font-weight:800; }
+
+        /* ── Campos ── */
+        label { display:block; font-size:14px; font-weight:650; margin:16px 0 6px; }
+        .step > label:first-of-type { margin-top:0; }
+        .req::after { content:" *"; color:var(--bad); }
+        input[type=text], input[type=tel], select, textarea {
+            width:100%; min-height:48px; padding:12px 14px; border:1.5px solid var(--line-2); border-radius:var(--r); font-size:16px; background:var(--surface);
+            transition:border-color .15s, box-shadow .15s;
+        }
+        input::placeholder { color:#9a9189; }
+        input:focus, select:focus, textarea:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 4px var(--accent-soft); }
+        .hint { font-size:13px; color:var(--muted); margin-top:5px; display:block; }
+        .doc-types { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px; }
         .doc-opt { position:relative; margin:0; }
         .doc-opt input { position:absolute; opacity:0; width:0; height:0; }
-        .doc-opt span { display:inline-block; padding:8px 14px; border:1.5px solid var(--line); border-radius:11px;
-            font-size:13.5px; font-weight:600; color:#475569; background:#fff; cursor:pointer; transition:.15s; }
-        .doc-opt span:hover { border-color:#cbd5e1; }
-        .doc-opt input:checked + span { border-color:var(--brand); background:#eff6ff; color:var(--brand-d); }
-        .doc-opt input:focus-visible + span { box-shadow:0 0 0 3px rgba(37,99,235,.15); }
-        /* Campo que llena el sistema (no se escribe a mano) */
-        input.is-auto { background:#f8fafc; color:#0f172a; font-weight:600; cursor:not-allowed; }
-        input.is-auto:focus { border-color:var(--line); box-shadow:none; }
-        .js-name-manual { background:none; border:0; padding:0 0 0 4px; color:var(--brand); font:inherit; font-size:12px; text-decoration:underline; cursor:pointer; }
-        .hint.is-warn { color:#b45309; }
-        .hint.is-warn .js-name-manual { color:#b45309; }
+        .doc-opt span { display:inline-flex; align-items:center; min-height:40px; padding:8px 14px; border:1.5px solid var(--line-2); border-radius:99px; font-size:14px; font-weight:600; color:var(--ink-2); background:var(--surface); cursor:pointer; transition:.15s; }
+        .doc-opt input:checked + span { border-color:var(--accent); background:var(--accent-soft); color:var(--accent); }
+        .doc-opt input:focus-visible + span { box-shadow:0 0 0 4px var(--accent-soft); }
+        input.is-auto { background:#f3efe9; font-weight:650; cursor:not-allowed; }
+        input.is-auto:focus { border-color:var(--line-2); box-shadow:none; }
+        .js-name-manual { background:none; border:0; padding:0 0 0 4px; color:var(--accent); font-size:13px; font-weight:600; text-decoration:underline; cursor:pointer; }
+        .hint.is-warn, .hint.is-warn .js-name-manual { color:var(--warn); }
 
-        .btn { width:100%; padding:14px; border:none; border-radius:14px; background:var(--brand); color:#fff; font-size:16px; font-weight:700; cursor:pointer; transition:.15s; }
-        .btn:hover { background:var(--brand-d); } .btn:active { transform:scale(.99); }
-        .btn-ghost { background:#f1f5f9; color:#334155; } .btn-ghost:hover { background:#e2e8f0; }
-        .row-btns { display:flex; gap:10px; margin-top:20px; }
+        /* ── Botones ── */
+        .btn { display:inline-flex; align-items:center; justify-content:center; gap:8px; width:100%; min-height:52px; padding:14px; border:none; border-radius:var(--r); background:var(--accent); color:#fffefc; font-size:16px; font-weight:750; cursor:pointer; transition:transform .12s var(--ease), filter .15s; }
+        .btn:hover { filter:brightness(.94); } .btn:active { transform:scale(.985); }
+        .btn[disabled] { opacity:.6; cursor:progress; }
+        .btn-ghost { background:transparent; color:var(--ink-2); border:1.5px solid var(--line-2); }
+        .btn-ghost:hover { filter:none; background:#f3efe9; }
+        .row-btns { display:flex; gap:10px; margin-top:24px; }
+        .row-btns:empty { display:none; }
         .row-btns .btn { flex:1; }
+        .row-btns .btn-ghost { flex:0 0 34%; }
 
-        /* ── Paso 0: tarjetas de tipo de entrega ── */
-        .dtype { display:flex; flex-direction:column; gap:14px; margin-top:4px; }
-        .dcard { display:flex; align-items:center; gap:14px; text-align:left; width:100%; border:2px solid var(--line); background:#fff; border-radius:18px; padding:18px; cursor:pointer; transition:.18s; }
-        .dcard:hover { border-color:var(--brand); transform:translateY(-2px); box-shadow:0 12px 28px -18px rgba(37,99,235,.5); }
-        .dcard .ic { flex:0 0 auto; width:56px; height:56px; border-radius:16px; display:flex; align-items:center; justify-content:center; font-size:28px; }
-        .dcard.moto .ic { background:#f3e8ff; } .dcard.ag .ic { background:#dbeafe; }
-        .dcard.tienda .ic { background:#dcfce7; }
-        .dcard .tx { flex:1; }
-        .dcard .tx b { display:block; font-size:16px; }
-        .dcard .tx span { display:block; font-size:12.5px; color:var(--muted); margin-top:2px; line-height:1.35; }
-        .dcard .go { flex:0 0 auto; font-size:13px; font-weight:800; color:var(--brand); border:1.5px solid var(--brand); border-radius:10px; padding:8px 12px; }
-        .dcard.moto .go { color:var(--moto); border-color:var(--moto); }
-        .dcard.tienda .go { color:var(--ok); border-color:var(--ok); }
-        .dcard.tienda:hover { border-color:var(--ok); box-shadow:0 12px 28px -18px rgba(22,163,74,.5); }
-        /* Modalidad que este dispositivo ya habia empezado a llenar. Se marca
-           para que el cliente la reconozca, pero sigue siendo UNA de las tres
-           opciones: el formulario nunca elige por el. */
-        .dcard--previa { border-color:var(--brand); background:#f8fbff; }
-        .dcard--previa::after { content:'Continuar donde lo dejaste'; position:absolute; top:-9px; left:16px; font-size:10.5px; font-weight:800; letter-spacing:.3px; text-transform:uppercase; color:#fff; background:var(--brand); border-radius:999px; padding:2px 9px; }
-        .dcard { position:relative; }
+        /* ── Paso 1: cómo lo recibe ── */
+        .dtype { display:flex; flex-direction:column; gap:10px; }
+        .dcard { position:relative; display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:4px 14px; text-align:left; width:100%; border:1.5px solid var(--line); background:var(--surface); border-radius:var(--r-lg); padding:16px; cursor:pointer; transition:border-color .18s, box-shadow .18s, transform .12s var(--ease); }
+        .dcard:hover { border-color:var(--accent-line); box-shadow:0 10px 26px -20px rgba(38,33,29,.45); }
+        .dcard:active { transform:scale(.99); }
+        .dcard .tx { grid-column:2; grid-row:1; }
+        .dcard .ic { grid-column:1; grid-row:1 / span 2; align-self:start; width:48px; height:48px; border-radius:14px; background:var(--accent-soft); color:var(--accent); display:grid; place-items:center; }
+        .dcard .tx b { display:block; font-size:16.5px; font-weight:750; letter-spacing:-.01em; }
+        .dcard .tx span { display:block; font-size:13.5px; color:var(--muted); margin-top:2px; }
+        .dcard .chev { grid-column:3; grid-row:1 / span 2; color:var(--ink-2); }
+        .dcard .meta { grid-column:2; grid-row:2; display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+        .chip { display:inline-flex; align-items:center; gap:5px; font-size:12.5px; font-weight:650; color:var(--ink-2); background:#f3efe9; border-radius:99px; padding:4px 10px; }
+        .chip svg { flex:0 0 auto; }
+        .chip.is-ok { background:var(--ok-soft); color:var(--ok); }
+        .dcard .go { display:none; }
+        .dcard--previa { border-color:var(--accent); }
+        .dcard--previa::after { content:'Continuar donde lo dejaste'; position:absolute; top:-10px; left:14px; font-size:11px; font-weight:750; color:#fffefc; background:var(--accent); border-radius:99px; padding:2px 10px; }
 
-        .tag { display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:700; padding:5px 11px; border-radius:999px; margin-bottom:6px; }
-        .tag.moto { background:#f3e8ff; color:var(--moto); } .tag.ag { background:#dbeafe; color:var(--brand-d); }
-        .tag.tienda { background:#dcfce7; color:#15803d; }
+        .tag { display:inline-flex; align-items:center; gap:6px; font-size:13px; font-weight:700; padding:6px 12px; border-radius:99px; margin-bottom:10px; background:var(--accent-soft); color:var(--accent); }
+
+        /* ── Tu pedido ── */
+        .order { border:1px solid var(--line); background:var(--surface); border-radius:var(--r-lg); margin-bottom:18px; }
+        .order summary { list-style:none; display:flex; align-items:center; gap:12px; padding:12px 14px; cursor:pointer; min-height:56px; }
+        .order summary::-webkit-details-marker { display:none; }
+        .order__thumbs { display:flex; flex:0 0 auto; }
+        .order__thumbs span { width:40px; height:40px; border-radius:10px; border:2px solid var(--surface); background:#f3efe9 center/cover no-repeat; margin-left:-12px; display:grid; place-items:center; font-size:12px; font-weight:750; color:var(--ink-2); }
+        .order__thumbs span:first-child { margin-left:0; }
+        .order__tx { flex:1; min-width:0; }
+        .order__tx b { display:block; font-size:15px; }
+        .order__tx small { color:var(--muted); font-size:13px; }
+        .order__total { font-weight:800; font-size:15px; white-space:nowrap; }
+        .order__chev { color:var(--muted); transition:transform .2s var(--ease); }
+        .order[open] .order__chev { transform:rotate(90deg); }
+        .order__lines { border-top:1px solid var(--line); padding:6px 14px 10px; }
+        .order__line { display:flex; gap:10px; align-items:center; padding:7px 0; font-size:14px; }
+        .order__line + .order__line { border-top:1px dashed var(--line); }
+        .order__line .q { color:var(--muted); font-weight:650; flex:0 0 auto; }
+        .order__line .n { flex:1; min-width:0; }
+        .order__line .v { font-weight:650; white-space:nowrap; }
+
+        /* ── Fechas estimadas ── */
+        .eta { border:1px solid var(--line); background:var(--surface); border-radius:var(--r-lg); padding:14px 16px; margin:18px 0 0; }
+        .eta__t { font-size:15px; font-weight:750; margin-bottom:12px; }
+        .tl { list-style:none; margin:0; padding:0; }
+        .tl li { position:relative; padding:0 0 14px 26px; font-size:14px; }
+        .tl li:last-child { padding-bottom:0; }
+        .tl li::before { content:''; position:absolute; left:3px; top:4px; width:10px; height:10px; border-radius:99px; background:var(--surface); border:2px solid var(--accent); }
+        .tl li::after { content:''; position:absolute; left:8px; top:18px; bottom:-2px; width:2px; background:var(--line); }
+        .tl li:last-child::after { display:none; }
+        .tl li.is-now::before { background:var(--accent); }
+        .tl b { display:block; font-weight:750; }
+        .tl small { color:var(--muted); font-size:13px; }
+        .eta__s { font-size:13px; color:var(--muted); margin-top:12px; }
 
         /* ── Recojo en tienda ── */
-        .pickup-box { background:#f0fdf4; border:1px solid #bbf7d0; border-radius:14px; padding:14px 15px; margin-bottom:14px; }
-        .pickup-box__t { font-size:14.5px; font-weight:800; color:#15803d; }
-        .pickup-box__addr { font-size:13.5px; color:var(--ink); margin-top:5px; font-weight:600; }
-        .pickup-box__s { font-size:12.5px; color:#166534; margin-top:6px; line-height:1.4; }
+        .pickup-box { background:var(--accent-soft); border-radius:var(--r); padding:14px 16px; margin-bottom:14px; }
+        .pickup-box__t { font-size:15px; font-weight:750; }
+        .pickup-box__addr { font-size:14px; margin-top:4px; font-weight:600; }
+        .pickup-box__s { font-size:13.5px; color:var(--ink-2); margin-top:6px; }
 
         /* ── Cliente encontrado ── */
-        .found { background:#eff6ff; border:1px solid #bfdbfe; border-radius:14px; padding:12px 14px; margin-top:10px; }
-        .found .t { font-size:12px; color:var(--brand); font-weight:700; text-transform:uppercase; }
-        .found .n { font-size:16px; font-weight:700; margin:2px 0 8px; }
+        .found { background:var(--accent-soft); border-radius:var(--r); padding:12px 14px; margin-top:10px; }
+        .found .t { font-size:12px; color:var(--accent); font-weight:750; }
+        .found .n { font-size:16px; font-weight:750; margin:2px 0 8px; }
         .found .acts { display:flex; gap:8px; }
-        .found .acts button { flex:1; padding:9px; border-radius:10px; border:none; font-weight:700; font-size:13px; cursor:pointer; }
-        .found .use { background:var(--brand); color:#fff; } .found .new { background:#e2e8f0; color:#334155; }
+        .found .acts button { flex:1; min-height:44px; border-radius:var(--r-sm); border:none; font-weight:700; font-size:14px; cursor:pointer; }
+        .found .use { background:var(--accent); color:#fffefc; }
+        .found .new { background:var(--surface); color:var(--ink-2); box-shadow:inset 0 0 0 1.5px var(--line-2); }
 
         /* ── Google Maps ── */
         .map-search { position:relative; }
-        #shipMap { width:100%; height:260px; border-radius:14px; border:1.5px solid var(--line); margin-top:10px; background:#e5e7eb; }
-        .map-picked { margin-top:8px; padding:9px 12px; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:11px; font-size:13px; display:none; }
+        #shipMap { width:100%; height:260px; border-radius:var(--r); border:1.5px solid var(--line); margin-top:10px; background:#ece6de; }
+        .map-picked { margin-top:8px; padding:9px 12px; background:var(--ok-soft); border-radius:var(--r-sm); font-size:13.5px; display:none; }
         .map-picked.show { display:block; }
-        .map-picked .c { color:#15803d; font-weight:700; }
-        .map-note { font-size:12px; color:var(--muted); margin-top:6px; }
-        .map-off { background:#fffbeb; border:1px solid #fde68a; border-radius:12px; padding:12px 14px; font-size:13px; color:#92400e; margin-top:8px; }
+        .map-picked .c { color:var(--ok); font-weight:700; }
+        .map-note { font-size:13px; color:var(--muted); margin-top:6px; }
+        .map-off { background:var(--warn-soft); border:1px solid var(--warn-line); border-radius:var(--r); padding:12px 14px; font-size:14px; color:var(--warn); margin-top:8px; }
 
         /* ── Confirmación ── */
-        .conf { border:1.5px solid var(--line); border-radius:16px; overflow:hidden; }
-        .conf .h { background:#f8fafc; padding:10px 14px; font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:.5px; color:var(--brand); border-bottom:1px solid var(--line); }
-        .conf .rows { padding:6px 14px; }
-        .conf .r { display:flex; justify-content:space-between; gap:12px; padding:8px 0; border-bottom:1px dashed #eef2f7; font-size:14px; }
+        .conf { border:1px solid var(--line); background:var(--surface); border-radius:var(--r-lg); overflow:hidden; }
+        .conf .h { display:none; }
+        .conf .rows { padding:2px 16px 8px; }
+        .conf .r { display:flex; justify-content:space-between; gap:14px; padding:9px 0; border-bottom:1px solid #f0ebe4; font-size:14.5px; }
         .conf .r:last-child { border-bottom:none; }
-        .conf .r .k { color:var(--muted); flex:0 0 40%; }
-        .conf .r .v { text-align:right; font-weight:600; word-break:break-word; }
+        .conf .r .k { color:var(--muted); flex:0 0 38%; }
+        .conf .r .v { text-align:right; font-weight:650; word-break:break-word; }
         .conf .r[hidden] { display:none; }
-        /* ── Aviso de tiempos de despacho (destacado, por modalidad) ── */
-        .eta { display:flex; gap:10px; border-radius:14px; padding:13px 15px; margin-bottom:14px;
-               border:1px solid; align-items:flex-start; }
-        .eta__t { font-weight:800; font-size:14px; white-space:nowrap; }
-        .eta__b { font-size:13px; line-height:1.5; }
-        .eta__s { margin-top:5px; opacity:.85; }
-        .eta--prov   { background:#fffbeb; border-color:#fde68a; color:#92400e; }
-        .eta--lima   { background:#eff6ff; border-color:#bfdbfe; color:#1e40af; }
-        .eta--tienda { background:#f0fdf4; border-color:#bbf7d0; color:#166534; }
-        @media (max-width: 460px) { .eta { flex-direction:column; gap:4px; } }
+        .conf-sec + .conf-sec { border-top:1px solid var(--line); }
+        .conf-sec__h { display:flex; align-items:center; justify-content:space-between; gap:10px; font-size:15px; font-weight:750; padding:12px 16px 0; margin:0; }
+        .conf-edit { min-height:36px; background:none; border:0; padding:4px 0; font-size:14px; font-weight:700; color:var(--accent); cursor:pointer; }
+        .conf-edit:hover { text-decoration:underline; }
+        .conf-warn { display:flex; gap:9px; align-items:flex-start; margin:0 16px 14px; padding:10px 12px; border-radius:var(--r-sm); background:var(--warn-soft); color:var(--warn); font-size:13.5px; }
 
-        /* ── Sorteo dentro del formulario de envío ── */
-        .rfz { border:1px solid #ddd2fb; background:linear-gradient(135deg,#faf7ff,#fff);
-               border-radius:16px; padding:14px; margin-top:14px; }
-        .rfz__head { display:flex; gap:11px; align-items:center; }
-        .rfz__img { width:62px; height:62px; object-fit:cover; border-radius:12px;
-                    border:1px solid #ddd2fb; flex-shrink:0; }
+        /* ── Sorteo ── */
+        .rfz { border:1px solid var(--line); background:var(--surface); border-radius:var(--r-lg); padding:14px; margin-top:16px; }
+        .rfz__head { display:flex; gap:12px; align-items:center; }
+        .rfz__img { width:60px; height:60px; object-fit:cover; border-radius:12px; flex-shrink:0; }
         .rfz__tx { flex:1; min-width:0; }
-        .rfz__tag { font-size:10.5px; font-weight:800; letter-spacing:.04em; text-transform:uppercase; color:#7c3aed; }
-        .rfz__name { font-size:15px; font-weight:800; line-height:1.25; margin-top:1px; }
-        .rfz__prize { font-size:12.5px; color:var(--muted); margin-top:2px; }
-        .rfz__desc { font-size:12.5px; color:#475569; line-height:1.45; margin-top:9px; }
-        .rfz__dates { font-size:12px; color:#5b21b6; background:#f5f1ff; border-radius:9px;
-                      padding:6px 9px; margin-top:9px; }
-        .rfz__terms { margin-top:9px; font-size:12px; }
-        .rfz__terms summary { cursor:pointer; color:#7c3aed; font-weight:700; }
-        .rfz__terms div { margin-top:6px; max-height:170px; overflow-y:auto; background:#fff;
-                          border:1px solid var(--line); border-radius:10px; padding:9px;
-                          white-space:pre-line; color:#475569; line-height:1.5; }
-        .rfz__chk { margin-top:11px; background:#fff; border:1px solid #ddd2fb; border-radius:12px; padding:10px; }
-        .rfz__cond { font-size:11.5px; color:#7c3aed; margin-top:6px; text-align:center; }
+        .rfz__tag { font-size:12px; font-weight:750; color:var(--accent); }
+        .rfz__name { font-size:15.5px; font-weight:750; line-height:1.25; margin-top:1px; }
+        .rfz__prize { font-size:13px; color:var(--muted); margin-top:2px; }
+        .rfz__desc { font-size:13.5px; color:var(--ink-2); margin-top:10px; }
+        .rfz__dates { font-size:13px; color:var(--ink-2); background:#f3efe9; border-radius:var(--r-sm); padding:7px 10px; margin-top:10px; }
+        .rfz__terms { margin-top:10px; font-size:13px; }
+        .rfz__terms summary { cursor:pointer; color:var(--accent); font-weight:700; }
+        .rfz__terms div { margin-top:6px; max-height:170px; overflow-y:auto; border:1px solid var(--line); border-radius:var(--r-sm); padding:10px; white-space:pre-line; color:var(--ink-2); }
+        .rfz__chk { margin-top:12px; }
+        .rfz__cond { font-size:12.5px; color:var(--muted); margin-top:8px; text-align:center; }
 
-        .terms-box { margin-top:16px; }
-        .chk { display:flex; align-items:flex-start; gap:10px; background:#fffbeb; border:1px solid #fde68a; border-radius:12px; padding:12px; font-size:14px; font-weight:600; }
-        .chk input { margin-top:3px; width:18px; height:18px; }
-        /* Casilla ligera dentro del formulario (no es el bloque de términos). */
-        .chk-inline { background:#f8fafc; border-color:var(--line); font-weight:600; font-size:13.5px; align-items:center; margin-top:14px; cursor:pointer; }
+        /* ── Casillas ── */
+        .terms-box { margin-top:18px; }
+        .chk { display:flex; align-items:flex-start; gap:12px; background:var(--surface); border:1.5px solid var(--line-2); border-radius:var(--r); padding:13px 14px; font-size:14.5px; font-weight:600; cursor:pointer; margin:0; }
+        .chk input { flex:0 0 auto; margin:1px 0 0; width:20px; height:20px; accent-color:var(--accent); }
+        .chk:has(input:checked) { border-color:var(--accent); background:var(--accent-soft); }
+        .chk-inline { margin-top:16px; align-items:center; }
         .chk-inline input { margin-top:0; }
-        /* ── Resumen de costos del envio ───────────────────────────────
-           Una sola tarjeta con el recorrido del paquete. Reemplaza dos
-           recuadros de colores que competian entre si y repetian datos. */
-        .cost-box { margin:14px 0 4px; border:1px solid var(--line); border-radius:14px;
-            background:#fff; overflow:hidden; }
-        .cost-box__t { padding:10px 14px; background:#f8fafc; border-bottom:1px solid var(--line);
-            font-size:12.5px; font-weight:700; color:#0f172a; letter-spacing:.01em; }
-        .cost-row { display:flex; align-items:flex-start; gap:12px; padding:11px 14px;
-            border-bottom:1px solid #f1f5f9; }
-        .cost-row:last-child { border-bottom:0; }
-        .cost-row__l { flex:1; min-width:0; font-size:13px; color:#1e293b; line-height:1.4; }
-        .cost-row__l small { display:block; margin-top:2px; font-size:11.5px; color:#64748b;
-            line-height:1.45; font-weight:400; }
-        /* El monto no envuelve: es el dato que se busca de un vistazo. */
-        .cost-row__v { flex:0 0 auto; font-size:13.5px; font-weight:700; color:#0f172a;
-            white-space:nowrap; padding-top:1px; }
-        .cost-row__v.is-free { color:#15803d; }
-        .cost-row__v.is-soft { font-size:11.5px; font-weight:600; color:#64748b; }
-        .cost-row__v.is-warn { font-size:11.5px; font-weight:700; color:#b45309; }
-        /* El tramo a domicilio se destaca: es el unico que el cliente elige,
-           y el unico que puede evitar. */
-        .cost-row--extra { background:#fffbeb; }
-        .cost-row--extra .cost-row__l { color:#78350f; }
-        .cost-row--extra .cost-row__l small { color:#92400e; }
-
-        /* Recordatorio en el paso de confirmacion. */
-        .conf-warn { display:flex; gap:9px; align-items:flex-start; margin-top:10px;
-            padding:10px 12px; border-radius:10px; background:#fffbeb;
-            border:1px solid #fde68a; color:#78350f; font-size:12.5px; line-height:1.45; }
-        .cond { font-size:12px; color:var(--muted); margin-top:12px; line-height:1.5; background:#f8fafc; border:1px solid var(--line); border-radius:12px; padding:12px 14px; }
-        .cond strong { color:#334155; }
+        .cond { font-size:13px; color:var(--muted); margin-top:10px; }
         .cond ul { margin:6px 0 0; padding-left:18px; }
+        .cond summary { cursor:pointer; font-weight:650; color:var(--ink-2); min-height:32px; display:flex; align-items:center; }
+
+        /* ── Costos ── */
+        .cost-box { margin:18px 0 4px; border:1px solid var(--line); border-radius:var(--r-lg); background:var(--surface); overflow:hidden; }
+        .cost-box__t { padding:12px 16px 4px; font-size:15px; font-weight:750; }
+        .cost-row { display:flex; align-items:flex-start; gap:12px; padding:10px 16px; }
+        .cost-row + .cost-row { border-top:1px solid #f0ebe4; }
+        .cost-row__l { flex:1; min-width:0; font-size:14px; }
+        .cost-row__l small { display:block; margin-top:2px; font-size:13px; color:var(--muted); font-weight:400; }
+        .cost-row__v { flex:0 0 auto; font-size:14.5px; font-weight:750; white-space:nowrap; }
+        .cost-row__v.is-free { color:var(--ok); }
+        .cost-row__v.is-soft { font-size:13px; font-weight:650; color:var(--muted); }
+        .cost-row__v.is-warn { font-size:13px; color:var(--warn); }
+        .cost-row--extra { background:var(--warn-soft); }
 
         /* ── Éxito ── */
-        .ok-wrap { text-align:center; padding:6px 0; }
-        .ok-check { width:78px; height:78px; border-radius:999px; background:var(--ok); color:#fff; display:flex; align-items:center; justify-content:center; font-size:42px; margin:6px auto 10px; box-shadow:0 10px 30px -8px rgba(22,163,74,.5); animation:pop .35s ease; }
-        @keyframes pop { from{ transform:scale(.6); opacity:0;} to{ transform:scale(1); opacity:1;} }
-        .ok-wrap h2 { font-size:20px; margin:4px 0; }
-        .ok-code { font-size:24px; font-weight:800; letter-spacing:1px; color:var(--brand); background:#eff6ff; border:1px dashed var(--brand); border-radius:14px; padding:14px; margin:12px 0; }
-        .ok-code-sub { display:block; margin-top:6px; font-size:12px; font-weight:600; letter-spacing:.5px; color:var(--muted); }
-        .ok-btns { display:flex; flex-direction:column; gap:10px; margin-top:8px; }
+        .ok-wrap { text-align:center; padding:10px 0 4px; }
+        .ok-check { width:72px; height:72px; border-radius:99px; background:var(--ok); color:#fffefc; display:grid; place-items:center; margin:6px auto 14px; animation:pop .4s var(--ease); }
+        @keyframes pop { from { transform:scale(.7); opacity:0; } to { transform:scale(1); opacity:1; } }
+        .ok-wrap h2 { font-size:22px; margin:0 0 6px; letter-spacing:-.02em; }
+        .ok-wrap > p { color:var(--ink-2); font-size:15px; margin:0 auto; max-width:40ch; }
+        .ok-code { font-size:24px; font-weight:800; letter-spacing:.5px; background:var(--surface); border:1.5px dashed var(--line-2); border-radius:var(--r-lg); padding:14px; margin:18px 0 0; }
+        .ok-code-sub { display:block; margin-top:4px; font-size:13px; font-weight:600; color:var(--muted); letter-spacing:0; }
+        .ok-wrap .eta { text-align:left; }
+        .ok-btns { display:flex; flex-direction:column; gap:10px; margin-top:18px; }
         .ok-btns a { text-decoration:none; display:block; }
-        .btn-wa { background:#22c55e; } .btn-wa:hover { background:#16a34a; }
+        .btn-wa { background:#1f8f4e; }
 
-        .foot { text-align:center; color:var(--muted); font-size:11.5px; margin-top:18px; }
-        .step[hidden], [hidden] { display:none; }
+        /* ── Confianza ── */
+        .trust { list-style:none; margin:26px 0 0; padding:18px 0 0; border-top:1px solid var(--line); display:grid; gap:12px; }
+        .trust li { display:flex; gap:10px; align-items:flex-start; font-size:14px; color:var(--ink-2); }
+        .trust svg { flex:0 0 auto; color:var(--accent); margin-top:1px; }
+        .trust a { color:var(--accent); font-weight:700; }
+        .foot { text-align:center; color:var(--muted); font-size:12px; margin-top:20px; }
+        .foot a { color:inherit; }
+        .step[hidden], [hidden] { display:none !important; }
 
-        /* ── Cabecera de paso ───────────────────────────────────────────── */
-        .step-head { margin:2px 0 14px; }
-        .step-h { font-size:19px; font-weight:800; margin:0 0 2px; color:var(--ink); letter-spacing:-.01em; }
-        .step-sub { font-size:13.5px; color:var(--muted); margin:0; line-height:1.45; }
+        /* ── Progreso ── */
+        .prog { margin:-8px 0 16px; }
+        .prog__bar { display:none; }
+        .prog__t { font-size:13px; color:var(--muted); font-weight:600; }
+        .prog.is-done .prog__t { color:var(--ok); }
 
-        /* ── Progreso real ──────────────────────────────────────────────── */
-        .prog { margin:-8px 2px 18px; }
-        .prog__bar { height:7px; border-radius:99px; background:#e8edf3; overflow:hidden; }
-        .prog__fill { height:100%; width:0; border-radius:99px; background:linear-gradient(90deg,#22c55e,#16a34a);
-                      transition:width .35s ease; }
-        .prog__t { font-size:12.5px; color:var(--muted); margin-top:5px; font-weight:600; }
-        .prog.is-done .prog__t { color:#15803d; }
-
-        /* ── Resumen de errores ─────────────────────────────────────────── */
-        .err-sum { border:1px solid #fecaca; background:#fef2f2; border-radius:12px;
-                   padding:12px 14px; margin:0 0 14px; }
-        .err-sum__t { font-weight:800; font-size:14px; color:#b91c1c; margin-bottom:6px; }
+        /* ── Errores ── */
+        .err-sum { border:1px solid #f3c7c1; background:var(--bad-soft); border-radius:var(--r); padding:12px 14px; margin:0 0 14px; }
+        .err-sum__t { font-weight:750; font-size:14.5px; color:var(--bad); margin-bottom:6px; }
         .err-sum__l { margin:0; padding-left:18px; }
-        .err-sum__l li { font-size:13.5px; color:#7f1d1d; margin:3px 0; }
-        .err-sum__l button { background:none; border:0; padding:0; font:inherit; color:#b91c1c;
-                             text-decoration:underline; cursor:pointer; text-align:left; }
-        /* Campo con error: el borde solo no se ve en un movil a pleno sol. */
-        .is-bad { border-color:#dc2626 !important; background:#fff5f5 !important; }
-        .fld-err { display:block; font-size:12.5px; color:#dc2626; margin-top:3px; font-weight:600; }
+        .err-sum__l li { font-size:14px; color:#7a1a12; margin:3px 0; }
+        .err-sum__l button { background:none; border:0; padding:0; color:var(--bad); text-decoration:underline; cursor:pointer; text-align:left; }
+        .is-bad { border-color:var(--bad) !important; background:var(--bad-soft) !important; }
+        .fld-err { display:block; font-size:13px; color:var(--bad); margin-top:4px; font-weight:600; }
+        .alert-err { background:var(--bad-soft); color:var(--bad); border:1px solid #f3c7c1; padding:12px 14px; border-radius:var(--r); font-size:14px; margin-bottom:14px; }
 
-        /* ── Secciones del resumen final ────────────────────────────────── */
-        .conf-sec { margin-bottom:12px; }
-        .conf-sec__h { display:flex; align-items:center; justify-content:space-between; gap:10px;
-                       font-size:13px; font-weight:800; color:var(--ink); text-transform:uppercase;
-                       letter-spacing:.04em; margin:0 0 4px; }
-        .conf-edit { background:none; border:0; padding:4px 2px; font-size:13px; font-weight:700;
-                     color:var(--brand); cursor:pointer; text-transform:none; letter-spacing:0; }
-        .conf-edit:hover { text-decoration:underline; }
+        .fade-in { animation:fade .25s var(--ease); }
+        @keyframes fade { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
+        @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation:none !important; transition:none !important; } }
 
-        /* El stepper pasó de 4 a 5 pasos: en pantallas estrechas las etiquetas
-           ya no caben, y el número del círculo basta para ubicarse. */
-        @media (max-width:420px) {
-            .stepper .st .t { font-size:10px; }
-        }
-        @media (max-width:360px) {
-            .stepper .st .t { display:none; }
-        }
-        .fade-in { animation:fade .25s ease; }
-        @keyframes fade { from{ opacity:0; transform:translateY(6px);} to{ opacity:1; transform:none;} }
-        .alert-err { background:#fef2f2; color:#b91c1c; border:1px solid #fecaca; padding:11px 13px; border-radius:12px; font-size:13.5px; margin-bottom:14px; }
-        /* Banner del pedido: solo aparece cuando el formulario se abre desde
-           el enlace de una compra concreta. */
-        .order-ctx { background:#eef2ff; border:1px solid #c7d2fe; color:#3730a3; padding:11px 13px; border-radius:12px; margin-bottom:14px; }
-        .order-ctx b { display:block; font-size:15px; }
-        .order-ctx span { font-size:13px; opacity:.85; }
+        /* El cascader de ubigeo trae su propio CSS: aquí se alinea al resto. */
+        .ubigeo-display { min-height:48px; border:1.5px solid var(--line-2) !important; border-radius:var(--r) !important; padding:12px 14px !important; font-size:16px !important; background:var(--surface) !important; display:flex; align-items:center; }
     </style>
 </head>
 <body>
 <div class="wrap">
     <div class="card">
-        <div class="head">
-            @if(!empty($company->logo))
-                <img src="{{ asset('storage/uploads/logos/' . $company->logo) }}" alt="{{ $company->trade_name ?? $company->name ?? '' }}" style="max-height:56px;max-width:70%;margin:0 auto 8px;display:block;object-fit:contain;">
-            @else
-                <div class="brand">{{ $company->title_web ?? $company->trade_name ?? $company->name ?? 'ebaemy' }}</div>
-            @endif
-            <h1>📦 Registro de envío</h1>
-            <p>Elige cómo deseas recibir tu pedido.</p>
-        </div>
+        {{-- La tienda primero: el cliente le compró a ELLA, no a ebaemy. --}}
+        <header class="head">
+            <div class="head__logo">
+                @if(!empty($company->logo))
+                    <img src="{{ asset('storage/uploads/logos/' . $company->logo) }}" alt="">
+                @else
+                    <b>{{ mb_strtoupper(mb_substr($storeName, 0, 1)) }}</b>
+                @endif
+            </div>
+            <div class="head__tx">
+                <h1 class="head__store">{{ $storeName }}</h1>
+                <div class="head__sub">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a12 12 0 0 0 8.5 3a12 12 0 0 1 -8.5 15a12 12 0 0 1 -8.5 -15a12 12 0 0 0 8.5 -3"/><path d="M9 12l2 2l4 -4"/></svg>
+                    Datos de envío de tu pedido
+                </div>
+            </div>
+        </header>
 
         {{-- ── Barra de progreso ── --}}
-        <div class="stepper" id="stepper">
-            <div class="st {{ $sent ? 'done' : 'active' }}" data-n="1"><div class="dot">1</div><div class="t">Tipo</div></div>
+        <div class="stepper" id="stepper" aria-label="Pasos">
+            <div class="st {{ $sent ? 'done' : 'active' }}" data-n="1"><div class="dot">1</div><div class="t">Entrega</div></div>
             <div class="st-line {{ $sent ? 'done' : '' }}"></div>
             <div class="st {{ $sent ? 'done' : '' }}" data-n="2"><div class="dot">2</div><div class="t">Tus datos</div></div>
             <div class="st-line {{ $sent ? 'done' : '' }}"></div>
-            <div class="st {{ $sent ? 'done' : '' }}" data-n="3"><div class="dot">3</div><div class="t">Revisa</div></div>
+            <div class="st {{ $sent ? 'done' : '' }}" data-n="3"><div class="dot">3</div><div class="t">Confirmar</div></div>
         </div>
 
         {{-- Cuanto le falta al cliente. El porcentaje sale de los campos que de
@@ -291,15 +340,15 @@
                 $isPickup = ($sentType === \App\Models\Tenant\ShippingRequest::DELIVERY_TIENDA);
             @endphp
             <div class="ok-wrap fade-in">
-                <div class="ok-check">✓</div>
-                <h2>Registro realizado correctamente</h2>
+                <div class="ok-check"><svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5l10 -10"/></svg></div>
+                <h2>¡Listo! Ya tenemos tus datos</h2>
                 <p style="color:var(--muted);font-size:14px;margin:2px 0;">
                     @if($isPickup)
-                        Hemos recibido tus datos. Prepararemos tu pedido y te avisaremos por WhatsApp <b>apenas esté listo para recoger</b>.
+                        Preparamos tu pedido y te avisamos por WhatsApp <b>apenas esté listo para recoger</b>.
                     @elseif($isMoto)
-                        Hemos recibido tus datos. Tu pedido será entregado por nuestro <b>motorizado</b> hasta tu dirección.
+                        Nuestro motorizado lo lleva hasta tu dirección. Te escribimos por WhatsApp antes de salir.
                     @else
-                        Hemos recibido tus datos. Tu pedido será enviado mediante <b>agencia de transporte</b>. Cuando sea despachado recibirás la guía de envío.
+                        Lo enviamos por agencia. Cuando salga de la tienda te mandamos por WhatsApp tu número de guía.
                     @endif
                 </p>
                 {{-- La referencia que se le da al cliente es la de su PEDIDO,
@@ -316,6 +365,8 @@
 
                 {{-- Confirmación de la solicitud de participación. La inscripción
                      se hace efectiva cuando la tienda valida el pago. --}}
+                @include('tenant.shipments.partials.eta-box', ['etaType' => $sentType])
+
                 @if(session('joined_raffle'))
                     <div class="rfz" style="text-align:left;margin-top:14px;">
                         <div class="rfz__tag">🎁 Solicitud registrada</div>
@@ -328,7 +379,7 @@
                     </div>
                 @endif
                 <div class="ok-btns">
-                    <a href="{{ route('shipments.public.tracking', ['code' => $sent]) }}"><button type="button" class="btn">🔎 Ver seguimiento</button></a>
+                    <a href="{{ route('shipments.public.tracking', ['code' => $sent]) }}"><button type="button" class="btn">Ver el estado de mi envío</button></a>
                     @php
                         // OJO: este armado es un duplicado del de
                         // ShipmentController::waSummary(). Si tocas uno, toca el otro
@@ -373,7 +424,7 @@
                         $waText = rawurlencode(implode("\n", $L));
                         $waHref = !empty($ordersWa) ? "https://wa.me/{$ordersWa}?text={$waText}" : "https://wa.me/?text={$waText}";
                     @endphp
-                    <a href="{{ $waHref }}" target="_blank"><button type="button" class="btn btn-wa">💬 Enviar mi pedido por WhatsApp</button></a>
+                    <a href="{{ $waHref }}" target="_blank"><button type="button" class="btn btn-wa">Enviar mis datos a la tienda por WhatsApp</button></a>
                     @if(empty($order))
                         <a href="{{ route('shipments.public.form') }}"><button type="button" class="btn btn-ghost">Registrar otro envío</button></a>
                     @endif
@@ -387,23 +438,68 @@
             {{-- Cuando el formulario se abre desde el enlace de un pedido, el
                  cliente tiene que ver DE QUE compra estamos hablando: sin esto
                  el enlace parece un registro suelto mas y no lo asocia. --}}
-            @if(!empty($order))
-                <div class="order-ctx">
-                    <b>Pedido #{{ str_pad($order->id, 6, '0', STR_PAD_LEFT) }}</b>
-                    <span>Completa aquí los datos de entrega de tu compra.</span>
-                </div>
+            @if(!empty($orderSummary))
+                @php $os = $orderSummary; $n = count($os['lines']) + $os['more']; @endphp
+                <details class="order">
+                    <summary>
+                        @if($os['lines'])
+                            <span class="order__thumbs" aria-hidden="true">
+                                @foreach(array_slice($os['lines'], 0, 3) as $ln)
+                                    @if($ln['image'])<span style="background-image:url('{{ $ln['image'] }}')"></span>@else<span>{{ mb_strtoupper(mb_substr($ln['name'], 0, 1)) }}</span>@endif
+                                @endforeach
+                            </span>
+                        @endif
+                        <span class="order__tx">
+                            <b>Pedido #{{ $os['number'] }}</b>
+                            <small>{{ $n }} {{ $n === 1 ? 'producto' : 'productos' }} · ver detalle</small>
+                        </span>
+                        @if($os['total'] > 0)<span class="order__total">S/ {{ number_format($os['total'], 2) }}</span>@endif
+                        <svg class="order__chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6l-6 6"/></svg>
+                    </summary>
+                    <div class="order__lines">
+                        @foreach($os['lines'] as $ln)
+                            <div class="order__line">
+                                <span class="q">{{ $ln['qty'] }}×</span>
+                                <span class="n">{{ $ln['name'] }}</span>
+                                @if($ln['total'] > 0)<span class="v">S/ {{ number_format($ln['total'], 2) }}</span>@endif
+                            </div>
+                        @endforeach
+                        @if($os['more'])<div class="order__line"><span class="n" style="color:var(--muted)">y {{ $os['more'] }} más</span></div>@endif
+                    </div>
+                </details>
+            @elseif(!empty($order))
+                <div class="order"><div style="padding:12px 14px"><b>Pedido #{{ str_pad($order->id, 6, '0', STR_PAD_LEFT) }}</b></div></div>
             @endif
 
             <form method="POST" action="{{ $formAction }}" id="shipForm">
             @include('tenant.shipments.partials.shipment-form-body', ['p' => 'pub_', 'context' => 'public'])
             </form>
 
-            <div style="text-align:center;margin-top:18px;padding-top:14px;border-top:1px solid var(--line);">
-                <a href="{{ route('shipments.public.tracking') }}" style="color:var(--brand);font-size:14px;text-decoration:none;font-weight:600;">🔎 ¿Ya te registraste? Consulta el estado de tu envío</a>
-            </div>
         @endif
 
-        <div class="foot">Powered by ebaemy · Registro y Control de Envíos</div>
+        {{-- Confianza: le compró a una cuenta de Instagram. Decirle qué se hace
+             con sus datos, cómo se entera de su envío y a quién escribir. --}}
+        <ul class="trust">
+            <li>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 13a2 2 0 0 1 2 -2h10a2 2 0 0 1 2 2v6a2 2 0 0 1 -2 2h-10a2 2 0 0 1 -2 -2v-6z"/><path d="M8 11v-4a4 4 0 1 1 8 0v4"/></svg>
+                <span>Tus datos solo se usan para entregarte este pedido.</span>
+            </li>
+            <li>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21l1.65 -3.8a9 9 0 1 1 3.4 2.9l-5.05 .9"/></svg>
+                <span>
+                    Te avisamos por WhatsApp cuando tu pedido salga.
+                    @if(!empty($ordersWa))<a href="https://wa.me/{{ $ordersWa }}" target="_blank" rel="noopener">¿Dudas? Escríbenos</a>@endif
+                </span>
+            </li>
+            @if(!$sent)
+            <li>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 10m-7 0a7 7 0 1 0 14 0a7 7 0 1 0 -14 0"/><path d="M21 21l-6 -6"/></svg>
+                <span>¿Ya te registraste? <a href="{{ route('shipments.public.tracking') }}">Mira el estado de tu envío</a></span>
+            </li>
+            @endif
+        </ul>
+
+        <div class="foot">Envíos gestionados con <a href="https://ebaemy.com" target="_blank" rel="noopener">ebaemy</a></div>
     </div>
 
     {{-- Venta cruzada: los productos de la tienda en el marketplace. Va FUERA

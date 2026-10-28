@@ -21,21 +21,49 @@
                 <input type="hidden" name="delivery_type" id="delivery_type" value="{{ old('delivery_type') }}">
 
                 {{-- ══════════ PASO 0: Tipo de entrega ══════════ --}}
+                @php
+                    // Lo que el cliente necesita para ELEGIR: cuándo llega y
+                    // cuánto le cuesta, en la misma tarjeta. Antes había que
+                    // elegir a ciegas y enterarse en el último paso.
+                    $chev = '<svg class="chev" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6l-6 6"/></svg>';
+                    $clock = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0 -18 0"/><path d="M12 7v5l3 3"/></svg>';
+                    $agCost = !empty($agencyFree) ? 'Gratis hasta la agencia'
+                        : ((!empty($agencyShow) && !empty($agencyFee) && $agencyFee > 0) ? 'S/ ' . number_format($agencyFee, 2) . ' + flete en destino' : 'Flete se paga en destino');
+                @endphp
                 <div class="step fade-in" data-step="0">
+                    <div class="step-head">
+                        <h2 class="step-h">¿Cómo quieres recibir tu pedido?</h2>
+                        <p class="step-sub">Elige una opción. Después te pedimos tus datos.</p>
+                    </div>
                     <div class="dtype">
                         <button type="button" class="dcard moto" data-type="domicilio">
-                            <div class="ic">🏍️</div>
-                            <div class="tx"><b>Entrega a domicilio &mdash; LIMA</b><span>Un motorizado lleva tu pedido hasta tu dirección. Ubicación por mapa.</span></div>
+                            <div class="ic"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 16m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0"/><path d="M19 16m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0"/><path d="M7.5 14h5l4 -4h-10.5m1.5 4l4 -4"/><path d="M13 6h2l1.5 3l2 4"/></svg></div>
+                            <div class="tx"><b>A domicilio en Lima</b><span>Un motorizado lo lleva hasta tu puerta.</span></div>
+                            {!! $chev !!}
+                            <div class="meta">
+                                @if(!empty($eta['domicilio']))<span class="chip">{!! $clock !!}{{ $eta['domicilio']['short'] }}</span>@endif
+                                <span class="chip">{{ !empty($pricePerKm) ? 'Costo según distancia' : 'Costo al coordinar' }}</span>
+                            </div>
                             <div class="go">Elegir</div>
                         </button>
                         <button type="button" class="dcard ag" data-type="agencia">
-                            <div class="ic">📦</div>
-                            <div class="tx"><b>Envío por agencia &mdash; PROVINCIA</b><span>Enviamos tu pedido por agencia de transporte a tu provincia.</span></div>
+                            <div class="ic"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 4.5l0 9l-8 4.5l-8 -4.5l0 -9l8 -4.5"/><path d="M12 12l8 -4.5"/><path d="M12 12l0 9"/><path d="M12 12l-8 -4.5"/><path d="M16 5.25l-8 4.5"/></svg></div>
+                            <div class="tx"><b>Por agencia a provincia</b><span>Lo recoges en la oficina de tu ciudad.</span></div>
+                            {!! $chev !!}
+                            <div class="meta">
+                                @if(!empty($eta['agencia']))<span class="chip">{!! $clock !!}{{ $eta['agencia']['short'] }}</span>@endif
+                                <span class="chip {{ !empty($agencyFree) ? 'is-ok' : '' }}">{{ $agCost }}</span>
+                            </div>
                             <div class="go">Elegir</div>
                         </button>
                         <button type="button" class="dcard tienda" data-type="tienda">
-                            <div class="ic">🏬</div>
-                            <div class="tx"><b>Recojo en tienda</b><span>Preparamos tu pedido y te avisamos cuando esté listo para recogerlo.</span></div>
+                            <div class="ic"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21l18 0"/><path d="M3 7v1a3 3 0 0 0 6 0v-1m0 1a3 3 0 0 0 6 0v-1m0 1a3 3 0 0 0 6 0v-1h-18l2 -4h14l2 4"/><path d="M5 21l0 -10.15"/><path d="M19 21l0 -10.15"/><path d="M9 21v-4a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v4"/></svg></div>
+                            <div class="tx"><b>Recojo en tienda</b><span>{{ !empty($storeAddress) ? \Illuminate\Support\Str::limit($storeAddress, 60) : 'Pasas a recogerlo cuando esté listo.' }}</span></div>
+                            {!! $chev !!}
+                            <div class="meta">
+                                @if(!empty($eta['tienda']))<span class="chip">{!! $clock !!}{{ $eta['tienda']['short'] }}</span>@endif
+                                <span class="chip is-ok">Sin costo de envío</span>
+                            </div>
                             <div class="go">Elegir</div>
                         </button>
                     </div>
@@ -43,14 +71,12 @@
 
                 {{-- ══════════ PASO 1: Datos ══════════ --}}
                 <div class="step" data-step="1" hidden>
-                    <span class="tag moto" id="tag-moto" hidden>🏍️ Entrega a domicilio · LIMA</span>
-                    <span class="tag ag" id="tag-ag" hidden>📦 Envío por agencia · PROVINCIA</span>
-                    <span class="tag tienda" id="tag-tienda" hidden>🏬 Recojo en tienda</span>
+                    <span class="tag moto" id="tag-moto" hidden>A domicilio en Lima</span>
+                    <span class="tag ag" id="tag-ag" hidden>Por agencia a provincia</span>
+                    <span class="tag tienda" id="tag-tienda" hidden>Recojo en tienda</span>
 
-                    <div class="step-head">
-                        <h2 class="step-h">Tus datos</h2>
-                        <p class="step-sub">Para saber a nombre de quién va el pedido y cómo avisarte.</p>
-                    </div>
+                    <div class="sec-h" style="margin-top:6px"><i>1</i>¿Quién recibe el pedido?</div>
+                    <p class="step-sub" style="margin:2px 0 14px 36px">Con tu documento completamos tu nombre.</p>
 
                     <div class="err-sum" id="{{ $p }}errsum_datos" hidden>
                         <div class="err-sum__t">Revisa tu información</div>
@@ -119,11 +145,11 @@
                          Este bloque aparece solo cuando el documento tiene 11
                          dígitos, que es como se distingue el RUC en este formulario. --}}
                     <div id="{{ $p }}pickup_box" hidden
-                         style="margin-top:14px;padding:12px 14px;border:1px solid #bfdbfe;background:#f8fbff;border-radius:12px;">
-                        <div style="font-weight:700;font-size:14px;color:#1e3a8a;margin-bottom:2px;">
-                            🧾 ¿Quién recoge el paquete?
+                         style="margin-top:16px;padding:14px 16px;background:var(--accent-soft);border-radius:var(--r);">
+                        <div style="font-weight:750;font-size:15px;margin-bottom:2px;">
+                            ¿Quién recoge el paquete?
                         </div>
-                        <div style="font-size:12.5px;color:#475569;margin-bottom:10px;">
+                        <div style="font-size:13.5px;color:var(--ink-2);margin-bottom:6px;">
                             Registraste un <b>RUC</b>. La agencia de transporte entrega solo a una
                             <b>persona con DNI</b>, así que necesitamos sus datos.
                         </div>
@@ -160,10 +186,10 @@
                      mapa, agencia y costos en una sola pantalla. Partido en
                      dos, cada paso cabe en un movil sin scroll infinito. --}}
                 <div class="step" data-step="2" hidden>
-                    <div class="step-head">
-                        <h2 class="step-h">¿A dónde llega tu pedido?</h2>
-                        <p class="step-sub" id="{{ $p }}dest_sub">Completa los datos de la entrega.</p>
-                    </div>
+                    {{-- Mismo paso que «Tus datos» (se ven juntos): es la segunda
+                         sección, no una pantalla nueva. --}}
+                    <div class="sec-h"><i>2</i><span class="js-dest-h">¿A dónde llega?</span></div>
+                    <p class="step-sub" id="{{ $p }}dest_sub" style="margin:2px 0 14px 36px">Completa los datos de la entrega.</p>
 
                     {{-- Resumen de lo que falta. Se llena desde el JS al pulsar
                          Continuar: cada linea lleva al campo que la origina. --}}
@@ -254,22 +280,22 @@
                         <style>
                             .sh-box{margin-top:4px}
                             .sh-tools{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin:2px 0 8px}
-                            .sh-near{border:1px solid #cbd5e1;background:#fff;border-radius:999px;padding:6px 12px;font-size:13px;font-weight:600;color:#0f172a;cursor:pointer;min-height:36px}
+                            .sh-near{border:1.5px solid var(--line-2);background:var(--surface);border-radius:999px;padding:6px 12px;font-size:13px;font-weight:650;color:var(--ink-2);cursor:pointer;min-height:36px}
                             .sh-list{display:grid;gap:8px;max-height:360px;overflow-y:auto;padding:2px}
-                            .sh-list.is-bad{outline:2px solid #fca5a5;border-radius:12px}
-                            .sh-opt{display:block;width:100%;text-align:left;border:1.5px solid #e2e8f0;background:#fff;border-radius:12px;padding:11px 13px;cursor:pointer;font:inherit;color:#0f172a}
-                            .sh-opt:hover{border-color:#94a3b8}
-                            .sh-opt[aria-checked="true"]{border-color:#dc2626;background:#fef2f2;box-shadow:0 0 0 1px #dc2626}
+                            .sh-list.is-bad{outline:2px solid var(--bad);outline-offset:2px;border-radius:12px}
+                            .sh-opt{display:block;width:100%;text-align:left;border:1.5px solid var(--line);background:var(--surface);border-radius:var(--r);padding:12px 14px;cursor:pointer;font:inherit;color:var(--ink)}
+                            .sh-opt:hover{border-color:var(--accent-line)}
+                            .sh-opt[aria-checked="true"]{border-color:var(--accent);background:var(--accent-soft);box-shadow:0 0 0 1px var(--accent)}
                             .sh-opt b{display:block;font-size:14.5px;line-height:1.3}
-                            .sh-opt span{display:block;font-size:12.5px;color:#475569;margin-top:3px;line-height:1.35}
-                            .sh-opt i{font-style:normal;display:inline-block;font-size:11px;font-weight:600;border-radius:999px;padding:2px 8px;margin-top:6px;margin-right:4px;background:#f1f5f9;color:#334155}
-                            .sh-empty{font-size:13px;color:#64748b;margin:4px 0;padding:10px 12px;background:#f8fafc;border-radius:10px}
+                            .sh-opt span{display:block;font-size:13px;color:var(--ink-2);margin-top:3px;line-height:1.4}
+                            .sh-opt i{font-style:normal;display:inline-block;font-size:12px;font-weight:650;border-radius:999px;padding:2px 9px;margin-top:7px;margin-right:4px;background:#f3efe9;color:var(--ink-2)}
+                            .sh-empty{font-size:14px;color:var(--ink-2);margin:4px 0;padding:12px 14px;background:#f3efe9;border-radius:var(--r)}
                         </style>
                         <div id="{{ $p }}sh_box" class="sh-box" hidden>
                             <label class="req">¿En qué oficina de Shalom recogerás?</label>
                             <div class="sh-tools">
                                 <small class="hint" id="{{ $p }}sh_scope"></small>
-                                <button type="button" class="sh-near" id="{{ $p }}sh_near" hidden>📍 Ver las más cercanas a mí</button>
+                                <button type="button" class="sh-near" id="{{ $p }}sh_near" hidden>Ordenar por cercanía</button>
                             </div>
                             <div class="sh-list" id="{{ $p }}sh_list" role="radiogroup" aria-label="Oficinas de Shalom"></div>
                             <input type="hidden" name="agency_office_id" id="{{ $p }}agency_office_id" value="{{ old('agency_office_id') }}">
@@ -318,7 +344,7 @@
                                     : null);
                         @endphp
                         <div class="cost-box">
-                            <div class="cost-box__t">💰 Cómo se cobra tu envío</div>
+                            <div class="cost-box__t">Cómo se paga tu envío</div>
 
                             @if($tramoTienda)
                                 <div class="cost-row">
@@ -357,7 +383,7 @@
                          entrega y, si acaso, cuándo piensa pasar. --}}
                     <div class="branch-tienda" hidden>
                         <div class="pickup-box">
-                            <div class="pickup-box__t">🏬 Recogerás tu pedido en la tienda</div>
+                            <div class="pickup-box__t">Recoges tu pedido en la tienda</div>
                             @if(!empty($storeAddress))
                                 <div class="pickup-box__addr">{{ $storeAddress }}</div>
                             @endif
@@ -373,13 +399,17 @@
                     </div>
 
                     <div class="row-btns">
-                        <button type="button" class="btn btn-ghost" id="backStep0">&larr; Volver</button>
-                        <button type="button" class="btn" id="toStep2">Continuar &rarr;</button>
+                        <button type="button" class="btn btn-ghost" id="backStep0">Volver</button>
+                        <button type="button" class="btn" id="toStep2">Continuar</button>
                     </div>
                 </div>
 
                 {{-- ══════════ PASO 3: Confirmación ══════════ --}}
                 <div class="step" data-step="3" hidden>
+                    <div class="step-head">
+                        <h2 class="step-h">Revisa y confirma</h2>
+                        <p class="step-sub">Si algo no está bien, toca «Editar».</p>
+                    </div>
                     <div class="conf">
                         <div class="h" id="c_type_h">Resumen</div>
 
@@ -388,7 +418,7 @@
                         <div class="conf-sec">
                             <div class="conf-sec__h">
                                 <span>Tus datos</span>
-                                <button type="button" class="conf-edit" data-edit-step="1">✏️ Editar</button>
+                                <button type="button" class="conf-edit" data-edit-step="1">Editar</button>
                             </div>
                             <div class="rows">
                                 <div class="r"><span class="k">Tipo de entrega</span><span class="v" id="c_type">—</span></div>
@@ -402,10 +432,10 @@
                         <div class="conf-sec">
                             <div class="conf-sec__h">
                                 <span id="conf_sec_entrega">Entrega</span>
-                                <button type="button" class="conf-edit" data-edit-step="2">✏️ Editar</button>
+                                <button type="button" class="conf-edit" data-edit-step="2">Editar</button>
                             </div>
                             <div class="rows">
-                                <div class="r" id="r_ubigeo"><span class="k">Ubigeo</span><span class="v" id="c_ubigeo">—</span></div>
+                                <div class="r" id="r_ubigeo"><span class="k">Destino</span><span class="v" id="c_ubigeo">—</span></div>
                                 <div class="r"><span class="k">Dirección</span><span class="v" id="c_dir">—</span></div>
                                 <div class="r"><span class="k" id="k_ref">Referencia</span><span class="v" id="c_ref">—</span></div>
                                 <div class="r" id="r_ag"><span class="k">Agencia</span><span class="v" id="c_ag">—</span></div>
@@ -422,35 +452,11 @@
                         </div>
                     </div>
 
-                    {{-- ── Tiempos de despacho: recuadro visible, uno por
-                         modalidad. Antes iba en letra chica dentro de las
-                         condiciones y la gente no lo leía. El JS muestra el
-                         que corresponde a la modalidad elegida. --}}
-                    <div class="eta eta--prov" id="eta-agencia" hidden>
-                        <div class="eta__t">⚠️ Importante</div>
-                        <div class="eta__b">
-                            Los pedidos con destino a <strong>provincia</strong> se preparan y despachan
-                            <strong>entre 2 y {{ max(2, (int) ($maxDays ?? 4)) }} días hábiles</strong>, según la
-                            disponibilidad de materiales de embalaje y el proceso logístico.
-                            <div class="eta__s">Agradecemos su comprensión.</div>
-                        </div>
-                    </div>
-
-                    <div class="eta eta--lima" id="eta-domicilio" hidden>
-                        <div class="eta__t">🚚 Entregas en Lima</div>
-                        <div class="eta__b">
-                            Los pedidos para Lima tienen <strong>prioridad logística</strong> y normalmente se
-                            preparan para despacho <strong>el mismo día o al siguiente día hábil</strong>.
-                        </div>
-                    </div>
-
-                    <div class="eta eta--tienda" id="eta-tienda" hidden>
-                        <div class="eta__t">🏬 Recojo en tienda</div>
-                        <div class="eta__b">
-                            Preparamos tu pedido cuanto antes y te avisamos por WhatsApp
-                            <strong>apenas esté listo para recoger</strong>.
-                        </div>
-                    </div>
+                    {{-- Fechas estimadas de la modalidad elegida: el JS muestra
+                         la que corresponde (ids eta-*). --}}
+                    @include('tenant.shipments.partials.eta-box', ['etaType' => 'agencia', 'etaId' => 'eta-agencia'])
+                    @include('tenant.shipments.partials.eta-box', ['etaType' => 'domicilio', 'etaId' => 'eta-domicilio'])
+                    @include('tenant.shipments.partials.eta-box', ['etaType' => 'tienda', 'etaId' => 'eta-tienda'])
 
                     {{-- Términos y sorteo los declara el CLIENTE. En el panel
                          los carga un operador: no firma términos en nombre de
@@ -459,11 +465,10 @@
                     <div class="terms-box">
                         <label class="chk">
                             <input type="checkbox" name="accepted_terms" id="{{ $p }}terms" value="1" required>
-                            <span>Confirmo que todos los datos ingresados son correctos.</span>
+                            <span>Mis datos son correctos y autorizo usarlos solo para el envío de este pedido.</span>
                         </label>
-                        <div class="cond">
-                            Autorizo el uso de mis datos únicamente para gestionar el envío de mi pedido.<br><br>
-                            El tiempo de despacho puede variar dependiendo de:
+                        <details class="cond">
+                            <summary>¿Qué puede cambiar la fecha?</summary>
                             <ul>
                                 <li>Disponibilidad del producto.</li>
                                 <li>Disponibilidad de materiales para embalaje.</li>
@@ -471,7 +476,7 @@
                                 <li>Agencia de transporte o disponibilidad del motorizado.</li>
                                 <li>Eventos externos que puedan retrasar la entrega.</li>
                             </ul>
-                        </div>
+                        </details>
                     </div>
 
                     {{-- ── Participación en el sorteo, dentro del mismo flujo ──
@@ -528,7 +533,7 @@
                     @endif
 
                     <div class="row-btns">
-                        <button type="button" class="btn btn-ghost" id="backStep1">← Volver</button>
-                        <button type="submit" class="btn" id="confirmBtn">Confirmar registro</button>
+                        <button type="button" class="btn btn-ghost" id="backStep1">Volver</button>
+                        <button type="submit" class="btn" id="confirmBtn">Confirmar mis datos</button>
                     </div>
                 </div>
