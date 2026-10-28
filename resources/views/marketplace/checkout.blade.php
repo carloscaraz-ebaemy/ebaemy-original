@@ -298,7 +298,7 @@ input.mp-co-invalid, select.mp-co-invalid, textarea.mp-co-invalid {
                     </div>
                     @foreach($store['items'] as $line)
                         <div class="mp-co-line">
-                            <span>{{ $line['quantity'] }}× {{ \Illuminate\Support\Str::limit($line['title'], 36) }}</span>
+                            <span>{{ $line['quantity'] }}× {{ \Illuminate\Support\Str::limit($line['title'] . (!empty($line['variant_name']) ? ' · ' . $line['variant_name'] : ''), 44) }}</span>
                             <span class="price">S/ {{ number_format($line['price'] * $line['quantity'], 2) }}</span>
                         </div>
                     @endforeach

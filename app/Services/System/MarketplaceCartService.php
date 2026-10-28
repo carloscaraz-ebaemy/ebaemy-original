@@ -52,7 +52,7 @@ class MarketplaceCartService
      * Añade un listing al carrito (incrementando cantidad si ya estaba).
      * Devuelve el item resultante o null si el listing no es publicable.
      */
-    public function add(string $slug, int $quantity = 1): ?array
+    public function add(string $slug, int $quantity = 1, ?int $tenantVariantId = null): ?array
     {
         $quantity = max(1, min(self::MAX_QTY, $quantity));
 
@@ -61,24 +61,42 @@ class MarketplaceCartService
             return null;
         }
 
+        // Variante: la ficha manda el tenant_variant_id de la talla/color
+        // elegida. Sin ella (agregado rápido desde una card) se usa la
+        // principal con stock, como la que la ficha muestra preseleccionada.
+        $variant = null;
+        if ($listing->has_variants) {
+            $variant = $this->resolveVariant($listing, $tenantVariantId);
+            if (!$variant) {
+                return null;
+            }
+        }
+
+        $stock = (int) ($variant ? $variant->stock : $listing->stock);
+        $price = $this->linePrice($listing, $variant);
+
         $cart = $this->get();
-        $key  = (string) $listing->id;
+        $key  = self::lineKey($listing->id, $variant?->id);
 
         if (isset($cart['items'][$key])) {
             $newQty = min(self::MAX_QTY, (int) $cart['items'][$key]['quantity'] + $quantity);
-            $newQty = min($newQty, max(1, (int) $listing->stock));
+            $newQty = min($newQty, max(1, $stock));
             $cart['items'][$key]['quantity'] = $newQty;
             // refrescamos snapshot a precio actual también, evita que el cart
             // tenga precio rancio si se aumentó cantidad horas después
-            $cart['items'][$key]['price'] = (float) $listing->display_price;
+            $cart['items'][$key]['price'] = $price;
         } else {
             $cart['items'][$key] = [
+                'line_key'       => $key,
                 'listing_id'     => (int) $listing->id,
+                'listing_variant_id' => $variant?->id,
+                'tenant_variant_id'  => $variant ? (int) $variant->tenant_variant_id : null,
+                'variant_name'   => $variant?->display_name,
                 'slug'           => $listing->slug,
                 'title'          => $listing->title,
-                'image_url'      => $listing->image_url,
-                'price'          => (float) $listing->display_price,
-                'quantity'       => min($quantity, max(1, (int) $listing->stock)),
+                'image_url'      => ($variant?->image_url) ?: $listing->image_url,
+                'price'          => $price,
+                'quantity'       => min($quantity, max(1, $stock)),
                 'hostname_id'    => (int) $listing->hostname_id,
                 'tenant_fqdn'    => $listing->tenant_fqdn,
                 'tenant_name'    => $listing->seller_display,
@@ -101,13 +119,38 @@ class MarketplaceCartService
         return $cart['items'][$key];
     }
 
+    /** Clave de la línea: "{listing}" o "{listing}-{variante}" (dos tallas = dos líneas). */
+    public static function lineKey(int $listingId, ?int $listingVariantId = null): string
+    {
+        return $listingVariantId ? $listingId . '-' . $listingVariantId : (string) $listingId;
+    }
+
+    /** Variante activa con stock: la pedida o, si no se indicó, la principal. */
+    private function resolveVariant(MarketplaceListing $listing, ?int $tenantVariantId): ?\App\Models\System\MarketplaceListingVariant
+    {
+        $query = $listing->variants()->where('is_active', true)->where('stock', '>', 0);
+
+        if ($tenantVariantId) {
+            return (clone $query)->where('tenant_variant_id', $tenantVariantId)->first();
+        }
+
+        return $query->orderByDesc('is_primary')->orderBy('id')->first();
+    }
+
+    /** Precio de la línea: el de la variante si lo tiene (es el que la ficha mostró). */
+    private function linePrice(MarketplaceListing $listing, $variant): float
+    {
+        return $variant && (float) $variant->price > 0 ? (float) $variant->price : (float) $listing->display_price;
+    }
+
     /**
      * Actualiza la cantidad de un item específico. quantity=0 elimina.
+     * $key es la clave de línea (ver lineKey); un id de listing a secas sigue
+     * sirviendo para las líneas sin variante.
      */
-    public function setQuantity(int $listingId, int $quantity): bool
+    public function setQuantity(string $key, int $quantity): bool
     {
         $cart = $this->get();
-        $key  = (string) $listingId;
 
         if (!isset($cart['items'][$key])) {
             return false;
@@ -116,8 +159,11 @@ class MarketplaceCartService
         if ($quantity <= 0) {
             unset($cart['items'][$key]);
         } else {
-            $listing = MarketplaceListing::find($listingId);
-            $maxAllowed = $listing ? max(1, (int) $listing->stock) : self::MAX_QTY;
+            $line = $cart['items'][$key];
+            $source = !empty($line['listing_variant_id'])
+                ? \App\Models\System\MarketplaceListingVariant::find($line['listing_variant_id'])
+                : MarketplaceListing::find($line['listing_id']);
+            $maxAllowed = $source ? max(1, (int) $source->stock) : self::MAX_QTY;
             $cart['items'][$key]['quantity'] = min(self::MAX_QTY, max(1, $quantity), $maxAllowed);
         }
 
@@ -130,9 +176,9 @@ class MarketplaceCartService
         return true;
     }
 
-    public function remove(int $listingId): bool
+    public function remove(string $key): bool
     {
-        return $this->setQuantity($listingId, 0);
+        return $this->setQuantity($key, 0);
     }
 
     public function clear(): void
@@ -157,19 +203,28 @@ class MarketplaceCartService
             ->get()
             ->keyBy('id');
 
+        $variants = \App\Models\System\MarketplaceListingVariant::query()
+            ->whereIn('id', array_filter(array_column($cart['items'], 'listing_variant_id')) ?: [0])
+            ->get()
+            ->keyBy('id');
+
         foreach ($cart['items'] as $key => $line) {
             $listing = $listings->get($line['listing_id']);
-            if (!$listing || !$listing->is_active || $listing->status !== 'active' || $listing->stock <= 0) {
+            $variant = !empty($line['listing_variant_id']) ? $variants->get($line['listing_variant_id']) : null;
+            $stock = $variant ? (int) $variant->stock : (int) ($listing->stock ?? 0);
+            if (!$listing || !$listing->is_active || $listing->status !== 'active' || $listing->stock <= 0
+                || (!empty($line['listing_variant_id']) && (!$variant || !$variant->is_active || $stock <= 0))) {
                 unset($cart['items'][$key]);
                 continue;
             }
-            $cart['items'][$key]['price']     = (float) $listing->display_price;
+            $cart['items'][$key]['price']     = $this->linePrice($listing, $variant);
             $cart['items'][$key]['title']     = $listing->title;
-            $cart['items'][$key]['image_url'] = $listing->image_url;
+            $cart['items'][$key]['image_url'] = ($variant?->image_url) ?: $listing->image_url;
+            $cart['items'][$key]['line_key']  = (string) $key;
             $cart['items'][$key]['quantity']  = min(
                 self::MAX_QTY,
                 max(1, (int) $line['quantity']),
-                max(1, (int) $listing->stock)
+                max(1, $stock)
             );
             $cart['items'][$key]['tenant_name']     = $listing->seller_display;
             $cart['items'][$key]['tenant_fqdn']     = $listing->tenant_fqdn;
@@ -258,8 +313,9 @@ class MarketplaceCartService
                 'items'        => collect($store['items'] ?? [])
                     ->map(fn ($l) => [
                         'listing_id'  => $l['listing_id']  ?? null,
+                        'line_key'    => $l['line_key']    ?? (string) ($l['listing_id'] ?? ''),
                         'slug'        => $l['slug']        ?? null,
-                        'title'       => $l['title']       ?? '',
+                        'title'       => ($l['title'] ?? '') . (!empty($l['variant_name']) ? ' · ' . $l['variant_name'] : ''),
                         'image'       => $l['image_url']   ?? null,
                         'quantity'    => (int) ($l['quantity'] ?? 0),
                         'price'       => (float) ($l['price'] ?? 0),
@@ -384,10 +440,27 @@ class MarketplaceCartService
         if ($lock) $query->lockForUpdate();
         $listings = $query->get()->keyBy('id');
 
+        $variantQuery = \App\Models\System\MarketplaceListingVariant::query()
+            ->whereIn('id', array_filter(array_column($cart['items'], 'listing_variant_id')) ?: [0]);
+        if ($lock) $variantQuery->lockForUpdate();
+        $variants = $variantQuery->get()->keyBy('id');
+
         foreach ($cart['items'] as $line) {
             $listing = $listings->get($line['listing_id']);
             if (!$listing || !$listing->is_active || $listing->status !== 'active') {
                 $errors[] = "El producto '{$line['title']}' ya no está disponible.";
+                continue;
+            }
+
+            // Línea con variante: el stock que cuenta es el de esa talla/color.
+            if (!empty($line['listing_variant_id'])) {
+                $variant = $variants->get($line['listing_variant_id']);
+                $name = trim($line['title'] . ' - ' . ($line['variant_name'] ?? ''), ' -');
+                if (!$variant || !$variant->is_active || (int) $variant->listing_id !== (int) $listing->id) {
+                    $errors[] = "La opción '{$name}' ya no está disponible.";
+                } elseif ((int) $variant->stock < (int) $line['quantity']) {
+                    $errors[] = "Stock insuficiente para '{$name}': quedan {$variant->stock}.";
+                }
                 continue;
             }
             // Packs: el stock real es min(componente.stock / qty_en_pack), que

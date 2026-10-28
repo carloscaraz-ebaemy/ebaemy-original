@@ -207,7 +207,7 @@
 
                     @foreach($store['items'] as $line)
                         <div class="mp-cart-line"
-                             data-listing="{{ $line['listing_id'] }}"
+                             data-listing="{{ $line['line_key'] ?? $line['listing_id'] }}"
                              data-unit-price="{{ $line['price'] }}">
                             <a href="{{ route('marketplace.item', $line['slug']) }}" class="mp-cart-line-img">
                                 @if($line['image_url'])
@@ -223,6 +223,9 @@
                                         </span>
                                     @endif
                                 </a>
+                                @if(!empty($line['variant_name']))
+                                    <div style="font-size:12.5px;color:#4b5563;margin-top:2px">{{ $line['variant_name'] }}</div>
+                                @endif
                                 <div class="mp-cart-line-controls">
                                     <div class="mp-cart-qty">
                                         <button type="button" class="mp-cart-qty-dec" aria-label="Disminuir">−</button>

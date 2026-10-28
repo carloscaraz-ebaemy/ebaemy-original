@@ -77,6 +77,7 @@ class MarketplaceCheckoutService
                 $cartLines = collect($store['items'])->map(function ($line) {
                     return [
                         'item_id'         => (int) ($line['remote_item_id'] ?? 0),
+                        'variant_id'      => $line['tenant_variant_id'] ?? null,
                         'sale_unit_price' => (float) $line['price'],
                         'quantity'        => (int) $line['quantity'],
                         'is_set'          => false,
@@ -214,6 +215,9 @@ class MarketplaceCheckoutService
                             'hostname_id'          => $line['hostname_id'],
                             'tenant_fqdn'          => $line['tenant_fqdn'],
                             'remote_item_id'       => $line['remote_item_id'],
+                            'listing_variant_id'   => $line['listing_variant_id'] ?? null,
+                            'tenant_variant_id'    => $line['tenant_variant_id'] ?? null,
+                            'variant_name'         => $line['variant_name'] ?? null,
                             'title'                => $line['title'],
                             'slug'                 => $line['slug']      ?? null,
                             'image_url'            => $line['image_url'] ?? null,

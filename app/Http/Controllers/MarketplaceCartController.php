@@ -60,9 +60,15 @@ class MarketplaceCartController extends Controller
         $data = $request->validate([
             'slug'     => 'required|string|max:250',
             'quantity' => 'nullable|integer|min:1|max:99',
+            // tenant_variant_id de la talla/color elegida en la ficha
+            'variant_id' => 'nullable|integer|min:1',
         ]);
 
-        $line = $this->cart->add($data['slug'], (int) ($data['quantity'] ?? 1));
+        $line = $this->cart->add(
+            $data['slug'],
+            (int) ($data['quantity'] ?? 1),
+            isset($data['variant_id']) ? (int) $data['variant_id'] : null
+        );
 
         if ($line === null) {
             return response()->json([
@@ -152,7 +158,7 @@ class MarketplaceCartController extends Controller
     /**
      * PATCH /marketplace/cart/{listing} — fija cantidad (0 elimina).
      */
-    public function update(Request $request, int $listing)
+    public function update(Request $request, string $listing)
     {
         $data = $request->validate([
             'quantity' => 'required|integer|min:0|max:99',
@@ -176,7 +182,7 @@ class MarketplaceCartController extends Controller
     /**
      * DELETE /marketplace/cart/{listing} — elimina producto del carrito.
      */
-    public function destroy(int $listing)
+    public function destroy(string $listing)
     {
         $this->cart->remove($listing);
         return response()->json([

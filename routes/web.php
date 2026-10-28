@@ -1820,9 +1820,9 @@ if ($hostname) {
         Route::post('marketplace/cart/bulk-add',   'MarketplaceCartController@bulkAdd')
              ->middleware('throttle:20,1')->name('marketplace.cart.bulk_add');
         Route::patch('marketplace/cart/{listing}', 'MarketplaceCartController@update')
-             ->whereNumber('listing')->name('marketplace.cart.update');
+             ->where('listing', '[0-9]+(-[0-9]+)?')->name('marketplace.cart.update');
         Route::delete('marketplace/cart/{listing}','MarketplaceCartController@destroy')
-             ->whereNumber('listing')->name('marketplace.cart.destroy');
+             ->where('listing', '[0-9]+(-[0-9]+)?')->name('marketplace.cart.destroy');
         Route::delete('marketplace/cart',          'MarketplaceCartController@clear')->name('marketplace.cart.clear');
 
         // ─── Checkout multi-tienda ───────────────────────────────────────────

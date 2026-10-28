@@ -1464,7 +1464,7 @@ window.mpCouponTenantIds = []; // hostname_ids donde el user tiene cupn
                     <div class="mp-mini-cart__line-total">${window.mpMoney(line.line_total)}</div>
                     ${line.listing_id ? `
                         <button type="button" class="mp-mini-cart__line-remove js-mini-cart-remove"
-                                data-listing-id="${line.listing_id}"
+                                data-listing-id="${line.line_key || line.listing_id}"
                                 aria-label="Eliminar del carrito" title="Eliminar">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M3 6h18"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
                         </button>
@@ -1526,8 +1526,9 @@ window.mpCouponTenantIds = []; // hostname_ids donde el user tiene cupn
         if (!btn) return;
         e.preventDefault();
         e.stopPropagation();
-        const listingId = parseInt(btn.dataset.listingId, 10);
-        if (!listingId || btn.disabled) return;
+        // Clave de línea: "123" o "123-45" (producto + variante).
+        const listingId = String(btn.dataset.listingId || '');
+        if (!/^\d+(-\d+)?$/.test(listingId) || btn.disabled) return;
         const lineEl  = btn.closest('.mp-mini-cart__line');
         const storeEl = btn.closest('.mp-mini-cart__store');
         btn.disabled = true;

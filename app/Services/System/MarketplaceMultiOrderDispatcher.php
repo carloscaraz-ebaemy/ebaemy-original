@@ -88,6 +88,12 @@ class MarketplaceMultiOrderDispatcher
         TenantMarketplaceOrder $sub,
         Collection $items
     ): array {
+        // Vendedor externo (PRO 9): no hay BD de tenant aquí, el pedido se le
+        // entrega por webhook.
+        if ($externalSeller = \App\Models\System\MarketplaceExternalSeller::forHostname((int) $sub->hostname_id)) {
+            return $this->dispatchExternalSubOrder($externalSeller, $order, $sub, $items);
+        }
+
         $client = Client::where('hostname_id', $sub->hostname_id)
             ->with('hostname.website')
             ->first();
@@ -147,12 +153,17 @@ class MarketplaceMultiOrderDispatcher
 
                 $jsonItems[] = [
                     'id'              => (int) $remote->id,
-                    'description'     => $remote->description ?? $line->title,
+                    'description'     => ($remote->description ?? $line->title)
+                                         . ($line->variant_name ? ' - ' . $line->variant_name : ''),
                     'sale_unit_price' => $unit,
                     'unit_price'      => $unit,
                     'quantity'        => $qty,
                     'subtotal'        => $total,
                     'internal_id'     => $remote->internal_id ?? null,
+                    // Talla/color elegida (id de item_variants del tenant), la
+                    // misma clave que entiende el pedido del tenant.
+                    'variant_id'      => $line->tenant_variant_id ? (int) $line->tenant_variant_id : null,
+                    'variant_name'    => $line->variant_name ?: null,
                 ];
             }
 
@@ -342,6 +353,76 @@ class MarketplaceMultiOrderDispatcher
         } finally {
             // Restaurar el tenant que estaba activo antes (si lo había)
             $tenancy->tenant($previousTenant ?: null);
+        }
+    }
+
+    /**
+     * Subpedido de un vendedor externo: se le entrega por webhook
+     * (ExternalSellerOrderPusher). Mismo registro de éxito/fallo y mismos
+     * reintentos que el de un tenant local; las notificaciones al vendedor
+     * corren por cuenta de su propio sistema.
+     */
+    private function dispatchExternalSubOrder(
+        \App\Models\System\MarketplaceExternalSeller $seller,
+        MarketplaceOrder $order,
+        TenantMarketplaceOrder $sub,
+        Collection $items
+    ): array {
+        try {
+            if (!$seller->is_active) {
+                throw new \RuntimeException('Vendedor externo desactivado');
+            }
+
+            $orderId = app(ExternalSellerOrderPusher::class)->push($seller, $order, $sub, $items);
+
+            $sub->update([
+                'tenant_order_id' => $orderId,
+                'status'          => TenantMarketplaceOrder::STATUS_DISPATCHED,
+                'dispatched_at'   => now(),
+                'sync_error'      => null,
+            ]);
+
+            if ($order->marketplace_user_id) {
+                try {
+                    $subtotal = (float) $items->sum(fn ($l) => (float) $l->unit_price * (int) $l->quantity);
+                    \App\Jobs\Marketplace\PushOrderToSystem::dispatch(
+                        (int) $order->marketplace_user_id,
+                        (int) $sub->hostname_id,
+                        $orderId,
+                        (float) ($subtotal - (float) $sub->discount_amount - (float) ($sub->platform_discount_amount ?? 0)),
+                        'PEN',
+                        'confirmed',
+                        now()->toDateTimeString(),
+                        null,
+                        $items->count(),
+                        [],
+                    )->afterResponse();
+                } catch (\Throwable $e) {
+                    Log::warning('PushOrderToSystem dispatch failed (externo)', [
+                        'order' => $order->order_number, 'error' => $e->getMessage(),
+                    ]);
+                }
+            }
+
+            return ['success' => true, 'tenant_fqdn' => $seller->fqdn, 'order_id' => $orderId];
+        } catch (\Throwable $e) {
+            $intentos = $sub->retry_count + 1;
+            $sub->update([
+                'status'      => TenantMarketplaceOrder::STATUS_FAILED,
+                'sync_error'  => Str::limit($e->getMessage(), 480),
+                'retry_count' => $intentos,
+            ]);
+
+            $level = $intentos >= TenantMarketplaceOrder::MAX_DISPATCH_RETRIES ? 'critical' : 'error';
+            Log::$level('marketplace: no se pudo entregar el subpedido al vendedor externo', [
+                'order_number' => $order->order_number,
+                'seller'       => $seller->fqdn,
+                'sub_id'       => $sub->id,
+                'intentos'     => $intentos,
+                'error'        => Str::limit($e->getMessage(), 200),
+            ]);
+
+            return ['success' => false, 'error' => $e->getMessage()];
         }
     }
 

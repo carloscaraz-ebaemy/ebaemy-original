@@ -162,7 +162,7 @@
                             @foreach($pk->items as $item)
                                 <div class="mp-ok-item">
                                     @if($item->image_url)<img src="{{ $item->image_url }}" alt="" loading="lazy" width="52" height="52">@endif
-                                    <div class="mp-ok-item__t">{{ $item->title }}<small>{{ $item->quantity }} {{ $item->quantity === 1 ? 'unidad' : 'unidades' }} · S/ {{ number_format($item->unit_price, 2) }} c/u</small></div>
+                                    <div class="mp-ok-item__t">{{ $item->title }}{{ $item->variant_name ? ' · ' . $item->variant_name : '' }}<small>{{ $item->quantity }} {{ $item->quantity === 1 ? 'unidad' : 'unidades' }} · S/ {{ number_format($item->unit_price, 2) }} c/u</small></div>
                                     <div class="mp-ok-item__p">S/ {{ number_format($item->total, 2) }}</div>
                                 </div>
                             @endforeach

@@ -158,6 +158,19 @@ if ($hostname) {
 
         });
 
+        // Vendedores externos (PRO 9): publican su catálogo por API firmada.
+        // Heredan el throttle:60,1 del grupo 'api'; el emisor reintenta los 429.
+        Route::prefix('marketplace/v1')
+            ->middleware([\App\Http\Middleware\VerifyExternalSellerSignature::class])
+            ->group(function () {
+                Route::get('ping', 'System\Api\ExternalSellerController@ping');
+                Route::get('categories', 'System\Api\ExternalSellerController@categories');
+                Route::post('listings/batch', 'System\Api\ExternalSellerController@batch');
+                Route::put('listings/{remoteItemId}', 'System\Api\ExternalSellerController@upsert')->where('remoteItemId', '[0-9]+');
+                Route::delete('listings/{remoteItemId}', 'System\Api\ExternalSellerController@destroy')->where('remoteItemId', '[0-9]+');
+                Route::post('orders/{orderNumber}/status', 'System\Api\ExternalSellerController@orderStatus');
+            });
+
     });
 
 }

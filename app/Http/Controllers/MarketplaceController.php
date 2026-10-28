@@ -1860,8 +1860,11 @@ class MarketplaceController extends Controller
         // Resolver el hostname por subdominio. El FQDN del tenant siempre
         // empieza con "{subdomain}." — usamos LIKE para no acoplarnos al
         // dominio raíz (ebaemy.com vs cualquier otro).
+        // Si el subdominio coincide con un tenant de ebaemy y con un vendedor
+        // externo (PRO 9, hostname sin website), gana el tenant.
         $hostname = \Hyn\Tenancy\Models\Hostname::query()
             ->where('fqdn', 'like', $subdomain . '.%')
+            ->orderByRaw('website_id IS NULL')
             ->first();
 
         if (!$hostname) {
@@ -1872,7 +1875,11 @@ class MarketplaceController extends Controller
             ->where('hostname_id', $hostname->id)
             ->first();
 
-        if (!$client) {
+        // Vendedor externo: no tiene Client; se muestra mientras esté activo y
+        // tenga productos publicados (lo comprueba el criterio de abajo).
+        $externalSeller = $client ? null : \App\Models\System\MarketplaceExternalSeller::forHostname($hostname->id);
+
+        if (!$client && !($externalSeller && $externalSeller->is_active)) {
             abort(404);
         }
 
@@ -1885,7 +1892,7 @@ class MarketplaceController extends Controller
             ->where('hostname_id', $hostname->id)
             ->exists();
 
-        if (!$client->marketplace_enabled && !$hasPublishedListings) {
+        if (!($client->marketplace_enabled ?? false) && !$hasPublishedListings) {
             abort(404);
         }
 
@@ -2030,9 +2037,11 @@ class MarketplaceController extends Controller
         //
         // Sin dominio principal marcado se queda como siempre: el `tenant_fqdn`
         // de la ficha o el hostname encontrado por subdominio.
-        $principal = \Hyn\Tenancy\Models\Hostname::where('website_id', $hostname->website_id)
-            ->where('is_primary', true)
-            ->value('fqdn');
+        $principal = $hostname->website_id
+            ? \Hyn\Tenancy\Models\Hostname::where('website_id', $hostname->website_id)
+                ->where('is_primary', true)
+                ->value('fqdn')
+            : null;
 
         $hostPublico = $principal ?: ($sample->tenant_fqdn ?? $hostname->fqdn);
 
@@ -2394,7 +2403,9 @@ class MarketplaceController extends Controller
         if ($sub = trim((string) $request->query('tienda', ''))) {
             $sub = strtolower($sub);
             $hostname = \Hyn\Tenancy\Models\Hostname::query()
-                ->where('fqdn', 'like', $sub . '.%')->first();
+                ->where('fqdn', 'like', $sub . '.%')
+                ->orderByRaw('website_id IS NULL') // mismo desempate que tenantPage
+                ->first();
             $query->where('hostname_id', $hostname?->id ?? 0);
             $title = 'ebaemy · ' . $sub;
         }
