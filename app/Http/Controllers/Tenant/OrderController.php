@@ -1588,7 +1588,32 @@ class OrderController extends Controller
             'agencies'        => $this->agenciasDisponibles(),
             // Las suyas, aparte y por uso, para poder ofrecerlas primero.
             'agencies_used'   => $this->agenciasUsadas(),
+            // Lo mismo que recibe el enlace del cliente para el reparto con
+            // motorizado (mapa y cotización) y el recojo en tienda.
+            'shipping_form'   => $this->configuracionDeEnvio(),
         ]);
+    }
+
+    /** Mapa, tienda y tarifa del motorizado; null sin el módulo de Envíos. */
+    private function configuracionDeEnvio(): ?array
+    {
+        if (!\App\Models\Tenant\ShippingRequest::moduleInstalled()) {
+            return null;
+        }
+        try {
+            $st = \App\Models\Tenant\ShippingSetting::current();
+        } catch (\Throwable $e) {
+            return null;
+        }
+
+        return [
+            'maps_key'      => config('services.google_maps.key') ?: null,
+            'store'         => $st->store_latitude && $st->store_longitude
+                ? ['lat' => (float) $st->store_latitude, 'lng' => (float) $st->store_longitude] : null,
+            'store_address' => $st->store_address,
+            'pricing'       => $st->has_pricing
+                ? ['per_km' => (float) $st->price_per_km, 'base' => (float) $st->base_price, 'min' => (float) $st->min_price] : null,
+        ];
     }
 
     /**
@@ -2624,6 +2649,24 @@ class OrderController extends Controller
             // guardado lo mandaba vacio encima del bueno.
             'pickup_person_name'   => $envio->pickup_person_name,
             'pickup_person_dni'    => $envio->pickup_person_dni,
+            // Lo demás que guarda el enlace del cliente: sin esto, editar un
+            // pedido a domicilio o con oficina de Shalom lo reabría como si
+            // fuera por agencia y sin oficina, y el guardado lo pisaba.
+            'agency_office_id'     => $envio->agency_office_id ?? null,
+            'agency_office_name'   => $envio->agency_office_name ?? null,
+            'latitude'             => $envio->latitude,
+            'longitude'            => $envio->longitude,
+            'formatted_address'    => $envio->formatted_address,
+            'google_place_id'      => $envio->google_place_id,
+            'google_maps_url'      => $envio->google_maps_url,
+            'distance_km'          => $envio->distance_km,
+            'distance_text'        => $envio->distance_text,
+            'duration_text'        => $envio->duration_text,
+            'delivery_price'       => $envio->delivery_price,
+            // Con guía de Shalom, el destino ya está en Shalom: se cambia
+            // desde «Guía de Shalom», no aquí (ShalomTracking::guardChange).
+            'shalom_guide'         => \App\Services\Tenant\ShalomTracking::hasGuide($envio)
+                ? ($envio->tracking_number ?: 'creada') : null,
         ];
     }
 

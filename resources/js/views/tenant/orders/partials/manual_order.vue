@@ -173,8 +173,43 @@
             <template v-if="shippingModule">
             <div class="mo-head mo-head--2">
                 <h2 class="mo-h">A dónde enviamos el pedido</h2>
-                <p class="mo-sub">La ciudad y la agencia por la que lo recogerá.</p>
+                <p class="mo-sub">Cómo lo recibe y a dónde va, igual que en el enlace que se le manda al cliente.</p>
             </div>
+
+            <!-- Con guía de Shalom el destino ya está registrado en Shalom: el
+                 servidor rechaza cambiarlo aquí (ShalomTracking::guardChange). -->
+            <div v-if="envio.shalom_guide" class="mo-guia-aviso">
+                Este envío ya tiene la guía de Shalom <b>{{ envio.shalom_guide }}</b>. La oficina, la modalidad y quién
+                recoge se cambian desde <b>«Guía de Shalom»</b> en el menú del pedido, para que Shalom y el panel digan lo mismo.
+            </div>
+
+            <!-- Primero CÓMO lo recibe: cada modalidad pide cosas distintas. -->
+            <div ref="modalidad" class="mo-modos" role="radiogroup" aria-label="Cómo recibe el pedido">
+                <button type="button" class="mo-modo" role="radio" :aria-checked="envio.delivery_type === 'agencia'" @click="elegirModalidad('agencia')">
+                    <b>Por agencia</b><span>A provincia: lo recoge en la oficina de la agencia.</span>
+                </button>
+                <button type="button" class="mo-modo" role="radio" :aria-checked="envio.delivery_type === 'domicilio'" @click="elegirModalidad('domicilio')">
+                    <b>A domicilio en Lima</b><span>Un motorizado lo lleva hasta su puerta.</span>
+                </button>
+                <button type="button" class="mo-modo" role="radio" :aria-checked="envio.delivery_type === 'tienda'" @click="elegirModalidad('tienda')">
+                    <b>Recojo en tienda</b><span>Pasa a recogerlo.</span>
+                </button>
+            </div>
+
+            <!-- ── A domicilio (motorizado) ── -->
+            <div v-if="envio.delivery_type === 'domicilio'" ref="domicilioMapa" class="mo-rama">
+                <domicilio-mapa v-model="dom" :config="shippingForm"></domicilio-mapa>
+            </div>
+
+            <!-- ── Recojo en tienda ── -->
+            <div v-else-if="envio.delivery_type === 'tienda'" class="mo-rama mo-tienda">
+                <b>Lo recoge en la tienda.</b>
+                <span v-if="shippingForm && shippingForm.store_address">{{ shippingForm.store_address }}</span>
+                <span v-else>Sin rótulo de transporte: al entregarlo se imprime su comprobante de recojo.</span>
+            </div>
+
+            <!-- ── Por agencia ── -->
+            <template v-else-if="envio.delivery_type === 'agencia'">
 
             <!-- Un cliente que repite ya dicto su ciudad, su agencia y la
                  oficina donde recoge. Volver a pedirselo es hacerle el trabajo
@@ -382,7 +417,16 @@
                     </template>
                 </div>
 
-                <div class="mo-f">
+                <div v-if="esShalom" ref="oficina" class="mo-f mo-f--full">
+                    <label class="mo-lbl req">Oficina de Shalom donde recoge</label>
+                    <shalom-oficinas
+                        v-model="envio.agency_office_id"
+                        :district="envio.district_id"
+                        :unknown.sync="envio.office_unknown"
+                        @loaded="oficinasShalom = $event"
+                    ></shalom-oficinas>
+                </div>
+                <div v-if="!esShalom || envio.office_unknown || !oficinasShalom" class="mo-f" :class="{ 'mo-f--full': esShalom }">
                     <label class="mo-lbl">
                         Oficina donde recoge <span class="mo-opt">(opcional)</span>
                     </label>
@@ -453,6 +497,7 @@
                     />
                 </div>
             </div>
+            </template>
             </template>
 
             <!-- == Qué lleva el pedido =====================================
@@ -534,9 +579,11 @@
 
 <script>
 import ProductLines from "./product_lines.vue";
+import ShalomOficinas from "./shalom_oficinas.vue";
+import DomicilioMapa from "./domicilio_mapa.vue";
 
 export default {
-    components: { ProductLines },
+    components: { ProductLines, ShalomOficinas, DomicilioMapa },
     props: {
         showDialog: { type: Boolean, default: false },
         orderId: { default: null },
@@ -580,7 +627,24 @@ export default {
                 shipping_destination: "",
                 pickup_person_name: "",
                 pickup_person_dni: "",
+                // Como en el enlace del cliente: primero CÓMO lo recibe.
+                delivery_type: "",
+                // Oficina exacta del catálogo de Shalom (ter_id).
+                agency_office_id: null,
+                office_unknown: false,
+                // Con guía de Shalom creada el destino ya no se cambia aquí.
+                shalom_guide: null,
             },
+            // Reparto con motorizado: lo llena <domicilio-mapa>.
+            dom: {
+                shipping_destination: "", reference: "", latitude: "", longitude: "",
+                google_place_id: "", formatted_address: "", google_maps_url: "",
+                destination_city: "", distance_km: "", distance_text: "", duration_text: "", delivery_price: "",
+            },
+            // Mapa, tienda y tarifa del motorizado (`/orders/channels`).
+            shippingForm: null,
+            // Cuántas oficinas de Shalom tiene el distrito elegido.
+            oficinasShalom: 0,
             agencias: [],
             // Las que este negocio ya ha usado, por uso. Subconjunto de
             // `agencias`: de ahi sale el grupo «Las que usas».
@@ -682,6 +746,9 @@ export default {
          * grupos. La comparacion es en minusculas porque en produccion
          * conviven «marvisur» y «Marvisur».
          */
+        esShalom() {
+            return (this.envio.shipping_agency || "").trim().toLowerCase() === "shalom";
+        },
         agenciasCatalogo() {
             const usadas = this.agenciasUsadas.map(a => a.toLowerCase());
 
@@ -712,6 +779,7 @@ export default {
 
             return (
                 !!this.envioOriginal ||
+                !!this.envio.delivery_type ||
                 !!this.envio.district_id ||
                 !!(this.envio.shipping_agency || "").trim() ||
                 // Escribir el rotulo exige tener rotulo: sin envio no hay
@@ -824,12 +892,24 @@ export default {
                 "productos"
             );
 
+            const tipo = this.envio.delivery_type;
             if (this.destinoRequerido) {
+                pide(!tipo, "Elige cómo lo recibe: por agencia, a domicilio o recojo en tienda.", "modalidad");
+            }
+            if (this.destinoRequerido && tipo === "domicilio") {
+                pide(!(this.dom.shipping_destination || "").trim(), "Falta la dirección de entrega.", "domicilioMapa");
+            }
+            if (this.destinoRequerido && tipo === "agencia") {
                 pide(!this.envio.district_id, "Falta la ciudad de destino.", "ciudad");
                 pide(
                     !(this.envio.shipping_agency || "").trim(),
                     "Falta la agencia de transporte.",
                     "agencia"
+                );
+                pide(
+                    this.esShalom && this.oficinasShalom > 0 && !this.envio.agency_office_id && !this.envio.office_unknown,
+                    "Elige la oficina de Shalom donde recoge, o marca que no está en la lista.",
+                    "oficina"
                 );
                 pide(
                     this.envio.a_domicilio && !(this.envio.shipping_destination || "").trim(),
@@ -870,16 +950,19 @@ export default {
                 req.push(this.hayContenido);
             }
 
-            if (this.destinoRequerido) {
+            const tipo = this.envio.delivery_type;
+            if (this.destinoRequerido) req.push(!!tipo);
+            if (this.destinoRequerido && tipo === "domicilio") req.push(!!(this.dom.shipping_destination || "").trim());
+            if (this.destinoRequerido && tipo === "agencia") {
                 req.push(!!this.envio.district_id);
                 req.push(!!(this.envio.shipping_agency || "").trim());
             }
             // La direccion solo cuenta cuando se ha pedido reparto: si no,
             // exigirla dejaria la barra clavada al 80% sin nada que falte.
-            if (this.destinoRequerido && this.envio.a_domicilio) {
+            if (this.destinoRequerido && tipo === "agencia" && this.envio.a_domicilio) {
                 req.push(!!(this.envio.shipping_destination || "").trim());
             }
-            if (this.destinoRequerido && this.esEmpresa) {
+            if (this.destinoRequerido && tipo === "agencia" && this.esEmpresa) {
                 req.push(!!(this.envio.pickup_person_name || "").trim());
                 req.push((this.envio.pickup_person_dni || "").length >= 8);
             }
@@ -953,7 +1036,12 @@ export default {
                 shipping_destination: "",
                 pickup_person_name: "",
                 pickup_person_dni: "",
+                delivery_type: "",
+                agency_office_id: null,
+                office_unknown: false,
+                shalom_guide: null,
             };
+            this.dom = this.domVacio();
 
             this.destinoElegido = "";
             this.ubigeoResults = [];
@@ -1001,6 +1089,7 @@ export default {
                     this.ajustarModoAgencia();
                     this.puedeEditarPrecio = !!d.can_edit_prices;
                     this.shippingModule = !!d.shipping_module;
+                    this.shippingForm = d.shipping_form || null;
 
                     // Con un solo canal no hay nada que elegir: preguntarlo es
                     // un clic obligatorio con una unica respuesta posible.
@@ -1113,9 +1202,29 @@ export default {
             this.ajustarModoAgencia();
             this.envio.reference = envio.reference || "";
             this.envio.shipping_destination = envio.shipping_destination || "";
-            this.envio.a_domicilio = !!(envio.shipping_destination || "").trim();
             this.envio.pickup_person_name = envio.pickup_person_name || "";
             this.envio.pickup_person_dni = envio.pickup_person_dni || "";
+            // Un destino anterior no trae modalidad: esos son de agencia.
+            this.envio.delivery_type = envio.delivery_type || "agencia";
+            this.envio.agency_office_id = envio.agency_office_id || null;
+            this.envio.office_unknown = envio.shipping_agency === "Shalom" && !envio.agency_office_id && !!(envio.reference || "").trim();
+            this.envio.shalom_guide = envio.shalom_guide || null;
+            // En domicilio la dirección es EL destino (motorizado); en agencia
+            // solo existe si la agencia reparte a domicilio.
+            const esDom = this.envio.delivery_type === "domicilio";
+            this.envio.a_domicilio = !esDom && !!(envio.shipping_destination || "").trim();
+            this.dom = esDom
+                ? Object.assign(this.domVacio(), {
+                    shipping_destination: envio.shipping_destination || "",
+                    reference: envio.reference || "",
+                    latitude: envio.latitude || "", longitude: envio.longitude || "",
+                    google_place_id: envio.google_place_id || "", formatted_address: envio.formatted_address || "",
+                    google_maps_url: envio.google_maps_url || "", destination_city: envio.destination_city || "",
+                    distance_km: envio.distance_km || "", distance_text: envio.distance_text || "",
+                    duration_text: envio.duration_text || "",
+                    delivery_price: envio.delivery_price !== null && envio.delivery_price !== undefined ? String(envio.delivery_price) : "",
+                })
+                : this.domVacio();
             this.form.alternate_phone = (envio.alternate_phone || "").replace(/\D+/g, "");
 
             if (envio.district_id) {
@@ -1188,7 +1297,25 @@ export default {
             }
         },
 
+        domVacio() {
+            return {
+                shipping_destination: "", reference: "", latitude: "", longitude: "",
+                google_place_id: "", formatted_address: "", google_maps_url: "",
+                destination_city: "", distance_km: "", distance_text: "", duration_text: "", delivery_price: "",
+            };
+        },
+
+        elegirModalidad(t) {
+            if (this.envio.delivery_type === t) return;
+            this.envio.delivery_type = t;
+        },
+
         alElegirAgencia(valor) {
+            // Otra agencia: la oficina de Shalom elegida ya no aplica.
+            if (valor !== "Shalom") {
+                this.envio.agency_office_id = null;
+                this.envio.office_unknown = false;
+            }
             if (valor !== this.OTRA_AGENCIA) return;
 
             // El centinela no es una agencia: no puede quedarse en el campo.
@@ -1541,9 +1668,9 @@ export default {
                     // varios se pregunta, que es justo lo que no se puede
                     // adivinar. En una EDICION no se toca nada: el pedido ya
                     // tiene su destino y no es esto quien debe cambiarlo.
-                    if (!this.editando && this.anteriores.length === 1) {
-                        this.usarAnterior(0);
-                    }
+                    // Ya no se pone solo: igual que en el enlace del cliente, la
+                    // agencia y el destino se eligen cada vez (venía Shalom
+                    // puesto por el envío anterior y parecía la única opción).
 
                     if (!d.found) {
                         // Que no figure no puede dejar el nombre bloqueado y
@@ -1596,19 +1723,55 @@ export default {
          * pide mapa, distancia y precio de reparto—.
          */
         payloadEnvio() {
-            const p = {
-                delivery_type: "agencia",
+            const tipo = this.envio.delivery_type || "agencia";
+            const base = {
+                delivery_type: tipo,
                 full_name: (this.form.name || "").trim(),
                 phone: this.form.phone,
                 alternate_phone: this.form.alternate_phone || null,
                 dni: this.documento || null,
                 document_type: this.documento.length === 11 ? "ruc" : this.docType,
+                pickup_person_name: this.envio.pickup_person_name || null,
+                pickup_person_dni: this.envio.pickup_person_dni || null,
+            };
+            let p;
+            if (tipo === "domicilio") {
+                // Los mismos campos que manda el enlace del cliente.
+                const d = this.dom;
+                p = Object.assign(base, {
+                    shipping_destination: (d.shipping_destination || "").trim(),
+                    reference: d.reference || null,
+                    formatted_address: d.formatted_address || null,
+                    destination_city: d.destination_city || null,
+                    latitude: d.latitude || null,
+                    longitude: d.longitude || null,
+                    google_place_id: d.google_place_id || null,
+                    google_maps_url: d.google_maps_url || null,
+                    distance_km: d.distance_km || null,
+                    distance_text: d.distance_text || null,
+                    duration_text: d.duration_text || null,
+                    delivery_price: d.delivery_price !== "" && d.delivery_price !== null ? d.delivery_price : null,
+                });
+            } else if (tipo === "tienda") {
+                p = Object.assign(base, { reference: null, shipping_destination: null });
+            }
+            if (p) {
+                if (this.packageContent !== this.packageContentOriginal) p.package_content = this.packageContent || null;
+                else if (this.packageContent) p.package_content = this.packageContent;
+                return p;
+            }
+
+            p = {
+                ...base,
                 district_id: this.envio.district_id,
                 province_id: this.envio.province_id || null,
                 department_id: this.envio.department_id || null,
                 destination_city: this.envio.destination_city || null,
                 shipping_agency: this.envio.shipping_agency,
-                reference: this.envio.reference || null,
+                // Shalom: la oficina exacta del catálogo; el servidor copia su
+                // nombre y dirección. Otra agencia: null limpia la anterior.
+                agency_office_id: this.esShalom && !this.envio.office_unknown ? this.envio.agency_office_id || null : null,
+                reference: this.esShalom && this.envio.agency_office_id && !this.envio.office_unknown ? null : this.envio.reference || null,
                 // Sin reparto no se manda direccion: dejar la de un intento
                 // anterior mandaria el paquete a una casa que ya no aplica.
                 shipping_destination: this.envio.a_domicilio
@@ -1648,14 +1811,19 @@ export default {
             if (!this.envioOriginal) return true;
 
             return [
+                "delivery_type",
                 "district_id",
                 "shipping_agency",
+                "agency_office_id",
                 "reference",
                 "shipping_destination",
                 "alternate_phone",
                 "pickup_person_name",
                 "pickup_person_dni",
-            ].some(k => (this.envioOriginal[k] || null) !== (payload[k] || null))
+                "latitude",
+                "longitude",
+                "delivery_price",
+            ].some(k => String(this.envioOriginal[k] ?? "") !== String(payload[k] ?? ""))
                 // `envioOriginal` viene de `shipping`, que no trae el texto
                 // del bulto: se compara aparte o no se guardaria nunca.
                 || this.packageContent !== this.packageContentOriginal;
@@ -1812,6 +1980,16 @@ export default {
 </script>
 
 <style scoped>
+.mo-modos { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 4px 0 16px; }
+@media (max-width: 720px) { .mo-modos { grid-template-columns: 1fr; } }
+.mo-modo { text-align: left; border: 1.5px solid var(--line, #e2e8f0); background: #fff; border-radius: 12px; padding: 12px 14px; cursor: pointer; font: inherit; color: #0f172a; transition: 0.15s; }
+.mo-modo:hover { border-color: #a5b4fc; }
+.mo-modo[aria-checked="true"] { border-color: #4f46e5; background: #eef2ff; box-shadow: 0 0 0 1px #4f46e5; }
+.mo-modo b { display: block; font-size: 14.5px; }
+.mo-modo span { display: block; font-size: 12.5px; color: #64748b; margin-top: 3px; line-height: 1.35; }
+.mo-rama { margin-bottom: 8px; }
+.mo-tienda { display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; background: #f8fafc; border-radius: 12px; font-size: 13.5px; color: #334155; }
+.mo-guia-aviso { padding: 10px 14px; margin-bottom: 12px; background: #fff7e6; color: #8a5300; border-radius: 12px; font-size: 13px; line-height: 1.45; }
 /* Mismas variables que el formulario publico de envios, para que las dos
    pantallas se reconozcan como la misma casa. */
 .mo {
