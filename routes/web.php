@@ -544,11 +544,13 @@ if ($hostname) {
             // Shalom con instancia (plan Pro/Business): crear la guía en la
             // cuenta de la tienda y bajar su rótulo oficial.
             Route::post('orders/{order}/envio/shalom-guia', [\App\Http\Controllers\Tenant\OrderShipmentActionController::class, 'shalomGuia'])
-                 ->whereNumber('order')->name('orders.shipping.shalom_guide');
+                 ->whereNumber('order')->name('orders.shipping.shalom_guide')->middleware('throttle:10,1');
+            Route::get('orders/envio/{shipment}/shalom-ticket', [\App\Http\Controllers\Tenant\ShipmentController::class, 'shalomVoucher'])
+                 ->whereNumber('shipment')->name('orders.shipping.shalom_voucher');
             Route::get('orders/envio/{shipment}/shalom-rotulo', [\App\Http\Controllers\Tenant\ShipmentController::class, 'shalomLabel'])
                  ->whereNumber('shipment')->name('orders.shipping.shalom_label');
             Route::post('orders/{order}/envio/shalom-quitar', [\App\Http\Controllers\Tenant\OrderShipmentActionController::class, 'shalomQuitar'])
-                 ->whereNumber('order')->name('orders.shipping.shalom_remove');
+                 ->whereNumber('order')->name('orders.shipping.shalom_remove')->middleware('throttle:10,1');
             Route::get('orders/ubigeo/provincias/{department}', [\App\Http\Controllers\Tenant\ShipmentController::class, 'provinces'])
                  ->name('orders.shipping.provinces');
             Route::get('orders/ubigeo/distritos/{province}', [\App\Http\Controllers\Tenant\ShipmentController::class, 'districts'])

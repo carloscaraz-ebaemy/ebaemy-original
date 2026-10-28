@@ -46,6 +46,10 @@ class OrderShipmentLinker
     {
         if ($existing = $this->current($order)) {
             if ($overrides) {
+                // Con guía de Shalom el destino ya está registrado en Shalom.
+                if ($motivo = ShalomTracking::guardChange($existing, $overrides)) {
+                    throw \Illuminate\Validation\ValidationException::withMessages(['shipping_agency' => $motivo]);
+                }
                 $existing->fill($overrides)->save();
             }
             return $existing;

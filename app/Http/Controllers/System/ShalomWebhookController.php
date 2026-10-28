@@ -64,6 +64,11 @@ class ShalomWebhookController extends Controller
             }
             $tenancy->tenant($website);
             $s = ShippingRequest::find($map->shipping_request_id);
+            // El mapa puede quedar viejo (la guía se quitó o se cambió): el
+            // aviso solo vale si el envío sigue teniendo ESA guía.
+            if ($s && ((string) $s->tracking_number !== $number || strtoupper((string) $s->tracking_code) !== $code)) {
+                $s = null;
+            }
             if ($s && $step) {
                 $fqdn = optional($website->hostnames()->first())->fqdn;
                 $this->apply($s, $step, $p, $fqdn);
@@ -91,8 +96,8 @@ class ShalomWebhookController extends Controller
         if (!$secret || !preg_match('/t=(\d+),\s*v1=([a-f0-9]+)/i', $header, $m)) {
             return false;
         }
-        // Avisos de más de un día: no son reintentos, son repeticiones.
-        if (abs(time() - (int) $m[1]) > 86400) {
+        // Fuera de una hora: no es un reintento, es una repetición.
+        if (abs(time() - (int) $m[1]) > 3600) {
             return false;
         }
 
@@ -124,43 +129,12 @@ class ShalomWebhookController extends Controller
 
         // Un aviso atrasado no hace retroceder el estado (llega «En destino»
         // cuando ya estaba «Entregado»): el hito se anota, el estado se queda.
-        $orden = array_keys(ShalomTracking::STEPS);
-        $actual = $s->carrier_status ? array_search($s->carrier_status, $orden, true) : -1;
-        $nuevo = array_search($step, $orden, true);
-        $estado = ($actual !== false && $actual > $nuevo) ? $s->carrier_status : $step;
-
-        $avisar = $estado === 'destino' && empty($ce['notified_destino']);
-        if ($avisar) {
-            $ce['notified_destino'] = now()->toDateTimeString();
-        }
+        $estado = ShalomTracking::noRetroceder($s->carrier_status, $step);
 
         $s->forceFill(['carrier_status' => $estado, 'carrier_events' => $ce, 'carrier_checked_at' => now()])->saveQuietly();
 
-        if ($avisar) {
-            $this->notifyArrived($s, $ce, $fqdn);
-        }
-    }
-
-    private function notifyArrived(ShippingRequest $s, array $ce, ?string $fqdn): void
-    {
-        try {
-            $digits = preg_replace('/\D/', '', (string) $s->phone);
-            if (strlen($digits) === 9) {
-                $digits = '51' . $digits;
-            }
-            if (strlen($digits) < 11) {
-                return;
-            }
-            $name = \Illuminate\Support\Str::of((string) $s->full_name)->after(', ')->before(' ') ?: 'hola';
-            $msg = "¡Hola {$name}! 📦\n\nTu pedido ya llegó a *Shalom*"
-                . ($s->agency_office_name ? " — oficina *{$s->agency_office_name}*" : '') . ".\n"
-                . "Puedes recogerlo con tu DNI.\n"
-                . "📄 Guía: {$s->tracking_number} · Código: {$s->tracking_code}\n"
-                . (!empty($ce['clave']) ? "🔑 Clave de recojo: {$ce['clave']}\n" : '')
-                . "\n🔎 " . url('envio/seguimiento?code=' . $s->shipment_code);
-            dispatch(\App\Jobs\SendWhatsAppMessage::text($digits, $msg));
-        } catch (\Throwable $e) {
-            Log::info('[shalom-webhook] WhatsApp no enviado: ' . $e->getMessage());
+        if ($estado === 'destino') {
+            ShalomTracking::notifyArrived($s, $fqdn);   // una sola vez, y nunca a un envío anulado
         }
     }
 }

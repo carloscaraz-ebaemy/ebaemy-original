@@ -28,15 +28,23 @@ class ShalomSyncTracking extends Command
                 if (!ShalomTracking::supported()) {
                     continue;
                 }
+                // Las creadas por API aún no tienen `sent_at`: se cuenta desde
+                // que se creó el envío. Las menos consultadas, primero.
                 $guias = ShippingRequest::where('shipping_agency', 'Shalom')
                     ->whereNotNull('tracking_number')->whereNotNull('tracking_code')
                     ->where(fn ($q) => $q->whereNull('carrier_status')->orWhere('carrier_status', '!=', 'entregado'))
-                    ->where('sent_at', '>=', now()->subDays(30))
+                    ->whereRaw('COALESCE(sent_at, created_at) >= ?', [now()->subDays(30)])
+                    ->orderByRaw('carrier_checked_at IS NOT NULL, carrier_checked_at')
                     ->limit(300)->get();
                 foreach ($guias as $s) {
-                    $tracking->refresh($s);
+                    try {
+                        $tracking->refresh($s);
+                        $tracking->watch($s);     // reintenta la suscripción si falló
+                    } catch (\Throwable $e) {
+                        $this->warn("{$website->uuid} #{$s->id}: " . $e->getMessage());
+                    }
                     $total++;
-                    usleep(300000);   // 60 consultas/min en el plan
+                    usleep(1000000);   // ~60 consultas/min
                 }
             } catch (\Throwable $e) {
                 $this->warn($website->uuid . ': ' . $e->getMessage());

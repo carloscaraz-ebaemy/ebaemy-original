@@ -163,6 +163,29 @@ class ShalomApi
         return $res->body();
     }
 
+    /** DELETE /instances — borra la instancia (y la sesión guardada) de una tienda. */
+    public function deleteInstance(string $instanceId): array
+    {
+        return $this->send('delete', '/instances', ['instanceId' => $instanceId], null, 25);
+    }
+
+    /** GET /track/voucher — ticket oficial de Shalom (PDF, con su QR). */
+    public function voucher(string $instanceId, array $guide): string
+    {
+        $this->assertInstances();
+        $key = $this->key();
+        if (!$key) {
+            throw new RuntimeException('No hay llave de Shalom API configurada.');
+        }
+        $res = Http::withHeaders(['x-api-key' => $key])->timeout(60)
+            ->get(rtrim(config('services.shalom.url') ?: 'https://api.shalom-api.lat', '/') . '/track/voucher', ['instanceId' => $instanceId] + $guide);
+        if ($res->failed()) {
+            throw new RuntimeException('Shalom API ' . $res->status() . ': no se pudo bajar el ticket.');
+        }
+
+        return $res->body();
+    }
+
     /** GET /account/dni/{dni} — nombres y apellidos separados (RENIEC), para registrar la guía. */
     public function dni(string $dni): array
     {

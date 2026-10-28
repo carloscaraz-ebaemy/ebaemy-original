@@ -50,6 +50,13 @@ class ShalomGuide
         if (!empty($s->tracking_code) || !empty(($s->carrier_events ?? [])['ose_id'])) {
             return 'Este envío ya tiene guía de Shalom.';
         }
+        // Un intento que se cortó (tiempo agotado) pudo crear la guía en
+        // Shalom igual: reintentar a ciegas deja dos guías reales.
+        $intento = ($s->carrier_events ?? [])['create_attempt_at'] ?? null;
+        if ($intento && \Carbon\Carbon::parse($intento)->gt(now()->subMinutes(15))) {
+            return 'Hace poco se intentó crear esta guía y no hubo respuesta clara de Shalom. Revisa en pro.shalom.pe '
+                . 'si se creó antes de reintentar (podrás reintentar en 15 minutos).';
+        }
 
         return null;
     }
@@ -59,12 +66,34 @@ class ShalomGuide
      */
     public function create(ShippingRequest $s, string $content, ?string $clave = null): array
     {
+        // Doble clic o dos operadores a la vez: una sola creación por envío.
+        $lock = \Illuminate\Support\Facades\Cache::lock('shalom_guide:' . $s->getConnection()->getDatabaseName() . ':' . $s->id, 180);
+        if (!$lock->get()) {
+            throw new RuntimeException('Ya se está creando la guía de este envío. Espera un momento.');
+        }
+        try {
+            return $this->createLocked($s->fresh(), $content, $clave);
+        } finally {
+            $lock->release();
+        }
+    }
+
+    private function createLocked(ShippingRequest $s, string $content, ?string $clave): array
+    {
         $st = ShippingSetting::current();
         if ($why = self::blocker($s, $st)) {
             throw new RuntimeException($why);
         }
         if (!in_array($content, self::CONTENTS, true)) {
             throw new RuntimeException('Elige el tamaño del paquete.');
+        }
+        try {
+            $vigente = \App\Models\System\ShalomAgency::selectable()->find((int) $s->agency_office_id);
+        } catch (\Throwable $e) {
+            $vigente = true;   // sin catálogo: que decida Shalom
+        }
+        if (!$vigente) {
+            throw new RuntimeException('La oficina ' . ($s->agency_office_name ?: '') . ' ya no recibe envíos de Shalom. Elige otra en el envío.');
         }
 
         // Empresa (RUC): Shalom entrega a una PERSONA con DNI.
@@ -85,6 +114,9 @@ class ShalomGuide
         $clave = preg_match('/^\d{4}$/', (string) $clave) ? $clave
             : (preg_match('/^\d{4}$/', (string) ($st->shalom_default_clave ?? '')) ? $st->shalom_default_clave
             : str_pad((string) random_int(0, 9999), 4, '0', STR_PAD_LEFT));
+
+        // Marca del intento ANTES de llamar: si se corta, no se reintenta a ciegas.
+        $s->forceFill(['carrier_events' => array_merge($s->carrier_events ?? [], ['create_attempt_at' => now()->toDateTimeString()])])->saveQuietly();
 
         $r = $this->api->registerGuide($st->shalom_instance_id, [
             'origen'    => (int) $st->shalom_origin_id,
@@ -114,6 +146,7 @@ class ShalomGuide
         }
 
         $ce = $s->carrier_events ?: [];
+        unset($ce['create_attempt_at']);
         $ce['ose_id'] = $found['ose_id'];
         $ce['clave'] = $clave;
         $ce['content'] = $content;
@@ -132,6 +165,21 @@ class ShalomGuide
         $tr->refresh($s);
 
         return $found + ['clave' => $clave];
+    }
+
+    /** Ticket oficial de Shalom (PDF con el QR que escanea la agencia). */
+    public function voucher(ShippingRequest $s): string
+    {
+        $st = ShippingSetting::current();
+        if (empty($st->shalom_instance_id)) {
+            throw new RuntimeException('Conecta tu cuenta de Shalom Pro en la configuración de envíos.');
+        }
+        $ose = ($s->carrier_events ?? [])['ose_id'] ?? null;
+        if (!$ose && (!$s->tracking_number || !$s->tracking_code)) {
+            throw new RuntimeException('El envío todavía no tiene guía de Shalom.');
+        }
+
+        return $this->api->voucher($st->shalom_instance_id, $ose ? ['ose_id' => $ose] : ['orderNumber' => $s->tracking_number, 'orderCode' => $s->tracking_code]);
     }
 
     /** Rótulo oficial de Shalom (PDF). */
@@ -221,12 +269,8 @@ class ShalomGuide
                 return $row;
             }
         }
-        foreach (array_reverse($rows) as $row) {
-            if (str_contains(json_encode($row), $dni)) {
-                return $row;
-            }
-        }
-
+        // Sin ose_id no se adivina: el mismo DNI puede tener otras guías
+        // pendientes y asignar la equivocada es peor que no asignar.
         return [];
     }
 

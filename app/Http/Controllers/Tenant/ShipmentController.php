@@ -949,6 +949,10 @@ class ShipmentController extends Controller
         ]);
 
         $esShalom = $shipment->shipping_agency === 'Shalom';
+        if ($esShalom && $request->filled('tracking_code')
+            && !preg_match('/^[A-Z0-9]{4}$/', (string) \App\Services\Tenant\ShalomTracking::normalizeCode($request->tracking_code))) {
+            return $this->rechazo($request, 'El código de la guía de Shalom son 4 letras o números (está en el ticket, junto al N° de orden).');
+        }
         $numero = $esShalom
             ? \App\Services\Tenant\ShalomTracking::normalizeNumber($request->tracking_number)
             : trim((string) $request->tracking_number);
@@ -970,11 +974,17 @@ class ShipmentController extends Controller
         ];
         $rastreo = \App\Services\Tenant\ShalomTracking::supported();
         if ($rastreo) {
-            $datosGuia['tracking_code'] = \App\Services\Tenant\ShalomTracking::normalizeCode($request->tracking_code);
-            // Guía nueva: lo que se sabía de la anterior ya no vale.
-            $datosGuia['carrier_status'] = null;
-            $datosGuia['carrier_events'] = null;
-            $datosGuia['carrier_checked_at'] = null;
+            $codigo = \App\Services\Tenant\ShalomTracking::normalizeCode($request->tracking_code);
+            $misma = $numero === $shipment->tracking_number && $codigo === $shipment->tracking_code;
+            $datosGuia['tracking_code'] = $codigo;
+            if (!$misma) {
+                // Guía distinta: la anterior deja de recibir avisos y lo que
+                // se sabía de ella (clave, ose_id) ya no vale.
+                app(\App\Services\Tenant\ShalomTracking::class)->unwatch($shipment->tracking_number, $shipment->tracking_code);
+                $datosGuia['carrier_status'] = null;
+                $datosGuia['carrier_events'] = null;
+                $datosGuia['carrier_checked_at'] = null;
+            }
         }
         $shipment->update($datosGuia);
 
@@ -1035,6 +1045,9 @@ class ShipmentController extends Controller
     {
         $data = $request->validate(['reason' => 'required|string|min:3|max:255'], [], ['reason' => 'motivo']);
 
+        if ((auth()->user()->type ?? '') !== 'admin') {
+            return response()->json(['success' => false, 'message' => 'Solo el administrador puede quitar una guía de Shalom.']);
+        }
         if (!\App\Services\Tenant\ShalomTracking::removable($shipment)) {
             return response()->json(['success' => false, 'message' => $shipment->carrier_status
                 ? 'Shalom ya recibió este paquete: la guía no se puede quitar.'
@@ -1056,6 +1069,22 @@ class ShipmentController extends Controller
         return response()->json([
             'success' => true,
             'message' => "Guía {$guia} quitada del pedido. Anúlala también en pro.shalom.pe: el sistema de Shalom no permite anularla desde aquí.",
+        ]);
+    }
+
+    /** Ticket oficial de Shalom (PDF con el QR que escanea la agencia). */
+    public function shalomVoucher(ShippingRequest $shipment)
+    {
+        try {
+            $pdf = app(\App\Services\Tenant\ShalomGuide::class)->voucher($shipment);
+        } catch (\Throwable $e) {
+            return response('<p style="font-family:system-ui;padding:24px">No se pudo bajar el ticket de Shalom: '
+                . e($e->getMessage()) . '</p>', 422);
+        }
+
+        return response($pdf, 200, [
+            'Content-Type'        => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="ticket-shalom-' . ($shipment->tracking_number ?: $shipment->shipment_code) . '.pdf"',
         ]);
     }
 
@@ -1276,6 +1305,10 @@ class ShipmentController extends Controller
 
         if ($new === $old) {
             return back()->with('error', 'El envío ya tiene esa modalidad.');
+        }
+
+        if ($motivoGuia = \App\Services\Tenant\ShalomTracking::guardChange($shipment, ['delivery_type' => $new])) {
+            return $this->rechazo($request, $motivoGuia);
         }
 
         [$allowed, $blockReason] = $shipment->canChangeModality();
@@ -1512,6 +1545,14 @@ class ShipmentController extends Controller
      */
     public function shalomQuote(int $office)
     {
+        try {
+            $existe = \App\Models\System\ShalomAgency::selectable()->whereKey($office)->exists();
+        } catch (\Throwable $e) {
+            $existe = false;
+        }
+        if (!$existe) {
+            return response()->json(['available' => false]);
+        }
         $q = $this->shalomQuoteFor($office);
         if (!$q) {
             return response()->json(['available' => false]);
@@ -1526,10 +1567,10 @@ class ShipmentController extends Controller
             'arrive'    => $arr['date'] ?? null,
             'price_min' => $prices ? min($prices) : $q['price'],
             'price_max' => $prices ? max($prices) : $q['price'],
-        ])->header('Cache-Control', 'public, max-age=1800');
+        ])->header('Cache-Control', 'private, no-store');   // la fecha depende de la hora
     }
 
-    /** Cotización cacheada 12 h por ruta; null si no hay origen o el API falla. */
+    /** Cotización cacheada 12 h por ruta (un fallo, 10 min); null si no hay origen o el API falla. */
     private function shalomQuoteFor(int $office): ?array
     {
         try {
@@ -1543,12 +1584,15 @@ class ShipmentController extends Controller
 
         $key = "shalom_quote:{$origin}:{$office}";
         if (Cache::has($key)) {
-            return Cache::get($key);
+            $c = Cache::get($key);
+
+            return !empty($c['fail']) ? null : $c;
         }
         try {
             $q = app(\App\Services\System\ShalomApi::class)->quote($origin, $office);
         } catch (\Throwable $e) {
             Log::info('Cotización Shalom no disponible: ' . $e->getMessage());
+            Cache::put($key, ['fail' => true], now()->addMinutes(10));
 
             return null;
         }
@@ -1592,6 +1636,10 @@ class ShipmentController extends Controller
         // La modalidad NO se cambia por aquí: tiene su propio flujo con
         // cascada, bloqueo por lote y auditoría (changeModality).
         unset($data['delivery_type']);
+
+        if ($motivoGuia = \App\Services\Tenant\ShalomTracking::guardChange($shipment, $data)) {
+            return $this->rechazo($request, $motivoGuia);
+        }
 
         // Se capturan los valores ANTES de guardar: la auditoría tiene que
         // poder responder "el DNI decía X y ahora dice Y", no solo "se tocó
@@ -3338,27 +3386,27 @@ class ShipmentController extends Controller
 
             $shipment = ShippingRequest::where('shipment_code', strtoupper($limpio))->first();
 
+            // El N° de pedido es correlativo: cualquiera puede probar 1, 2, 3…
+            // Por él se muestra solo el estado; la guía, el código, la
+            // ubicación y la imagen de la guía exigen el código ENV- completo.
             if (!$shipment && ctype_digit($limpio)) {
                 $shipment = ShippingRequest::where('order_id', (int) $limpio)
                     ->latest('id')
                     ->first();
+                $limited = (bool) $shipment;
             }
 
             $notFound = !$shipment;
         }
-
-        // Guía de Shalom: se refresca al abrir si lo guardado tiene más de 30 min.
-        if ($shipment && \App\Services\Tenant\ShalomTracking::supported()
-            && \App\Services\Tenant\ShalomTracking::applies($shipment)
-            && \App\Services\Tenant\ShalomTracking::stale($shipment)) {
-            app(\App\Services\Tenant\ShalomTracking::class)->refresh($shipment);
-        }
+        // El estado de Shalom llega por webhook y por la consulta periódica:
+        // la página pública NO llama al API (cuota compartida y 25 s de espera).
 
         return view('tenant.shipments.tracking', [
             'company'     => Company::first(),
             'code'        => $code,
             'shipment'    => $shipment,
             'notFound'    => $notFound,
+            'limited'     => $limited ?? false,
             'statuses'    => ShippingRequest::STATUSES,
             'statusOrder' => ShippingRequest::statusOrderFor($shipment?->delivery_type),
         ]);
@@ -4138,7 +4186,14 @@ class ShipmentController extends Controller
         if (($data['shipping_agency'] ?? null) === 'Shalom') {
             try {
                 if ($officeId) {
-                    $office = ShalomAgency::find((int) $officeId);
+                    // Vigente y de la zona elegida: un formulario viejo o
+                    // manipulado no puede dejar una oficina cerrada o de
+                    // otra provincia.
+                    $office = ShalomAgency::selectable()->find((int) $officeId);
+                    if ($office && !empty($data['district_id']) && $office->ubigeo
+                        && substr($office->ubigeo, 0, 4) !== substr((string) $data['district_id'], 0, 4)) {
+                        $office = null;
+                    }
                 }
 
                 if (!$office && $public && !$request->boolean('agency_office_unknown')

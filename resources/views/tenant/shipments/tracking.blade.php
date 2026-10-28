@@ -100,7 +100,7 @@
                 @if($shipment->created_at)
                     <div class="meta" style="font-size:12px;">🗓️ Registrado el {{ \Carbon\Carbon::parse($shipment->created_at)->format('d/m/Y H:i') }}</div>
                 @endif
-                @if($isDom && $shipment->maps_link)
+                @if($isDom && $shipment->maps_link && empty($limited))
                     <div style="text-align:center;margin:8px 0 2px;">
                         <a href="{{ $shipment->maps_link }}" target="_blank" style="font-size:13px;color:#7c3aed;font-weight:700;text-decoration:none;">📍 Ver mi ubicación en el mapa</a>
                     </div>
@@ -119,7 +119,13 @@
                         @endforeach
                     </ul>
 
-                    @if($shipment->tracking_number)
+                    @if(!empty($limited))
+                        <div style="margin-top:14px;font-size:13px;color:var(--muted);background:#f8fafc;border-radius:12px;padding:10px 12px;">
+                            Para ver la guía y el detalle del envío, ingresa el código de seguimiento completo
+                            (empieza con <b>ENV-</b>) que te enviamos por WhatsApp.
+                        </div>
+                    @endif
+                    @if($shipment->tracking_number && empty($limited))
                         <div class="guide">
                             <div style="font-size:11px;text-transform:uppercase;color:#16a34a;">N° de guía · {{ $shipment->shipping_agency }}</div>
                             <div class="g">{{ $shipment->tracking_number }}@if($shipment->tracking_code ?? null) <span style="font-size:14px;color:#15803d;">· Código {{ $shipment->tracking_code }}</span>@endif</div>
@@ -130,7 +136,7 @@
                     {{-- Seguimiento de Shalom: sus hitos y fechas, como en su web
                          (ver ShalomTracking). Solo informa. --}}
                     @php $ce = $shipment->carrier_events ?? null; @endphp
-                    @if(!empty($ce['events']))
+                    @if(!empty($ce['events']) && empty($limited))
                         <div style="margin-top:14px;border:1px solid var(--line);border-radius:14px;padding:14px 16px;">
                             <div style="font-weight:800;font-size:15px;margin-bottom:4px;">Seguimiento en Shalom</div>
                             @if(!empty($ce['origin']) || !empty($ce['dest']))
@@ -156,7 +162,7 @@
                         </div>
                     @endif
 
-                    @if($shipment->has_guide)
+                    @if($shipment->has_guide && empty($limited))
                         @php $gext = strtolower(pathinfo($shipment->shipping_guide_path, PATHINFO_EXTENSION)); @endphp
                         <div class="guide-img-box">
                             <div class="gib-h">📄 Guía de envío disponible</div>

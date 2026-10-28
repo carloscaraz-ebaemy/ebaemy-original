@@ -1286,6 +1286,13 @@
                                         Rótulo oficial de Shalom
                                     </el-dropdown-item>
                                     <el-dropdown-item
+                                        v-if="row.shipment && row.shipment.shalom && row.shipment.shalom.ticket_url"
+                                        command="shalomTicket"
+                                    >
+                                        <i class="el-icon-tickets"></i>
+                                        Ticket de Shalom (con QR)
+                                    </el-dropdown-item>
+                                    <el-dropdown-item
                                         v-if="row.shipment && row.shipment.shalom && row.shipment.shalom.can_remove"
                                         command="shalomRemove"
                                     >
@@ -4540,6 +4547,7 @@ export default {
                 shalomGuide: () => this.crearGuiaShalom(row),
                 shalomLabel: () => window.open(row.shipment.shalom.label_url, "_blank"),
                 shalomRemove: () => this.quitarGuiaShalom(row),
+                shalomTicket: () => window.open(row.shipment.shalom.ticket_url, "_blank"),
                 viewGuide: () => this.openGuide(row)
             };
             if (acciones[cmd]) acciones[cmd]();

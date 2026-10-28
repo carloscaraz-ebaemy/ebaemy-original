@@ -238,6 +238,12 @@ class StoreShipping
             $st->shalom_pro_password = $password;
         }
         if (!$user) {                        // quitar la cuenta = desconectar
+            if ($st->shalom_instance_id) {
+                try {
+                    app(\App\Services\System\ShalomApi::class)->deleteInstance($st->shalom_instance_id);
+                } catch (\Throwable $e) {
+                }
+            }
             $st->shalom_pro_password = null;
             $st->shalom_instance_id = null;
             $st->shalom_instance_connected_at = null;
