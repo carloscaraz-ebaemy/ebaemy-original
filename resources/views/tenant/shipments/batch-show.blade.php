@@ -226,3 +226,7 @@
 </div>
 @endif
 @endsection
+
+@push('scripts')
+@include('tenant.shipments.partials.print-modal')
+@endpush

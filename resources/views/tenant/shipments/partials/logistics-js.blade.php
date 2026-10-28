@@ -165,7 +165,8 @@
                     + 'motivo=' + encodeURIComponent(reason)
                     + '&format=' + encodeURIComponent(fmt);
 
-            window.open(url, '_blank');
+            if (window.ebAbrirImpresion) window.ebAbrirImpresion(url, 'Reimprimir rótulo');
+            else window.open(url, '_blank');
 
             // Cerrar disparando el botón de cierre del propio modal.
             var closeBtn = mEl.querySelector('[data-bs-dismiss="modal"]');

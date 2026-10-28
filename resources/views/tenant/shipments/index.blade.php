@@ -2810,7 +2810,8 @@
                 return;
             }
             var ids = okEl.map(function (c) { return c.value; });
-            window.open('{{ route("shipments.print_batch") }}?ids=' + ids.join(','), '_blank');
+            // Dentro de la página (diálogo de impresión), como la Nota de Venta.
+            window.ebAbrirImpresion('{{ route("shipments.print_batch") }}?ids=' + ids.join(','), 'Rótulos seleccionados');
         } else if (clear) {
             ev.preventDefault();
             $checks().forEach(function (c) { c.checked = false; });
@@ -3954,6 +3955,7 @@
 @include('tenant.shipments.partials.agency-select-js')
 @include('tenant.shipments.partials.phone-validate-js')
 @include('tenant.shipments.partials.logistics-js')
+@include('tenant.shipments.partials.print-modal')
 @include('tenant.shipments.partials.peek-js')
 @include('tenant.shipments.partials.item-picker-js')
 @include('tenant.shipments.partials.mobile-fold-js')
