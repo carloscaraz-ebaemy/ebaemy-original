@@ -28,8 +28,11 @@ class SecurityHeaders
             $response->headers->set('Strict-Transport-Security', 'max-age=15552000; includeSubDomains');
         }
 
-        // Permissions Policy: desactiva funcionalidades de navegador no necesarias
-        $response->headers->set('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=()');
+        // Permissions Policy: desactiva funcionalidades de navegador no necesarias.
+        // geolocation=(self): el formulario de envío ofrece «Usar mi ubicación
+        // actual» para cotizar el motorizado; con () el botón fallaba siempre.
+        // Solo nuestras páginas pueden pedirla y el navegador sigue preguntando.
+        $response->headers->set('Permissions-Policy', 'camera=(), microphone=(), geolocation=(self), payment=()');
 
         // Content-Security-Policy — solo para rutas de ecommerce público
         // El panel admin usa Vite + CDNs variados que CSP estricto bloquea
