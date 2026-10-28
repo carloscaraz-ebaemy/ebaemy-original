@@ -15,13 +15,13 @@ window.ShalomPdf = (function () {
     var MM = 72 / 25.4;
     // Papel de cada formato (puntos) y cuántos documentos por hoja.
     var FORMATOS = {
-        'a4-2':   { label: 'A4 · 2 por hoja',      w: 210 * MM, h: 297 * MM, slots: 2 },
-        'a4-1':   { label: 'A4 · 1 por hoja',      w: 210 * MM, h: 297 * MM, slots: 1 },
-        'a5':     { label: 'A5',                   w: 210 * MM, h: 148 * MM, slots: 1 },
-        'e10x15': { label: 'Etiqueta 10 × 15 cm',  w: 100 * MM, h: 150 * MM, slots: 1, rotar: true },
-        't80':    { label: 'Ticketera 80 mm',      w: 80 * MM,  h: null, slots: 1 },
-        't58':    { label: 'Ticketera 58 mm',      w: 58 * MM,  h: null, slots: 1 },
-        'a4':     { label: 'A4',                   w: 210 * MM, h: 297 * MM, slots: 1, arriba: true },
+        'a4-2':   { label: 'A4 · 2 por hoja',      desc: 'Impresora de oficina. Ahorra papel.', w: 210 * MM, h: 297 * MM, slots: 2 },
+        'a4-1':   { label: 'A4 · 1 por hoja',      desc: 'Más grande, para cajas grandes.', w: 210 * MM, h: 297 * MM, slots: 1 },
+        'a5':     { label: 'A5',                   desc: 'Hoja A5 apaisada.', w: 210 * MM, h: 148 * MM, slots: 1 },
+        'e10x15': { label: 'Etiqueta 10 × 15 cm',  desc: 'Impresora térmica de etiquetas.', w: 100 * MM, h: 150 * MM, slots: 1, rotar: true },
+        't80':    { label: 'Ticketera 80 mm',      desc: 'La ticketera común.', w: 80 * MM,  h: null, slots: 1 },
+        't58':    { label: 'Ticketera 58 mm',      desc: 'Ticketera chica.', w: 58 * MM,  h: null, slots: 1 },
+        'a4':     { label: 'A4',                   desc: 'Impresora de oficina, a tamaño real.', w: 210 * MM, h: 297 * MM, slots: 1, arriba: true },
     };
     var POR_DOC = { rotulo: ['a4-2', 'a4-1', 'a5', 'e10x15'], ticket: ['t80', 't58', 'a4'] };
 

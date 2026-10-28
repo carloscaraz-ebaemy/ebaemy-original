@@ -292,8 +292,9 @@ export default {
             this.challenge = null;
             this.f = {};
         },
+        // Imprimir sin salir de Pedidos: el listado abre su diálogo de impresión.
         abrirUrl(u) {
-            window.open(u, "_blank");
+            this.$emit("imprimir", u);
         },
         buscarOficinas(q) {
             if (!q || q.length < 2) return;

@@ -14,23 +14,34 @@
          como una impresión nueva ni choca con la regla de reimpresión. --}}
     <style id="pageStyle">@page { size: {{ $pageSize }}; margin: {{ $pageMargin }}; }</style>
     <style>
-        body { background: #f5f5f5; display: flex; justify-content: center; padding: 64px 20px 20px; }
+        body { background: oklch(0.925 0.006 250); margin: 0; padding: 0 0 20px; }
+        body > .label { margin: 0 auto; }
         @media print { body { background: #fff; padding: 0; } }
     </style>
     @include('tenant.shipments.partials.label-styles')
 </head>
 <body class="fmt-{{ $format }}">
 
-<div class="no-print" style="position:fixed;top:12px;left:0;right:0;z-index:999;display:flex;justify-content:center;gap:8px;flex-wrap:wrap;">
-    <div style="background:#fff;border:1px solid #dee2e6;border-radius:8px;padding:5px;display:inline-flex;gap:4px;align-items:center;box-shadow:0 6px 18px -6px rgba(0,0,0,.2);">
-        <span style="font-size:12px;color:#666;padding:0 6px;">Formato:</span>
-        @foreach(['sticker'=>'Sticker','a5'=>'A5','a4'=>'A4'] as $fk => $fl)
-            <button type="button" class="js-fmt" data-fmt="{{ $fk }}"
-                    style="border:none;cursor:pointer;padding:6px 14px;border-radius:6px;font-size:13px;font-weight:600;{{ $format === $fk ? 'background:#4f46e5;color:#fff;' : 'background:#f1f3f5;color:#333;' }}">{{ $fl }}</button>
-        @endforeach
+@include('tenant.shipments.partials.print-bar-styles')
+@include('tenant.shipments.partials.print-embed-js')
+<div class="pb no-print">
+    <div class="pb-bar">
+        <div class="pb-t">
+            <b>Rótulo {{ $shipment->shipment_code }}</b>
+            <span>{{ $shipment->full_name }}{{ $shipment->package_count > 1 ? ' · ' . $shipment->package_count . ' bultos: imprime una copia por caja' : '' }}</span>
+        </div>
+        <div class="pb-sp"></div>
+        <div class="pb-seg" role="group" aria-label="Papel">
+            @foreach(['a4' => 'A4', 'a5' => 'A5', 'sticker' => 'Etiqueta'] as $fk => $fl)
+                <button type="button" class="js-fmt" data-fmt="{{ $fk }}" aria-pressed="{{ $format === $fk ? 'true' : 'false' }}">{{ $fl }}</button>
+            @endforeach
+        </div>
+        <button type="button" class="pb-btn pb-btn--primary" onclick="window.print()">
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M5 7V2h10v5M5 15H3V8h14v7h-2"/><rect x="5" y="12" width="10" height="6"/></svg>
+            Imprimir
+        </button>
+        <button type="button" class="pb-btn" onclick="ebImpresion.cerrar()">Cerrar</button>
     </div>
-    <button onclick="window.print()" style="padding:9px 18px;background:#198754;color:#fff;border:none;border-radius:8px;font-size:14px;cursor:pointer;box-shadow:0 6px 18px -6px rgba(0,0,0,.2);">🖨️ Imprimir</button>
-    <button onclick="window.close()" style="padding:9px 14px;background:#6c757d;color:#fff;border:none;border-radius:8px;font-size:14px;cursor:pointer;">✕</button>
 </div>
 
 @include('tenant.shipments.partials.label-body')
@@ -73,14 +84,8 @@
                 // El listado que abrio esta pestaña sigue mostrando el estado
                 // de antes. Se le avisa para que refresque sin que el operador
                 // tenga que recargar a mano.
-                try {
-                    if (window.opener && !window.opener.closed) {
-                        window.opener.postMessage({ tipo: 'rotulo-impreso', envio: {{ $shipment->id }} }, '*');
-                    }
-                } catch (e) {
-                    // Otra pestaña, otro origen o ya cerrada: no pasa nada,
-                    // el dato ya quedo guardado en el servidor.
-                }
+                // Pestaña aparte o diálogo de Pedidos: el aviso llega a los dos.
+                ebImpresion.avisar({ tipo: 'rotulo-impreso', envio: {{ $shipment->id }} });
             })
             .catch(function () {
                 // Sin registro no se pierde el rotulo: el papel ya salio. Se
@@ -123,8 +128,7 @@
 
         document.querySelectorAll('.js-fmt').forEach(function (b) {
             var on = b === btn;
-            b.style.background = on ? '#4f46e5' : '#f1f3f5';
-            b.style.color      = on ? '#fff' : '#333';
+            b.setAttribute('aria-pressed', on ? 'true' : 'false');
         });
 
         document.title = 'Rótulo ' + fmt.toUpperCase() + ' — {{ $shipment->shipment_code }}';

@@ -2549,16 +2549,32 @@ class ShipmentController extends Controller
     }
 
     /** Rótulo imprimible del envío (standalone, listo para imprimir/PDF). */
+    /**
+     * El rótulo no se puede imprimir: se dice por qué EN la página de impresión.
+     *
+     * Antes era `back()` con un aviso, y la página de impresión se abre en otra
+     * pestaña o dentro del diálogo de Pedidos: el «volver» cargaba el panel
+     * entero ahí dentro y el aviso se perdía.
+     */
+    private function rotuloBloqueado(ShippingRequest $shipment, string $motivo)
+    {
+        return response()->view('tenant.shipments.label-blocked', [
+            'blocked' => collect([$shipment]),
+            'reasons' => [$shipment->id => $motivo],
+            'company' => Company::first(),
+        ]);
+    }
+
     public function printLabel(Request $request, ShippingRequest $shipment)
     {
         // El PEDIDO anulado bloquea el rotulo aunque su envio siga vigente: son
         // dos estados distintos y antes solo se miraba el del envio.
         if ($shipment->order && ($motivo = $shipment->order->motivoBloqueoModificacion())) {
-            return back()->with('error', $motivo);
+            return $this->rotuloBloqueado($shipment, $motivo);
         }
 
         if ($this->paymentBlocks($shipment)) {
-            return back()->with('error', "Confirma primero el pago de {$shipment->shipment_code} para imprimir su rótulo.");
+            return $this->rotuloBloqueado($shipment, "Confirma primero el pago de {$shipment->shipment_code} para imprimir su rótulo.");
         }
 
         // El recojo en tienda no lleva rótulo de transporte: se le entrega un
@@ -2574,7 +2590,7 @@ class ShipmentController extends Controller
                 return redirect(url('orders/envio/' . $shipment->id . '/shalom-imprimir'));
             }
 
-            return back()->with('error', "{$shipment->shipment_code} va por Shalom con tu cuenta: primero crea su guía "
+            return $this->rotuloBloqueado($shipment, "{$shipment->shipment_code} va por Shalom con tu cuenta: primero crea su guía "
                 . '(«Guía de Shalom» en el pedido) y después imprime el rótulo de Shalom.');
         }
 
@@ -2583,20 +2599,20 @@ class ShipmentController extends Controller
 
         // Un anulado no se rotula nunca, ni con motivo.
         if ($shipment->status === ShippingRequest::STATUS_ANULADO) {
-            return back()->with('error',
+            return $this->rotuloBloqueado($shipment,
                 "{$shipment->shipment_code} está anulado: su rótulo ya no se puede imprimir. "
                 . 'Restaura el envío si fue un error.');
         }
 
         // Ya salió de la tienda: solo con una reimpresión explícita y motivada.
         if ($reason === '' && in_array($shipment->status, ShippingRequest::LABEL_LOCKED_STATUSES, true)) {
-            return back()->with('error',
+            return $this->rotuloBloqueado($shipment,
                 "{$shipment->shipment_code} figura como \"{$shipment->status_label}\": ya fue despachado. "
                 . 'Si necesitas el rótulo otra vez, usa Reimprimir e indica el motivo.');
         }
 
         if ($shipment->print_count > 0 && $reason === '') {
-            return back()->with('error',
+            return $this->rotuloBloqueado($shipment,
                 "El rótulo de {$shipment->shipment_code} ya se imprimió {$shipment->print_count} vez/veces. "
                 . 'Indica el motivo para reimprimirlo.');
         }

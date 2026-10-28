@@ -1455,7 +1455,14 @@
             :packageCount="shalomBultos"
             :tracking="shalomTracking"
             @saved="refrescarTrasEnvio"
+            @imprimir="u => { showShalomDialog = false; imprimirAqui(u, 'Guía de Shalom') }"
         ></shalom-guide>
+
+        <print-dialog
+            :visible.sync="impresion.visible"
+            :url="impresion.url"
+            :title="impresion.title"
+        ></print-dialog>
 
         <!-- Guía de la agencia: el comprobante de que el paquete salió. -->
         <shipment-guide
@@ -3761,6 +3768,7 @@ import ManualOrder from "./partials/manual_order.vue";
 import OrderDetail from "./partials/order_detail.vue";
 import ShipmentGuide from "./partials/shipment_guide.vue";
 import ShalomGuide from "./partials/shalom_guide.vue";
+import PrintDialog from "./partials/print_dialog.vue";
 import StoreShippingSettings from "../../../components/StoreShippingSettings.vue";
 import BillingType from "./partials/billing_type.vue";
 import SaleNoteGenerate from "../sale_notes/partials/option_documents.vue";
@@ -3789,6 +3797,7 @@ export default {
     components: {
         ShipmentGuide,
         ShalomGuide,
+        PrintDialog,
         StoreShippingSettings,
         BillingType,
         SaleNoteGenerate,
@@ -3956,6 +3965,8 @@ export default {
             guideOrderId: null,
             guideCode: "",
             showShalomDialog: false,
+            // Diálogo de impresión: el rótulo se imprime sin salir de Pedidos.
+            impresion: { visible: false, url: "", title: "Imprimir" },
             shippingSettingsVisible: false,
             shalomOrderId: null,
             shalomShipmentId: null,
@@ -5548,6 +5559,14 @@ export default {
          * viven el conteo de impresiones, el historial, la bitacora, el bloqueo
          * por estado y los formatos. Aqui solo se decide que URL abrir.
          */
+        /**
+         * Abre la pantalla de impresión DENTRO de Pedidos, como la Nota de
+         * Venta: se imprime y se sigue trabajando, sin pestañas sueltas.
+         */
+        imprimirAqui(url, title) {
+            this.impresion = { visible: true, url, title: title || "Imprimir" };
+        },
+
         printLabel(row) {
             const s = row.shipment;
             if (!s) return;
@@ -5590,7 +5609,7 @@ export default {
                 url += `?motivo=${encodeURIComponent(motivo.trim())}`;
             }
 
-            window.open(url, "_blank");
+            this.imprimirAqui(url, "Rótulo " + ((row.shipment && row.shipment.code) || ""));
 
             // El conteo de impresiones cambia del lado del servidor: sin
             // refrescar, el siguiente clic seguiria creyendo que es la primera.
@@ -6028,19 +6047,6 @@ export default {
         async bulkCreatePrintBatch() {
             if (!this.selectedIds.length) return;
 
-            // La pestaña se abre AQUÍ, dentro del clic, y se redirige cuando
-            // el servidor contesta. Abrirla después del `await` ya no cuenta
-            // como gesto del usuario: Safari/iPhone (y Chrome si tarda) la
-            // bloqueaba en silencio, el lote quedaba ABIERTO sin imprimir y el
-            // siguiente intento rechazaba todo con «Ya pertenece a un lote
-            // abierto».
-            const win = window.open("", "_blank");
-            if (win) {
-                win.document.write(
-                    "<p style=\"font:16px sans-serif;padding:24px\">Preparando el lote de impresión…</p>"
-                );
-            }
-
             try {
                 const { data } = await this.$http.post("/orders/print-batch", {
                     order_ids: this.selectedIds,
@@ -6048,21 +6054,9 @@ export default {
                 });
 
                 if (data.print_url) {
-                    if (win) {
-                        win.location.href = data.print_url;
-                    } else {
-                        // Bloqueada igual (ajustes del navegador): el lote ya
-                        // existe, así que se ofrece el enlace en vez de dejarlo
-                        // abierto sin que nadie lo sepa.
-                        this.$alert(
-                            "El navegador bloqueó la ventana. El lote " + data.batch_code +
-                                " está creado: ábrelo desde «Lotes de impresión» para imprimirlo.",
-                            "Lote creado",
-                            { confirmButtonText: "Entendido" }
-                        );
-                    }
-                } else if (win) {
-                    win.close();
+                    // En el diálogo de impresión de Pedidos: no hay ventana que
+                    // el navegador pueda bloquear, y el operador no sale de aquí.
+                    this.imprimirAqui(data.print_url, "Lote " + (data.batch_code || ""));
                 }
 
                 // El aviso va ANTES de recargar: lee los códigos de pedido de
@@ -6077,7 +6071,6 @@ export default {
                 this.$refs.ordersTable.getRecords();
                 this.loadChipCounts();
             } catch (e) {
-                if (win) win.close();
                 const body = (e.response && e.response.data) || {};
                 if (this.batchLeftovers(body)) {
                     this.showBatchLeftovers("No se pudo crear el lote.", body, "error");
@@ -6635,13 +6628,13 @@ export default {
             );
         },
         downloadLabel(row) {
-            window.open(
+            this.imprimirAqui(
                 "/ecommerce/marketplace/channels/" +
                     row.mp_channel_id +
                     "/orders/" +
                     row.mp_order_id +
                     "/document/shippingLabel",
-                "_blank"
+                "Rótulo de Saga"
             );
         },
         statusIndex(statusId) {

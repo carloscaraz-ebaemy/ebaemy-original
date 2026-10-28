@@ -14,7 +14,8 @@
          del lote ni ensucia el historial con motivos falsos. --}}
     <style id="pageStyle">@page { size: {{ $pageSize }}; margin: {{ $pageMargin }}; }</style>
     <style>
-        body { background: #e5e7eb; padding: 64px 10px 20px; }
+        body { background: oklch(0.925 0.006 250); padding: 0 0 20px; margin: 0; }
+        .batch, .manifest-wrap { margin-left: 10px; margin-right: 10px; }
         /* Un rótulo por hoja: salto de página después de cada uno. */
         .batch .label { margin: 0 auto 14px; page-break-after: always; break-after: page; }
         .batch .label:last-child { page-break-after: auto; break-after: auto; margin-bottom: 0; }
@@ -28,40 +29,55 @@
 </head>
 <body class="fmt-{{ $format }}">
 
-<div class="no-print" style="position:fixed;top:12px;left:0;right:0;z-index:999;display:flex;justify-content:center;gap:8px;flex-wrap:wrap;">
-    <div style="background:#fff;border:1px solid #dee2e6;border-radius:8px;padding:5px;display:inline-flex;gap:4px;align-items:center;box-shadow:0 6px 18px -6px rgba(0,0,0,.2);">
-        <span style="font-size:12px;color:#666;padding:0 6px;">Formato:</span>
-        @foreach(['a5'=>'A5','a4'=>'A4'] as $fk => $fl)
-            <button type="button" class="js-fmt" data-fmt="{{ $fk }}"
-                    style="border:none;cursor:pointer;padding:6px 14px;border-radius:6px;font-size:13px;font-weight:600;{{ $format === $fk ? 'background:#4f46e5;color:#fff;' : 'background:#f1f3f5;color:#333;' }}">{{ $fl }}</button>
-        @endforeach
+{{-- Barra de impresión: el mismo lenguaje que la pantalla de Shalom
+     (partials/shalom-print-ui). No se imprime. --}}
+@include('tenant.shipments.partials.print-bar-styles')
+@include('tenant.shipments.partials.print-embed-js')
+
+<div class="pb no-print">
+    <div class="pb-bar">
+        <div class="pb-t">
+            <b>{{ isset($batch) && $batch ? 'Lote ' . $batch->code : 'Rótulos' }}</b>
+            <span>{{ count($items) }} {{ count($items) === 1 ? 'rótulo' : 'rótulos' }} de ebaemy{{ collect($shalom ?? [])->count() ? ' · ' . collect($shalom)->count() . ' por Shalom aparte' : '' }}</span>
+        </div>
+        <div class="pb-sp"></div>
+        @php
+            $conManifiesto = collect($items)->merge(collect($shalom ?? [])->map(fn ($s) => ['shipment' => $s]))
+                ->filter(fn ($it) => $it['shipment']->entersManifest())->count();
+        @endphp
+        @if(count($items))
+            <div class="pb-seg" role="group" aria-label="Papel">
+                @foreach(['a4' => 'A4', 'a5' => 'A5'] as $fk => $fl)
+                    <button type="button" class="js-fmt" data-fmt="{{ $fk }}" aria-pressed="{{ $format === $fk ? 'true' : 'false' }}">{{ $fl }}</button>
+                @endforeach
+            </div>
+            <label class="pb-chk"><input type="checkbox" id="mfToggle" checked onchange="document.body.classList.toggle('no-manifest', !this.checked)"> Hoja de manifiesto</label>
+            <button type="button" class="pb-btn pb-btn--primary" onclick="window.print()">
+                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M5 7V2h10v5M5 15H3V8h14v7h-2"/><rect x="5" y="12" width="10" height="6"/></svg>
+                Imprimir {{ count($items) }}{{ $conManifiesto ? ' + manifiesto' : '' }}
+            </button>
+        @elseif($conManifiesto)
+            {{-- Lote todo de Shalom: sus rótulos salen del PDF de Shalom, pero el
+                 cargo de despacho (manifiesto) es del lote y se imprime aquí. --}}
+            <button type="button" class="pb-btn pb-btn--primary" onclick="window.print()">
+                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M5 7V2h10v5M5 15H3V8h14v7h-2"/><rect x="5" y="12" width="10" height="6"/></svg>
+                Imprimir manifiesto ({{ $conManifiesto }})
+            </button>
+        @endif
+        <button type="button" class="pb-btn" onclick="ebImpresion.cerrar()">Cerrar</button>
     </div>
-    <label style="background:#fff;border:1px solid #dee2e6;border-radius:8px;padding:0 12px;display:inline-flex;gap:6px;align-items:center;font-size:13px;color:#333;box-shadow:0 6px 18px -6px rgba(0,0,0,.2);cursor:pointer;">
-        <input type="checkbox" id="mfToggle" checked onchange="document.body.classList.toggle('no-manifest', !this.checked)"> Hoja de manifiesto
-    </label>
-    @if(count($items))
-    <button onclick="window.print()" style="padding:10px 20px;background:#198754;color:#fff;border:none;border-radius:8px;font-size:14px;cursor:pointer;box-shadow:0 6px 18px -6px rgba(0,0,0,.2);">🖨️ Imprimir {{ count($items) }} rótulos</button>
-    @endif
-    <button onclick="window.close()" style="padding:10px 14px;background:#6c757d;color:#fff;border:none;border-radius:8px;font-size:14px;cursor:pointer;">✕ Cerrar</button>
 </div>
 
 @if(!empty($skipped) && count($skipped))
-    <div class="no-print" style="max-width:820px;margin:0 auto 14px;background:#fff8e1;border:1px solid #f6d365;border-radius:10px;padding:12px 16px;font-size:13px;color:#8a5a00;">
-        @php
-            // Motivo por envio: pago pendiente, anulado, ya despachado o recojo en tienda.
-            $reasonMap = isset($reasons) && is_array($reasons) ? $reasons : [];
-            $skipList = collect($skipped)->map(function ($s) use ($reasonMap) {
-                $code = $s->shipment_code ?: ('#' . $s->id);
-                $why  = $reasonMap[$s->id] ?? 'No elegible';
-                return $code . ' (' . $why . ')';
-            })->implode(', ');
-        @endphp
-        ⚠️ Se omitieron <b>{{ count($skipped) }}</b> envío(s) que no son elegibles para rotular:
-        {{ $skipList }}.
-        Los anulados y los que ya salieron de la tienda se excluyen siempre de la impresión masiva.
-    </div>
+    @php
+        // Motivo por envio: pago pendiente, anulado, ya despachado o recojo en tienda.
+        $reasonMap = isset($reasons) && is_array($reasons) ? $reasons : [];
+    @endphp
+    <div class="pb no-print"><div class="pb-box pb-warn">
+        <b>No entran {{ count($skipped) }}</b> (los anulados y los que ya salieron se excluyen siempre de la impresión masiva):
+        {{ collect($skipped)->map(fn ($s) => ($s->shipment_code ?: ('#' . $s->id)) . ' (' . ($reasonMap[$s->id] ?? 'No elegible') . ')')->implode(', ') }}.
+    </div></div>
 @endif
-
 
 {{-- Shalom con la cuenta de la tienda: otro procedimiento dentro del mismo
      lote. Su rótulo es el PDF oficial y sale de la guía, así que no se mezcla
@@ -73,34 +89,33 @@
     $shSinGuia = $shalom->reject(fn ($s) => \App\Services\Tenant\ShalomTracking::hasGuide($s))->values();
 @endphp
 @if($shalom->count())
-    <div class="no-print" id="shBox" style="max-width:820px;margin:0 auto 14px;background:#fff;border:1px solid #fecaca;border-left:4px solid #e11d2e;border-radius:10px;padding:14px 16px;font-size:13.5px;color:#1f2937;">
-        <div style="font-weight:700;font-size:15px;margin-bottom:4px;">Shalom · {{ $shalom->count() }} envío(s) con su rótulo oficial</div>
-        <div style="color:#4b5563;margin-bottom:10px;">
-            Van por Shalom con tu cuenta: llevan el rótulo de Shalom (no el de ebaemy) y primero necesitan su guía.
+    <div class="pb no-print"><div class="pb-box" id="shBox">
+        <h2><span class="pb-dot" aria-hidden="true"></span>Shalom · {{ $shalom->count() }} {{ $shalom->count() === 1 ? 'envío' : 'envíos' }} con su rótulo oficial</h2>
+        <p>
+            Van por Shalom con tu cuenta: llevan el rótulo de Shalom, no el de ebaemy, y primero necesitan su guía.
             {{ $shConGuia->count() }} con guía · {{ $shSinGuia->count() }} sin guía.
-        </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        </p>
+        <div class="pb-acts">
             @if($shSinGuia->count())
-                <button type="button" id="shCrear" data-ids="{{ $shSinGuia->pluck('id')->implode(',') }}"
-                        style="padding:9px 16px;background:#e11d2e;color:#fff;border:none;border-radius:8px;font-size:13.5px;font-weight:600;cursor:pointer;">
-                    Crear {{ $shSinGuia->count() }} guía(s) que faltan
+                <button type="button" class="pb-btn pb-btn--primary" id="shCrear" data-ids="{{ $shSinGuia->pluck('id')->implode(',') }}">
+                    Crear {{ $shSinGuia->count() }} {{ $shSinGuia->count() === 1 ? 'guía' : 'guías' }} que faltan
                 </button>
             @endif
-            <a id="shRotulos" href="{{ url('registro-envio/shalom-lote') }}?ids={{ $shalom->pluck('id')->implode(',') }}" target="_blank"
-               style="padding:9px 16px;background:#0f172a;color:#fff;border-radius:8px;font-size:13.5px;font-weight:600;text-decoration:none;{{ $shConGuia->count() ? '' : 'opacity:.45;pointer-events:none;' }}">
-                🖨 Rótulos de Shalom ({{ $shConGuia->sum(fn ($s) => max(1, (int) ($s->package_count ?: 1))) }})
+            <a id="shRotulos" class="pb-btn {{ $shSinGuia->count() ? '' : 'pb-btn--primary' }}" target="_blank"
+               href="{{ url('registro-envio/shalom-lote') }}?ids={{ $shalom->pluck('id')->implode(',') }}"
+               aria-disabled="{{ $shConGuia->count() ? 'false' : 'true' }}">
+                Rótulos de Shalom ({{ $shConGuia->sum(fn ($s) => max(1, (int) ($s->package_count ?: 1))) }})
             </a>
-            <a href="{{ url('registro-envio/shalom-lote') }}?doc=ticket&ids={{ $shalom->pluck('id')->implode(',') }}" target="_blank"
-               style="padding:9px 16px;background:#fff;color:#0f172a;border:1px solid #cbd5e1;border-radius:8px;font-size:13.5px;font-weight:600;text-decoration:none;{{ $shConGuia->count() ? '' : 'opacity:.45;pointer-events:none;' }}">
+            <a class="pb-btn js-sh-link" target="_blank"
+               href="{{ url('registro-envio/shalom-lote') }}?doc=ticket&ids={{ $shalom->pluck('id')->implode(',') }}"
+               aria-disabled="{{ $shConGuia->count() ? 'false' : 'true' }}">
                 Tickets con QR ({{ $shConGuia->count() }})
             </a>
         </div>
-        <div id="shRes" style="margin-top:10px;font-size:13px;"></div>
-    </div>
+        <div class="pb-res" id="shRes" aria-live="polite"></div>
+    </div></div>
     @if(!count($items))
-        <div class="no-print" style="max-width:820px;margin:0 auto 14px;text-align:center;color:#6b7280;font-size:13px;">
-            Este lote no tiene rótulos de ebaemy: todos sus envíos van por Shalom.
-        </div>
+        <p class="pb no-print pb-empty">Este lote no tiene rótulos de ebaemy: todos sus envíos van por Shalom.</p>
     @endif
     <script>
     (function () {
@@ -113,25 +128,25 @@
             for (var i = 0; i < ids.length; i += 10) {
                 btn.textContent = 'Creando guías… ' + Math.min(i + 10, ids.length) + ' de ' + ids.length;
                 try {
-                    var r = await fetch(@json(url('registro-envio/shalom-guias-lote')), {
+                    var r = await fetch({!! json_encode(url('registro-envio/shalom-guias-lote')) !!}, {
                         method: 'POST', credentials: 'same-origin',
-                        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': @json(csrf_token()) },
+                        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': {!! json_encode(csrf_token()) !!} },
                         body: JSON.stringify({ ids: ids.slice(i, i + 10) }),
                     });
                     var d = await r.json();
                     (d.results || []).forEach(function (x) { if (x.ok) ok++; else mal.push(x); });
                 } catch (e) { mal.push({ code: 'Tanda ' + (i / 10 + 1), message: 'sin respuesta; revisa en pro.shalom.pe antes de reintentar' }); }
             }
-            res.innerHTML = '<b style="color:#15803d">' + ok + ' guía(s) creada(s).</b>' + (mal.length
-                ? '<div style="color:#b45309;margin-top:4px">No se crearon ' + mal.length + ':<ul style="margin:4px 0 0;padding-left:18px">'
-                  + mal.map(function (x) { var li = document.createElement('li'); li.textContent = x.code + ': ' + x.message; return li.outerHTML; }).join('') + '</ul></div>'
+            res.innerHTML = '<b style="color:var(--ok)">' + ok + (ok === 1 ? ' guía creada.' : ' guías creadas.') + '</b>' + (mal.length
+                ? '<ul>' + mal.map(function (x) { var li = document.createElement('li'); li.textContent = x.code + ': ' + x.message; return li.outerHTML; }).join('') + '</ul>'
                 : '');
             // Sin recargar: en un lote ya impreso, volver a abrirlo pide motivo de
             // reimpresión. La hoja de Shalom solo toma los que ya tienen guía.
             if (ok) {
-                btn.textContent = '✓ Guías creadas';
-                document.querySelectorAll('#shBox a').forEach(function (a) { a.style.opacity = ''; a.style.pointerEvents = ''; });
-                document.getElementById('shRotulos').textContent = '🖨 Rótulos de Shalom';
+                btn.textContent = 'Guías creadas';
+                document.querySelectorAll('#shBox a').forEach(function (a) { a.setAttribute('aria-disabled', 'false'); });
+                var rot = document.getElementById('shRotulos');
+                rot.textContent = 'Rótulos de Shalom'; rot.classList.add('pb-btn--primary');
             } else {
                 btn.disabled = false; btn.textContent = 'Reintentar';
             }
@@ -191,8 +206,7 @@
 
         document.querySelectorAll('.js-fmt').forEach(function (b) {
             var on = b === btn;
-            b.style.background = on ? '#4f46e5' : '#f1f3f5';
-            b.style.color      = on ? '#fff' : '#333';
+            b.setAttribute('aria-pressed', on ? 'true' : 'false');
         });
     });
 })();
