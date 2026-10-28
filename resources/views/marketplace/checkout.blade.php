@@ -267,10 +267,24 @@ input.mp-co-invalid, select.mp-co-invalid, textarea.mp-co-invalid {
         <aside class="mp-co-card mp-co-summary">
             <h3>📋 Resumen del pedido</h3>
 
+            {{-- Paquetes, no «tiendas»: el comprador quiere saber como le llega.
+                 Si hay mas de una tienda se dice desde el principio, porque
+                 le escribiran, le enviaran y le facturaran por separado. --}}
+            @if($stores->count() > 1)
+                <p class="mp-co-pk-intro">📦 Tu pedido llega en <strong>{{ $stores->count() }} paquetes</strong>: cada tienda envía el suyo.</p>
+            @endif
+
             @foreach($stores as $store)
-                <div class="mp-co-store-block" data-store-block data-hostname-id="{{ $store['hostname_id'] }}" data-subtotal="{{ $store['subtotal'] }}">
-                    <div class="name">{{ $store['tenant_name'] }}</div>
-                    <div class="meta">{{ $store['item_count'] }} {{ $store['item_count'] === 1 ? 'unidad' : 'unidades' }} · S/ {{ number_format($store['subtotal'], 2) }}</div>
+                @php
+                    $shipLima = \App\Services\Marketplace\ShippingSummaryText::forZone($store['shipping'] ?? null, 'lima', (float) $store['subtotal']);
+                    $shipProv = \App\Services\Marketplace\ShippingSummaryText::forZone($store['shipping'] ?? null, 'province', (float) $store['subtotal']);
+                @endphp
+                <div class="mp-co-store-block" data-store-block data-hostname-id="{{ $store['hostname_id'] }}" data-subtotal="{{ $store['subtotal'] }}"
+                     data-ship-lima='@json($shipLima)' data-ship-province='@json($shipProv)'>
+                    <div class="mp-co-pk-head">
+                        @if($stores->count() > 1)<span class="mp-co-pk-tag">Paquete {{ $loop->iteration }}</span>@endif
+                        <span class="name">Lo envía {{ $store['tenant_name'] }}</span>
+                    </div>
                     @foreach($store['items'] as $line)
                         <div class="mp-co-line">
                             <span>{{ $line['quantity'] }}× {{ \Illuminate\Support\Str::limit($line['title'], 36) }}</span>
@@ -347,6 +361,11 @@ input.mp-co-invalid, select.mp-co-invalid, textarea.mp-co-invalid {
                             <p class="mp-co-avail-coupons__hint">Toca uno para aplicarlo automticamente</p>
                         </div>
                     @endif
+                    <div class="mp-co-pk-ship" data-ship-line>
+                        <span>🚚 Envío</span>
+                        <span class="mp-co-pk-ship__v" data-ship-text>Elige tu distrito</span>
+                    </div>
+                    <div class="mp-co-pk-ship__detail" data-ship-detail></div>
                 </div>
             @endforeach
 
@@ -355,36 +374,36 @@ input.mp-co-invalid, select.mp-co-invalid, textarea.mp-co-invalid {
                 $totalAfterPlat = max(0, (float) $summary['total'] - $platDiscount);
             @endphp
             <div class="mp-co-totals">
-                <div class="mp-co-line"><span>Productos</span><span>{{ $summary['count'] }}</span></div>
-                <div class="mp-co-line"><span>Tiendas</span><span>{{ $stores->count() }}</span></div>
-                <div class="mp-co-line"><span>Subtotal</span><span data-summary-subtotal>S/ {{ number_format($summary['total'], 2) }}</span></div>
+                <div class="mp-co-line"><span>Productos ({{ $summary['count'] }})</span><span data-summary-subtotal>S/ {{ number_format($summary['total'], 2) }}</span></div>
                 <div class="mp-co-line mp-co-line--discount" data-summary-discount-row style="display:none">
                     <span>Descuento (cupones)</span>
                     <span data-summary-discount style="color:#16a34a;font-weight:700">-S/ 0.00</span>
                 </div>
                 @if($platDiscount > 0)
-                    <div class="mp-co-line mp-co-line--discount">
+                    <div class="mp-co-line mp-co-line--discount" data-plat-discount="{{ $platDiscount }}">
                         <span>Descuento (plataforma)</span>
                         <span style="color:#16a34a;font-weight:700">-S/ {{ number_format($platDiscount, 2) }}</span>
                     </div>
                 @endif
-                {{-- El envío no se cobra aquí: cada tienda lo cobra al coordinar.
-                     Se muestra su política para que el total no sorprenda. --}}
-                <div class="mp-co-line"><span>Envío</span><span style="color:#6b7280">No incluido en el total</span></div>
-                @foreach($stores as $st)
-                    <div class="mp-co-line" style="font-size:12.5px;color:#6b7280;padding-top:0">
-                        <span>{{ $st['tenant_name'] }}</span>
-                        <span style="text-align:right">{{ \App\Services\Marketplace\ShippingSummaryText::short($st['shipping'] ?? null) }}</span>
-                    </div>
-                @endforeach
-                <div class="total"><span><strong>Total productos</strong></span><span class="v" data-summary-total>S/ {{ number_format($totalAfterPlat, 2) }}</span></div>
-                <p style="font-size:12px;color:#6b7280;margin:6px 0 0">El envío lo pagas a cada tienda al coordinar la entrega.</p>
+                {{-- El envio no se cobra aqui: cada tienda lo cobra al coordinar.
+                     Se calcula para el distrito elegido (ver forZone) para que
+                     el total estimado no sorprenda. --}}
+                <div class="mp-co-line"><span>Envío</span><span data-ship-total style="color:#6b7280">Elige tu distrito</span></div>
+                <div class="total"><span><strong>Total estimado</strong></span><span class="v" data-summary-total>S/ {{ number_format($totalAfterPlat, 2) }}</span></div>
+                <p class="mp-co-total-note" data-ship-note>Elige tu distrito arriba para sumar el envío.</p>
             </div>
 
             <button type="submit" class="mp-co-submit">Confirmar pedido →</button>
 
-            <div class="mp-co-warn">
-                ⚠️ Recibirás un mensaje por WhatsApp/email de cada tienda. Cada vendedor emite su propio comprobante por separado (productos de distintos RUC no van en una sola factura).
+            {{-- Que pasa despues, en positivo: antes era un recuadro amarillo
+                 de «advertencia» que asustaba justo al confirmar. --}}
+            <div class="mp-co-next">
+                <p class="mp-co-next__title">Después de confirmar</p>
+                <ol>
+                    <li>{{ $stores->count() > 1 ? 'Cada tienda te escribe' : 'La tienda te escribe' }} por WhatsApp para coordinar el pago y la entrega.</li>
+                    <li>Pagas {{ $stores->count() > 1 ? 'a cada tienda' : 'a la tienda' }} con Yape, Plin, transferencia o contraentrega, según acepte.</li>
+                    <li>Recibes tu boleta o factura{{ $stores->count() > 1 ? ' de cada tienda' : '' }} y tu {{ $stores->count() > 1 ? 'paquete' : 'pedido' }}.</li>
+                </ol>
             </div>
         </aside>
     </div>
@@ -403,6 +422,21 @@ input.mp-co-invalid, select.mp-co-invalid, textarea.mp-co-invalid {
 
 @push('styles')
 <style>
+/* Paquetes y envio por destino */
+.mp-co-pk-intro { background: #f0fdfa; border: 1px solid #99f6e4; color: #115e59; border-radius: 10px; padding: 10px 12px; font-size: 13px; margin: 0 0 4px; }
+.mp-co-pk-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
+.mp-co-pk-tag { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; background: #0f8a82; color: #fff; border-radius: 6px; padding: 2px 7px; }
+.mp-co-pk-ship { display: flex; justify-content: space-between; gap: 12px; margin-top: 10px; padding: 8px 10px; background: #f8fafc; border-radius: 8px; font-size: 13px; }
+.mp-co-pk-ship__v { font-weight: 700; color: #6b7280; text-align: right; }
+.mp-co-pk-ship__v.is-free { color: #15803d; }
+.mp-co-pk-ship__v.is-pending { color: #b45309; }
+.mp-co-pk-ship__detail { font-size: 12px; color: #6b7280; margin: 4px 2px 0; }
+.mp-co-pk-ship__detail:empty { display: none; }
+.mp-co-total-note { font-size: 12px; color: #6b7280; margin: 6px 0 0; }
+.mp-co-next { margin-top: 14px; border: 1px solid #e5e7eb; background: #f8fafc; border-radius: 10px; padding: 12px 14px; font-size: 13px; color: #374151; }
+.mp-co-next__title { font-weight: 700; margin: 0 0 6px; color: var(--mp-ink, #111827); }
+.mp-co-next ol { margin: 0; padding-left: 18px; }
+.mp-co-next li + li { margin-top: 4px; }
 .mp-co-coupon { margin-top: 10px; padding-top: 10px; border-top: 1px dashed #e5e7eb; }
 .mp-co-coupon__input-row { display: flex; gap: 6px; }
 .mp-co-coupon__input {
@@ -577,7 +611,34 @@ input.mp-co-invalid, select.mp-co-invalid, textarea.mp-co-invalid {
             subtotal += parseFloat(el.dataset.subtotal || 0);
         });
         const discount = Object.values(appliedDiscounts).reduce((a, b) => a + b, 0);
-        const total = Math.max(0, subtotal - discount);
+        // El descuento de plataforma ya venia restado en el total del servidor;
+        // al recalcular hay que volver a restarlo o desaparecia del total.
+        const platEl = document.querySelector('[data-plat-discount]');
+        const plat = platEl ? parseFloat(platEl.dataset.platDiscount || 0) : 0;
+
+        // Envio del distrito elegido (window.__mpShipZone lo pone el selector).
+        const zone = window.__mpShipZone || null;
+        const shipTotalEl = document.querySelector('[data-ship-total]');
+        const shipNoteEl  = document.querySelector('[data-ship-note]');
+        let ship = 0, pending = 0;
+        document.querySelectorAll('[data-store-block]').forEach(el => {
+            const txt = el.querySelector('[data-ship-text]');
+            const det = el.querySelector('[data-ship-detail]');
+            if (!zone) {
+                if (txt) { txt.textContent = 'Elige tu distrito'; txt.className = 'mp-co-pk-ship__v'; }
+                if (det) det.textContent = '';
+                return;
+            }
+            let r = null;
+            try { r = JSON.parse(el.dataset[zone === 'lima' ? 'shipLima' : 'shipProvince'] || 'null'); } catch (e) {}
+            if (!r) return;
+            if (txt) { txt.textContent = r.text; txt.className = 'mp-co-pk-ship__v' + (r.free ? ' is-free' : '') + (r.pending ? ' is-pending' : ''); }
+            if (det) det.textContent = r.detail || '';
+            if (r.amount !== null && r.amount !== undefined) ship += parseFloat(r.amount);
+            if (r.pending) pending++;
+        });
+
+        const total = Math.max(0, subtotal - discount - plat) + (zone ? ship : 0);
 
         const fmt = n => 'S/ ' + n.toFixed(2);
         subtotalEl.textContent = fmt(subtotal);
@@ -587,8 +648,18 @@ input.mp-co-invalid, select.mp-co-invalid, textarea.mp-co-invalid {
         } else {
             discRow.style.display = 'none';
         }
+        if (shipTotalEl) {
+            shipTotalEl.textContent = !zone ? 'Elige tu distrito'
+                : (ship > 0 ? fmt(ship) + (pending ? ' + por confirmar' : '') : (pending ? 'Por confirmar' : 'Gratis'));
+        }
+        if (shipNoteEl) {
+            shipNoteEl.textContent = !zone ? 'Elige tu distrito arriba para sumar el envío.'
+                : (pending ? 'Parte del envío te lo confirma la tienda por WhatsApp. Pagas a cada tienda al coordinar.'
+                           : 'Pagas a cada tienda cuando te escriba para coordinar la entrega.');
+        }
         totalEl.textContent = fmt(total);
     }
+    window.mpRecalcSummary = recalcSummary;
 
     document.querySelectorAll('[data-store-block]').forEach(block => {
         const hostnameId = block.dataset.hostnameId;
@@ -836,8 +907,22 @@ input.mp-co-invalid, select.mp-co-invalid, textarea.mp-co-invalid {
             }
         }
 
+        // Zona de envio: Lima Metropolitana (provincia Lima) y Callao son
+        // «Lima»; el resto, «provincias». Mismo criterio que StoreShipping.
+        function zoneNow() {
+            const d = norm(depSel.value), p = norm(provSel.value);
+            if (!d || !p) return null;
+            return (p === 'LIMA' || d === 'CALLAO' || p === 'CALLAO') ? 'lima' : 'province';
+        }
+        function onZone() {
+            window.__mpShipZone = zoneNow();
+            if (window.mpRecalcSummary) window.mpRecalcSummary();
+        }
+
         depSel.addEventListener('change', onDep);
         provSel.addEventListener('change', onProv);
+        depSel.addEventListener('change', onZone);
+        provSel.addEventListener('change', onZone);
 
         // Selección por nombre (la usa el autocompletado de RUC).
         window.__mpUbigeoSet = function (dep, prov, dist) {
@@ -855,6 +940,7 @@ input.mp-co-invalid, select.mp-co-invalid, textarea.mp-co-invalid {
                     }
                 }
             }
+            onZone();
         };
 
         fetch(URL, { credentials: 'same-origin' })
@@ -863,6 +949,7 @@ input.mp-co-invalid, select.mp-co-invalid, textarea.mp-co-invalid {
                 data = d;
                 data.forEach(dep => depSel.appendChild(opt(dep.n)));
                 if (depSel.dataset.old) { depSel.value = depSel.dataset.old; if (depSel.value) onDep(); }
+                onZone();
             })
             .catch(() => { /* sin ubigeo: el envío igual funciona (campos vacíos) */ });
     })();

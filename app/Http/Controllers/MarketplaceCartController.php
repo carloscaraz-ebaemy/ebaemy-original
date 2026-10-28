@@ -75,11 +75,19 @@ class MarketplaceCartController extends Controller
         // el AddToCart del navegador (AdsTracking::catalogId).
         $line['content_id'] = \App\Services\Marketplace\AdsTracking::catalogId($line['listing_id'] ?? 0);
 
+        // Si el carrito ya tenia productos de OTRA tienda, se avisa al anadir:
+        // llegara en un paquete aparte. Mejor saberlo aqui que al pagar.
+        $tiendas = collect($this->cart->get()['items'])->pluck('hostname_id')->unique();
+        $packageNote = $tiendas->count() > 1
+            ? 'Este producto lo envía ' . ($line['tenant_name'] ?? 'otra tienda') . ': llega en un paquete aparte de tus otros productos.'
+            : null;
+
         return response()->json([
-            'success' => true,
-            'message' => 'Producto añadido al carrito',
-            'line'    => $line,
-            'summary' => $this->cart->summary(),
+            'success'      => true,
+            'message'      => 'Producto añadido al carrito',
+            'line'         => $line,
+            'summary'      => $this->cart->summary(),
+            'package_note' => $packageNote,
         ]);
     }
 

@@ -7,6 +7,8 @@
 
 @push('styles')
 <style>
+.mp-cart-pk-intro { background: #f0fdfa; border: 1px solid #99f6e4; color: #115e59; border-radius: 12px; padding: 10px 14px; font-size: 14px; margin: 0 0 12px; }
+.mp-cart-pk-tag { display: inline-block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; background: #0f8a82; color: #fff; border-radius: 6px; padding: 2px 7px; margin-bottom: 8px; }
 .mp-cart-wrapper {
     display: grid;
     grid-template-columns: 1fr 340px;
@@ -135,7 +137,7 @@
 .mp-cart-checkout-btn:disabled { background: #d1d5db; cursor: not-allowed; }
 
 .mp-cart-info-box {
-    background: #fef3c7; border: 1px solid #fde68a; color: #92400e;
+    background: #f8fafc; border: 1px solid #e5e7eb; color: #374151;
     padding: 12px 14px; border-radius: 10px; font-size: 13px; margin-top: 16px;
 }
 
@@ -175,8 +177,14 @@
 @else
     <div class="mp-cart-wrapper">
         <div>
+            {{-- Se avisa aqui y no recien al pagar: con dos tiendas llegan dos
+                 paquetes por separado. Mismo lenguaje que el checkout. --}}
+            @if($stores->count() > 1)
+                <p class="mp-cart-pk-intro">📦 Tus productos llegan en <strong>{{ $stores->count() }} paquetes</strong>: cada tienda envía el suyo y te escribe para coordinar.</p>
+            @endif
             @foreach($stores as $store)
                 <section class="mp-cart-store" data-hostname="{{ $store['hostname_id'] }}">
+                    @if($stores->count() > 1)<div class="mp-cart-pk-tag">Paquete {{ $loop->iteration }}</div>@endif
                     <div class="mp-cart-store-header">
                         @if($store['tenant_logo_url'])
                             <img src="{{ $store['tenant_logo_url'] }}" alt="{{ $store['tenant_name'] }}" class="mp-cart-store-logo">
@@ -191,7 +199,7 @@
                             @endif
                             <div style="font-weight:400;font-size:12px;color:#6b7280;margin-top:2px">
                                 <span data-store-count>{{ $store['item_count'] }}</span> <span data-store-count-word>{{ $store['item_count'] === 1 ? 'unidad' : 'unidades' }}</span>
-                                · Envío: {{ \App\Services\Marketplace\ShippingSummaryText::short($store['shipping'] ?? null) }}
+                                · El envío se calcula al elegir tu distrito
                             </div>
                         </div>
                         <div class="mp-cart-store-subtotal" data-store-subtotal>S/ {{ number_format($store['subtotal'], 2) }}</div>
@@ -234,11 +242,10 @@
         <aside class="mp-cart-summary">
             <h3>Resumen</h3>
             <div class="mp-cart-summary-row"><span>Productos</span><span data-summary-count>{{ $summary['count'] }}</span></div>
-            <div class="mp-cart-summary-row"><span>Tiendas</span><span>{{ $stores->count() }}</span></div>
             <div class="mp-cart-summary-row"><span>Subtotal</span><span data-summary-subtotal>S/ {{ number_format($summary['subtotal'], 2) }}</span></div>
             {{-- El marketplace no cobra el envío: lo paga el comprador a cada tienda
                  al coordinar. Por eso no se suma al total, y se dice. --}}
-            <div class="mp-cart-summary-row" style="color:#6b7280"><span>Envío</span><span>No incluido · lo pagas a cada tienda</span></div>
+            <div class="mp-cart-summary-row" style="color:#6b7280"><span>Envío</span><span>Se calcula en el siguiente paso</span></div>
             <div class="mp-cart-summary-total" style="display:flex;justify-content:space-between;align-items:center">
                 <span class="label">Total</span>
                 <span class="value" data-summary-total>S/ {{ number_format($summary['total'], 2) }}</span>
@@ -249,8 +256,7 @@
             </a>
 
             <div class="mp-cart-info-box">
-                ⚠️ Tu compra incluye productos de {{ $stores->count() }} {{ $stores->count() === 1 ? 'tienda' : 'tiendas distintas' }}.
-                Cada vendedor te contactará por separado para coordinar entrega y comprobante.
+                {{ $stores->count() > 1 ? 'Cada tienda te escribe' : 'La tienda te escribe' }} por WhatsApp para coordinar el pago y la entrega, y te da tu boleta o factura.
             </div>
         </aside>
     </div>

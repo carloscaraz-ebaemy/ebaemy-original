@@ -112,4 +112,59 @@ class ShippingSummaryTextTest extends TestCase
         $todo = ProductFeedFormatter::shippingXml($this->s(['lima' => ['mode' => 'free'], 'province' => ['mode' => 'free']]));
         $this->assertStringContainsString('<g:price>0.00 PEN</g:price>', $todo);
     }
+
+    // ── Envío a UN destino (checkout) ─────────────────────────────────────
+
+    public function test_destino_sin_politica_lo_confirma_la_tienda(): void
+    {
+        $r = T::forZone(null, 'lima');
+        $this->assertSame('Te lo confirma la tienda', $r['text']);
+        $this->assertNull($r['amount']);
+        $this->assertTrue($r['pending']);
+    }
+
+    public function test_destino_lima_fijo_suma_al_total(): void
+    {
+        $r = T::forZone($this->s(), 'lima', 50);
+        $this->assertSame('S/ 10.00', $r['text']);
+        $this->assertSame(10.0, $r['amount']);
+        $this->assertFalse($r['pending']);
+    }
+
+    /** Montalvan tenia «fijo S/ 0» y el checkout decia «Lima S/ 0.00». */
+    public function test_fijo_cero_es_gratis(): void
+    {
+        $r = T::forZone($this->s(['lima' => ['cost' => 0.0]]), 'lima');
+        $this->assertSame('Gratis', $r['text']);
+        $this->assertTrue($r['free']);
+        $this->assertSame(0.0, $r['amount']);
+    }
+
+    public function test_gratis_desde_un_monto(): void
+    {
+        $s = $this->s(['free_from' => 100]);
+        $this->assertSame('S/ 10.00', T::forZone($s, 'lima', 99)['text']);
+        $this->assertSame('Gratis', T::forZone($s, 'lima', 100)['text']);
+    }
+
+    /** El flete a provincias se paga en la agencia: nunca se presenta como gratis. */
+    public function test_provincia_pago_en_destino_queda_por_confirmar(): void
+    {
+        $r = T::forZone($this->s(['free_from' => 10]), 'province', 500);
+        $this->assertSame('Pagas el flete al recoger', $r['text']);
+        $this->assertTrue($r['pending']);
+        $this->assertFalse($r['free']);
+
+        $conCargo = T::forZone($this->s(['province' => ['agency_fee' => 20.0]]), 'province');
+        $this->assertSame('S/ 20.00 + flete al recoger', $conCargo['text']);
+        $this->assertSame(20.0, $conCargo['amount']);
+    }
+
+    public function test_a_cotizar_no_inventa_precio(): void
+    {
+        $r = T::forZone($this->s(['lima' => ['mode' => 'quote', 'cost' => 0.0]]), 'lima');
+        $this->assertSame('Te lo cotiza la tienda', $r['text']);
+        $this->assertNull($r['amount']);
+        $this->assertTrue($r['pending']);
+    }
 }

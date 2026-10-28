@@ -1083,6 +1083,15 @@
                     btn.innerHTML = '✓ Añadido — ir al carrito';
                     btn.onclick = function () { window.location = @json(route('marketplace.cart')); };
                     btn.disabled = false;
+                    /* Producto de otra tienda que ya hay en el carrito: llega aparte. */
+                    if (data.package_note && !document.getElementById('mpPackageNote')) {
+                        var pn = document.createElement('p');
+                        pn.id = 'mpPackageNote';
+                        pn.setAttribute('role', 'status');
+                        pn.style.cssText = 'margin:8px 0 0;padding:8px 12px;border-radius:10px;background:#f0fdfa;border:1px solid #99f6e4;color:#115e59;font-size:13px';
+                        pn.textContent = '📦 ' + data.package_note;
+                        btn.insertAdjacentElement('afterend', pn);
+                    }
                     if (window.mpCartBadgeUpdate) window.mpCartBadgeUpdate(data.summary);
                     /* AddToCart: solo tras confirmar el servidor. Emitirlo al
                        pulsar contaria carritos que nunca existieron. */

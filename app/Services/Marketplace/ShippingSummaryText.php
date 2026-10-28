@@ -169,6 +169,69 @@ class ShippingSummaryText
         return $partes ? implode(' · ', $partes) : self::PENDING;
     }
 
+    /**
+     * El envío de un paquete a UN destino, para el checkout: el comprador vive
+     * en un solo sitio y no tiene por qué leer las tarifas de Lima y de
+     * provincias a la vez («Lima S/ 0.00 · Provincias pago en destino»).
+     *
+     * $zone: 'lima' (Lima Metropolitana o Callao) o 'province'.
+     * amount: lo que se suma al total estimado (null = no se sabe aún).
+     * pending: queda una parte que confirma la tienda (cotización, flete en agencia).
+     *
+     * @return array{text:string,detail:string,amount:?float,pending:bool,free:bool}
+     */
+    public static function forZone(?array $s, string $zone, float $subtotal = 0): array
+    {
+        $porConfirmar = ['text' => 'Te lo confirma la tienda', 'detail' => '', 'amount' => null, 'pending' => true, 'free' => false];
+        $z = $s[$zone === 'lima' ? 'lima' : 'province'] ?? null;
+        if (!$s || empty($z['mode'])) {
+            return $porConfirmar;
+        }
+
+        $mode = $z['mode'];
+        $cost = isset($z['cost']) ? (float) $z['cost'] : null;
+        $freeFrom = (float) ($s['free_from'] ?? 0);
+        $plazo = $zone === 'lima'
+            ? self::days($z['days'] ?? null, 'Llega en')
+            : (!empty($z['transit']) ? 'Llega en ' . mb_strtolower(self::range($z['transit'])) . ' de viaje' : '');
+
+        if ($mode === 'destination') {
+            $fee = (float) ($z['agency_fee'] ?? 0);
+            $agencias = !empty($z['agencies']) ? ' por ' . implode(', ', array_slice($z['agencies'], 0, 2)) : '';
+            return [
+                'text'    => $fee > 0 ? self::soles($fee) . ' + flete al recoger' : 'Pagas el flete al recoger',
+                'detail'  => trim('Lo envía' . $agencias . ' y pagas el flete en la agencia. ' . $plazo),
+                'amount'  => $fee,
+                'pending' => true,
+                'free'    => false,
+            ];
+        }
+
+        // «Fijo S/ 0» es gratis aunque la tienda no eligiera «gratis»: mostrar
+        // «S/ 0.00» se leia como «no se sabe».
+        $gratis = $mode === 'free'
+            || ($mode === 'fixed' && (float) $cost <= 0)
+            || ($freeFrom > 0 && $subtotal >= $freeFrom);
+        if ($gratis) {
+            return ['text' => 'Gratis', 'detail' => $plazo, 'amount' => 0.0, 'pending' => false, 'free' => true];
+        }
+        if ($mode === 'fixed') {
+            $falta = $freeFrom > 0 ? ' · Gratis desde ' . self::soles($freeFrom) : '';
+            return ['text' => self::soles($cost), 'detail' => trim($plazo . $falta, ' ·'), 'amount' => $cost, 'pending' => false, 'free' => false];
+        }
+        if ($mode === 'quote') {
+            return [
+                'text'    => $cost > 0 ? 'Desde ' . self::soles($cost) : 'Te lo cotiza la tienda',
+                'detail'  => trim(($cost > 0 ? 'La tienda te confirma el precio exacto. ' : '') . $plazo),
+                'amount'  => $cost > 0 ? $cost : null,
+                'pending' => true,
+                'free'    => false,
+            ];
+        }
+
+        return $porConfirmar;
+    }
+
     private static function price(string $mode, $cost): string
     {
         return match ($mode) {
