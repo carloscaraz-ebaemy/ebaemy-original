@@ -440,8 +440,8 @@
         if (selectedType === DTYPE.DOM) { set('{{ $p }}addr_domicilio', d.shipping_destination); set('{{ $p }}reference_dom', d.reference); }
         else {
             set('{{ $p }}addr_agencia', d.shipping_destination); set('{{ $p }}reference_ag', d.reference);
-            set('{{ $p }}shipping_agency', d.shipping_agency);
-            if (window.__syncAgency) window.__syncAgency();
+            // La agencia NO se copia del envío anterior: la elige el cliente
+            // cada vez (venía Shalom preseleccionado y parecía la única opción).
             if (window.__ubPreset && (d.department_id || d.district_id)) window.__ubPreset('pub', d.department_id, d.province_id, d.district_id);
             shRefrescar();
         }
@@ -1071,8 +1071,11 @@
         if (!datos) return;
         if (datos.__ts && (Date.now() - datos.__ts) > BORRADOR_VIDA) { limpiarBorrador(); return; }
 
+        // La agencia y su oficina no se reponen: el cliente las elige en cada
+        // visita, igual que al usar sus datos de un envío anterior.
+        var noReponer = ['shipping_agency', 'agency_office_id', 'agency_office_unknown', 'shalom_air'];
         camposBorrador().forEach(function (el) {
-            if (esMando(el)) return;
+            if (esMando(el) || noReponer.indexOf(el.name) !== -1) return;
             var clave = el.id || el.name;
             if (el.type === 'checkbox') { if (clave in datos) el.checked = !!datos[clave]; }
             else if (el.type === 'radio') { if (datos['r:' + el.name] === el.value) el.checked = true; }
@@ -1091,6 +1094,17 @@
                 var go = card.querySelector('.go');
                 if (go) go.textContent = 'Continuar';
             }
+        }
+
+        // Los ids del ubigeo se reponen en inputs ocultos, pero el buscador
+        // visible no: quedaba la ciudad en blanco con oficinas «de tu
+        // provincia» de la visita anterior. El preset repinta el nombre.
+        var ubF = form.querySelector('.ubigeo-field');
+        var ubDist = ubF && ubF.querySelector('[data-ub="district"]');
+        if (ubDist && ubDist.value && window.__ubPreset) {
+            window.__ubPreset(ubF.getAttribute('data-ubigeo-group'),
+                ubF.querySelector('[data-ub="department"]').value,
+                ubF.querySelector('[data-ub="province"]').value, ubDist.value);
         }
     }
 

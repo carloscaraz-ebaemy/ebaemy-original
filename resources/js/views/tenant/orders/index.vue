@@ -1323,7 +1323,6 @@
                                             v-if="row.shipment && !esAnulado(row) && !esEntregado(row)
                                                   && !(row.shipment.shalom && row.shipment.shalom.replaces_label)"
                                             command="label"
-                                            :disabled="!!row.shipment.print_block"
                                         >
                                             <i class="el-icon-printer"></i>
                                             {{ labelActionText(row) }}
@@ -1333,10 +1332,13 @@
                                             Rótulo de Saga
                                         </el-dropdown-item>
                                         <!-- Si Shalom ya creó la guía no hay nada que
-                                             subir: salía junto a «Quitar guía de Shalom». -->
+                                             subir (salía junto a «Quitar guía de Shalom»),
+                                             y con la cuenta conectada se crea arriba: subirla
+                                             a mano era el mismo paso por otro camino. -->
                                         <el-dropdown-item
                                             v-if="row.shipment && !row.shipment.is_pickup && !row.shipment.has_guide
-                                                  && !(row.shipment.shalom && row.shipment.shalom.has_guide)"
+                                                  && !(row.shipment.shalom && (row.shipment.shalom.has_guide
+                                                       || (row.shipment.shalom.ready && row.shipment.shalom.can_create)))"
                                             command="uploadGuide"
                                         >
                                             <i class="el-icon-upload"></i>
@@ -5548,7 +5550,8 @@ export default {
         },
         labelActionText(row) {
             const s = row.shipment || {};
-            if (s.print_block) return "Rótulo no disponible";
+            // No va apagado: al tocarlo, printLabel dice qué falta.
+            if (s.print_block) return "Rótulo no disponible (ver por qué)";
             if (s.label_kind === "receipt") return "Comprobante de recojo";
             return s.needs_reason
                 ? `Reimprimir rótulo (${s.print_count})`
