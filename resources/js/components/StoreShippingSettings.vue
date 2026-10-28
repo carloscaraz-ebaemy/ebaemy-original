@@ -105,6 +105,11 @@
                         La oficina de Shalom donde dejas los paquetes. Con ella le decimos al cliente
                         cuánto tarda Shalom hasta su ciudad y cuánto cuesta el flete.
                     </p>
+                    <div v-if="usaShalom" class="ss__row" style="margin-top:8px">
+                        <span>Envío aéreo</span>
+                        <el-switch v-model="f.shalom_air_enabled"></el-switch>
+                        <span style="color:#64748b;font-size:12px">El cliente puede elegir vía aérea (más rápido y más caro) si su oficina la atiende.</span>
+                    </div>
                 </section>
 
                 <!-- Cuenta Shalom Pro de la tienda: se guarda desde ya y se conecta
@@ -242,6 +247,7 @@ export default {
                         pickup_enabled: !!d.pickup_enabled, pickup_district: d.pickup_district, pickup_ready_hours: d.pickup_ready_hours,
                         free_from: d.free_from, cutoff_time: d.cutoff_time,
                         shalom_origin_id: d.shalom_origin_id || null,
+                        shalom_air_enabled: d.shalom_air_enabled !== false,
                     };
                     this.oficinas = d.shalom_origin ? [d.shalom_origin] : [];
                     this.pro = d.shalom_pro || null;

@@ -23,12 +23,13 @@ class ShalomAgency extends Model
     protected $fillable = [
         'ter_id', 'name', 'full_name', 'department', 'province', 'zone', 'ubigeo',
         'address', 'phone', 'hours', 'details', 'latitude', 'longitude',
-        'receives', 'home_delivery', 'listed', 'missing_since', 'raw',
+        'receives', 'home_delivery', 'air', 'listed', 'missing_since', 'raw',
     ];
 
     protected $casts = [
         'receives'      => 'boolean',
         'home_delivery' => 'boolean',
+        'air'           => 'boolean',
         'listed'        => 'boolean',
         'missing_since' => 'datetime',
         'raw'           => 'array',

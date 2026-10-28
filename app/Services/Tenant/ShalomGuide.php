@@ -64,7 +64,10 @@ class ShalomGuide
     /**
      * @return array{number:?string, code:?string, ose_id:?string, clave:string}
      */
-    public function create(ShippingRequest $s, string $content, ?string $clave = null): array
+    /** Lo que Shalom acepta como declaración jurada en envíos aéreos. */
+    public const AIR_DECLARATIONS = ['Artículos de uso personal', 'Documentos', 'Ropa', 'Electrodomésticos'];
+
+    public function create(ShippingRequest $s, string $content, ?string $clave = null, ?string $declaracion = null): array
     {
         // Doble clic o dos operadores a la vez: una sola creación por envío.
         $lock = \Illuminate\Support\Facades\Cache::lock('shalom_guide:' . $s->getConnection()->getDatabaseName() . ':' . $s->id, 180);
@@ -72,13 +75,13 @@ class ShalomGuide
             throw new RuntimeException('Ya se está creando la guía de este envío. Espera un momento.');
         }
         try {
-            return $this->createLocked($s->fresh(), $content, $clave);
+            return $this->createLocked($s->fresh(), $content, $clave, $declaracion);
         } finally {
             $lock->release();
         }
     }
 
-    private function createLocked(ShippingRequest $s, string $content, ?string $clave): array
+    private function createLocked(ShippingRequest $s, string $content, ?string $clave, ?string $declaracion = null): array
     {
         $st = ShippingSetting::current();
         if ($why = self::blocker($s, $st)) {
@@ -118,9 +121,16 @@ class ShalomGuide
         // Marca del intento ANTES de llamar: si se corta, no se reintenta a ciegas.
         $s->forceFill(['carrier_events' => array_merge($s->carrier_events ?? [], ['create_attempt_at' => now()->toDateTimeString()])])->saveQuietly();
 
-        $r = $this->api->registerGuide($st->shalom_instance_id, [
+        // Aéreo: destino «0» + ter_id y declaración jurada obligatoria.
+        $aereo = !empty($s->shalom_air);
+        if ($aereo && !in_array($declaracion, self::AIR_DECLARATIONS, true)) {
+            throw new RuntimeException('El envío es aéreo: elige qué contiene el paquete (declaración jurada).');
+        }
+        $extra = $aereo ? ['aereo' => 1, 'declaracion_jurada' => $declaracion] : [];
+
+        $r = $this->api->registerGuide($st->shalom_instance_id, $extra + [
             'origen'    => (int) $st->shalom_origin_id,
-            'destino'   => (int) $s->agency_office_id,
+            'destino'   => $aereo ? '0' . (int) $s->agency_office_id : (int) $s->agency_office_id,
             'documento' => $dni,
             'name'      => $nombres,
             'firstname' => $paterno,
@@ -150,6 +160,7 @@ class ShalomGuide
         $ce['ose_id'] = $found['ose_id'];
         $ce['clave'] = $clave;
         $ce['content'] = $content;
+        $ce['air'] = $aereo;
         $ce['created_via'] = 'api';
         $ce['created_at'] = now()->toDateTimeString();
         $ce['register_raw'] = mb_substr(json_encode($r, JSON_UNESCAPED_UNICODE), 0, 4000);

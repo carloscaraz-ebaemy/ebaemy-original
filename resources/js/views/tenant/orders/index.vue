@@ -1283,7 +1283,7 @@
                                         command="shalomLabel"
                                     >
                                         <i class="el-icon-printer"></i>
-                                        Rótulo oficial de Shalom
+                                        Imprimir rótulo de Shalom
                                     </el-dropdown-item>
                                     <el-dropdown-item
                                         v-if="row.shipment && row.shipment.shalom && row.shipment.shalom.ticket_url"
@@ -1407,8 +1407,13 @@
                                     <!-- Rotulado. Se ofrece solo si el pedido
                                          tiene envio: el rotulo es del envio, no
                                          del pedido. -->
+                                    <!-- Con Shalom conectado el rótulo es el de Shalom
+                                         («Imprimir rótulo de Shalom», más arriba): ofrecer
+                                         también el de ebaemy era imprimir dos rótulos
+                                         distintos para el mismo paquete. -->
                                     <el-dropdown-item
-                                        v-if="row.shipment && !esAnulado(row) && !esEntregado(row)"
+                                        v-if="row.shipment && !esAnulado(row) && !esEntregado(row)
+                                              && !(row.shipment.shalom && row.shipment.shalom.replaces_label)"
                                         command="label"
                                         :disabled="!!row.shipment.print_block"
                                     >
@@ -5383,7 +5388,8 @@ export default {
                 return s.address || s.destination_city || "";
             }
 
-            const partes = [s.agency, s.destination_city].filter(Boolean);
+            const agencia = s.agency && s.shalom && s.shalom.air ? s.agency + " ✈ aéreo" : s.agency;
+            const partes = [agencia, s.destination_city].filter(Boolean);
 
             if (partes.length) return partes.join(" · ");
 

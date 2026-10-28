@@ -547,6 +547,8 @@ if ($hostname) {
                  ->whereNumber('order')->name('orders.shipping.shalom_guide')->middleware('throttle:10,1');
             Route::get('orders/envio/{shipment}/shalom-ticket', [\App\Http\Controllers\Tenant\ShipmentController::class, 'shalomVoucher'])
                  ->whereNumber('shipment')->name('orders.shipping.shalom_voucher');
+            Route::get('orders/envio/{shipment}/shalom-imprimir', [\App\Http\Controllers\Tenant\ShipmentController::class, 'shalomPrint'])
+                 ->whereNumber('shipment')->name('orders.shipping.shalom_print');
             Route::get('orders/envio/{shipment}/shalom-rotulo', [\App\Http\Controllers\Tenant\ShipmentController::class, 'shalomLabel'])
                  ->whereNumber('shipment')->name('orders.shipping.shalom_label');
             Route::post('orders/{order}/envio/shalom-quitar', [\App\Http\Controllers\Tenant\OrderShipmentActionController::class, 'shalomQuitar'])

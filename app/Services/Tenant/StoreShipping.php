@@ -325,6 +325,7 @@ class StoreShipping
             // Oficina de Shalom de origen: con ella se cotiza el viaje real.
             'shalom_origin_id'   => $st->shalom_origin_id ? (int) $st->shalom_origin_id : null,
             'shalom_origin'      => $this->shalomOffice($st->shalom_origin_id),
+            'shalom_air_enabled' => $st->shalom_air_enabled === null ? true : (bool) $st->shalom_air_enabled,
             // Cuenta Shalom Pro de la tienda (la contraseña nunca viaja).
             'shalom_pro'         => [
                 'user'         => $st->shalom_pro_user,
@@ -362,6 +363,7 @@ class StoreShipping
             'free_from'              => ['nullable', 'numeric', 'min:0', 'max:99999'],
             'cutoff_time'            => ['nullable', 'date_format:H:i'],
             'shalom_origin_id'       => ['nullable', 'integer', 'min:1'],
+            'shalom_air_enabled'     => ['nullable', 'boolean'],
         ];
     }
 
@@ -391,6 +393,10 @@ class StoreShipping
         if (array_key_exists('shalom_origin_id', $d)
             && \Illuminate\Support\Facades\Schema::connection('tenant')->hasColumn('shipping_settings', 'shalom_origin_id')) {
             $st->shalom_origin_id = $d['shalom_origin_id'] ?: null;
+        }
+        if (array_key_exists('shalom_air_enabled', $d)
+            && \Illuminate\Support\Facades\Schema::connection('tenant')->hasColumn('shipping_settings', 'shalom_air_enabled')) {
+            $st->shalom_air_enabled = (bool) $d['shalom_air_enabled'];
         }
         // La tarifa «llevarlo a la agencia» es la misma que usa el módulo de Envíos.
         if (!empty($d['agency_fee_mode'])) {

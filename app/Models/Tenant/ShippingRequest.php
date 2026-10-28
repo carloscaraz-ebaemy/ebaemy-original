@@ -53,6 +53,8 @@ class ShippingRequest extends Model
         'agency_office_id',
         'agency_office_name',
         'agency_office_address',
+        // El cliente eligió vía aérea con Shalom (ver la migración 2026_10_28_000006).
+        'shalom_air',
         'destination_city',
         'department_id',
         'province_id',

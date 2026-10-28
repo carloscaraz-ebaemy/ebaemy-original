@@ -76,9 +76,10 @@ class ShalomApi
      *   hours  tiempo de llegada que da Shalom para esa ruta (p. ej. 48)
      *   price  tarifa base; prices: por tamaño de caja (sobre, xxs… l)
      */
-    public function quote(int $origin, int $destination): array
+    public function quote(int $origin, int $destination, bool $air = false): array
     {
-        $body = $this->send('post', '/account/quote', ['origin' => $origin, 'destination' => $destination], null, 25);
+        // Aéreo: el destino va como texto con «0» delante del ter_id.
+        $body = $this->send('post', '/account/quote', ['origin' => $origin, 'destination' => $air ? '0' . $destination : $destination], null, 25);
         $d = $body['data'] ?? [];
         $t = $d['tariff'] ?? [];
 
@@ -89,10 +90,9 @@ class ShalomApi
             }
         }
 
-        $hours = $d['data_tarifa']['tar_tiempo_llegada'] ?? null;
-        if (!is_numeric($hours) && preg_match('/(\d+)/', (string) ($d['lead_time'] ?? ''), $m)) {
-            $hours = $m[1];
-        }
+        // `lead_time` es el plazo del servicio cotizado (aéreo 24 h, terrestre
+        // 48 h); `tar_tiempo_llegada` repite el terrestre aunque sea aéreo.
+        $hours = preg_match('/(\d+)/', (string) ($d['lead_time'] ?? ''), $m) ? $m[1] : ($d['data_tarifa']['tar_tiempo_llegada'] ?? null);
 
         return [
             'hours'  => is_numeric($hours) && $hours > 0 ? (int) $hours : null,

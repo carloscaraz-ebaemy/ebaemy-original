@@ -265,21 +265,69 @@
         var li = document.querySelector('#eta-agencia .js-eta-arrive');
         if (li) li.innerHTML = '<b>Viaja con la agencia hasta tu ciudad</b><small>El tiempo de viaje lo define la agencia. Te avisamos cuando llegue para que lo recojas con tu documento.</small>';
     }
+    // Vía aérea: la ofrece la tienda (y su oficina la atiende); la oficina del
+    // cliente también tiene que atenderla. Se cotizan las dos vías y el
+    // cliente elige viendo precio y tiempo de cada una.
+    var AIR_OK = {{ !empty($shalomAir) ? 'true' : 'false' }};
+    var modeBox = document.getElementById('{{ $p }}sh_mode');
+    var airInp = document.getElementById('{{ $p }}shalom_air');
+    var QUOTES = { t: null, a: null };
+    function shQuoteTxt(q) {
+        if (!q || !q.available) return 'No disponible';
+        var p = (q.price_min && q.price_max) ? (q.price_min === q.price_max ? shMoneda(q.price_min) : shMoneda(q.price_min) + '–' + shMoneda(q.price_max)) : '';
+        return [q.hours ? q.hours + ' h' : '', p].filter(Boolean).join(' · ');
+    }
+    function shPintarModo() {
+        if (!modeBox) return;
+        var aereo = airInp && airInp.value === '1';
+        modeBox.querySelectorAll('.sh-mode__opt').forEach(function (b) {
+            b.setAttribute('aria-checked', String((b.getAttribute('data-air') === '1') === aereo));
+        });
+        var t = modeBox.querySelector('.js-t'), a = modeBox.querySelector('.js-a');
+        if (t) t.textContent = shQuoteTxt(QUOTES.t);
+        if (a) a.textContent = shQuoteTxt(QUOTES.a);
+        shAplicar(aereo ? QUOTES.a : QUOTES.t);
+    }
+    if (modeBox) modeBox.addEventListener('click', function (ev) {
+        var b = ev.target.closest('.sh-mode__opt');
+        if (!b || !airInp) return;
+        if (b.getAttribute('data-air') === '1' && !(QUOTES.a && QUOTES.a.available)) return;
+        airInp.value = b.getAttribute('data-air');
+        airInp.dispatchEvent(new Event('change', { bubbles: true }));
+        shPintarModo();
+    });
+    function shPedir(id, aereo) {
+        return fetch(QUOTE_URL + '/' + id + (aereo ? '?aereo=1' : ''), { headers: { 'Accept': 'application/json' } })
+            .then(function (r) { return r.ok ? r.json() : { available: false }; })
+            .catch(function () { return { available: false }; });
+    }
     function shCotizar() {
         var o = shElegida();
         var mio = ++quoteSeq;
-        if (!o || !shEsShalom()) { shSinCotizacion(); return; }
-        fetch(QUOTE_URL + '/' + o.id, { headers: { 'Accept': 'application/json' } })
-            .then(function (r) { return r.ok ? r.json() : { available: false }; })
-            .catch(function () { return { available: false }; })
-            .then(function (q) {
+        QUOTES = { t: null, a: null };
+        if (modeBox) modeBox.hidden = true;
+        if (!o || !shEsShalom()) { if (airInp) airInp.value = '0'; shSinCotizacion(); return; }
+        var conAereo = AIR_OK && !!o.air;
+        if (!conAereo && airInp) airInp.value = '0';
+        Promise.all([shPedir(o.id, false), conAereo ? shPedir(o.id, true) : Promise.resolve(null)])
+            .then(function (rs) {
                 if (mio !== quoteSeq) return;
+                QUOTES = { t: rs[0], a: rs[1] };
+                if (conAereo && rs[1] && rs[1].available && modeBox) modeBox.hidden = false;
+                else if (airInp) airInp.value = '0';
+                shPintarModo();
+            });
+    }
+    function shAplicar(q) {
+        {
+            {
                 if (!q || !q.available) { shSinCotizacion(); return; }
                 var precio = (q.price_min && q.price_max)
                     ? (q.price_min === q.price_max ? shMoneda(q.price_min) : shMoneda(q.price_min) + ' a ' + shMoneda(q.price_max))
                     : '';
                 var partes = [];
-                if (q.hours) partes.push('Shalom tarda unas ' + q.hours + ' horas hasta esta oficina');
+                var via = airInp && airInp.value === '1' ? ' por vía aérea' : '';
+                if (q.hours) partes.push('Shalom tarda unas ' + q.hours + ' horas' + via + ' hasta esta oficina');
                 if (precio) partes.push('flete aprox. ' + precio + ' según el tamaño');
                 if (quoteEl && partes.length) {
                     quoteEl.textContent = partes.join(' · ') + '.';
@@ -292,9 +340,10 @@
                 var li = document.querySelector('#eta-agencia .js-eta-arrive');
                 if (li && q.arrive) {
                     li.innerHTML = '<b>Llega a tu oficina aprox. el ' + shEsc(q.arrive) + '</b><small>Shalom tarda unas ' + q.hours
-                        + ' horas en esta ruta. Recoges con tu documento de identidad.</small>';
+                        + ' horas' + via + ' en esta ruta. Recoges con tu documento de identidad.</small>';
                 }
-            });
+            }
+        }
     }
 
     if (SH.list) SH.list.addEventListener('click', function (ev) {
@@ -837,6 +886,12 @@
                 cRef.appendChild(dir);
             }
             document.getElementById('c_ag').textContent = txt('{{ $p }}shipping_agency') || '—';
+            var rVia = document.getElementById('r_via');
+            if (rVia) {
+                var esAereo = shEsShalom() && airInp && airInp.value === '1';
+                rVia.hidden = !shEsShalom() || !(modeBox && !modeBox.hidden);
+                document.getElementById('c_via').textContent = esAereo ? '✈️ Aérea' : '🚚 Terrestre';
+            }
         }
     }
 

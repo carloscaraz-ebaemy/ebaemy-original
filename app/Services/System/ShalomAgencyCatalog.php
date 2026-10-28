@@ -84,6 +84,7 @@ class ShalomAgencyCatalog
                     // pero no recibe envíos de terceros (~60 hoy).
                     'receives'      => (int) ($r['destino'] ?? 1) === 1 && (int) ($r['ter_habilitado_OS'] ?? 1) === 1,
                     'home_delivery' => (string) ($r['ter_reparto_habilitado'] ?? '0') === '1',
+                    'air'           => (int) ($r['ter_aereo'] ?? 0) === 1,
                     'listed'        => true,
                     'missing_since' => null,
                     'raw'           => $r,
@@ -151,6 +152,7 @@ class ShalomAgencyCatalog
             'lat'           => $a->latitude !== null ? (float) $a->latitude : null,
             'lng'           => $a->longitude !== null ? (float) $a->longitude : null,
             'home_delivery' => $a->home_delivery,
+            'air'           => (bool) ($a->air ?? false),
         ];
     }
 

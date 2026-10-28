@@ -12,7 +12,7 @@
 
         <!-- Resultado: la guía ya existe en Shalom. -->
         <div v-if="hecho" class="shg-ok">
-            <div class="shg-ok__t">Guía creada en Shalom</div>
+            <div class="shg-ok__t">Guía creada en Shalom{{ aereo ? ' · vía aérea' : '' }}</div>
             <div v-if="hecho.number" class="shg-ok__n">{{ hecho.number }} · código {{ hecho.code }}</div>
             <div class="shg-ok__s">Clave de recojo del cliente: <b>{{ hecho.clave }}</b></div>
             <el-button type="primary" icon="el-icon-printer" style="margin-top:12px" @click="imprimir">
@@ -38,6 +38,14 @@
                 <small class="shg-sub">Shalom calcula el costo según el tamaño.</small>
             </div>
 
+            <div v-if="aereo" class="shg-field">
+                <label>Envío aéreo: ¿qué contiene? <span class="shg-req">*</span></label>
+                <el-select v-model="declaracion" placeholder="Declaración jurada" style="width:100%">
+                    <el-option v-for="d in declaraciones" :key="d" :label="d" :value="d"></el-option>
+                </el-select>
+                <small class="shg-sub">El cliente eligió vía aérea; Shalom pide declarar el contenido.</small>
+            </div>
+
             <div class="shg-field">
                 <label>Clave de recojo <small style="font-weight:400;color:#64748b">(4 dígitos, opcional)</small></label>
                 <el-input v-model="clave" maxlength="4" :placeholder="claveFija ? 'Tu clave fija: ' + claveFija : 'Se genera sola'" style="max-width:180px"></el-input>
@@ -50,7 +58,7 @@
 
         <span slot="footer">
             <el-button @click="cerrar">{{ hecho ? 'Cerrar' : 'Cancelar' }}</el-button>
-            <el-button v-if="!hecho" type="primary" :loading="creando" :disabled="!content || (shalom && !shalom.ready)" @click="crear">
+            <el-button v-if="!hecho" type="primary" :loading="creando" :disabled="!content || (shalom && !shalom.ready) || (aereo && !declaracion)" @click="crear">
                 Crear guía
             </el-button>
         </span>
@@ -77,6 +85,8 @@ export default {
             tamanos: ["SOBRE", "PAQUETE XXS", "PAQUETE XS", "PAQUETE S", "PAQUETE M", "PAQUETE L"],
             content: "",
             clave: "",
+            declaracion: "",
+            declaraciones: ["Artículos de uso personal", "Documentos", "Ropa", "Electrodomésticos"],
             creando: false,
             error: null,
             hecho: null,
@@ -86,6 +96,9 @@ export default {
         office() {
             return this.shalom ? this.shalom.office : null;
         },
+        aereo() {
+            return !!(this.shalom && this.shalom.air);
+        },
         claveFija() {
             return this.shalom ? this.shalom.clave_fija : null;
         },
@@ -94,6 +107,7 @@ export default {
         abrir() {
             this.content = "";
             this.clave = "";
+            this.declaracion = "";
             this.error = null;
             this.hecho = null;
         },
@@ -108,7 +122,11 @@ export default {
             this.creando = true;
             this.error = null;
             this.$http
-                .post(`/orders/${this.orderId}/envio/shalom-guia`, { content: this.content, clave: this.clave || null })
+                .post(`/orders/${this.orderId}/envio/shalom-guia`, {
+                    content: this.content,
+                    clave: this.clave || null,
+                    declaracion: this.aereo ? this.declaracion : null,
+                })
                 .then(r => {
                     const d = r.data || {};
                     if (d.success === false) {
@@ -129,7 +147,7 @@ export default {
                 });
         },
         imprimir() {
-            window.open(`/orders/envio/${this.shipmentId}/shalom-rotulo`, "_blank");
+            window.open(`/orders/envio/${this.shipmentId}/shalom-imprimir`, "_blank");
         },
     },
 };

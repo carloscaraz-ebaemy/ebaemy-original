@@ -1019,12 +1019,13 @@ class ShipmentController extends Controller
             return response()->json(['success' => false, 'message' => 'El envío está anulado.']);
         }
         $data = $request->validate([
-            'content' => 'required|string|in:' . implode(',', \App\Services\Tenant\ShalomGuide::CONTENTS),
-            'clave'   => 'nullable|digits:4',
-        ], [], ['content' => 'tamaño del paquete', 'clave' => 'clave de recojo']);
+            'content'     => 'required|string|in:' . implode(',', \App\Services\Tenant\ShalomGuide::CONTENTS),
+            'clave'       => 'nullable|digits:4',
+            'declaracion' => 'nullable|string|in:' . implode(',', \App\Services\Tenant\ShalomGuide::AIR_DECLARATIONS),
+        ], [], ['content' => 'tamaño del paquete', 'clave' => 'clave de recojo', 'declaracion' => 'declaración jurada']);
 
         try {
-            $r = app(\App\Services\Tenant\ShalomGuide::class)->create($shipment, $data['content'], $data['clave'] ?? null);
+            $r = app(\App\Services\Tenant\ShalomGuide::class)->create($shipment, $data['content'], $data['clave'] ?? null, $data['declaracion'] ?? null);
         } catch (\Throwable $e) {
             return response()->json(['success' => false, 'message' => $e->getMessage()]);
         }
@@ -1069,6 +1070,25 @@ class ShipmentController extends Controller
         return response()->json([
             'success' => true,
             'message' => "Guía {$guia} quitada del pedido. Anúlala también en pro.shalom.pe: el sistema de Shalom no permite anularla desde aquí.",
+        ]);
+    }
+
+    /**
+     * Página para imprimir el rótulo (o el ticket) de Shalom. Muestra el PDF
+     * oficial y, al imprimir, registra la impresión igual que el rótulo de
+     * ebaemy: contador, «rótulo impreso» y bitácora.
+     */
+    public function shalomPrint(Request $request, ShippingRequest $shipment)
+    {
+        if ($bloqueo = $this->blockIfCancelled($shipment, $request)) {
+            return $bloqueo;
+        }
+        $doc = $request->query('doc') === 'ticket' ? 'ticket' : 'rotulo';
+
+        return view('tenant.shipments.shalom-print', [
+            'shipment' => $shipment,
+            'doc'      => $doc,
+            'pdfUrl'   => url('orders/envio/' . $shipment->id . ($doc === 'ticket' ? '/shalom-ticket' : '/shalom-rotulo')),
         ]);
     }
 
@@ -1543,8 +1563,9 @@ class ShipmentController extends Controller
      *
      * Público.
      */
-    public function shalomQuote(int $office)
+    public function shalomQuote(Request $request, int $office)
     {
+        $air = $request->boolean('aereo');
         try {
             $existe = \App\Models\System\ShalomAgency::selectable()->whereKey($office)->exists();
         } catch (\Throwable $e) {
@@ -1553,7 +1574,10 @@ class ShipmentController extends Controller
         if (!$existe) {
             return response()->json(['available' => false]);
         }
-        $q = $this->shalomQuoteFor($office);
+        if ($air && !$this->shalomAirOffered($office)) {
+            return response()->json(['available' => false]);
+        }
+        $q = $this->shalomQuoteFor($office, $air);
         if (!$q) {
             return response()->json(['available' => false]);
         }
@@ -1570,8 +1594,26 @@ class ShipmentController extends Controller
         ])->header('Cache-Control', 'private, no-store');   // la fecha depende de la hora
     }
 
+    /**
+     * ¿Se puede ofrecer vía aérea hasta esta oficina? La tienda la ofrece y
+     * las dos oficinas (la suya y la del cliente) atienden aéreo.
+     */
+    private function shalomAirOffered(int $office): bool
+    {
+        try {
+            $st = ShippingSetting::current();
+            if (($st->shalom_air_enabled ?? true) === false || (int) ($st->shalom_air_enabled ?? 1) === 0 || !$st->shalom_origin_id) {
+                return false;
+            }
+
+            return \App\Models\System\ShalomAgency::where('air', true)->whereIn('ter_id', [(int) $st->shalom_origin_id, $office])->count() === 2;
+        } catch (\Throwable $e) {
+            return false;
+        }
+    }
+
     /** Cotización cacheada 12 h por ruta (un fallo, 10 min); null si no hay origen o el API falla. */
-    private function shalomQuoteFor(int $office): ?array
+    private function shalomQuoteFor(int $office, bool $air = false): ?array
     {
         try {
             $origin = (int) (ShippingSetting::current()->shalom_origin_id ?? 0);
@@ -1582,14 +1624,14 @@ class ShipmentController extends Controller
             return null;
         }
 
-        $key = "shalom_quote:{$origin}:{$office}";
+        $key = "shalom_quote:{$origin}:{$office}" . ($air ? ':aereo' : '');
         if (Cache::has($key)) {
             $c = Cache::get($key);
 
             return !empty($c['fail']) ? null : $c;
         }
         try {
-            $q = app(\App\Services\System\ShalomApi::class)->quote($origin, $office);
+            $q = app(\App\Services\System\ShalomApi::class)->quote($origin, $office, $air);
         } catch (\Throwable $e) {
             Log::info('Cotización Shalom no disponible: ' . $e->getMessage());
             Cache::put($key, ['fail' => true], now()->addMinutes(10));
@@ -3578,10 +3620,13 @@ class ShipmentController extends Controller
             'brand'        => \App\Services\Tenant\StoreBrandColor::palette($storeColor),
             // Cuándo sale y cuándo llega, por modalidad (política de envío).
             'eta'          => (new \App\Services\Tenant\ShippingEta())->forForm($store),
+            // ¿Se ofrece aéreo? (la tienda lo permite y su oficina lo atiende)
+            'shalomAir'    => (bool) ($store->shalom_origin_id && ($store->shalom_air_enabled ?? true)
+                && rescue(fn () => \App\Models\System\ShalomAgency::where('air', true)->whereKey($store->shalom_origin_id)->exists(), false, false)),
             'orderSummary' => isset($orderContext['order']) ? $this->publicOrderSummary($orderContext['order']) : null,
             // Pantalla final: llegada según Shalom para la oficina elegida.
             'sentArrival'  => ($sentShipment && ShippingRequest::hasAgencyOffice() && $sentShipment->agency_office_id
-                                && ($sq = $this->shalomQuoteFor((int) $sentShipment->agency_office_id)) && $sq['hours'])
+                                && ($sq = $this->shalomQuoteFor((int) $sentShipment->agency_office_id, (bool) ($sentShipment->shalom_air ?? false))) && $sq['hours'])
                 ? (new \App\Services\Tenant\ShippingEta())->shalomArrival($sq['hours'], $store) + ['hours' => $sq['hours'], 'office' => $sentShipment->agency_office_name]
                 : null,
             'sent'         => $sent,
@@ -4031,6 +4076,7 @@ class ShipmentController extends Controller
                 // y la dirección NO se aceptan del navegador: se copian del
                 // catálogo más abajo.
                 'agency_office_id'     => 'nullable|integer|min:1',
+                'shalom_air'           => 'nullable|boolean',
             ];
         }
 
@@ -4174,7 +4220,8 @@ class ShipmentController extends Controller
     private function applyAgencyOffice(Request $request, array $data, bool $public): array
     {
         $officeId = $data['agency_office_id'] ?? null;
-        unset($data['agency_office_id']);
+        $quiereAereo = !empty($data['shalom_air']);
+        unset($data['agency_office_id'], $data['shalom_air']);
 
         // Los formularios del panel no tienen el selector de oficina: editar
         // un envío desde ahí no debe borrar la que eligió el cliente.
@@ -4224,6 +4271,10 @@ class ShipmentController extends Controller
         $data['agency_office_id']      = $office?->ter_id;
         $data['agency_office_name']    = $office?->name;
         $data['agency_office_address'] = $office ? mb_substr((string) $office->address, 0, 500) : null;
+        // Aéreo solo si se puede de verdad (tienda lo ofrece y las dos oficinas lo atienden).
+        if (\Illuminate\Support\Facades\Schema::connection('tenant')->hasColumn('shipping_requests', 'shalom_air')) {
+            $data['shalom_air'] = $office && $quiereAereo && $this->shalomAirOffered((int) $office->ter_id);
+        }
         if ($office) {
             $data['reference'] = $office->name;
         }

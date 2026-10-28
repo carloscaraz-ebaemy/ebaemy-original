@@ -292,6 +292,11 @@
                             .sh-opt b{display:block;font-size:14.5px;line-height:1.3}
                             .sh-opt span{display:block;font-size:13px;color:var(--ink-2);margin-top:3px;line-height:1.4}
                             .sh-opt i{font-style:normal;display:inline-block;font-size:12px;font-weight:650;border-radius:999px;padding:2px 9px;margin-top:7px;margin-right:4px;background:#f3efe9;color:var(--ink-2)}
+                            .sh-mode{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0 2px}
+                            .sh-mode__opt{text-align:left;border:1.5px solid var(--line);background:var(--surface);border-radius:var(--r);padding:10px 12px;cursor:pointer;font:inherit;color:var(--ink);min-height:56px}
+                            .sh-mode__opt b{display:block;font-size:14.5px}
+                            .sh-mode__opt span{display:block;font-size:12.5px;color:var(--ink-2);margin-top:2px}
+                            .sh-mode__opt[aria-checked="true"]{border-color:var(--accent);background:var(--accent-soft);box-shadow:0 0 0 1px var(--accent)}
                             .sh-quote{display:flex;gap:8px;align-items:flex-start;margin:10px 0 2px;padding:10px 12px;border-radius:var(--r-sm);background:var(--ok-soft);color:var(--ok);font-size:13.5px;font-weight:600}
                             .sh-empty{font-size:14px;color:var(--ink-2);margin:4px 0;padding:12px 14px;background:#f3efe9;border-radius:var(--r)}
                         </style>
@@ -303,6 +308,17 @@
                             </div>
                             <div class="sh-list" id="{{ $p }}sh_list" role="radiogroup" aria-label="Oficinas de Shalom"></div>
                             <input type="hidden" name="agency_office_id" id="{{ $p }}agency_office_id" value="{{ old('agency_office_id') }}">
+                            {{-- Vía de envío: solo si la tienda ofrece aéreo y las dos
+                                 oficinas lo atienden (ver ShipmentController::shalomAirOffered). --}}
+                            <div class="sh-mode" id="{{ $p }}sh_mode" hidden role="radiogroup" aria-label="Vía de envío">
+                                <button type="button" class="sh-mode__opt" data-air="0" aria-checked="true">
+                                    <b>🚚 Terrestre</b><span class="js-t">—</span>
+                                </button>
+                                <button type="button" class="sh-mode__opt" data-air="1" aria-checked="false">
+                                    <b>✈️ Aéreo</b><span class="js-a">—</span>
+                                </button>
+                            </div>
+                            <input type="hidden" name="shalom_air" id="{{ $p }}shalom_air" value="{{ old('shalom_air') ? 1 : 0 }}">
                             <div class="sh-quote" id="{{ $p }}sh_quote" hidden></div>
                             <label class="chk chk-inline" id="{{ $p }}sh_unknown_wrap">
                                 <input type="checkbox" name="agency_office_unknown" value="1" id="{{ $p }}sh_unknown" {{ old('agency_office_unknown') ? 'checked' : '' }}>
@@ -444,6 +460,7 @@
                                 <div class="r"><span class="k">Dirección</span><span class="v" id="c_dir">—</span></div>
                                 <div class="r"><span class="k" id="k_ref">Referencia</span><span class="v" id="c_ref">—</span></div>
                                 <div class="r" id="r_ag"><span class="k">Agencia</span><span class="v" id="c_ag">—</span></div>
+                                <div class="r" id="r_via" hidden><span class="k">Vía</span><span class="v" id="c_via">—</span></div>
                                 <div class="r" id="r_coords"><span class="k">Ubicación GPS</span><span class="v" id="c_coords">—</span></div>
                                 <div class="r" id="r_price"><span class="k">Costo aprox. de envío</span><span class="v" id="c_price" style="color:#059669;">—</span></div>
                             </div>

@@ -95,6 +95,10 @@ class ShalomTracking
         if (!self::hasGuide($s)) {
             return null;
         }
+        if (array_key_exists('shalom_air', $data) && (bool) $data['shalom_air'] !== (bool) $s->shalom_air) {
+            return 'Este envío ya tiene la guía de Shalom ' . ($s->tracking_number ?: '') . ' por vía '
+                . ($s->shalom_air ? 'aérea' : 'terrestre') . '. Para cambiar la vía, quita primero la guía y anúlala en pro.shalom.pe.';
+        }
         foreach (['delivery_type', 'shipping_agency', 'district_id', 'agency_office_id', 'dni', 'pickup_person_dni'] as $campo) {
             if (array_key_exists($campo, $data) && (string) $data[$campo] !== (string) $s->{$campo}) {
                 return 'Este envío ya tiene la guía de Shalom ' . ($s->tracking_number ?: '') . ': el destino y quien recoge ya están '
