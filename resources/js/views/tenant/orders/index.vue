@@ -54,6 +54,13 @@
                         <!-- OJO: esto NO es una configuracion de motorizados
                              —no existe tal catalogo— sino el tablero de
                              reparto a domicilio. -->
+                        <!-- Shalom: oficina de despacho y cuenta Shalom Pro de la
+                             tienda. Es la misma política de envío de Tienda
+                             virtual, abierta aquí, que es donde se trabaja. -->
+                        <el-dropdown-item command="shalom">
+                            <i class="el-icon-s-promotion"></i>
+                            Shalom: cuenta y despacho
+                        </el-dropdown-item>
                         <el-dropdown-item command="motorizado">
                             <i class="el-icon-bicycle"></i>
                             Tablero de reparto a domicilio
@@ -1473,6 +1480,13 @@
             :orderId="detalleOrderId"
             @saved="onDetalleGuardado"
         ></order-detail>
+
+        <!-- Política de envío (oficina de despacho y cuenta Shalom Pro). -->
+        <store-shipping-settings
+            :visible.sync="shippingSettingsVisible"
+            reason="Configura desde qué oficina de Shalom despachas y conecta tu cuenta de Shalom Pro."
+            @saved="refrescarTrasEnvio"
+        ></store-shipping-settings>
 
         <!-- Guía de Shalom creada por API (plan con instancias). -->
         <shalom-guide
@@ -3757,6 +3771,7 @@ import ManualOrder from "./partials/manual_order.vue";
 import OrderDetail from "./partials/order_detail.vue";
 import ShipmentGuide from "./partials/shipment_guide.vue";
 import ShalomGuide from "./partials/shalom_guide.vue";
+import StoreShippingSettings from "../../../components/StoreShippingSettings.vue";
 import BillingType from "./partials/billing_type.vue";
 import SaleNoteGenerate from "../sale_notes/partials/option_documents.vue";
 import DocumentsPanel from "./partials/documents_panel.vue";
@@ -3784,6 +3799,7 @@ export default {
     components: {
         ShipmentGuide,
         ShalomGuide,
+        StoreShippingSettings,
         BillingType,
         SaleNoteGenerate,
         DocumentsPanel,
@@ -3950,6 +3966,7 @@ export default {
             guideOrderId: null,
             guideCode: "",
             showShalomDialog: false,
+            shippingSettingsVisible: false,
             shalomOrderId: null,
             shalomShipmentId: null,
             shalomInfo: null,
@@ -6491,6 +6508,10 @@ export default {
                 lotes: "/orders/print-batches",
             };
 
+            if (destino === "shalom") {
+                this.shippingSettingsVisible = true;
+                return;
+            }
             if (rutas[destino]) window.open(rutas[destino], "_blank");
         },
 
