@@ -541,6 +541,12 @@ if ($hostname) {
                  ->whereNumber('shipment')->name('orders.shipping.dispatch');
             Route::get('orders/envio/{shipment}/guia', [\App\Http\Controllers\Tenant\ShipmentController::class, 'downloadGuide'])
                  ->whereNumber('shipment')->name('orders.shipping.guide_file');
+            // Shalom con instancia (plan Pro/Business): crear la guía en la
+            // cuenta de la tienda y bajar su rótulo oficial.
+            Route::post('orders/{order}/envio/shalom-guia', [\App\Http\Controllers\Tenant\OrderShipmentActionController::class, 'shalomGuia'])
+                 ->whereNumber('order')->name('orders.shipping.shalom_guide');
+            Route::get('orders/envio/{shipment}/shalom-rotulo', [\App\Http\Controllers\Tenant\ShipmentController::class, 'shalomLabel'])
+                 ->whereNumber('shipment')->name('orders.shipping.shalom_label');
             Route::get('orders/ubigeo/provincias/{department}', [\App\Http\Controllers\Tenant\ShipmentController::class, 'provinces'])
                  ->name('orders.shipping.provinces');
             Route::get('orders/ubigeo/distritos/{province}', [\App\Http\Controllers\Tenant\ShipmentController::class, 'districts'])
@@ -1946,6 +1952,11 @@ if ($hostname) {
         Route::post('webhooks/marketing/inbound', 'MarketingInboundController@inbound')
              ->name('marketing.webhook.inbound');
 
+        // ─── Webhook de Shalom (cambios de estado de guías) ──────────────────
+        // Firmado con HMAC (X-Shalom-Signature); ver ShalomWebhookController.
+        Route::post('webhooks/shalom', 'System\ShalomWebhookController@handle')
+             ->middleware('throttle:300,1')->name('shalom.webhook');
+
         // Root del central: SIEMPRE redirige al marketplace público.
         // El SuperAdmin puede acceder a su dashboard manualmente vía
         // /dashboard o /login — no tiene sentido que al visitar
@@ -2045,6 +2056,7 @@ if ($hostname) {
                 Route::get('/',      'System\ShalomSystemController@index')->name('index');
                 Route::put('key',    'System\ShalomSystemController@updateKey')->name('key');
                 Route::put('plan',   'System\ShalomSystemController@updatePlan')->name('plan');
+                Route::post('webhook', 'System\ShalomSystemController@webhook')->name('webhook');
                 Route::post('check', 'System\ShalomSystemController@check')->name('check');
                 Route::post('sync',  'System\ShalomSystemController@sync')->name('sync');
             });

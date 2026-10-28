@@ -65,10 +65,11 @@ class Configuration extends Model
         'shalom_last_error',
         'shalom_last_error_at',
         'shalom_plan',
+        'shalom_webhook_secret',
     ];
 
     // La llave nunca viaja en un toArray()/JSON de la configuración.
-    protected $hidden = ['shalom_api_key'];
+    protected $hidden = ['shalom_api_key', 'shalom_webhook_secret'];
 
 
     protected $casts = [
@@ -81,6 +82,7 @@ class Configuration extends Model
         'seller_requires_active_ruc' => 'boolean',
         'marketplace_ads_enabled' => 'boolean',
         'shalom_api_key' => 'encrypted',
+        'shalom_webhook_secret' => 'encrypted',
         'shalom_synced_at' => 'datetime',
         'shalom_last_error_at' => 'datetime',
     ];

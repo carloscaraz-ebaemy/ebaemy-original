@@ -176,6 +176,37 @@ class ShalomApi
         }
     }
 
+    /** POST /account/pending-shipments — envíos pendientes de la cuenta (espejo). */
+    public function pendingShipments(string $instanceId): array
+    {
+        $this->assertInstances();
+
+        return $this->send('post', '/account/pending-shipments', ['instanceId' => $instanceId], null, 60);
+    }
+
+    // ── Webhooks (plan Pro/Business) ──────────────────────────────────────
+
+    /** PUT /webhooks — registra la URL y devuelve el secreto whsec_ (solo aquí se ve completo). */
+    public function configureWebhook(string $url, bool $rotate = false): array
+    {
+        if (!ShalomPlan::allowsWebhooks()) {
+            throw new RuntimeException('El plan Básico de Shalom API no incluye webhooks.');
+        }
+
+        return $this->send('put', '/webhooks', ['url' => $url, 'rotateSecret' => $rotate], null, 25);
+    }
+
+    public function webhookStatus(): array
+    {
+        return $this->send('get', '/webhooks', [], null, 20);
+    }
+
+    /** POST /tracking/subscriptions — avisar por webhook cada cambio de estado de la guía. */
+    public function subscribe(string $orderNumber, string $orderCode): array
+    {
+        return $this->send('post', '/tracking/subscriptions', ['orderNumber' => $orderNumber, 'orderCode' => $orderCode], null, 25);
+    }
+
     /** POST /track — búsqueda y estados de una guía (espejo de Shalom). */
     public function track(string $orderNumber, string $orderCode): array
     {

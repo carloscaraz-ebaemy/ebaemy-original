@@ -31,6 +31,9 @@ class ShalomSystemController extends Controller
             'keySource'  => $this->api->keySource(),
             'keyPreview' => $key ? (substr($key, 0, 7) . '…' . substr($key, -4)) : null,
             'plan'       => \App\Services\System\ShalomPlan::current(),
+            'webhookOn'  => !empty(optional($config)->getRawOriginal('shalom_webhook_secret')),
+            'guides'     => \Illuminate\Support\Facades\Schema::hasTable('shalom_guides')
+                ? \Illuminate\Support\Facades\DB::table('shalom_guides')->count() : 0,
             'stats'      => [
                 'total'      => ShalomAgency::count(),
                 'selectable' => ShalomAgency::selectable()->count(),
@@ -74,6 +77,27 @@ class ShalomSystemController extends Controller
         SystemConfiguration::first()->forceFill(['shalom_plan' => $data['shalom_plan']])->save();
 
         return back()->with('shalom_ok', 'Plan actualizado: ' . \App\Services\System\ShalomPlan::PLANS[$data['shalom_plan']]['label'] . '.');
+    }
+
+    /**
+     * Registra en Shalom la URL del webhook (una para toda la cuenta) y guarda
+     * el secreto de firma, que Shalom muestra completo solo en esta respuesta.
+     */
+    public function webhook()
+    {
+        $url = rtrim(config('app.url') ?: 'https://ebaemy.com', '/') . '/webhooks/shalom';
+        try {
+            $r = $this->api->configureWebhook($url, true);
+        } catch (\Throwable $e) {
+            return back()->with('shalom_error', 'No se pudo activar: ' . $e->getMessage());
+        }
+        $secret = $r['webhook']['secret'] ?? null;
+        if (!$secret) {
+            return back()->with('shalom_error', 'Shalom no devolvió el secreto de firma.');
+        }
+        SystemConfiguration::first()->forceFill(['shalom_webhook_secret' => $secret])->save();
+
+        return back()->with('shalom_ok', "Avisos activados: Shalom avisará a {$url} cada cambio de estado.");
     }
 
     public function check()

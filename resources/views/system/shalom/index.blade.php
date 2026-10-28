@@ -86,6 +86,21 @@
         <p style="margin:10px 0 0;font-size:12.5px">Cada tienda guarda su usuario y contraseña de Shalom Pro en su política de envío. Con un plan con instancias, la tienda toca «Guardar y conectar».</p>
     </div>
 
+    @if($pi['webhooks'])
+    <div class="sh-card">
+        <h2>Avisos de Shalom (webhook)</h2>
+        <p>
+            Shalom avisa a ebaemy cada cambio de estado de las guías ({{ number_format($guides) }} registradas) y el cliente
+            recibe un WhatsApp cuando su paquete llega a la oficina.
+            Estado: <b style="color:{{ $webhookOn ? 'var(--ok)' : 'var(--bad)' }}">{{ $webhookOn ? 'activos' : 'sin activar' }}</b>
+        </p>
+        <form method="POST" action="{{ route('system.shalom.webhook') }}">
+            @csrf
+            <button class="sh-btn {{ $webhookOn ? '' : 'go' }}" type="submit">{{ $webhookOn ? 'Volver a registrar (nuevo secreto)' : 'Activar avisos' }}</button>
+        </form>
+    </div>
+    @endif
+
     <div class="sh-card">
         <h2>Catálogo de oficinas guardado</h2>
         <div class="sh-kv">

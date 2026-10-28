@@ -982,7 +982,9 @@ class ShipmentController extends Controller
         // existen en Shalom. Si aún no aparece, se reintenta cada 2 h.
         $avisoShalom = '';
         if ($rastreo && $esShalom && $shipment->tracking_code) {
-            $ok = app(\App\Services\Tenant\ShalomTracking::class)->refresh($shipment);
+            $tr = app(\App\Services\Tenant\ShalomTracking::class);
+            $ok = $tr->refresh($shipment);
+            $tr->watch($shipment);
             $avisoShalom = $ok
                 ? ' Seguimiento de Shalom activado.'
                 : ' Shalom todavía no muestra esa guía; la volvemos a consultar cada 2 horas.';
@@ -995,6 +997,49 @@ class ShipmentController extends Controller
         $this->syncOrder($shipment);
 
         return back()->with('success', "Guía {$shipment->tracking_number} cargada. Envío marcado como Enviado." . $avisoShalom);
+    }
+
+    /**
+     * Crea la guía en Shalom (instancia de la tienda) antes de llevar el
+     * paquete. No cambia el estado del envío: el paquete aún no salió.
+     */
+    public function createShalomGuide(Request $request, ShippingRequest $shipment): \Illuminate\Http\JsonResponse
+    {
+        if ($bloqueo = $this->blockIfCancelled($shipment, $request)) {
+            return response()->json(['success' => false, 'message' => 'El envío está anulado.']);
+        }
+        $data = $request->validate([
+            'content' => 'required|string|in:' . implode(',', \App\Services\Tenant\ShalomGuide::CONTENTS),
+            'clave'   => 'nullable|digits:4',
+        ], [], ['content' => 'tamaño del paquete', 'clave' => 'clave de recojo']);
+
+        try {
+            $r = app(\App\Services\Tenant\ShalomGuide::class)->create($shipment, $data['content'], $data['clave'] ?? null);
+        } catch (\Throwable $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()]);
+        }
+
+        $msg = $r['number']
+            ? "Guía de Shalom {$r['number']} · código {$r['code']} · clave de recojo {$r['clave']}."
+            : 'Guía creada en Shalom; su número aparecerá en unos minutos. Ya puedes imprimir el rótulo oficial.';
+
+        return response()->json(['success' => true, 'message' => $msg] + $r);
+    }
+
+    /** Rótulo oficial de Shalom (PDF) para imprimir y pegar en el paquete. */
+    public function shalomLabel(ShippingRequest $shipment)
+    {
+        try {
+            $pdf = app(\App\Services\Tenant\ShalomGuide::class)->label($shipment);
+        } catch (\Throwable $e) {
+            return response('<p style="font-family:system-ui;padding:24px">No se pudo bajar el rótulo de Shalom: '
+                . e($e->getMessage()) . '</p>', 422);
+        }
+
+        return response($pdf, 200, [
+            'Content-Type'        => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="rotulo-shalom-' . ($shipment->tracking_number ?: $shipment->shipment_code) . '.pdf"',
+        ]);
     }
 
     /** Cambiar el estado del paquete (preparando / listo / entregado / …). */

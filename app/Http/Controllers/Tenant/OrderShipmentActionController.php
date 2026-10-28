@@ -75,6 +75,13 @@ class OrderShipmentActionController extends Controller
             app(ShipmentController::class)->uploadGuide($request, $envio));
     }
 
+    /** Crear la guía de Shalom del envío del pedido (cuenta Shalom Pro de la tienda). */
+    public function shalomGuia(Request $request, Order $order)
+    {
+        return $this->reenviar($order, fn ($envio) =>
+            app(ShipmentController::class)->createShalomGuide($request, $envio));
+    }
+
     /**
      * Resuelve el envío del pedido, ejecuta la acción y traduce la respuesta.
      *

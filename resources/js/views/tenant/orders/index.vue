@@ -1249,6 +1249,22 @@
                                          que aplica el bloqueo por lote y la
                                          cascada. Un segundo sitio para lo mismo
                                          solo daria dos comportamientos. -->
+                                    <!-- Shalom con instancia: la guía se crea desde aquí
+                                         y el rótulo es el oficial de Shalom. -->
+                                    <el-dropdown-item
+                                        v-if="row.shipment && row.shipment.shalom && row.shipment.shalom.can_create"
+                                        command="shalomGuide"
+                                    >
+                                        <i class="el-icon-document-add"></i>
+                                        Crear guía en Shalom
+                                    </el-dropdown-item>
+                                    <el-dropdown-item
+                                        v-if="row.shipment && row.shipment.shalom && row.shipment.shalom.label_url"
+                                        command="shalomLabel"
+                                    >
+                                        <i class="el-icon-printer"></i>
+                                        Rótulo oficial de Shalom
+                                    </el-dropdown-item>
                                     <el-dropdown-item
                                         v-if="row.shipment && !row.shipment.is_pickup && !row.shipment.has_guide"
                                         command="uploadGuide"
@@ -1457,6 +1473,15 @@
             :orderId="detalleOrderId"
             @saved="onDetalleGuardado"
         ></order-detail>
+
+        <!-- Guía de Shalom creada por API (plan con instancias). -->
+        <shalom-guide
+            :showDialog.sync="showShalomDialog"
+            :orderId="shalomOrderId"
+            :shipmentId="shalomShipmentId"
+            :shalom="shalomInfo"
+            @saved="refrescarTrasEnvio"
+        ></shalom-guide>
 
         <!-- Guía de la agencia: el comprobante de que el paquete salió. -->
         <shipment-guide
@@ -3731,6 +3756,7 @@ import RecordPayments from "../partials/record_payments.vue";
 import ManualOrder from "./partials/manual_order.vue";
 import OrderDetail from "./partials/order_detail.vue";
 import ShipmentGuide from "./partials/shipment_guide.vue";
+import ShalomGuide from "./partials/shalom_guide.vue";
 import BillingType from "./partials/billing_type.vue";
 import SaleNoteGenerate from "../sale_notes/partials/option_documents.vue";
 import DocumentsPanel from "./partials/documents_panel.vue";
@@ -3757,6 +3783,7 @@ export default {
 
     components: {
         ShipmentGuide,
+        ShalomGuide,
         BillingType,
         SaleNoteGenerate,
         DocumentsPanel,
@@ -3922,6 +3949,10 @@ export default {
             showGuideDialog: false,
             guideOrderId: null,
             guideCode: "",
+            showShalomDialog: false,
+            shalomOrderId: null,
+            shalomShipmentId: null,
+            shalomInfo: null,
             // Busqueda unica. Se manda al DataTable como la columna `search`,
             // que en el backend es «buscar en todo».
             q: "",
@@ -4468,6 +4499,8 @@ export default {
                 // primera sin error, asi que «Subir guia» llamaba a `openGuide`,
                 // que sin URL no hace nada. El boton estaba muerto.
                 uploadGuide: () => this.subirGuia(row),
+                shalomGuide: () => this.crearGuiaShalom(row),
+                shalomLabel: () => window.open(row.shipment.shalom.label_url, "_blank"),
                 viewGuide: () => this.openGuide(row)
             };
             if (acciones[cmd]) acciones[cmd]();
@@ -5585,6 +5618,13 @@ export default {
                 )
                 .then(r => this.trasAccionDeEnvio(r, false, row.id))
                 .catch(e => this.trasAccionDeEnvio(e, true));
+        },
+
+        crearGuiaShalom(row) {
+            this.shalomOrderId = row.id;
+            this.shalomShipmentId = row.shipment ? row.shipment.id : null;
+            this.shalomInfo = row.shipment ? row.shipment.shalom : null;
+            this.showShalomDialog = true;
         },
 
         subirGuia(row) {

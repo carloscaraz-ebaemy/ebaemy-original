@@ -117,6 +117,39 @@ class ShalomTracking
         return true;
     }
 
+    /**
+     * Anota la guía en el mapa del sistema (para que el webhook central sepa
+     * de qué tienda es) y, si el plan incluye webhooks, la suscribe a los
+     * avisos de cambio de estado. Idempotente.
+     */
+    public function watch(ShippingRequest $s): void
+    {
+        if (!self::applies($s)) {
+            return;
+        }
+        try {
+            $website = app(\Hyn\Tenancy\Environment::class)->tenant();
+            if (!$website) {
+                return;
+            }
+            $db = \Illuminate\Support\Facades\DB::connection('system')->table('shalom_guides');
+            $key = ['order_number' => $s->tracking_number, 'order_code' => $s->tracking_code];
+            $row = (clone $db)->where($key)->first();
+            if (!$row) {
+                $db->insert($key + ['website_id' => $website->id, 'shipping_request_id' => $s->id, 'created_at' => now(), 'updated_at' => now()]);
+                $row = (clone $db)->where($key)->first();
+            }
+            if (!$row->subscribed && \App\Services\System\ShalomPlan::allowsWebhooks()) {
+                $r = $this->api->subscribe($s->tracking_number, $s->tracking_code);
+                if (!empty($r['success'])) {
+                    (clone $db)->where('id', $row->id)->update(['subscribed' => true, 'updated_at' => now()]);
+                }
+            }
+        } catch (\Throwable $e) {
+            \Log::info('[shalom] no se pudo suscribir la guía ' . $s->tracking_number . ': ' . $e->getMessage());
+        }
+    }
+
     /** ¿Conviene volver a consultar? Cada 30 min mientras no esté entregada. */
     public static function stale(ShippingRequest $s): bool
     {

@@ -554,6 +554,8 @@ class OrderCollection extends ResourceCollection
             'address'          => $s->shipping_destination,
             'tracking_number'  => $s->tracking_number,
             'has_guide'        => (bool) $s->shipping_guide_path,
+            // Shalom con instancia: crear la guía y bajar su rótulo oficial.
+            'shalom'           => self::shalomFlags($s),
             // URL de la guia que dio la agencia. La servia solo el panel de
             // Envios, asi que desde Pedidos habia que salir de la pantalla
             // para ver un PDF que ya estaba cargado.
@@ -743,6 +745,41 @@ class OrderCollection extends ResourceCollection
         }
 
         return '';
+    }
+
+    /**
+     * Qué se puede hacer con Shalom en esta fila. El blocker se calcula una
+     * vez por listado (plan + política de la tienda) y por fila solo se mira
+     * el envío.
+     */
+    protected static function shalomFlags($s): ?array
+    {
+        if ($s->shipping_agency !== 'Shalom') {
+            return null;
+        }
+        static $tienda = null;
+        if ($tienda === null) {
+            try {
+                $st = \App\Models\Tenant\ShippingSetting::current();
+                $tienda = ['plan' => \App\Services\System\ShalomPlan::allowsInstances(), 'ready' => !empty($st->shalom_instance_id) && !empty($st->shalom_origin_id)];
+            } catch (\Throwable $e) {
+                $tienda = ['plan' => false, 'ready' => false];
+            }
+        }
+        $ce = $s->carrier_events ?? [];
+        $tiene = !empty($s->tracking_code) || !empty($ce['ose_id']);
+
+        return [
+            'enabled'    => $tienda['plan'],
+            'ready'      => $tienda['ready'],
+            'has_guide'  => $tiene,
+            'can_create' => $tienda['plan'] && !$tiene && !$s->is_cancelled,
+            'office'     => $s->agency_office_name ?? null,
+            'code'       => $s->tracking_code ?? null,
+            'clave'      => $ce['clave'] ?? null,
+            'status'     => $s->carrier_status ?? null,
+            'label_url'  => $tiene && $tienda['ready'] ? url('orders/envio/' . $s->id . '/shalom-rotulo') : null,
+        ];
     }
 
     protected static function numeroONulo($v): ?float
