@@ -2567,6 +2567,17 @@ class ShipmentController extends Controller
             return redirect()->route('shipments.pickup_receipt', $shipment);
         }
 
+        // Shalom con la cuenta de la tienda: el rótulo es el oficial y sale de
+        // la guía. El de ebaemy no se imprime nunca para ese paquete.
+        if (\App\Services\Tenant\ShalomGuide::replacesLabel($shipment)) {
+            if (\App\Services\Tenant\ShalomTracking::hasGuide($shipment)) {
+                return redirect(url('orders/envio/' . $shipment->id . '/shalom-imprimir'));
+            }
+
+            return back()->with('error', "{$shipment->shipment_code} va por Shalom con tu cuenta: primero crea su guía "
+                . '(«Guía de Shalom» en el pedido) y después imprime el rótulo de Shalom.');
+        }
+
         // Reimpresión de un rótulo suelto: exige motivo y queda en el historial.
         $reason = trim((string) $request->query('motivo'));
 
@@ -2712,6 +2723,8 @@ class ShipmentController extends Controller
             ]);
         }
 
+        [$shalom, $printable] = $this->splitShalom($printable);
+
         $items = $printable->values()->map(fn ($s) => [
             'shipment' => $s,
             'ubigeo'   => $this->resolveUbigeo($s),
@@ -2726,7 +2739,102 @@ class ShipmentController extends Controller
             'ids'     => $printable->pluck('id')->implode(','),
             'skipped' => $blocked->values(),
             'reasons' => $reasons,
+            'shalom'  => $shalom,
         ]);
+    }
+
+    /**
+     * Separa de una tanda los envíos que llevan el rótulo OFICIAL de Shalom.
+     *
+     * Un lote mezcla agencias y cada una tiene su procedimiento: los de Shalom
+     * con la cuenta de la tienda necesitan guía antes del rótulo, y su rótulo
+     * es el PDF de Shalom; el resto sigue con el de ebaemy.
+     *
+     * @return array{0:\Illuminate\Support\Collection, 1:\Illuminate\Support\Collection} [shalom, ebaemy]
+     */
+    private function splitShalom($shipments): array
+    {
+        $st = ShippingSetting::current();
+        [$shalom, $ebaemy] = collect($shipments)->values()
+            ->partition(fn ($s) => \App\Services\Tenant\ShalomGuide::replacesLabel($s, $st));
+
+        return [$shalom->values(), $ebaemy->values()];
+    }
+
+    /**
+     * Crea las guías de Shalom que faltan en una tanda (desde el lote).
+     *
+     * Usa el tamaño típico de la tienda y los bultos de cada envío. Lo que no
+     * se puede decidir sin el operador (sin tamaño típico, vía aérea sin
+     * declaración, sin oficina) se devuelve con el motivo y se resuelve en su
+     * panel «Guía de Shalom». De a pocos por llamada: cada guía tarda.
+     */
+    public function shalomBatchCreate(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $ids = collect((array) $request->input('ids'))->map(fn ($x) => (int) $x)->filter()->unique()->take(10);
+        $st = ShippingSetting::current();
+        $content = \App\Services\Tenant\ShalomGuide::defaultContent($st);
+        $guide = app(\App\Services\Tenant\ShalomGuide::class);
+        $out = [];
+
+        foreach (ShippingRequest::whereIn('id', $ids)->get() as $s) {
+            $code = $s->shipment_code ?: ('#' . $s->id);
+            if (!\App\Services\Tenant\ShalomGuide::replacesLabel($s, $st) || \App\Services\Tenant\ShalomTracking::hasGuide($s)) {
+                continue;
+            }
+            $why = $this->paymentBlocks($s) ? 'Pago sin confirmar' : $s->labelBlockReason(true);
+            if ($why) {
+                $out[] = ['id' => $s->id, 'code' => $code, 'ok' => false, 'message' => $why];
+                continue;
+            }
+            if (!$content) {
+                $out[] = ['id' => $s->id, 'code' => $code, 'ok' => false, 'message' => 'La tienda no tiene «tamaño típico» de paquete: crea esta guía desde su panel o configúralo en la política de envío.'];
+                continue;
+            }
+            if (!empty($s->shalom_air)) {
+                $out[] = ['id' => $s->id, 'code' => $code, 'ok' => false, 'message' => 'Va por vía aérea: Shalom pide declarar el contenido. Créala desde su panel.'];
+                continue;
+            }
+            try {
+                $r = $guide->create($s, $content);
+                $out[] = ['id' => $s->id, 'code' => $code, 'ok' => true, 'message' => 'Guía ' . ($r['number'] ?: 'creada') . ' · ' . max(1, (int) $s->package_count) . ' bulto(s)'];
+            } catch (\Throwable $e) {
+                $out[] = ['id' => $s->id, 'code' => $code, 'ok' => false, 'message' => $e->getMessage()];
+            }
+        }
+
+        return response()->json(['success' => true, 'results' => $out]);
+    }
+
+    /**
+     * Imprime juntos los rótulos (o tickets) de Shalom de una tanda, una copia
+     * por bulto y en el papel que elija el operador. El PDF se arma en el
+     * navegador con los PDF oficiales (partials/shalom-pdf-js).
+     */
+    public function shalomBatchPrint(Request $request)
+    {
+        $ids = collect(explode(',', (string) $request->query('ids', '')))->map(fn ($x) => (int) trim($x))->filter()->unique()->take(60);
+        abort_if($ids->isEmpty(), 404);
+        $doc = $request->query('doc') === 'ticket' ? 'ticket' : 'rotulo';
+        $st = ShippingSetting::current();
+
+        $listos = collect();
+        $fuera = [];
+        foreach (ShippingRequest::whereIn('id', $ids)->orderBy('id')->get() as $s) {
+            $code = $s->shipment_code ?: ('#' . $s->id);
+            $why = $this->paymentBlocks($s) ? 'Pago sin confirmar' : $s->labelBlockReason(false);
+            if (!\App\Services\Tenant\ShalomGuide::replacesLabel($s, $st)) {
+                $fuera[] = [$code, 'no va por Shalom con tu cuenta'];
+            } elseif ($why) {
+                $fuera[] = [$code, $why];
+            } elseif (!\App\Services\Tenant\ShalomTracking::hasGuide($s)) {
+                $fuera[] = [$code, 'todavía no tiene guía de Shalom'];
+            } else {
+                $listos->push($s);
+            }
+        }
+
+        return view('tenant.shipments.shalom-batch-print', ['listos' => $listos, 'fuera' => $fuera, 'doc' => $doc]);
     }
 
     // ── Lotes de impresión ─────────────────────────────────────────────────
@@ -2873,7 +2981,9 @@ class ShipmentController extends Controller
             $service->registerReprint($batch, $reason, $format);
         }
 
-        $items = $shipments->map(fn ($s) => [
+        [$shalom, $ebaemy] = $this->splitShalom($shipments);
+
+        $items = $ebaemy->map(fn ($s) => [
             'shipment' => $s,
             'ubigeo'   => $this->resolveUbigeo($s),
             'qr'       => $this->makeQr($s),
@@ -2884,9 +2994,10 @@ class ShipmentController extends Controller
             'items'   => $items,
             'company' => Company::first(),
             'format'  => $format,
-            'ids'     => $shipments->pluck('id')->implode(','),
+            'ids'     => $ebaemy->pluck('id')->implode(','),
             'skipped' => collect(),
             'batch'   => $batch->fresh(),
+            'shalom'  => $shalom,
         ]);
     }
 

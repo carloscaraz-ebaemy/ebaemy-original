@@ -226,6 +226,12 @@ if ($hostname) {
                      ->name('shipments.lookup');
                 Route::get('lote-imprimir', [\App\Http\Controllers\Tenant\ShipmentController::class, 'printBatch'])
                      ->name('shipments.print_batch');
+                // Shalom con la cuenta de la tienda, dentro de un lote: crear
+                // las guías que faltan e imprimir sus rótulos oficiales juntos.
+                Route::post('shalom-guias-lote', [\App\Http\Controllers\Tenant\ShipmentController::class, 'shalomBatchCreate'])
+                     ->name('shipments.shalom_batch_create')->middleware('throttle:10,1');
+                Route::get('shalom-lote', [\App\Http\Controllers\Tenant\ShipmentController::class, 'shalomBatchPrint'])
+                     ->name('shipments.shalom_batch_print');
                 Route::get('exportar', [\App\Http\Controllers\Tenant\ShipmentController::class, 'export'])
                      ->name('shipments.export');
                 Route::get('buscar-productos', [\App\Http\Controllers\Tenant\ShipmentController::class, 'searchItems'])

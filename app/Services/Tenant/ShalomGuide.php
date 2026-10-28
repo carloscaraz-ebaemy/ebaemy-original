@@ -28,6 +28,35 @@ class ShalomGuide
 
     public function __construct(private ShalomApi $api) {}
 
+    /**
+     * ¿Este envío lleva el rótulo OFICIAL de Shalom en vez del de ebaemy?
+     *
+     * Con la cuenta de la tienda conectada, la guía se crea desde ebaemy y el
+     * rótulo sale de ella (trae número y código de Shalom). Imprimirle además
+     * el de ebaemy era pegar dos rótulos distintos en el mismo paquete; en el
+     * lote pasaba siempre, porque el lote no sabía de Shalom.
+     */
+    public static function replacesLabel(ShippingRequest $s, ?ShippingSetting $st = null): bool
+    {
+        if ($s->shipping_agency !== 'Shalom' || $s->delivery_type !== ShippingRequest::DELIVERY_AGENCIA) {
+            return false;
+        }
+        $st = $st ?? ShippingSetting::current();
+
+        return ShalomPlan::allowsInstances() && !empty($st->shalom_instance_id) && !empty($st->shalom_origin_id);
+    }
+
+    /** Tamaño típico de la tienda para la guía, o null si no lo configuró. */
+    public static function defaultContent(?ShippingSetting $st = null): ?string
+    {
+        $pk = ShalomPackage::normalize(($st ?? ShippingSetting::current())->shalom_package ?? null);
+        if (!$pk) {
+            return null;
+        }
+
+        return $pk['type'] === 'size' ? $pk['size'] : 'PAQUETE L';
+    }
+
     /** Por qué no se puede crear la guía de este envío, o null si se puede. */
     public static function blocker(ShippingRequest $s, ?ShippingSetting $st = null): ?string
     {

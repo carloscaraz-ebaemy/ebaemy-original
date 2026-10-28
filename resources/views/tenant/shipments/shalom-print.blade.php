@@ -4,40 +4,61 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ $doc === 'ticket' ? 'Ticket' : 'Rótulo' }} de Shalom · {{ $shipment->tracking_number ?: $shipment->shipment_code }}</title>
-    <style>
-        * { box-sizing: border-box; }
-        body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background: #e5e7eb; color: #0f172a; }
-        .bar { position: sticky; top: 0; z-index: 2; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: center;
-               padding: 10px 12px; background: #fff; border-bottom: 1px solid #e2e8f0; }
-        .bar a, .bar button { border: 1px solid #e2e8f0; background: #fff; color: #334155; border-radius: 9px; padding: 8px 14px;
-               font-size: 14px; font-weight: 600; text-decoration: none; cursor: pointer; }
-        .bar a.on { background: #0f172a; border-color: #0f172a; color: #fff; }
-        .bar .go { background: #16a34a; border-color: #16a34a; color: #fff; }
-        .bar small { color: #64748b; font-size: 12.5px; width: 100%; text-align: center; }
-        iframe { display: block; width: 100%; height: calc(100vh - 92px); border: 0; background: #fff; }
-    </style>
+    @include('tenant.shipments.partials.shalom-print-styles')
 </head>
 <body>
     {{-- El PDF es el oficial de Shalom. Esta página existe para que imprimirlo
          cuente como «rótulo impreso» (contador, chip y bitácora), igual que el
-         rótulo de ebaemy: abrir el PDF suelto no dejaba rastro. --}}
+         rótulo de ebaemy, y para acomodarlo al papel de la tienda con una
+         copia por bulto (ver partials/shalom-pdf-js). --}}
+    @php $bultos = $doc === 'rotulo' ? max(1, (int) ($shipment->package_count ?: 1)) : 1; @endphp
     <div class="bar">
         <a href="?doc=rotulo" class="{{ $doc === 'rotulo' ? 'on' : '' }}">Rótulo</a>
         <a href="?doc=ticket" class="{{ $doc === 'ticket' ? 'on' : '' }}">Ticket con QR</a>
-        <button type="button" class="go" id="imprimir">🖨 Imprimir</button>
-        <small>
+        <label class="fmt">Papel <select id="fmt"></select></label>
+        <button type="button" class="go" id="imprimir" disabled>🖨 Imprimir</button>
+        <small id="nota">
             Guía {{ $shipment->tracking_number ?: '—' }}{{ $shipment->tracking_code ? ' · código ' . $shipment->tracking_code : '' }}
             {{ !empty($shipment->shalom_air) ? '· ✈ aérea' : '' }}
-            · El ticket trae el QR que escanea la agencia.
+            · {{ $doc === 'rotulo'
+                ? ($bultos > 1 ? $bultos . ' bultos: sale un rótulo para cada caja.' : 'Pégalo en la caja.')
+                : 'La agencia escanea este QR para recibir el paquete.' }}
         </small>
     </div>
-    <iframe id="pdf" src="{{ $pdfUrl }}" title="Documento de Shalom"></iframe>
+    <div id="estado" class="estado">Preparando el documento de Shalom…</div>
+    <iframe id="pdf" title="Documento de Shalom" hidden></iframe>
 
+@include('tenant.shipments.partials.shalom-pdf-js')
 <script>
 (function () {
+    var DOC = @json($doc), ORIGINAL = @json($pdfUrl), COPIAS = {{ $bultos }};
+    var sel = document.getElementById('fmt'), f = document.getElementById('pdf'),
+        est = document.getElementById('estado'), btn = document.getElementById('imprimir');
+    ShalomPdf.POR_DOC[DOC].forEach(function (k) {
+        var o = document.createElement('option'); o.value = k; o.textContent = ShalomPdf.FORMATOS[k].label; sel.appendChild(o);
+    });
+    sel.value = ShalomPdf.recordado(DOC);
+
+    function mostrar(url) { f.src = url; f.hidden = false; est.hidden = true; btn.disabled = false; }
+    function armar() {
+        btn.disabled = true; est.hidden = false; est.textContent = 'Preparando el documento de Shalom…';
+        ShalomPdf.build([{ url: ORIGINAL, copies: COPIAS }], sel.value)
+            .then(mostrar)
+            .catch(function () {
+                // Sin armar: el PDF tal cual llega de Shalom, avisando las copias.
+                mostrar(ORIGINAL);
+                if (COPIAS > 1) {
+                    est.hidden = false; est.className = 'estado warn';
+                    est.textContent = 'Imprime ' + COPIAS + ' copias (una por caja): no se pudo armar el PDF con todas.';
+                }
+            });
+    }
+    sel.addEventListener('change', function () { ShalomPdf.recordar(DOC, sel.value); armar(); });
+    armar();
+
     var avisado = false;
     function registrar() {
-        if (avisado) return;
+        if (avisado || DOC !== 'rotulo') return;
         avisado = true;
         fetch('{{ url("registro-envio/" . $shipment->id . "/impreso") }}', {
             method: 'POST',
@@ -48,8 +69,7 @@
             try { if (window.opener && !window.opener.closed) window.opener.postMessage({ tipo: 'rotulo-impreso', envio: {{ $shipment->id }} }, '*'); } catch (e) {}
         }).catch(function () {});
     }
-    document.getElementById('imprimir').addEventListener('click', function () {
-        var f = document.getElementById('pdf');
+    btn.addEventListener('click', function () {
         try { f.contentWindow.focus(); f.contentWindow.print(); }
         catch (e) { window.open(f.src, '_blank'); }
         registrar();
