@@ -761,9 +761,9 @@ class OrderCollection extends ResourceCollection
         if ($tienda === null) {
             try {
                 $st = \App\Models\Tenant\ShippingSetting::current();
-                $tienda = ['plan' => \App\Services\System\ShalomPlan::allowsInstances(), 'ready' => !empty($st->shalom_instance_id) && !empty($st->shalom_origin_id)];
+                $tienda = ['plan' => \App\Services\System\ShalomPlan::allowsInstances(), 'ready' => !empty($st->shalom_instance_id) && !empty($st->shalom_origin_id), 'clave_fija' => $st->shalom_default_clave ?? null];
             } catch (\Throwable $e) {
-                $tienda = ['plan' => false, 'ready' => false];
+                $tienda = ['plan' => false, 'ready' => false, 'clave_fija' => null];
             }
         }
         $ce = $s->carrier_events ?? [];
@@ -777,6 +777,7 @@ class OrderCollection extends ResourceCollection
             'office'     => $s->agency_office_name ?? null,
             'code'       => $s->tracking_code ?? null,
             'clave'      => $ce['clave'] ?? null,
+            'clave_fija' => $tienda['clave_fija'],
             'status'     => $s->carrier_status ?? null,
             'label_url'  => $tiene && $tienda['ready'] ? url('orders/envio/' . $s->id . '/shalom-rotulo') : null,
         ];

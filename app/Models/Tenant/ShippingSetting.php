@@ -41,6 +41,8 @@ class ShippingSetting extends Model
         'shalom_instance_connected_at',
         'shalom_pro_user',
         'shalom_pro_password',
+        // Clave de recojo única para todas las guías (vacía = una por paquete).
+        'shalom_default_clave',
     ];
 
     // La contraseña de Shalom Pro nunca sale en un toArray()/JSON.

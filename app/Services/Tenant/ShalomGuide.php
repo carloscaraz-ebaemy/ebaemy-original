@@ -81,7 +81,10 @@ class ShalomGuide
         }
 
         [$nombres, $paterno, $materno] = $this->names($fullName, $dni);
-        $clave = preg_match('/^\d{4}$/', (string) $clave) ? $clave : str_pad((string) random_int(0, 9999), 4, '0', STR_PAD_LEFT);
+        // Prioridad: la del diálogo, la clave fija de la tienda, o una nueva.
+        $clave = preg_match('/^\d{4}$/', (string) $clave) ? $clave
+            : (preg_match('/^\d{4}$/', (string) ($st->shalom_default_clave ?? '')) ? $st->shalom_default_clave
+            : str_pad((string) random_int(0, 9999), 4, '0', STR_PAD_LEFT));
 
         $r = $this->api->registerGuide($st->shalom_instance_id, [
             'origen'    => (int) $st->shalom_origin_id,

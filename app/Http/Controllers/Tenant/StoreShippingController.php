@@ -26,11 +26,18 @@ class StoreShippingController extends Controller
     {
         abort_unless(optional(auth()->user())->type === 'admin', 403, 'Solo el administrador puede cambiar la cuenta de Shalom.');
         $d = $request->validate([
-            'user'     => ['nullable', 'string', 'max:150'],
-            'password' => ['nullable', 'string', 'max:150'],
-        ]);
+            'user'       => ['nullable', 'string', 'max:150'],
+            'password'   => ['nullable', 'string', 'max:150'],
+            'clave'      => ['nullable', 'digits:4'],
+            'only_clave' => ['nullable', 'boolean'],
+        ], ['clave.digits' => 'La clave de recojo son 4 dígitos.']);
 
-        $r = $shipping->saveShalomAccount(trim((string) ($d['user'] ?? '')) ?: null, $d['password'] ?? null);
+        $r = $shipping->saveShalomAccount(
+            trim((string) ($d['user'] ?? '')) ?: null,
+            $d['password'] ?? null,
+            $d['clave'] ?? null,
+            (bool) ($d['only_clave'] ?? false)
+        );
 
         return response()->json($r + ['shalom_pro' => $shipping->formData()['shalom_pro']], $r['saved'] ? 200 : 409);
     }

@@ -213,11 +213,24 @@ class StoreShipping
      *
      * @return array{saved:bool, connected:bool, message:string}
      */
-    public function saveShalomAccount(?string $user, ?string $password): array
+    public function saveShalomAccount(?string $user, ?string $password, ?string $clave = null, bool $soloClave = false): array
     {
         $st = $this->settings();
-        if (!\Illuminate\Support\Facades\Schema::connection('tenant')->hasColumn('shipping_settings', 'shalom_pro_user')) {
+        $schema = \Illuminate\Support\Facades\Schema::connection('tenant');
+        if (!$schema->hasColumn('shipping_settings', 'shalom_pro_user')) {
             return ['saved' => false, 'connected' => false, 'message' => 'Falta actualizar la base de datos de la tienda.'];
+        }
+
+        // La clave fija se guarda sola, sin tocar la cuenta ni reconectar.
+        if ($schema->hasColumn('shipping_settings', 'shalom_default_clave')) {
+            $st->shalom_default_clave = preg_match('/^\d{4}$/', (string) $clave) ? $clave : null;
+        }
+        if ($soloClave) {
+            $st->save();
+
+            return ['saved' => true, 'connected' => !empty($st->shalom_instance_id), 'message' => $st->shalom_default_clave
+                ? "Clave de recojo {$st->shalom_default_clave} guardada para todas las guías."
+                : 'Sin clave fija: cada guía tendrá su propia clave.'];
         }
 
         $st->shalom_pro_user = $user ?: null;
@@ -313,6 +326,7 @@ class StoreShipping
                 'connected'    => !empty($st->shalom_instance_id),
                 'connected_at' => optional($st->shalom_instance_connected_at)->format('d/m/Y H:i'),
                 'plan_allows'  => \App\Services\System\ShalomPlan::allowsInstances(),
+                'clave'        => $st->shalom_default_clave,
             ],
         ];
     }

@@ -40,8 +40,11 @@
 
             <div class="shg-field">
                 <label>Clave de recojo <small style="font-weight:400;color:#64748b">(4 dígitos, opcional)</small></label>
-                <el-input v-model="clave" maxlength="4" placeholder="Se genera sola" style="max-width:160px"></el-input>
-                <small class="shg-sub">El cliente la dice al recoger. Se la enviamos por WhatsApp cuando llegue.</small>
+                <el-input v-model="clave" maxlength="4" :placeholder="claveFija ? 'Tu clave fija: ' + claveFija : 'Se genera sola'" style="max-width:180px"></el-input>
+                <small class="shg-sub">
+                    {{ claveFija ? 'Si la dejas vacía se usa tu clave fija ' + claveFija + '.' : 'El cliente la dice al recoger.' }}
+                    Se la enviamos por WhatsApp cuando llegue.
+                </small>
             </div>
         </template>
 
@@ -82,6 +85,9 @@ export default {
     computed: {
         office() {
             return this.shalom ? this.shalom.office : null;
+        },
+        claveFija() {
+            return this.shalom ? this.shalom.clave_fija : null;
         },
     },
     methods: {
