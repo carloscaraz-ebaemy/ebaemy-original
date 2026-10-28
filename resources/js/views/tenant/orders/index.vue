@@ -1228,27 +1228,17 @@
                                 <el-button size="mini" class="ord-actions-btn">
                                     <i class="fas fa-ellipsis-v"></i>
                                 </el-button>
-                                <el-dropdown-menu slot="dropdown">
+                                <!-- El menu va por GRUPOS (Pedido, Envio, Rotulo y guia,
+                                     Cobros y documentos) y lo que deshace algo queda al
+                                     final, separado. Antes las acciones salian
+                                     mezcladas: «Anular envio» entre las normales y las
+                                     impresiones repartidas por todo el menu. -->
+                                <el-dropdown-menu slot="dropdown" class="ord-menu">
+                                    <li class="ord-menu-h">Pedido</li>
                                     <el-dropdown-item command="ver">
                                         <i class="el-icon-view"></i>
                                         Ver pedido
                                     </el-dropdown-item>
-                                    <el-dropdown-item
-                                        v-if="canGenerateInvoice(row) && !esAnulado(row)"
-                                        command="invoice"
-                                        divided
-                                    >
-                                        <i class="el-icon-document"></i>
-                                        {{
-                                            invoiceIsRisky(row)
-                                                ? "Generar boleta ⚠ (sin entrega confirmada)"
-                                                : "Generar boleta"
-                                        }}
-                                    </el-dropdown-item>
-
-                                    <!-- Emitida aqui pero todavia no esta en
-                                         Saga: es el paso que falta y antes no
-                                         se veia por ningun lado. -->
                                     <!-- Editar: solo antes de despachar. El
                                          servidor lo vuelve a comprobar. -->
                                     <el-dropdown-item
@@ -1258,63 +1248,16 @@
                                         <i class="el-icon-edit"></i>
                                         Editar pedido
                                     </el-dropdown-item>
+                                    <el-dropdown-item command="timeline">
+                                        <i class="el-icon-time"></i>
+                                        Ver historial
+                                    </el-dropdown-item>
 
-                                    <!-- Acciones del ENVIO del pedido. Solo se
-                                         ofrecen si el pedido tiene envio: el
-                                         rotulo, la modalidad y la anulacion son
-                                         del envio, no del pedido. -->
-                                    <!-- La modalidad NO se cambia desde aqui:
-                                         ya se elige en «Configurar envio», que
-                                         ahora enruta el cambio por el camino
-                                         que aplica el bloqueo por lote y la
-                                         cascada. Un segundo sitio para lo mismo
-                                         solo daria dos comportamientos. -->
-                                    <!-- Shalom con instancia: la guía se crea desde aquí
-                                         y el rótulo es el oficial de Shalom. -->
-                                    <el-dropdown-item
-                                        v-if="row.shipment && row.shipment.shalom && row.shipment.shalom.can_create"
-                                        command="shalomGuide"
-                                    >
-                                        <i class="el-icon-document-add"></i>
-                                        Crear guía en Shalom
-                                    </el-dropdown-item>
-                                    <el-dropdown-item
-                                        v-if="row.shipment && row.shipment.shalom && row.shipment.shalom.label_url"
-                                        command="shalomLabel"
-                                    >
-                                        <i class="el-icon-printer"></i>
-                                        Imprimir rótulo de Shalom
-                                    </el-dropdown-item>
-                                    <el-dropdown-item
-                                        v-if="row.shipment && row.shipment.shalom && row.shipment.shalom.ticket_url"
-                                        command="shalomTicket"
-                                    >
-                                        <i class="el-icon-tickets"></i>
-                                        Ticket de Shalom (con QR)
-                                    </el-dropdown-item>
-                                    <el-dropdown-item
-                                        v-if="row.shipment && row.shipment.shalom && row.shipment.shalom.can_remove"
-                                        command="shalomRemove"
-                                    >
-                                        <i class="el-icon-remove-outline"></i>
-                                        Quitar guía de Shalom
-                                    </el-dropdown-item>
-                                    <el-dropdown-item
-                                        v-if="row.shipment && !row.shipment.is_pickup && !row.shipment.has_guide"
-                                        command="uploadGuide"
-                                    >
-                                        <i class="el-icon-upload"></i>
-                                        Subir guía de la agencia
-                                    </el-dropdown-item>
-                                    <!-- El envio ya no tiene columna propia:
-                                         estas tres eran botones sueltos en la
-                                         celda «Entrega» y ahora viven aqui. La
-                                         informacion (destino, agencia, tracking)
-                                         esta en el tooltip del chip de estado. -->
-                                    <el-dropdown-item
-                                        v-if="row.shipment"
-                                        command="shipment"
-                                    >
+                                    <!-- Acciones del ENVIO. La modalidad NO se cambia
+                                         desde aqui: se elige en «Configurar envio», que
+                                         aplica el bloqueo por lote y la cascada. -->
+                                    <li class="ord-menu-h">Envío</li>
+                                    <el-dropdown-item v-if="row.shipment" command="shipment">
                                         <i class="el-icon-truck"></i>
                                         Ver / editar envío
                                     </el-dropdown-item>
@@ -1329,15 +1272,17 @@
                                         <i class="el-icon-truck"></i>
                                         Configurar envío
                                     </el-dropdown-item>
-                                    <!-- Recojo en tienda: del mostrador a
-                                         «entregado» en un clic.
-                                         El rotulo NUNCA fue obligatorio aqui
-                                         —`needsShippingLabel()` ya devuelve
-                                         false para el recojo y su flujo ni
-                                         siquiera incluye «impreso»— pero para
-                                         cerrar la entrega habia que abrir el
-                                         envio y buscar el estado en un
-                                         desplegable. -->
+                                    <!-- Enlace para que el CLIENTE complete sus datos
+                                         de entrega: llega al pedido, no crea uno nuevo. -->
+                                    <el-dropdown-item
+                                        v-if="!esAnulado(row) && !esEntregado(row)"
+                                        command="shippingLink"
+                                    >
+                                        <i class="el-icon-link"></i>
+                                        Copiar enlace de datos de envío
+                                    </el-dropdown-item>
+                                    <!-- Recojo en tienda: del mostrador a «entregado»
+                                         en un clic (su flujo no tiene rotulo). -->
                                     <el-dropdown-item
                                         v-if="puedeEntregarEnTienda(row)"
                                         command="deliverPickup"
@@ -1346,32 +1291,98 @@
                                         Marcar como entregado
                                     </el-dropdown-item>
 
-                                    <el-dropdown-item
-                                        v-if="row.shipment && !esEntregado(row)"
-                                        command="cancelShipment"
-                                    >
-                                        <i class="el-icon-close"></i>
-                                        Anular envío
-                                    </el-dropdown-item>
+                                    <template v-if="tieneAccionesRotulo(row)">
+                                        <li class="ord-menu-h">Rótulo y guía</li>
+                                        <!-- Shalom con instancia: la guía se crea desde
+                                             aquí y el rótulo es el oficial de Shalom. -->
+                                        <el-dropdown-item
+                                            v-if="row.shipment && row.shipment.shalom && row.shipment.shalom.can_create"
+                                            command="shalomGuide"
+                                        >
+                                            <i class="el-icon-document-add"></i>
+                                            Crear guía en Shalom
+                                        </el-dropdown-item>
+                                        <el-dropdown-item
+                                            v-if="row.shipment && row.shipment.shalom && row.shipment.shalom.label_url"
+                                            command="shalomLabel"
+                                        >
+                                            <i class="el-icon-printer"></i>
+                                            Imprimir rótulo de Shalom
+                                        </el-dropdown-item>
+                                        <el-dropdown-item
+                                            v-if="row.shipment && row.shipment.shalom && row.shipment.shalom.ticket_url"
+                                            command="shalomTicket"
+                                        >
+                                            <i class="el-icon-tickets"></i>
+                                            Ticket de Shalom (con QR)
+                                        </el-dropdown-item>
+                                        <!-- Con Shalom conectado el rótulo es el de Shalom:
+                                             ofrecer también el de ebaemy era imprimir dos
+                                             rótulos distintos para el mismo paquete. -->
+                                        <el-dropdown-item
+                                            v-if="row.shipment && !esAnulado(row) && !esEntregado(row)
+                                                  && !(row.shipment.shalom && row.shipment.shalom.replaces_label)"
+                                            command="label"
+                                            :disabled="!!row.shipment.print_block"
+                                        >
+                                            <i class="el-icon-printer"></i>
+                                            {{ labelActionText(row) }}
+                                        </el-dropdown-item>
+                                        <el-dropdown-item v-if="canDownloadLabel(row)" command="sagaLabel">
+                                            <i class="el-icon-printer"></i>
+                                            Rótulo de Saga
+                                        </el-dropdown-item>
+                                        <!-- Si Shalom ya creó la guía no hay nada que
+                                             subir: salía junto a «Quitar guía de Shalom». -->
+                                        <el-dropdown-item
+                                            v-if="row.shipment && !row.shipment.is_pickup && !row.shipment.has_guide
+                                                  && !(row.shipment.shalom && row.shipment.shalom.has_guide)"
+                                            command="uploadGuide"
+                                        >
+                                            <i class="el-icon-upload"></i>
+                                            Subir guía de la agencia
+                                        </el-dropdown-item>
+                                        <el-dropdown-item
+                                            v-if="row.shipment && row.shipment.guide_url"
+                                            command="viewGuide"
+                                        >
+                                            <i class="el-icon-document"></i>
+                                            Ver guía de la agencia
+                                        </el-dropdown-item>
+                                    </template>
 
-                                    <!-- Documentos, en una sola entrada. Antes
-                                         habia TRES de emision aqui (nota de
-                                         venta, comprobante y guia de remision)
-                                         que ya vivian dentro de este panel, con
-                                         mas contexto del que cabe en una linea
-                                         de menu: que corresponde emitir, que
-                                         esta bloqueado y por que. El panel solo
-                                         se abria desde los chips de la columna
-                                         «Docs», que no todo el mundo descubre. -->
+                                    <li class="ord-menu-h">Cobros y documentos</li>
+                                    <el-dropdown-item command="payments">
+                                        <i class="el-icon-wallet"></i>
+                                        Pagos del pedido
+                                    </el-dropdown-item>
+                                    <!-- Verificar es OTRA cosa que registrar. Solo si
+                                         el tenant lo exige. -->
+                                    <el-dropdown-item v-if="verification" command="verifyPayments">
+                                        <i class="el-icon-circle-check"></i>
+                                        Verificar cobros
+                                    </el-dropdown-item>
+                                    <el-dropdown-item
+                                        v-if="canGenerateInvoice(row) && !esAnulado(row)"
+                                        command="invoice"
+                                    >
+                                        <i class="el-icon-document"></i>
+                                        {{
+                                            invoiceIsRisky(row)
+                                                ? "Generar boleta ⚠ (sin entrega confirmada)"
+                                                : "Generar boleta"
+                                        }}
+                                    </el-dropdown-item>
+                                    <!-- Una sola entrada: el panel dice que corresponde
+                                         emitir, que esta bloqueado y por que. -->
                                     <el-dropdown-item command="documents">
                                         <i class="el-icon-folder-opened"></i>
                                         Documentos
                                     </el-dropdown-item>
 
-                                    <!-- La UNICA modificacion que admite un
-                                         pedido anulado. Se ofrece solo ahi, y
-                                         separada del resto para que no se
-                                         confunda con las acciones normales. -->
+                                    <!-- Lo que DESHACE algo, al final y separado de las
+                                         acciones normales. Restaurar es la UNICA
+                                         modificacion que admite un pedido anulado. -->
                                     <el-dropdown-item
                                         v-if="esAnulado(row)"
                                         command="restoreOrder"
@@ -1380,86 +1391,23 @@
                                         <i class="el-icon-refresh-left"></i>
                                         Restaurar pedido
                                     </el-dropdown-item>
-
-                                    <el-dropdown-item command="payments">
-                                        <i class="el-icon-wallet"></i>
-                                        Pagos del pedido
-                                    </el-dropdown-item>
-
-                                    <!-- Verificar es OTRA cosa que registrar, y
-                                         por eso es otra accion. Solo si el
-                                         tenant lo exige. -->
                                     <el-dropdown-item
-                                        v-if="verification"
-                                        command="verifyPayments"
-                                    >
-                                        <i class="el-icon-circle-check"></i>
-                                        Verificar cobros
-                                    </el-dropdown-item>
-
-                                    <!-- Documentos. Se ofrecen SOLO cuando
-                                         `OrderDocuments` dice que se pueden
-                                         emitir: la fila no repite las reglas de
-                                         SUNAT, las consulta. -->
-
-
-
-                                    <!-- Rotulado. Se ofrece solo si el pedido
-                                         tiene envio: el rotulo es del envio, no
-                                         del pedido. -->
-                                    <!-- Con Shalom conectado el rótulo es el de Shalom
-                                         («Imprimir rótulo de Shalom», más arriba): ofrecer
-                                         también el de ebaemy era imprimir dos rótulos
-                                         distintos para el mismo paquete. -->
-                                    <el-dropdown-item
-                                        v-if="row.shipment && !esAnulado(row) && !esEntregado(row)
-                                              && !(row.shipment.shalom && row.shipment.shalom.replaces_label)"
-                                        command="label"
-                                        :disabled="!!row.shipment.print_block"
-                                    >
-                                        <i class="el-icon-printer"></i>
-                                        {{ labelActionText(row) }}
-                                    </el-dropdown-item>
-
-
-
-
-
-                                    <el-dropdown-item
-                                        v-if="canDownloadLabel(row)"
-                                        command="sagaLabel"
-                                    >
-                                        <i class="el-icon-printer"></i>
-                                        Rótulo de Saga
-                                    </el-dropdown-item>
-
-                                    <!-- Enlace para que el CLIENTE complete sus
-                                         datos de entrega. Reemplaza al
-                                         formulario público suelto: llega al
-                                         pedido, no crea uno nuevo. -->
-                                    <el-dropdown-item
-                                        v-if="!esAnulado(row) && !esEntregado(row)"
-                                        command="shippingLink"
+                                        v-if="row.shipment && row.shipment.shalom && row.shipment.shalom.can_remove"
+                                        command="shalomRemove"
                                         divided
+                                        class="ord-menu-danger"
                                     >
-                                        <i class="el-icon-link"></i>
-                                        Copiar enlace de datos de envío
+                                        <i class="el-icon-remove-outline"></i>
+                                        Quitar guía de Shalom
                                     </el-dropdown-item>
-
-                                    <!-- La guia que dio la agencia. Ya estaba
-                                         cargada, pero solo se podia abrir desde
-                                         el panel de Envios. -->
                                     <el-dropdown-item
-                                        v-if="row.shipment && row.shipment.guide_url"
-                                        command="viewGuide"
+                                        v-if="row.shipment && !esEntregado(row)"
+                                        command="cancelShipment"
+                                        :divided="!(row.shipment.shalom && row.shipment.shalom.can_remove)"
+                                        class="ord-menu-danger"
                                     >
-                                        <i class="el-icon-document"></i>
-                                        Ver guía de la agencia
-                                    </el-dropdown-item>
-
-                                    <el-dropdown-item command="timeline">
-                                        <i class="el-icon-time"></i>
-                                        Ver historial
+                                        <i class="el-icon-close"></i>
+                                        Anular envío
                                     </el-dropdown-item>
                                 </el-dropdown-menu>
                             </el-dropdown>
@@ -1750,6 +1698,30 @@
    cuando queda deuda: es la unica parte que pide accion. */
 .ord-actions-btn {
     padding: 5px 9px;
+}
+/* Menu de la fila por grupos. El desplegable de Element cuelga del <body>:
+   por eso estas reglas van sin ancestro de la tabla. */
+.ord-menu .ord-menu-h {
+    list-style: none;
+    padding: 8px 16px 3px;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #94a3b8;
+    cursor: default;
+}
+.ord-menu .ord-menu-h:not(:first-child) {
+    margin-top: 4px;
+    border-top: 1px solid #eef2f6;
+}
+.ord-menu .el-dropdown-menu__item.ord-menu-danger {
+    color: #b91c1c;
+}
+.ord-menu .el-dropdown-menu__item.ord-menu-danger:hover,
+.ord-menu .el-dropdown-menu__item.ord-menu-danger:focus {
+    background: #fef2f2;
+    color: #991b1b;
 }
 /* ── Columna "Documentos": los chips ─────────────────────────────────
    Cuatro siglas en una celda estrecha. El color dice el estado y el clic
@@ -6855,6 +6827,17 @@ export default {
          * pasa a entregado, asi que preguntarle al envio seria dar un rodeo
          * para llegar al mismo sitio.
          */
+        // ¿Hay algo que imprimir o adjuntar? Sin esto el título «Rótulo y
+        // guía» quedaba suelto encima de nada.
+        tieneAccionesRotulo(row) {
+            const s = row.shipment;
+            if (!s) return this.canDownloadLabel(row);
+            const sh = s.shalom || {};
+            return !!(sh.can_create || sh.label_url || sh.ticket_url || s.guide_url
+                || this.canDownloadLabel(row)
+                || (!this.esAnulado(row) && !this.esEntregado(row) && !sh.replaces_label)
+                || (!s.is_pickup && !s.has_guide && !sh.has_guide));
+        },
         esEntregado(row) {
             return Number(row.status_order_id) === 6;
         },
