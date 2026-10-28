@@ -988,6 +988,27 @@ input.mp-co-invalid, select.mp-co-invalid, textarea.mp-co-invalid {
             placeList.hidden = false;
             placeIn.setAttribute('aria-expanded', 'true');
         }
+        // Orden: nombre exacto, luego empieza por, luego provincia/departamento;
+        // dentro de cada grupo, Lima y Callao primero (de donde vienen casi
+        // todos los pedidos: «Miraflores» es el de Lima, no el de Arequipa).
+        function search() {
+            const q = fold(placeIn.value);
+            if (q.length < 2) { closeList(); return; }
+            if (!index.length) {
+                placeList.innerHTML = '<li class="is-empty">Cargando distritos…</li>';
+                placeList.hidden = false;
+                return;
+            }
+            const found = [];
+            for (const e of index) {
+                const rank = e.d === q ? 0 : (e.d.startsWith(q) ? 1 : (e.d.includes(' ' + q) ? 2 : (e.all.includes(q) ? 3 : -1)));
+                if (rank >= 0) found.push([rank * 2 + (e.lima ? 0 : 1), e]);
+            }
+            found.sort((a, b) => a[0] - b[0]);
+            hits = found.slice(0, 8).map(x => x[1]);
+            active = hits.length ? 0 : -1;
+            render();
+        }
         function pick(h) {
             window.__mpUbigeoSet(h.dep, h.prov, h.dist);
             closeList();
@@ -997,17 +1018,7 @@ input.mp-co-invalid, select.mp-co-invalid, textarea.mp-co-invalid {
             placeIn.addEventListener('input', () => {
                 // Escribir de nuevo anula la eleccion anterior.
                 if (distSel.value) { depSel.value = ''; onDep(); onZone(); }
-                const q = fold(placeIn.value);
-                if (q.length < 2) { closeList(); return; }
-                const starts = [], has = [];
-                for (const e of index) {
-                    if (e.d.startsWith(q)) starts.push(e);
-                    else if (has.length < 8 && e.all.includes(q)) has.push(e);
-                    if (starts.length >= 8) break;
-                }
-                hits = starts.concat(has).slice(0, 8);
-                active = hits.length ? 0 : -1;
-                render();
+                search();
             });
             placeIn.addEventListener('keydown', (e) => {
                 if (placeList.hidden || !hits.length) return;
@@ -1024,8 +1035,11 @@ input.mp-co-invalid, select.mp-co-invalid, textarea.mp-co-invalid {
             .then(d => {
                 data = d;
                 data.forEach(dep => dep.p.forEach(pr => pr.d.forEach(dist => {
-                    index.push({ dep: dep.n, prov: pr.n, dist: dist, d: fold(dist), all: fold(dist + ' ' + pr.n + ' ' + dep.n) });
+                    const lima = norm(pr.n) === 'LIMA' || norm(dep.n) === 'CALLAO';
+                    index.push({ dep: dep.n, prov: pr.n, dist: dist, lima: lima, d: fold(dist), all: fold(dist + ' ' + pr.n + ' ' + dep.n) });
                 })));
+                // Si el comprador ya estaba escribiendo mientras cargaba la lista.
+                if (placeIn && document.activeElement === placeIn) search();
                 data.forEach(dep => depSel.appendChild(opt(dep.n)));
                 if (depSel.dataset.old) { depSel.value = depSel.dataset.old; if (depSel.value) onDep(); }
                 onZone();
