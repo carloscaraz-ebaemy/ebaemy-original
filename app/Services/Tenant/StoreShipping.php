@@ -206,6 +206,21 @@ class StoreShipping
         }
     }
 
+    /** La oficina de Shalom (catálogo del sistema) para mostrarla en el panel. */
+    public function shalomOffice($terId): ?array
+    {
+        if (!$terId) {
+            return null;
+        }
+        try {
+            $a = \App\Models\System\ShalomAgency::find((int) $terId);
+        } catch (\Throwable $e) {
+            return null;
+        }
+
+        return $a ? ['id' => $a->ter_id, 'name' => $a->name, 'place' => trim($a->province . ', ' . $a->department, ', '), 'address' => $a->address] : null;
+    }
+
     /** Datos para el formulario: lo guardado, o una propuesta a partir de lo que ya hay. */
     public function formData(): array
     {
@@ -233,6 +248,9 @@ class StoreShipping
             'free_from'          => (float) (optional(Configuration::first())->ecommerce_free_shipping_threshold ?? 0) ?: null,
             'cutoff_time'        => $st->cutoff_hhmm,
             'agencies_catalog'   => \App\Models\Tenant\ShippingRequest::AGENCIES,
+            // Oficina de Shalom de origen: con ella se cotiza el viaje real.
+            'shalom_origin_id'   => $st->shalom_origin_id ? (int) $st->shalom_origin_id : null,
+            'shalom_origin'      => $this->shalomOffice($st->shalom_origin_id),
         ];
     }
 
@@ -260,6 +278,7 @@ class StoreShipping
             'pickup_ready_hours'     => ['nullable', 'integer', 'min:1', 'max:720'],
             'free_from'              => ['nullable', 'numeric', 'min:0', 'max:99999'],
             'cutoff_time'            => ['nullable', 'date_format:H:i'],
+            'shalom_origin_id'       => ['nullable', 'integer', 'min:1'],
         ];
     }
 
@@ -284,6 +303,12 @@ class StoreShipping
             'cutoff_time'            => $d['cutoff_time'] ?? null,
             'shipping_confirmed_at'  => now(),
         ]);
+        // Hasta que la migración pase por todas las tiendas, la columna puede
+        // no existir: no se escribe y el resto de la política se guarda igual.
+        if (array_key_exists('shalom_origin_id', $d)
+            && \Illuminate\Support\Facades\Schema::connection('tenant')->hasColumn('shipping_settings', 'shalom_origin_id')) {
+            $st->shalom_origin_id = $d['shalom_origin_id'] ?: null;
+        }
         // La tarifa «llevarlo a la agencia» es la misma que usa el módulo de Envíos.
         if (!empty($d['agency_fee_mode'])) {
             $st->agency_fee_mode = $d['agency_fee_mode'];

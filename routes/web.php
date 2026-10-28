@@ -165,6 +165,9 @@ if ($hostname) {
         // llave del API nunca llega al navegador).
         Route::get('envio/agencias-shalom/{district}', [\App\Http\Controllers\Tenant\ShipmentController::class, 'shalomOffices'])
              ->where('district', '[0-9]{6}')->name('shipments.public.shalom_offices')->middleware('throttle:60,1');
+        // Tiempo de viaje y flete de Shalom hasta la oficina elegida.
+        Route::get('envio/shalom-cotizacion/{office}', [\App\Http\Controllers\Tenant\ShipmentController::class, 'shalomQuote'])
+             ->where('office', '[0-9]+')->name('shipments.public.shalom_quote')->middleware('throttle:30,1');
         // Consulta DNI/RUC pública (para el formulario del cliente), con throttle estricto.
         Route::get('envio/consulta/{type}/{number}', [\App\Http\Controllers\Tenant\ShipmentController::class, 'lookupDocument'])
              ->where('type', 'dni|ruc')->where('number', '[0-9]+')
@@ -869,6 +872,7 @@ if ($hostname) {
             Route::get('store-shipping', 'Tenant\StoreShippingController@show');
             Route::post('store-shipping', 'Tenant\StoreShippingController@save');
             Route::post('store-shipping/preview', 'Tenant\StoreShippingController@preview');
+            Route::get('store-shipping/shalom-offices', 'Tenant\StoreShippingController@shalomOffices');
             // Política de cambios y devoluciones (datos → texto de la página pública)
             Route::get('store-returns', 'Tenant\StoreReturnsController@show');
             Route::post('store-returns', 'Tenant\StoreReturnsController@save');

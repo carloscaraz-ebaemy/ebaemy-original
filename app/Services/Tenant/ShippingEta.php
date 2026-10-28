@@ -55,7 +55,8 @@ class ShippingEta
                 'arrive_min' => $this->fmt($this->addBusinessDays($leave, $tMin)),
                 'arrive_max' => $this->fmt($this->addBusinessDays($leave, $tMax)),
                 'range'      => $this->range($this->addBusinessDays($leave, $tMin), $this->addBusinessDays($leave, $tMax)),
-                'short'      => 'Llega ' . $this->rangeShort($this->addBusinessDays($leave, $tMin), $this->addBusinessDays($leave, $tMax)),
+                // El viaje lo define la agencia: aquí solo se promete la salida.
+                'short'      => 'Sale de la tienda ' . $this->relative($leave, $now),
             ],
             'domicilio' => [
                 'range' => $this->range($this->addBusinessDays($start, $lMin), $this->addBusinessDays($start, $lMax)),
@@ -67,6 +68,28 @@ class ShippingEta
             ],
             'cutoff' => $cutoff,
         ];
+    }
+
+    /**
+     * Llegada con el tiempo que da Shalom para la ruta (POST /account/quote),
+     * contado desde la salida de la tienda. Las horas se pasan a días hábiles
+     * redondeando hacia arriba: 48 h = 2 días, 30 h = 2 días.
+     *
+     * @return array{date:string, short:string, days:int}
+     */
+    public function shalomArrival(int $hours, ?ShippingSetting $st = null): array
+    {
+        $st  = $st ?? ShippingSetting::current();
+        $now = $this->now ? Carbon::instance($this->now) : Carbon::now('America/Lima');
+        $start = $now->copy()->startOfDay();
+        if ($st->cutoff_hhmm && $now->format('H:i') >= $st->cutoff_hhmm) {
+            $start->addDay();
+        }
+        $leave = $this->addBusinessDays($this->toBusinessDay($start), max(0, (int) ($st->province_handling_days ?? 1)));
+        $days = max(1, (int) ceil($hours / 24));
+        $arrive = $this->addBusinessDays($leave, $days);
+
+        return ['date' => $this->fmt($arrive), 'short' => $this->dayAbbr($arrive) . ' ' . $arrive->day, 'days' => $days];
     }
 
     private function addBusinessDays(CarbonInterface $d, int $n): Carbon

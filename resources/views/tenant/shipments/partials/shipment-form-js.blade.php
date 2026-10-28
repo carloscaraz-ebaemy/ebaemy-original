@@ -213,7 +213,7 @@
         if (!SH.box) return;
         var on = shEsShalom();
         SH.box.hidden = !on;
-        if (!on) { if (SH.manual) SH.manual.hidden = false; return; }
+        if (!on) { if (SH.manual) SH.manual.hidden = false; shSinCotizacion(); return; }
 
         var d = shDistrito();
         if (d === SH.district && !SH.loading) { shPintar(); return; }
@@ -233,6 +233,7 @@
                 // Una oficina de otro distrito no sirve: se suelta.
                 if (SH.id && SH.id.value && !shElegida()) SH.id.value = '';
                 shPintar();
+                shCotizar();
                 progreso();
             });
     }
@@ -245,10 +246,62 @@
         });
     }
 
+    // ── Cotización de la ruta en Shalom ───────────────────────────────
+    //
+    // El tiempo de viaje lo define la agencia. Con la oficina de la tienda
+    // (configurada en su política de envío) y la del cliente, Shalom da el
+    // tiempo real de esa ruta y el flete por tamaño. Sin oficina de origen
+    // la respuesta es available:false y no se inventa ninguna fecha.
+    var QUOTE_URL = '{{ url("envio/shalom-cotizacion") }}';
+    var quoteEl = document.getElementById('{{ $p }}sh_quote');
+    var fleteV = document.getElementById('{{ $p }}flete_v'), fleteSub = document.getElementById('{{ $p }}flete_sub');
+    var FLETE_V0 = fleteV ? fleteV.textContent : '', FLETE_S0 = fleteSub ? fleteSub.textContent : '';
+    var quoteSeq = 0;
+    function shMoneda(n) { return 'S/ ' + (Math.round(n * 100) / 100).toFixed(n % 1 ? 2 : 0); }
+    function shSinCotizacion() {
+        if (quoteEl) quoteEl.hidden = true;
+        if (fleteV) fleteV.textContent = FLETE_V0;
+        if (fleteSub) fleteSub.textContent = FLETE_S0;
+        var li = document.querySelector('#eta-agencia .js-eta-arrive');
+        if (li) li.innerHTML = '<b>Viaja con la agencia hasta tu ciudad</b><small>El tiempo de viaje lo define la agencia. Te avisamos cuando llegue para que lo recojas con tu documento.</small>';
+    }
+    function shCotizar() {
+        var o = shElegida();
+        var mio = ++quoteSeq;
+        if (!o || !shEsShalom()) { shSinCotizacion(); return; }
+        fetch(QUOTE_URL + '/' + o.id, { headers: { 'Accept': 'application/json' } })
+            .then(function (r) { return r.ok ? r.json() : { available: false }; })
+            .catch(function () { return { available: false }; })
+            .then(function (q) {
+                if (mio !== quoteSeq) return;
+                if (!q || !q.available) { shSinCotizacion(); return; }
+                var precio = (q.price_min && q.price_max)
+                    ? (q.price_min === q.price_max ? shMoneda(q.price_min) : shMoneda(q.price_min) + ' a ' + shMoneda(q.price_max))
+                    : '';
+                var partes = [];
+                if (q.hours) partes.push('Shalom tarda unas ' + q.hours + ' horas hasta esta oficina');
+                if (precio) partes.push('flete aprox. ' + precio + ' según el tamaño');
+                if (quoteEl && partes.length) {
+                    quoteEl.textContent = partes.join(' · ') + '.';
+                    quoteEl.hidden = false;
+                }
+                if (precio && fleteV) {
+                    fleteV.textContent = precio;
+                    if (fleteSub) fleteSub.textContent = 'Lo pagas en la agencia al recoger. Depende del tamaño de tu paquete.';
+                }
+                var li = document.querySelector('#eta-agencia .js-eta-arrive');
+                if (li && q.arrive) {
+                    li.innerHTML = '<b>Llega a tu oficina aprox. el ' + shEsc(q.arrive) + '</b><small>Shalom tarda unas ' + q.hours
+                        + ' horas en esta ruta. Recoges con tu documento de identidad.</small>';
+                }
+            });
+    }
+
     if (SH.list) SH.list.addEventListener('click', function (ev) {
         var b = ev.target.closest('.sh-opt');
         if (!b) return;
         SH.id.value = b.getAttribute('data-id');
+        setTimeout(shCotizar, 0);
         if (SH.unknown) SH.unknown.checked = false;
         if (SH.err) SH.err.hidden = true;
         SH.list.classList.remove('is-bad');
@@ -256,7 +309,7 @@
         SH.id.dispatchEvent(new Event('change', { bubbles: true }));
     });
     if (SH.unknown) SH.unknown.addEventListener('change', function () {
-        if (SH.unknown.checked && SH.id) SH.id.value = '';
+        if (SH.unknown.checked && SH.id) { SH.id.value = ''; shSinCotizacion(); }
         if (SH.err) SH.err.hidden = true;
         SH.list.classList.remove('is-bad');
         shPintar();

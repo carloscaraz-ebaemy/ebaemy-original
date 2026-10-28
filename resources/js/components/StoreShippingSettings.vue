@@ -88,6 +88,23 @@
                             <el-option v-for="a in catalog" :key="a" :label="a" :value="a"></el-option>
                         </el-select>
                     </div>
+                    <!-- Con la oficina de origen el formulario del cliente cotiza en
+                         Shalom el viaje real y el flete hasta su oficina. -->
+                    <div v-if="usaShalom" class="ss__row">
+                        <span>Despacho desde</span>
+                        <el-select v-model="f.shalom_origin_id" filterable remote clearable reserve-keyword
+                                   :remote-method="buscarOficinas" :loading="buscando"
+                                   size="small" placeholder="Busca tu oficina de Shalom" class="ss__sel ss__sel--wide">
+                            <el-option v-for="o in oficinas" :key="o.id" :label="o.name + ' · ' + o.place" :value="o.id">
+                                <span>{{ o.name }}</span>
+                                <span style="float:right;color:#94a3b8;font-size:12px;margin-left:12px">{{ o.place }}</span>
+                            </el-option>
+                        </el-select>
+                    </div>
+                    <p v-if="usaShalom" class="ss__hint" style="margin:4px 0 0">
+                        La oficina de Shalom donde dejas los paquetes. Con ella le decimos al cliente
+                        cuánto tarda Shalom hasta su ciudad y cuánto cuesta el flete.
+                    </p>
                 </section>
 
                 <!-- Recojo -->
@@ -154,7 +171,12 @@ export default {
         reason: { type: String, default: '' },
     },
     data() {
-        return { loading: false, saving: false, f: null, catalog: [], preview: { lines: [], notes: [] }, timer: null };
+        return { loading: false, saving: false, f: null, catalog: [], preview: { lines: [], notes: [] }, timer: null, oficinas: [], buscando: false };
+    },
+    computed: {
+        usaShalom() {
+            return !!(this.f && (this.f.province_agencies || []).some(a => String(a).toLowerCase().includes('shalom')));
+        },
     },
     watch: {
         visible(v) { if (v) this.load(); },
@@ -180,10 +202,19 @@ export default {
                         agency_fee_mode: d.agency_fee_mode || 'free', agency_fee: d.agency_fee,
                         pickup_enabled: !!d.pickup_enabled, pickup_district: d.pickup_district, pickup_ready_hours: d.pickup_ready_hours,
                         free_from: d.free_from, cutoff_time: d.cutoff_time,
+                        shalom_origin_id: d.shalom_origin_id || null,
                     };
+                    this.oficinas = d.shalom_origin ? [d.shalom_origin] : [];
                 })
                 .catch(() => { this.$message.error('No se pudo cargar la configuración de envíos'); this.close(); })
                 .then(() => { this.loading = false; });
+        },
+        buscarOficinas(q) {
+            this.buscando = true;
+            this.$http.get('/store-shipping/shalom-offices', { params: { q } })
+                .then(r => { this.oficinas = r.data || []; })
+                .catch(() => {})
+                .then(() => { this.buscando = false; });
         },
         schedulePreview() {
             clearTimeout(this.timer);

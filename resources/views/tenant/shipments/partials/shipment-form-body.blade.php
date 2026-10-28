@@ -292,6 +292,7 @@
                             .sh-opt b{display:block;font-size:14.5px;line-height:1.3}
                             .sh-opt span{display:block;font-size:13px;color:var(--ink-2);margin-top:3px;line-height:1.4}
                             .sh-opt i{font-style:normal;display:inline-block;font-size:12px;font-weight:650;border-radius:999px;padding:2px 9px;margin-top:7px;margin-right:4px;background:#f3efe9;color:var(--ink-2)}
+                            .sh-quote{display:flex;gap:8px;align-items:flex-start;margin:10px 0 2px;padding:10px 12px;border-radius:var(--r-sm);background:var(--ok-soft);color:var(--ok);font-size:13.5px;font-weight:600}
                             .sh-empty{font-size:14px;color:var(--ink-2);margin:4px 0;padding:12px 14px;background:#f3efe9;border-radius:var(--r)}
                         </style>
                         <div id="{{ $p }}sh_box" class="sh-box" hidden>
@@ -302,6 +303,7 @@
                             </div>
                             <div class="sh-list" id="{{ $p }}sh_list" role="radiogroup" aria-label="Oficinas de Shalom"></div>
                             <input type="hidden" name="agency_office_id" id="{{ $p }}agency_office_id" value="{{ old('agency_office_id') }}">
+                            <div class="sh-quote" id="{{ $p }}sh_quote" hidden></div>
                             <label class="chk chk-inline" id="{{ $p }}sh_unknown_wrap">
                                 <input type="checkbox" name="agency_office_unknown" value="1" id="{{ $p }}sh_unknown" {{ old('agency_office_unknown') ? 'checked' : '' }}>
                                 <span>No encuentro mi oficina en la lista</span>
@@ -362,9 +364,9 @@
                             <div class="cost-row">
                                 <div class="cost-row__l">
                                     <b>{{ $tramoTienda ? '2.' : '1.' }} De la agencia a tu ciudad</b>
-                                    <small>Lo cobra la agencia. Depende del destino y del peso.</small>
+                                    <small id="{{ $p }}flete_sub">Lo cobra la agencia. Depende del destino y del peso.</small>
                                 </div>
-                                <div class="cost-row__v is-soft">Lo pagas allá</div>
+                                <div class="cost-row__v is-soft" id="{{ $p }}flete_v">Lo pagas allá</div>
                             </div>
 
                             {{-- Solo aparece si pidio reparto: si no, es ruido. --}}

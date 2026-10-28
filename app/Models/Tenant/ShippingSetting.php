@@ -34,6 +34,8 @@ class ShippingSetting extends Model
         'province_transit_min', 'province_transit_max', 'province_agencies',
         'pickup_enabled', 'pickup_district', 'pickup_ready_hours',
         'shipping_confirmed_at',
+        // Oficina de Shalom desde donde despacha (ter_id). Ver ShippingEta.
+        'shalom_origin_id',
     ];
 
     protected $casts = [

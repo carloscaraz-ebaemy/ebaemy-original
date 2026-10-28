@@ -1397,6 +1397,60 @@ class ShipmentController extends Controller
             ->header('Cache-Control', 'public, max-age=1800');
     }
 
+    /**
+     * Tiempo de viaje y flete de Shalom desde la oficina de la tienda hasta
+     * la que eligió el cliente. El viaje lo define la agencia: sin oficina
+     * de origen configurada no se inventa nada (available = false).
+     *
+     * Público.
+     */
+    public function shalomQuote(int $office)
+    {
+        $q = $this->shalomQuoteFor($office);
+        if (!$q) {
+            return response()->json(['available' => false]);
+        }
+
+        $arr = $q['hours'] ? (new \App\Services\Tenant\ShippingEta())->shalomArrival($q['hours']) : null;
+        $prices = array_values($q['prices']);
+
+        return response()->json([
+            'available' => true,
+            'hours'     => $q['hours'],
+            'arrive'    => $arr['date'] ?? null,
+            'price_min' => $prices ? min($prices) : $q['price'],
+            'price_max' => $prices ? max($prices) : $q['price'],
+        ])->header('Cache-Control', 'public, max-age=1800');
+    }
+
+    /** Cotización cacheada 12 h por ruta; null si no hay origen o el API falla. */
+    private function shalomQuoteFor(int $office): ?array
+    {
+        try {
+            $origin = (int) (ShippingSetting::current()->shalom_origin_id ?? 0);
+        } catch (\Throwable $e) {
+            return null;
+        }
+        if ($origin <= 0 || $office <= 0) {
+            return null;
+        }
+
+        $key = "shalom_quote:{$origin}:{$office}";
+        if (Cache::has($key)) {
+            return Cache::get($key);
+        }
+        try {
+            $q = app(\App\Services\System\ShalomApi::class)->quote($origin, $office);
+        } catch (\Throwable $e) {
+            Log::info('Cotización Shalom no disponible: ' . $e->getMessage());
+
+            return null;
+        }
+        Cache::put($key, $q, now()->addHours(12));
+
+        return $q;
+    }
+
     /** Editar los datos de un envío (mismo set de reglas que el alta). */
     /**
      * Edición tomando el ID del CUERPO del formulario.
@@ -3364,6 +3418,11 @@ class ShipmentController extends Controller
             // Cuándo sale y cuándo llega, por modalidad (política de envío).
             'eta'          => (new \App\Services\Tenant\ShippingEta())->forForm($store),
             'orderSummary' => isset($orderContext['order']) ? $this->publicOrderSummary($orderContext['order']) : null,
+            // Pantalla final: llegada según Shalom para la oficina elegida.
+            'sentArrival'  => ($sentShipment && ShippingRequest::hasAgencyOffice() && $sentShipment->agency_office_id
+                                && ($sq = $this->shalomQuoteFor((int) $sentShipment->agency_office_id)) && $sq['hours'])
+                ? (new \App\Services\Tenant\ShippingEta())->shalomArrival($sq['hours'], $store) + ['hours' => $sq['hours'], 'office' => $sentShipment->agency_office_name]
+                : null,
             'sent'         => $sent,
             'sentType'     => session('shipment_type'),
             'sentShipment' => $sentShipment,

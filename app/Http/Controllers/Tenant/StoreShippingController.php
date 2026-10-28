@@ -21,6 +21,37 @@ class StoreShippingController extends Controller
         return ['available' => true] + $shipping->formData();
     }
 
+    /**
+     * Buscar la oficina de Shalom desde donde despacha la tienda (panel).
+     * Lee el catálogo guardado en el sistema, no el API.
+     */
+    public function shalomOffices(Request $request)
+    {
+        $q = trim((string) $request->query('q', ''));
+        try {
+            $rows = \App\Models\System\ShalomAgency::where('listed', true)
+                ->when($q !== '', function ($w) use ($q) {
+                    foreach (preg_split('/\s+/', $q) as $t) {
+                        $w->where(function ($x) use ($t) {
+                            $x->where('name', 'like', "%{$t}%")->orWhere('full_name', 'like', "%{$t}%")
+                              ->orWhere('address', 'like', "%{$t}%");
+                        });
+                    }
+                })
+                ->orderBy('department')->orderBy('province')->orderBy('name')
+                ->limit(40)->get();
+        } catch (\Throwable $e) {
+            return [];
+        }
+
+        return $rows->map(fn ($a) => [
+            'id'      => $a->ter_id,
+            'name'    => $a->name,
+            'place'   => trim($a->province . ', ' . $a->department, ', '),
+            'address' => $a->address,
+        ])->values();
+    }
+
     /** «Así lo verá el comprador» con los datos del formulario, sin guardar. */
     public function preview(Request $request, StoreShipping $shipping)
     {

@@ -70,7 +70,43 @@ class ShalomApi
         return $body['data'];
     }
 
+    /**
+     * POST /account/quote — tarifa y tiempo de viaje entre dos oficinas
+     * (ter_id). No necesita instancia. Devuelve:
+     *   hours  tiempo de llegada que da Shalom para esa ruta (p. ej. 48)
+     *   price  tarifa base; prices: por tamaño de caja (sobre, xxs… l)
+     */
+    public function quote(int $origin, int $destination): array
+    {
+        $body = $this->send('post', '/account/quote', ['origin' => $origin, 'destination' => $destination], null, 25);
+        $d = $body['data'] ?? [];
+        $t = $d['tariff'] ?? [];
+
+        $prices = [];
+        foreach (['sobre' => 'Sobre', 'cajapaquetexxs' => 'XXS', 'cajapaquetexs' => 'XS', 'cajapaquetes' => 'S', 'cajapaquetem' => 'M', 'cajapaquetel' => 'L'] as $k => $label) {
+            if (isset($t[$k]) && is_numeric($t[$k]) && $t[$k] > 0) {
+                $prices[$label] = (float) $t[$k];
+            }
+        }
+
+        $hours = $d['data_tarifa']['tar_tiempo_llegada'] ?? null;
+        if (!is_numeric($hours) && preg_match('/(\d+)/', (string) ($d['lead_time'] ?? ''), $m)) {
+            $hours = $m[1];
+        }
+
+        return [
+            'hours'  => is_numeric($hours) && $hours > 0 ? (int) $hours : null,
+            'price'  => isset($d['price']) && is_numeric($d['price']) ? (float) $d['price'] : null,
+            'prices' => $prices,
+        ];
+    }
+
     private function get(string $path, array $query, ?string $key, int $timeout): array
+    {
+        return $this->send('get', $path, $query, $key, $timeout);
+    }
+
+    private function send(string $method, string $path, array $data, ?string $key, int $timeout): array
     {
         $key = $key ?: $this->key();
         if (!$key) {
@@ -80,7 +116,7 @@ class ShalomApi
         $res = Http::withHeaders(['x-api-key' => $key, 'Accept' => 'application/json'])
             ->timeout($timeout)
             // Con un config:cache anterior al deploy, `services.shalom` no existe.
-            ->get(rtrim(config('services.shalom.url') ?: 'https://api.shalom-api.lat', '/') . $path, $query);
+            ->{$method}(rtrim(config('services.shalom.url') ?: 'https://api.shalom-api.lat', '/') . $path, $data);
 
         if ($res->failed()) {
             $msg = $res->json('error') ?? $res->json('message') ?? substr($res->body(), 0, 200);
