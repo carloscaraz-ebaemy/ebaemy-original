@@ -21822,7 +21822,10 @@ div.sub-title.text-muted {
     background-color: color-mix(in hsl, var(--danger) 30%, #ffffff00) !important;
     color: var(--danger) !important;
 }
-.el-dropdown-menu__item--divided{
+/* Solo el separador VACÍO (<el-dropdown-item divided />) no recibe clics.
+   Sin :empty bloqueaba también las opciones reales con separador: «Anular
+   envío», «Tablero logístico», «Retirar», «Restaurar»… no hacían nada. */
+.el-dropdown-menu__item--divided:empty{
     pointer-events: none;
 }
 .el-dropdown-menu__item--divided:before{

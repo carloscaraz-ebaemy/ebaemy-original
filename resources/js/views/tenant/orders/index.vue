@@ -1281,6 +1281,15 @@
                                         <i class="el-icon-link"></i>
                                         Copiar enlace de datos de envío
                                     </el-dropdown-item>
+                                    <!-- Dónde está su pedido, en palabras del cliente
+                                         (ShipmentTimeline): para mandarlo por WhatsApp. -->
+                                    <el-dropdown-item
+                                        v-if="row.shipment && row.shipment.code && !esAnulado(row)"
+                                        command="trackingLink"
+                                    >
+                                        <i class="el-icon-location-outline"></i>
+                                        Copiar enlace de seguimiento
+                                    </el-dropdown-item>
                                     <!-- Recojo en tienda: del mostrador a «entregado»
                                          en un clic (su flujo no tiene rotulo). -->
                                     <el-dropdown-item
@@ -1373,7 +1382,7 @@
                                     <el-dropdown-item
                                         v-if="esAnulado(row)"
                                         command="restoreOrder"
-                                        divided
+                                        class="ord-menu-sep"
                                     >
                                         <i class="el-icon-refresh-left"></i>
                                         Restaurar pedido
@@ -1381,8 +1390,7 @@
                                     <el-dropdown-item
                                         v-if="row.shipment && !esEntregado(row)"
                                         command="cancelShipment"
-                                        divided
-                                        class="ord-menu-danger"
+                                        class="ord-menu-danger ord-menu-sep"
                                     >
                                         <i class="el-icon-close"></i>
                                         Anular envío
@@ -1707,6 +1715,16 @@
     font-size: 11px;
     color: #94a3b8;
     font-variant-numeric: tabular-nums;
+}
+/* Separador propio: el tema global (theme.css) le pone pointer-events:none
+   a .el-dropdown-menu__item--divided y la opción dejaba de recibir clics
+   («Anular envío» no hacía nada). Por eso aquí no se usa `divided`. */
+.ord-menu .el-dropdown-menu__item.ord-menu-sep {
+    margin-top: 6px;
+    border-top: 1px solid #eef2f6;
+}
+.ord-menu .el-dropdown-menu__item--divided {
+    pointer-events: auto;
 }
 .ord-menu .el-dropdown-menu__item.ord-menu-danger {
     color: #b91c1c;
@@ -4495,6 +4513,10 @@ export default {
                 // documentos, que llama a estos mismos metodos por evento.
                 sagaLabel: () => this.downloadLabel(row),
                 shippingLink: () => this.copyShippingLink(row),
+                trackingLink: () => this.copyLink(
+                    window.location.origin + "/envio/seguimiento?code=" + encodeURIComponent(row.shipment.code),
+                    "Enlace de seguimiento"
+                ),
                 timeline: () => this.openTimeline(row),
                 edit: () => this.editarPedido(row.id),
                 cancelShipment: () => this.anularEnvio(row),
@@ -6140,10 +6162,14 @@ export default {
          * entrega. El token es el `external_id` del pedido, así que el enlace
          * cae SIEMPRE sobre ese pedido y no puede crear uno nuevo.
          */
-        async copyShippingLink(row) {
-            const url =
-                window.location.origin + "/pedido/" + row.external_id + "/datos-envio";
+        copyShippingLink(row) {
+            return this.copyLink(
+                window.location.origin + "/pedido/" + row.external_id + "/datos-envio",
+                "Enlace de datos de envío"
+            );
+        },
 
+        async copyLink(url, titulo) {
             try {
                 // `clipboard` no existe fuera de HTTPS/localhost: sin el
                 // fallback el operador se queda sin enlace y sin explicación.
@@ -6161,7 +6187,7 @@ export default {
                 }
                 this.$message.success("Enlace copiado. Envíaselo al cliente.");
             } catch (e) {
-                this.$alert(url, "Enlace de datos de envío", {
+                this.$alert(url, titulo, {
                     confirmButtonText: "Cerrar",
                 });
             }
