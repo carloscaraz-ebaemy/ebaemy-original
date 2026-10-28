@@ -98,6 +98,13 @@ class Kernel extends ConsoleKernel
                  ->withoutOverlapping()
                  ->appendOutputTo(storage_path('logs/carrier_tracking.log'));
 
+        // Oficinas de Shalom → shalom_agencies. Cada 3 h, que es lo que tarda
+        // el origen en refrescar su catálogo. Si falla, queda la última copia.
+        $schedule->command('shalom:sync-agencies')
+                 ->cron('17 */3 * * *')
+                 ->withoutOverlapping()
+                 ->appendOutputTo(storage_path('logs/shalom_agencies.log'));
+
         // Detecta divergencias de inventario (dry-run, solo reporta — no corrige)
         // Para corregir manualmente: php artisan stock:reconcile --fix
         $schedule->command('stock:reconcile --threshold=0.01')

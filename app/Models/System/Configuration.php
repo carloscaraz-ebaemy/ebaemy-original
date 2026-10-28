@@ -58,7 +58,16 @@ class Configuration extends Model
         'marketplace_instagram_url',
         'marketplace_whatsapp_url',
         'marketplace_tiktok_url',
+        // Shalom API (shalom-api.lat): una llave de ebaemy para todas las
+        // tiendas. Editable desde /admin/shalom. Ver ShalomApi.
+        'shalom_api_key',
+        'shalom_synced_at',
+        'shalom_last_error',
+        'shalom_last_error_at',
     ];
+
+    // La llave nunca viaja en un toArray()/JSON de la configuración.
+    protected $hidden = ['shalom_api_key'];
 
 
     protected $casts = [
@@ -70,6 +79,9 @@ class Configuration extends Model
         'seller_default_plan_id' => 'integer',
         'seller_requires_active_ruc' => 'boolean',
         'marketplace_ads_enabled' => 'boolean',
+        'shalom_api_key' => 'encrypted',
+        'shalom_synced_at' => 'datetime',
+        'shalom_last_error_at' => 'datetime',
     ];
 
 

@@ -99,4 +99,12 @@ return [
         'monthly_limit' => (int) env('BG_REMOVAL_MONTHLY_LIMIT', 100),
     ],
 
+    // Shalom API (shalom-api.lat, intermediario no oficial). La llave que
+    // manda es la del SuperAdmin (/admin/shalom); esta solo es el respaldo
+    // mientras nadie la haya guardado alli. Ver App\Services\System\ShalomApi.
+    'shalom' => [
+        'url' => env('SHALOM_API_URL', 'https://api.shalom-api.lat'),
+        'key' => env('SHALOM_API_KEY'),
+    ],
+
 ];

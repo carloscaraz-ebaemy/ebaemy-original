@@ -161,6 +161,10 @@ if ($hostname) {
              ->where('province', '[0-9]+')->name('shipments.ubigeo.districts')->middleware('throttle:120,1');
         Route::get('envio/ubigeo/buscar', [\App\Http\Controllers\Tenant\ShipmentController::class, 'searchUbigeo'])
              ->name('shipments.ubigeo.search')->middleware('throttle:120,1');
+        // Oficinas de Shalom del distrito (copia guardada en el sistema; la
+        // llave del API nunca llega al navegador).
+        Route::get('envio/agencias-shalom/{district}', [\App\Http\Controllers\Tenant\ShipmentController::class, 'shalomOffices'])
+             ->where('district', '[0-9]{6}')->name('shipments.public.shalom_offices')->middleware('throttle:60,1');
         // Consulta DNI/RUC pública (para el formulario del cliente), con throttle estricto.
         Route::get('envio/consulta/{type}/{number}', [\App\Http\Controllers\Tenant\ShipmentController::class, 'lookupDocument'])
              ->where('type', 'dni|ruc')->where('number', '[0-9]+')
@@ -2029,6 +2033,14 @@ if ($hostname) {
                 Route::get('tenants',         'System\WhatsAppSystemController@tenants')->name('tenants');
                 Route::post('notify-tenant',  'System\WhatsAppSystemController@notifyTenant')->name('notify_tenant');
                 Route::get('logs',            'System\WhatsAppSystemController@logs')->name('logs');
+            });
+
+            // ── Shalom: llave única de ebaemy + catálogo de oficinas ───────
+            Route::prefix('admin/shalom')->name('system.shalom.')->group(function () {
+                Route::get('/',      'System\ShalomSystemController@index')->name('index');
+                Route::put('key',    'System\ShalomSystemController@updateKey')->name('key');
+                Route::post('check', 'System\ShalomSystemController@check')->name('check');
+                Route::post('sync',  'System\ShalomSystemController@sync')->name('sync');
             });
 
             // ── Marketing centralizado (campañas multicanal con opt-out) ────

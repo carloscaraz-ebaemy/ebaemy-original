@@ -192,6 +192,13 @@
                         </a>
                     </li>
 
+                    <li class="{{ (isset($path[1]) && $path[1] === 'shalom')?'nav-active':'' }}">
+                        <a class="nav-link" href="{{ route('system.shalom.index') }}">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12 3l8 4.5v9l-8 4.5l-8 -4.5v-9l8 -4.5"/><path d="M12 12l8 -4.5"/><path d="M12 12v9"/><path d="M12 12l-8 -4.5"/></svg>
+                            <span>Shalom</span>
+                        </a>
+                    </li>
+
                     {{-- ── SISTEMA ──────────────────────────────────────── --}}
                     <li class="nav-separator">Sistema</li>
 

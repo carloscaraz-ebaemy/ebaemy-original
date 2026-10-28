@@ -7,6 +7,8 @@ use App\Models\Tenant\Catalogs\Department;
 use App\Models\Tenant\Catalogs\District;
 use App\Models\Tenant\Catalogs\Province;
 use App\Services\Tenant\UbigeoSearch;
+use App\Models\System\ShalomAgency;
+use App\Services\System\ShalomAgencyCatalog;
 use App\Models\System\MarketplaceListing;
 use App\Models\Tenant\Raffle;
 use App\Models\Tenant\RaffleParticipant;
@@ -1361,6 +1363,20 @@ class ShipmentController extends Controller
                 $agrupado
             )
         );
+    }
+
+    /**
+     * Oficinas de Shalom para el distrito que eligió el cliente (o las de su
+     * provincia si el distrito no tiene). Lee la copia guardada en el
+     * sistema, nunca el API: la llave no llega al navegador y una llave
+     * vencida no deja al cliente sin lista.
+     *
+     * Público.
+     */
+    public function shalomOffices(string $district)
+    {
+        return response()->json(app(ShalomAgencyCatalog::class)->forDistrict($district))
+            ->header('Cache-Control', 'public, max-age=1800');
     }
 
     /** Editar los datos de un envío (mismo set de reglas que el alta). */
@@ -3726,6 +3742,10 @@ class ShipmentController extends Controller
                     }
                 }],
                 'shipping_agency'      => 'required|string|max:120',
+                // Oficina elegida del catálogo de Shalom (ter_id). El nombre
+                // y la dirección NO se aceptan del navegador: se copian del
+                // catálogo más abajo.
+                'agency_office_id'     => 'nullable|integer|min:1',
             ];
         }
 
@@ -3840,6 +3860,8 @@ class ShipmentController extends Controller
                     $data['destination_city'] = $dist->description;
                 }
             }
+            $data = $this->applyAgencyOffice($request, $data, $public);
+
             // Costo del servicio tienda→agencia (fijo por envío).
             // Gratis se guarda como 0.00 y NO como null: null es "todavía no
             // se fijó precio" y el panel lo muestra como pendiente. Un 0
@@ -3848,6 +3870,70 @@ class ShipmentController extends Controller
             if ($charge !== null) {
                 $data['delivery_price'] = $charge;
             }
+        }
+
+        return $data;
+    }
+
+    /**
+     * Oficina de la agencia elegida del catálogo de Shalom.
+     *
+     * Del navegador solo se acepta el ter_id; nombre y dirección se copian del
+     * catálogo para que nadie pueda inventar una oficina. `reference` sigue
+     * llevando el nombre: el rótulo y los listados la leen desde siempre.
+     *
+     * En el formulario público la oficina es obligatoria con Shalom, salvo
+     * que el cliente marque «No encuentro mi oficina» o que no haya oficinas
+     * guardadas para su zona (entonces vale el texto libre de siempre).
+     */
+    private function applyAgencyOffice(Request $request, array $data, bool $public): array
+    {
+        $officeId = $data['agency_office_id'] ?? null;
+        unset($data['agency_office_id']);
+
+        // Los formularios del panel no tienen el selector de oficina: editar
+        // un envío desde ahí no debe borrar la que eligió el cliente.
+        if (!$public && !$request->has('agency_office_id')) {
+            return $data;
+        }
+
+        $office = null;
+        if (($data['shipping_agency'] ?? null) === 'Shalom') {
+            try {
+                if ($officeId) {
+                    $office = ShalomAgency::find((int) $officeId);
+                }
+
+                if (!$office && $public && !$request->boolean('agency_office_unknown')
+                    && !empty($data['district_id'])
+                    && app(ShalomAgencyCatalog::class)->forDistrict($data['district_id'])['scope'] !== 'none') {
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'agency_office_id' => 'Elige la oficina de Shalom donde recogerás tu paquete, o marca «No encuentro mi oficina».',
+                    ]);
+                }
+            } catch (\Illuminate\Validation\ValidationException $e) {
+                throw $e;
+            } catch (\Throwable $e) {
+                // Sin base del sistema o sin tabla: el envío se guarda igual,
+                // con la oficina en texto libre como antes.
+                Log::warning('Catálogo Shalom no disponible: ' . $e->getMessage());
+                $office = null;
+            }
+        }
+
+        if (!ShippingRequest::hasAgencyOffice()) {
+            if ($office) {
+                $data['reference'] = $office->name;
+            }
+
+            return $data;
+        }
+
+        $data['agency_office_id']      = $office?->ter_id;
+        $data['agency_office_name']    = $office?->name;
+        $data['agency_office_address'] = $office ? mb_substr((string) $office->address, 0, 500) : null;
+        if ($office) {
+            $data['reference'] = $office->name;
         }
 
         return $data;

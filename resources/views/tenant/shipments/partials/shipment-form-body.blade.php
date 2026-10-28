@@ -246,9 +246,45 @@
                              tiene nombre por local): saber en cuál recoge el cliente
                              es más útil que una referencia genérica. Reutiliza la
                              columna `reference`, que en agencia significa "oficina". --}}
-                        <label id="{{ $p }}office_label">Oficina donde recogerás <span style="color:#94a3b8;font-weight:400;">(opcional)</span></label>
-                        <input type="text" name="reference" id="{{ $p }}reference_ag" value="{{ old('reference') }}" maxlength="255" placeholder="Ej. Terminal Terrestre, Av. Aviación 123…">
-                        <small class="hint" id="{{ $p }}office_hint">Si ya sabes en qué local vas a recoger, escríbelo. Si no, déjalo en blanco: la agencia te lo indicará.</small>
+                        {{-- Con Shalom la oficina se elige de su catálogo (copia
+                             guardada en el sistema, ver ShalomAgencyCatalog): el
+                             almacén recibe la oficina exacta y no un texto libre.
+                             Para las demás agencias, o si el cliente no encuentra
+                             la suya, sigue el texto libre de siempre. --}}
+                        <style>
+                            .sh-box{margin-top:4px}
+                            .sh-tools{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin:2px 0 8px}
+                            .sh-near{border:1px solid #cbd5e1;background:#fff;border-radius:999px;padding:6px 12px;font-size:13px;font-weight:600;color:#0f172a;cursor:pointer;min-height:36px}
+                            .sh-list{display:grid;gap:8px;max-height:360px;overflow-y:auto;padding:2px}
+                            .sh-list.is-bad{outline:2px solid #fca5a5;border-radius:12px}
+                            .sh-opt{display:block;width:100%;text-align:left;border:1.5px solid #e2e8f0;background:#fff;border-radius:12px;padding:11px 13px;cursor:pointer;font:inherit;color:#0f172a}
+                            .sh-opt:hover{border-color:#94a3b8}
+                            .sh-opt[aria-checked="true"]{border-color:#dc2626;background:#fef2f2;box-shadow:0 0 0 1px #dc2626}
+                            .sh-opt b{display:block;font-size:14.5px;line-height:1.3}
+                            .sh-opt span{display:block;font-size:12.5px;color:#475569;margin-top:3px;line-height:1.35}
+                            .sh-opt i{font-style:normal;display:inline-block;font-size:11px;font-weight:600;border-radius:999px;padding:2px 8px;margin-top:6px;margin-right:4px;background:#f1f5f9;color:#334155}
+                            .sh-empty{font-size:13px;color:#64748b;margin:4px 0;padding:10px 12px;background:#f8fafc;border-radius:10px}
+                        </style>
+                        <div id="{{ $p }}sh_box" class="sh-box" hidden>
+                            <label class="req">¿En qué oficina de Shalom recogerás?</label>
+                            <div class="sh-tools">
+                                <small class="hint" id="{{ $p }}sh_scope"></small>
+                                <button type="button" class="sh-near" id="{{ $p }}sh_near" hidden>📍 Ver las más cercanas a mí</button>
+                            </div>
+                            <div class="sh-list" id="{{ $p }}sh_list" role="radiogroup" aria-label="Oficinas de Shalom"></div>
+                            <input type="hidden" name="agency_office_id" id="{{ $p }}agency_office_id" value="{{ old('agency_office_id') }}">
+                            <label class="chk chk-inline" id="{{ $p }}sh_unknown_wrap">
+                                <input type="checkbox" name="agency_office_unknown" value="1" id="{{ $p }}sh_unknown" {{ old('agency_office_unknown') ? 'checked' : '' }}>
+                                <span>No encuentro mi oficina en la lista</span>
+                            </label>
+                            <small class="hint" id="{{ $p }}sh_err" hidden style="color:#dc2626;">Toca la oficina donde recogerás tu paquete, o marca «No encuentro mi oficina».</small>
+                        </div>
+
+                        <div id="{{ $p }}office_manual">
+                            <label id="{{ $p }}office_label">Oficina donde recogerás <span style="color:#94a3b8;font-weight:400;">(opcional)</span></label>
+                            <input type="text" name="reference" id="{{ $p }}reference_ag" value="{{ old('reference') }}" maxlength="255" placeholder="Ej. Terminal Terrestre, Av. Aviación 123…">
+                            <small class="hint" id="{{ $p }}office_hint">Si ya sabes en qué local vas a recoger, escríbelo. Si no, déjalo en blanco: la agencia te lo indicará.</small>
+                        </div>
                         <small class="hint" id="{{ $p }}dest_err" hidden style="color:#dc2626;"></small>
 
                         {{-- El paquete normalmente solo viaja hasta la agencia: el

@@ -165,6 +165,9 @@
 
         function setValue(dep, depN, prov, provN, dist, distN, labelOverride) {
             hDep.value = dep || ''; hProv.value = prov || ''; hDist.value = dist || '';
+            // Los inputs ocultos no avisan solos: quien dependa del distrito
+            // (las oficinas de Shalom, el progreso, el borrador) escucha esto.
+            try { hDist.dispatchEvent(new Event('change', { bubbles: true })); } catch (e) {}
             if (dist) { disp.textContent = labelOverride || (depN + ' / ' + provN + ' / ' + distN); disp.classList.add('has-value'); }
             else { disp.textContent = PH; disp.classList.remove('has-value'); }
         }

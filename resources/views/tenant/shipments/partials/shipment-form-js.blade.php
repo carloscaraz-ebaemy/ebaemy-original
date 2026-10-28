@@ -126,6 +126,163 @@
     if (agInp) agInp.addEventListener('input', syncOfficeLabel);
     syncOfficeLabel();
 
+    // ── Oficinas de Shalom ────────────────────────────────────────────
+    //
+    // Con Shalom el cliente toca su oficina en una lista en vez de escribirla.
+    // La lista sale de NUESTRA copia del catálogo (envio/agencias-shalom), no
+    // del API de Shalom. Si su distrito no tiene oficina se muestran las de
+    // la provincia; si no hay ninguna, o no encuentra la suya, vuelve el
+    // texto libre de siempre.
+    var SH = {
+        url: '{{ url("envio/agencias-shalom") }}',
+        box: document.getElementById('{{ $p }}sh_box'),
+        list: document.getElementById('{{ $p }}sh_list'),
+        scopeEl: document.getElementById('{{ $p }}sh_scope'),
+        near: document.getElementById('{{ $p }}sh_near'),
+        id: document.getElementById('{{ $p }}agency_office_id'),
+        unknown: document.getElementById('{{ $p }}sh_unknown'),
+        unknownWrap: document.getElementById('{{ $p }}sh_unknown_wrap'),
+        err: document.getElementById('{{ $p }}sh_err'),
+        manual: document.getElementById('{{ $p }}office_manual'),
+        district: '', scope: '', offices: [], loading: false, origin: null
+    };
+
+    function shEsShalom() { return txt('{{ $p }}shipping_agency') === 'Shalom'; }
+    function shDistrito() {
+        var d = document.querySelector('[data-ubigeo-group="pub"] [data-ub="district"]');
+        return d ? d.value : '';
+    }
+    function shEsc(s) {
+        return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+        });
+    }
+    function shKm(a, b) {
+        var R = 6371, r = Math.PI / 180;
+        var dLat = (b.lat - a.lat) * r, dLng = (b.lng - a.lng) * r;
+        var h = Math.sin(dLat / 2) * Math.sin(dLat / 2)
+            + Math.cos(a.lat * r) * Math.cos(b.lat * r) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+        return 2 * R * Math.asin(Math.sqrt(h));
+    }
+    function shElegida() {
+        var id = SH.id ? SH.id.value : '';
+        for (var i = 0; i < SH.offices.length; i++) if (String(SH.offices[i].id) === id) return SH.offices[i];
+        return null;
+    }
+    // ¿Falta elegir? Solo cuando ya sabemos que hay oficinas para su zona.
+    function shFalta() {
+        return shEsShalom() && SH.district === shDistrito() && SH.offices.length > 0
+            && !(SH.id && SH.id.value) && !(SH.unknown && SH.unknown.checked);
+    }
+
+    function shPintar() {
+        if (!SH.box) return;
+        var hay = SH.offices.length > 0;
+        if (SH.unknownWrap) SH.unknownWrap.hidden = !hay;
+        if (SH.near) SH.near.hidden = !(hay && SH.offices.length > 1 && navigator.geolocation);
+        // Texto libre: si no hay lista, o si dijo que no encuentra la suya.
+        if (SH.manual) SH.manual.hidden = hay && !(SH.unknown && SH.unknown.checked);
+
+        if (SH.loading) { SH.list.innerHTML = '<p class="sh-empty">Buscando oficinas de Shalom…</p>'; SH.scopeEl.textContent = ''; return; }
+        if (!shDistrito()) { SH.list.innerHTML = '<p class="sh-empty">Primero elige arriba tu ciudad o distrito y te mostramos las oficinas.</p>'; SH.scopeEl.textContent = ''; return; }
+        if (!hay) {
+            SH.list.innerHTML = '<p class="sh-empty">No tenemos oficinas de Shalom registradas para tu zona. Escribe abajo en cuál recogerás, o déjalo en blanco y Shalom te avisará.</p>';
+            SH.scopeEl.textContent = '';
+            return;
+        }
+
+        SH.scopeEl.textContent = SH.scope === 'province'
+            ? 'Tu distrito no tiene oficina de Shalom; estas son las de tu provincia.'
+            : (SH.offices.length === 1 ? '1 oficina en tu distrito' : SH.offices.length + ' oficinas en tu distrito');
+
+        var sel = SH.id ? SH.id.value : '';
+        SH.list.innerHTML = SH.offices.map(function (o) {
+            var km = (SH.origin && o.lat != null && o.lng != null) ? shKm(SH.origin, o) : null;
+            return '<button type="button" class="sh-opt" role="radio" data-id="' + o.id + '" aria-checked="' + (String(o.id) === sel) + '">'
+                + '<b>' + shEsc(o.name) + '</b>'
+                + (o.address ? '<span>' + shEsc(o.address) + '</span>' : '')
+                + (o.hours ? '<span>🕒 ' + shEsc(o.hours) + '</span>' : '')
+                + (km !== null ? '<i>a ' + (km < 10 ? km.toFixed(1) : Math.round(km)) + ' km</i>' : '')
+                + (SH.scope === 'province' && o.district ? '<i>' + shEsc(o.district) + '</i>' : '')
+                + (o.home_delivery ? '<i>Hace reparto a domicilio</i>' : '')
+                + '</button>';
+        }).join('');
+    }
+
+    function shRefrescar() {
+        if (!SH.box) return;
+        var on = shEsShalom();
+        SH.box.hidden = !on;
+        if (!on) { if (SH.manual) SH.manual.hidden = false; return; }
+
+        var d = shDistrito();
+        if (d === SH.district && !SH.loading) { shPintar(); return; }
+        SH.district = d; SH.offices = []; SH.scope = '';
+        if (!d) { shPintar(); return; }
+
+        SH.loading = true; shPintar();
+        fetch(SH.url + '/' + encodeURIComponent(d), { headers: { 'Accept': 'application/json' } })
+            .then(function (r) { return r.ok ? r.json() : { scope: 'none', offices: [] }; })
+            .catch(function () { return { scope: 'none', offices: [] }; })
+            .then(function (r) {
+                if (SH.district !== d) return; // cambió de distrito mientras cargaba
+                SH.loading = false;
+                SH.offices = (r && r.offices) || [];
+                SH.scope = (r && r.scope) || 'none';
+                if (SH.origin) shOrdenar();
+                // Una oficina de otro distrito no sirve: se suelta.
+                if (SH.id && SH.id.value && !shElegida()) SH.id.value = '';
+                shPintar();
+                progreso();
+            });
+    }
+
+    function shOrdenar() {
+        SH.offices.sort(function (a, b) {
+            var ka = (a.lat != null && a.lng != null) ? shKm(SH.origin, a) : 1e9;
+            var kb = (b.lat != null && b.lng != null) ? shKm(SH.origin, b) : 1e9;
+            return ka - kb;
+        });
+    }
+
+    if (SH.list) SH.list.addEventListener('click', function (ev) {
+        var b = ev.target.closest('.sh-opt');
+        if (!b) return;
+        SH.id.value = b.getAttribute('data-id');
+        if (SH.unknown) SH.unknown.checked = false;
+        if (SH.err) SH.err.hidden = true;
+        SH.list.classList.remove('is-bad');
+        shPintar();
+        SH.id.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    if (SH.unknown) SH.unknown.addEventListener('change', function () {
+        if (SH.unknown.checked && SH.id) SH.id.value = '';
+        if (SH.err) SH.err.hidden = true;
+        SH.list.classList.remove('is-bad');
+        shPintar();
+    });
+    if (SH.near) SH.near.addEventListener('click', function () {
+        SH.near.disabled = true; SH.near.textContent = 'Ubicándote…';
+        navigator.geolocation.getCurrentPosition(function (pos) {
+            SH.origin = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+            shOrdenar(); shPintar();
+            SH.near.disabled = false; SH.near.textContent = '📍 Ordenadas por cercanía';
+        }, function () {
+            SH.near.disabled = false; SH.near.textContent = '📍 Ver las más cercanas a mí';
+            SH.scopeEl.textContent = 'No pudimos usar tu ubicación. Busca tu oficina en la lista.';
+        }, { timeout: 10000, maximumAge: 600000 });
+    });
+
+    document.addEventListener('change', function (ev) {
+        var t = ev.target;
+        if (!t) return;
+        if ((t.classList && t.classList.contains('agency-select'))
+            || (t.getAttribute && t.getAttribute('data-ub') === 'district' && t.closest('[data-ubigeo-group="pub"]'))) {
+            setTimeout(shRefrescar, 0);
+        }
+    });
+    if (agInp) agInp.addEventListener('input', shRefrescar);
+
     var back0 = document.getElementById('backStep0');
     if (back0) back0.addEventListener('click', function () { hide(step1); hide(stepD); show(step0); setStep(1); });
 
@@ -148,6 +305,7 @@
             set('{{ $p }}shipping_agency', d.shipping_agency);
             if (window.__syncAgency) window.__syncAgency();
             if (window.__ubPreset && (d.department_id || d.district_id)) window.__ubPreset('pub', d.department_id, d.province_id, d.district_id);
+            shRefrescar();
         }
     }
 
@@ -495,6 +653,14 @@
                 if (agErr) agErr.hidden = true;
             }
 
+            if (shFalta()) {
+                if (!silencioso) {
+                    SH.list.classList.add('is-bad');
+                    if (SH.err) SH.err.hidden = false;
+                }
+                problemas.push({ msg: 'Elige tu oficina de Shalom', el: SH.list });
+            }
+
             // En provincia lo unico obligatorio es la AGENCIA y el ubigeo. Ni la
             // oficina de recojo ni la direccion bloquean el registro: son datos
             // que el cliente muchas veces no tiene todavia y que el encargado
@@ -598,7 +764,10 @@
             if (homeExtra) homeExtra.hidden = !pidioReparto;
             document.getElementById('c_dir').textContent = txt('{{ $p }}addr_agencia') || 'Recojo en la agencia';
             document.getElementById('k_ref').textContent = 'Oficina de recojo';
-            document.getElementById('c_ref').textContent = txt('{{ $p }}reference_ag') || '—';
+            var ofi = shEsShalom() ? shElegida() : null;
+            document.getElementById('c_ref').textContent = ofi
+                ? (ofi.name + (ofi.address ? ' — ' + ofi.address : ''))
+                : (txt('{{ $p }}reference_ag') || '—');
             document.getElementById('c_ag').textContent = txt('{{ $p }}shipping_agency') || '—';
         }
     }
@@ -668,6 +837,7 @@
             var d = document.querySelector('[data-ubigeo-group="pub"] [data-ub="district"]');
             lista.push({ ok: !!(d && d.value) });
             lista.push({ ok: !!txt('{{ $p }}shipping_agency') });
+            if (shEsShalom() && SH.offices.length) lista.push({ ok: !shFalta() });
         }
 
         return lista;
@@ -780,6 +950,10 @@
     form.addEventListener('change', function () { progreso(); guardarPronto(); });
 
     restaurarBorrador();
+    // El borrador o el old() pueden traer agencia, distrito y oficina: se
+    // carga la lista para que la oficina guardada aparezca marcada.
+    if (window.__syncAgency) window.__syncAgency();
+    shRefrescar();
     progreso();
 
     if (form) form.addEventListener('submit', function () {

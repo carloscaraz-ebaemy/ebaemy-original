@@ -47,6 +47,12 @@ class ShippingRequest extends Model
         'alternate_phone',
         'shipping_destination',
         'reference',
+        // Oficina de la agencia elegida del catálogo (hoy solo Shalom): su
+        // ter_id y una copia del nombre y la dirección. Ver la migración
+        // 2026_10_28_000001.
+        'agency_office_id',
+        'agency_office_name',
+        'agency_office_address',
         'destination_city',
         'department_id',
         'province_id',
@@ -188,6 +194,30 @@ class ShippingRequest extends Model
             if (!array_key_exists($database, $soportado)) {
                 $soportado[$database] = $schema->hasTable('shipping_requests')
                     && $schema->hasColumn('shipping_requests', 'alternate_phone');
+            }
+
+            return $soportado[$database];
+        } catch (\Throwable $e) {
+            return false;
+        }
+    }
+
+    /**
+     * ¿Esta base ya tiene las columnas de la oficina de agencia? Mismo motivo
+     * que hasAlternatePhone(): hasta que la migración pase por todos los
+     * tenants, escribirlas tumbaría el guardado entero.
+     */
+    public static function hasAgencyOffice(): bool
+    {
+        static $soportado = [];
+
+        try {
+            $schema   = \Illuminate\Support\Facades\Schema::connection('tenant');
+            $database = $schema->getConnection()->getDatabaseName();
+
+            if (!array_key_exists($database, $soportado)) {
+                $soportado[$database] = $schema->hasTable('shipping_requests')
+                    && $schema->hasColumn('shipping_requests', 'agency_office_id');
             }
 
             return $soportado[$database];
