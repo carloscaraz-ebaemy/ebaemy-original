@@ -70,6 +70,129 @@ class OrderShipmentLinker
     }
 
     /**
+     * Puerta de los checkouts (tienda online y marketplace): registra el
+     * destino que el comprador YA dio como envío vigente del pedido.
+     *
+     * Hasta ahora ninguno de los dos checkouts pasaba por este servicio: el
+     * destino quedaba en `orders.customer` / `shipping_address` como texto y el
+     * panel de Pedidos —que lee `shipments`— no mostraba modalidad, ubigeo ni
+     * dirección. Lo que el checkout NO pregunta (agencia, oficina de Shalom,
+     * coordenadas) se deja vacío a propósito: `ShippingRequest::missingLabelData()`
+     * ya lo reporta y el cliente lo completa con su enlace /R3GISTRO.
+     *
+     * NUNCA lanza: el pedido ya está cobrado/guardado y no puede caerse por el
+     * envío. Si falla, se registra y se devuelve null.
+     *
+     * @param array $dest {
+     *   pickup?: bool, ubigeo?: string,
+     *   department?: string, province?: string, district?: string  (nombres, si no hay ubigeo),
+     *   address?: string, name?: string, phone?: string, document?: string, reference?: string
+     * }
+     */
+    public function ensureFromCheckout(Order $order, array $dest = []): ?ShippingRequest
+    {
+        try {
+            if (!ShippingRequest::moduleInstalled()) {
+                return null;
+            }
+            if ($existing = $this->current($order)) {
+                return $existing;   // ya tiene envío: no se pisa lo que alguien completó
+            }
+
+            $pickup = (bool) ($dest['pickup'] ?? false);
+            $geo    = $this->resolveGeo($dest['ubigeo'] ?? null, $dest);
+
+            $type = $pickup
+                ? ShippingRequest::DELIVERY_TIENDA
+                : (($geo['district_id'] ?? null) && \App\Services\Tenant\StoreShipping::isLima($geo['district_id'])
+                    ? ShippingRequest::DELIVERY_DOMICILIO
+                    : ShippingRequest::DELIVERY_AGENCIA);
+
+            $address = $pickup ? null : $this->firstFilled([$dest['address'] ?? null]);
+            if ($address !== null && mb_strtolower(trim($address)) === 'sin dirección') {
+                $address = null;
+            }
+
+            $over = array_filter([
+                'delivery_type'        => $type,
+                'full_name'            => $this->firstFilled([$dest['name'] ?? null]),
+                'phone'                => $this->firstFilled([$dest['phone'] ?? null]),
+                'shipping_destination' => $address,
+                'reference'            => $this->firstFilled([$dest['reference'] ?? null]),
+                'department_id'        => $geo['department_id'] ?? null,
+                'province_id'          => $geo['province_id'] ?? null,
+                'district_id'          => $geo['district_id'] ?? null,
+                'destination_city'     => $geo['district_name'] ?? null,
+            ], fn ($v) => $v !== null);
+
+            $doc = preg_replace('/\D+/', '', (string) ($dest['document'] ?? ''));
+            if ($doc !== '') {
+                $over['dni']           = $doc;
+                $over['document_type'] = strlen($doc) === 11 ? 'ruc' : 'dni';
+            }
+
+            $data = array_merge($this->prefill($order), $over);
+            // `full_name` es NOT NULL: sin nombre real se marca como pendiente
+            // en vez de inventar uno; missingLabelData() lo reporta igual.
+            $data['full_name'] = $data['full_name'] ?: 'Por completar';
+            // Recojo: el precio de la entrega no aplica. Provincia: el costo lo
+            // paga/cotiza la agencia, no es "precio de domicilio".
+            if ($type !== ShippingRequest::DELIVERY_DOMICILIO) {
+                $data['delivery_price'] = null;
+            }
+            if ($pickup) {
+                $data['shipping_destination'] = null;
+            }
+
+            return $this->ensure($order, $data);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('No se pudo crear el envío del pedido desde el checkout', [
+                'order_id' => $order->id,
+                'error'    => $e->getMessage(),
+                'at'       => $e->getFile() . ':' . $e->getLine(),
+            ]);
+            return null;
+        }
+    }
+
+    /**
+     * Departamento/provincia/distrito a partir de un ubigeo de 6 cifras o, si
+     * no lo hay, de los NOMBRES que escribió el comprador (marketplace).
+     * Solo resuelve coincidencias EXACTAS (colación ci): no adivina.
+     *
+     * @return array{department_id?:string,province_id?:string,district_id?:string,district_name?:string}
+     */
+    private function resolveGeo(?string $ubigeo, array $dest): array
+    {
+        $db = \Illuminate\Support\Facades\DB::connection('tenant');
+        $ubigeo = preg_replace('/\D+/', '', (string) $ubigeo);
+
+        $row = null;
+        if (strlen($ubigeo) === 6) {
+            $row = $db->table('districts as d')
+                ->join('provinces as p', 'p.id', '=', 'd.province_id')
+                ->where('d.id', $ubigeo)
+                ->first(['d.id as district_id', 'd.description as district_name', 'p.id as province_id', 'p.department_id']);
+        } elseif (trim((string) ($dest['district'] ?? '')) !== '') {
+            $q = $db->table('districts as d')
+                ->join('provinces as p', 'p.id', '=', 'd.province_id')
+                ->join('departments as dep', 'dep.id', '=', 'p.department_id')
+                ->where('d.description', trim($dest['district']));
+            if (trim((string) ($dest['province'] ?? '')) !== '') {
+                $q->where('p.description', trim($dest['province']));
+            }
+            if (trim((string) ($dest['department'] ?? '')) !== '') {
+                $q->where('dep.description', trim($dest['department']));
+            }
+            $rows = $q->limit(2)->get(['d.id as district_id', 'd.description as district_name', 'p.id as province_id', 'p.department_id']);
+            // Ambiguo (mismo nombre en dos provincias) = no se adivina.
+            $row = $rows->count() === 1 ? $rows->first() : null;
+        }
+
+        return $row ? (array) $row : [];
+    }
+
+    /**
      * El camino INVERSO: da de alta el pedido de un envío que naciera suelto.
      *
      * `/registro-envio` no es un módulo residual, es la puerta de entrada real

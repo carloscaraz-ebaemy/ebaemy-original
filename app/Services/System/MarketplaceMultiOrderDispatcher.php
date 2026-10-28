@@ -223,7 +223,21 @@ class MarketplaceMultiOrderDispatcher
                 'external_order_ref'=> $order->order_number,
             ];
 
-            $orderId = TenantOrder::crearTolerandoEsquemaViejo($payload)->id;
+            $tenantOrder = TenantOrder::crearTolerandoEsquemaViejo($payload);
+            $orderId = $tenantOrder->id;
+
+            // Destino que el comprador dio en el checkout central -> envio
+            // vigente del pedido hijo (best-effort: nunca tumba el despacho).
+            app(\App\Services\Tenant\OrderShipmentLinker::class)->ensureFromCheckout($tenantOrder, [
+                'department' => $order->delivery_department,
+                'province'   => $order->delivery_province,
+                'district'   => $order->delivery_district,
+                'address'    => $order->delivery_address,
+                'reference'  => $order->delivery_notes,
+                'name'       => $order->customer_name,
+                'phone'      => $order->customer_phone,
+                'document'   => $order->customer_doc_number,
+            ]);
 
             // Si se usó cupón, incrementar used_count en el tenant. PromotionEngine
             // en preview no toca contadores; lo hacemos aquí cuando el subpedido se
