@@ -79,7 +79,8 @@ class ShalomApi
 
         $res = Http::withHeaders(['x-api-key' => $key, 'Accept' => 'application/json'])
             ->timeout($timeout)
-            ->get(rtrim(config('services.shalom.url'), '/') . $path, $query);
+            // Con un config:cache anterior al deploy, `services.shalom` no existe.
+            ->get(rtrim(config('services.shalom.url') ?: 'https://api.shalom-api.lat', '/') . $path, $query);
 
         if ($res->failed()) {
             $msg = $res->json('error') ?? $res->json('message') ?? substr($res->body(), 0, 200);
