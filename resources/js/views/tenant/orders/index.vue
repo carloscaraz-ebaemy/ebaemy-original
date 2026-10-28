@@ -1290,6 +1290,23 @@
                                         <i class="el-icon-location-outline"></i>
                                         Copiar enlace de seguimiento
                                     </el-dropdown-item>
+                                    <!-- Pedido abierto: el cliente va sumando productos y
+                                         avisa cuando ya no pide más. El reloj no corre. -->
+                                    <el-dropdown-item
+                                        v-if="row.shipment && !row.shipment.on_hold && !row.shipment.printed_once
+                                              && !esAnulado(row) && !esEntregado(row) && puedeEsperar(row)"
+                                        command="holdOn"
+                                    >
+                                        <i class="el-icon-time"></i>
+                                        Acumular productos (en espera)
+                                    </el-dropdown-item>
+                                    <el-dropdown-item
+                                        v-if="row.shipment && row.shipment.on_hold"
+                                        command="holdOff"
+                                    >
+                                        <i class="el-icon-circle-check"></i>
+                                        Listo para enviar
+                                    </el-dropdown-item>
                                     <!-- Recojo en tienda: del mostrador a «entregado»
                                          en un clic (su flujo no tiene rotulo). -->
                                     <el-dropdown-item
@@ -4513,6 +4530,8 @@ export default {
                 // documentos, que llama a estos mismos metodos por evento.
                 sagaLabel: () => this.downloadLabel(row),
                 shippingLink: () => this.copyShippingLink(row),
+                holdOn: () => this.cambiarEspera(row, true),
+                holdOff: () => this.cambiarEspera(row, false),
                 trackingLink: () => this.copyLink(
                     window.location.origin + "/envio/seguimiento?code=" + encodeURIComponent(row.shipment.code),
                     "Enlace de seguimiento"
@@ -6162,6 +6181,35 @@ export default {
          * entrega. El token es el `external_id` del pedido, así que el enlace
          * cae SIEMPRE sobre ese pedido y no puede crear uno nuevo.
          */
+        /** Solo antes de que salga de la tienda (el servidor lo vuelve a comprobar). */
+        puedeEsperar(row) {
+            return [1, 2, 3].indexOf(Number(row.status_order_id)) !== -1;
+        },
+
+        /**
+         * En espera = el cliente sigue agregando productos: los días hábiles no
+         * corren y no se rotula. «Listo para enviar» arranca el reloj desde hoy.
+         */
+        cambiarEspera(row, hold) {
+            const pedir = hold
+                ? this.$confirm(
+                    "El cliente seguirá agregando productos. Mientras tanto los días hábiles no corren " +
+                        "y no se imprime el rótulo. Cuando avise que ya no pide más, márcalo «Listo para enviar».",
+                    "Acumular productos",
+                    { confirmButtonText: "Poner en espera", cancelButtonText: "Cancelar" }
+                )
+                : this.$confirm(
+                    "El cliente ya no agrega más productos. Los días hábiles empiezan a contar desde hoy " +
+                        "y ya se puede preparar y rotular.",
+                    "Listo para enviar",
+                    { confirmButtonText: "Listo para enviar", cancelButtonText: "Cancelar" }
+                );
+            pedir
+                .then(() => this.$http.post(`/orders/${row.id}/envio/espera`, { hold }))
+                .then(r => this.trasAccionDeEnvio(r, false, row.id))
+                .catch(e => this.trasAccionDeEnvio(e, true));
+        },
+
         copyShippingLink(row) {
             return this.copyLink(
                 window.location.origin + "/pedido/" + row.external_id + "/datos-envio",
@@ -6906,6 +6954,18 @@ export default {
          */
         antiguedad(row) {
             const s = row.shipment;
+            // En espera: el cliente sigue agregando productos; el reloj está
+            // detenido y lo que importa es desde cuándo.
+            if (s && s.on_hold) {
+                const d = s.hold_days || 0;
+                return {
+                    texto: "En espera · " + (d === 0 ? "desde hoy" : d === 1 ? "hace 1 día" : "hace " + d + " días"),
+                    color: "#6d28d9",
+                    titulo: "El cliente sigue agregando productos: los días hábiles no corren. "
+                        + "Cuando avise que ya no pide más, márcalo «Listo para enviar».",
+                    estilo: { color: "#6d28d9", background: "#ede9fe" },
+                };
+            }
             if (!s || !s.aging_meta || s.aging_days === null || s.aging_days === undefined) {
                 return null;
             }

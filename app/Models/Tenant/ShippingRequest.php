@@ -142,6 +142,8 @@ class ShippingRequest extends Model
         'print_count'          => 'integer',
         'printed_at'           => 'datetime',
         'ready_at'             => 'datetime',
+        'on_hold_since'        => 'datetime',
+        'aging_from'           => 'datetime',
         'cancelled_at'         => 'datetime',
         'cancelled_by'         => 'integer',
         'restored_at'          => 'datetime',
@@ -1220,6 +1222,10 @@ class ShippingRequest extends Model
             return 'Recojo en tienda (no lleva rótulo, se imprime su comprobante)';
         }
 
+        if ($this->isOnHold()) {
+            return 'En espera: el cliente sigue agregando productos (márcalo «Listo para enviar» para rotularlo)';
+        }
+
         if ($bulk && in_array($this->status, self::LABEL_LOCKED_STATUSES, true)) {
             return 'Ya ' . mb_strtolower($this->status_label) . ' — requiere reimpresión con motivo';
         }
@@ -1286,8 +1292,10 @@ class ShippingRequest extends Model
      */
     public function scopePrintableLabel($query)
     {
-        return $query->where('delivery_type', '!=', self::DELIVERY_TIENDA)
-                     ->whereNotIn('status', self::LABEL_LOCKED_STATUSES);
+        $query->where('delivery_type', '!=', self::DELIVERY_TIENDA)
+              ->whereNotIn('status', self::LABEL_LOCKED_STATUSES);
+
+        return self::hasHoldColumns() ? $query->whereNull('on_hold_since') : $query;
     }
 
     /** Metadatos visuales por nivel de antigüedad (0 verde … 3 rojo). */
@@ -1297,6 +1305,56 @@ class ShippingRequest extends Model
         2 => ['key' => 'naranja',  'color' => '#c2410c', 'bg' => '#ffedd5', 'label' => 'Urgente'],
         3 => ['key' => 'rojo',     'color' => '#b91c1c', 'bg' => '#fee2e2', 'label' => 'Vencido'],
     ];
+
+    // ── En espera: el cliente sigue agregando productos ────────────────────
+    //
+    // Un pedido «abierto» al que el cliente le va sumando productos durante
+    // días no está atrasado: el reloj de días hábiles se detiene mientras está
+    // en espera (`on_hold_since`) y vuelve a correr desde que el cliente avisa
+    // que ya no pide más (`aging_from`), no desde la fecha de registro.
+
+    /** ¿Existen las columnas de espera? (tenants sin migrar siguen igual). */
+    public static function hasHoldColumns(): bool
+    {
+        static $tiene = [];
+        $db = (new static)->getConnection()->getDatabaseName();
+        if (!array_key_exists($db, $tiene)) {
+            try {
+                $tiene[$db] = \Illuminate\Support\Facades\Schema::connection('tenant')->hasColumn('shipping_requests', 'on_hold_since');
+            } catch (\Throwable $e) {
+                $tiene[$db] = false;
+            }
+        }
+
+        return $tiene[$db];
+    }
+
+    public function isOnHold(): bool
+    {
+        return self::hasHoldColumns() && !empty($this->on_hold_since);
+    }
+
+    /** Días de calendario que lleva en espera (para el panel). */
+    public function holdDays(): ?int
+    {
+        return $this->isOnHold() ? (int) $this->on_hold_since->copy()->startOfDay()->diffInDays(now()->startOfDay()) : null;
+    }
+
+    /**
+     * Filtro de antigüedad en SQL: los que ya cruzaron el corte, sin contar
+     * los que están en espera y midiendo desde que el reloj volvió a correr.
+     * Lo usan Urgentes/Vencidos y los contadores, para que coincidan con el
+     * semáforo de cada fila (aging()).
+     */
+    public function scopeAgedBefore($query, string $cutoffDate)
+    {
+        if (!self::hasHoldColumns()) {
+            return $query->whereDate('created_at', '<=', $cutoffDate);
+        }
+
+        return $query->whereNull('on_hold_since')
+                     ->whereRaw('DATE(COALESCE(aging_from, created_at)) <= ?', [$cutoffDate]);
+    }
 
     /** ¿El reloj de atención ya se detuvo para este envío? */
     public function isClosedForAging(): bool
@@ -1339,10 +1397,12 @@ class ShippingRequest extends Model
      */
     public function businessDaysElapsed(bool $skipHolidays = true, ?\Illuminate\Support\Carbon $now = null): int
     {
-        if (!$this->created_at) {
+        // Desde que el cliente dijo «ya no pido más», si estuvo en espera.
+        $desde = (self::hasHoldColumns() ? $this->aging_from : null) ?: $this->created_at;
+        if (!$desde) {
             return 0;
         }
-        return self::businessDaysBetween($this->created_at, $now ?? now(), $skipHolidays);
+        return self::businessDaysBetween($desde, $now ?? now(), $skipHolidays);
     }
 
     /**
@@ -1353,6 +1413,10 @@ class ShippingRequest extends Model
     {
         if ($this->isClosedForAging()) {
             return ['open' => false, 'days' => null, 'level' => null];
+        }
+        // En espera: el reloj está detenido, no hay semáforo.
+        if ($this->isOnHold()) {
+            return ['open' => true, 'days' => null, 'level' => null, 'paused' => true];
         }
         $max = $maxDays >= 1 ? $maxDays : 4;
         $d = $this->businessDaysElapsed($skipHolidays);

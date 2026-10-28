@@ -515,6 +515,9 @@ if ($hostname) {
             // OrderShipmentActionController.
             Route::post('orders/{order}/envio/modalidad', [\App\Http\Controllers\Tenant\OrderShipmentActionController::class, 'modalidad'])
                  ->whereNumber('order')->name('orders.shipment.modality');
+            // En espera: el cliente sigue agregando productos (el reloj no corre).
+            Route::post('orders/{order}/envio/espera', [\App\Http\Controllers\Tenant\OrderShipmentActionController::class, 'espera'])
+                 ->whereNumber('order')->name('orders.shipping.hold');
             Route::post('orders/{order}/envio/anular', [\App\Http\Controllers\Tenant\OrderShipmentActionController::class, 'anular'])
                  ->whereNumber('order')->name('orders.shipment.cancel');
             Route::post('orders/{order}/envio/restaurar', [\App\Http\Controllers\Tenant\OrderShipmentActionController::class, 'restaurar'])

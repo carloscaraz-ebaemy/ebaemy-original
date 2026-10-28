@@ -882,8 +882,10 @@ class OrderController extends Controller
         $k = $aging === 'vencidos' ? $maxDays : max(1, $maxDays - 1);
         $cutoff = ShippingRequest::agingCutoff($k, (bool) ($setting->aging_skip_holidays ?? true))->toDateString();
 
+        // agedBefore: sin los que están en espera y midiendo desde que el
+        // reloj volvió a correr (ShippingRequest::scopeAgedBefore).
         $this->whereShipment($query, fn($s) => $s
-            ->whereDate('created_at', '<=', $cutoff)
+            ->agedBefore($cutoff)
             ->whereNotIn('status', ShippingRequest::CLOSED_STATUSES));
     }
 

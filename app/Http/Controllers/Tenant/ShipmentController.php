@@ -583,7 +583,7 @@ class ShipmentController extends Controller
         if ($pri) {
             $k = $pri === 'vencidos' ? $maxDays : max(1, $maxDays - 1);
             $cutoff = ShippingRequest::agingCutoff($k, $skipHol)->toDateString();
-            $query->whereDate('created_at', '<=', $cutoff)
+            $query->agedBefore($cutoff)
                   ->whereNotIn('status', $closed);
         }
 
@@ -695,9 +695,9 @@ class ShipmentController extends Controller
         $cutU = ShippingRequest::agingCutoff(max(1, $maxDays - 1), $skipHol)->toDateString();
         $cutV = ShippingRequest::agingCutoff($maxDays, $skipHol)->toDateString();
         $metrics['urgentes'] = ShippingRequest::whereNotIn('status', $closed)
-            ->whereDate('created_at', '<=', $cutU)->count();
+            ->agedBefore($cutU)->count();
         $metrics['vencidos'] = ShippingRequest::whereNotIn('status', $closed)
-            ->whereDate('created_at', '<=', $cutV)->count();
+            ->agedBefore($cutV)->count();
 
         return view('tenant.shipments.index', [
             'shipments'   => $shipments,
@@ -1079,6 +1079,48 @@ class ShipmentController extends Controller
             'success' => true,
             'message' => "Guía {$guia} quitada del pedido. Anúlala también en pro.shalom.pe: el sistema de Shalom no permite anularla desde aquí.",
         ]);
+    }
+
+    /**
+     * Poner el pedido «en espera» (el cliente sigue agregando productos) o
+     * marcarlo «listo para enviar».
+     *
+     * En espera el reloj de días hábiles se detiene y no se puede rotular. Al
+     * quitarla, el reloj vuelve a correr DESDE AHORA (aging_from), no desde la
+     * fecha de registro: los días que el cliente estuvo comprando no son
+     * atraso de la tienda.
+     */
+    public function toggleHold(Request $request, ShippingRequest $shipment): \Illuminate\Http\JsonResponse
+    {
+        $data = $request->validate(['hold' => 'required|boolean']);
+        if (!ShippingRequest::hasHoldColumns()) {
+            return response()->json(['success' => false, 'message' => 'Esta tienda todavía no tiene activada la espera de pedidos.']);
+        }
+        if ($data['hold']) {
+            if ($shipment->isOnHold()) {
+                return response()->json(['success' => true, 'message' => 'El pedido ya estaba en espera.']);
+            }
+            if (in_array($shipment->status, ShippingRequest::LABEL_LOCKED_STATUSES, true)) {
+                return response()->json(['success' => false, 'message' => 'El pedido ya salió de la tienda: no se puede poner en espera.']);
+            }
+            if ((int) $shipment->print_count > 0) {
+                return response()->json(['success' => false, 'message' => 'Su rótulo ya se imprimió: ya no se pueden agregar productos.']);
+            }
+            $shipment->forceFill(['on_hold_since' => now()])->save();
+            ShippingAuditLog::log(ShippingAuditLog::ACTION_EDIT, $shipment->id, 'on_hold_since', null, now()->toDateTimeString(), 'En espera: el cliente sigue agregando productos');
+
+            return response()->json(['success' => true, 'message' => 'Pedido en espera: los días hábiles no corren mientras el cliente siga agregando productos.']);
+        }
+
+        if (!$shipment->isOnHold()) {
+            return response()->json(['success' => true, 'message' => 'El pedido no estaba en espera.']);
+        }
+        $desde = $shipment->on_hold_since;
+        $shipment->forceFill(['on_hold_since' => null, 'aging_from' => now()])->save();
+        ShippingAuditLog::log(ShippingAuditLog::ACTION_EDIT, $shipment->id, 'on_hold_since', optional($desde)->toDateTimeString(), null,
+            'Listo para enviar: el cliente ya no agrega más (estuvo ' . ($desde ? $desde->diffInDays(now()) : 0) . ' día(s) en espera)');
+
+        return response()->json(['success' => true, 'message' => 'Listo para enviar: los días hábiles empiezan a contar desde hoy.']);
     }
 
     /** Nueva clave de recojo de la guía de Shalom (un solo paso, sin código). */
@@ -2587,6 +2629,12 @@ class ShipmentController extends Controller
             return redirect()->route('shipments.pickup_receipt', $shipment);
         }
 
+        // En espera: el cliente sigue agregando productos. Rotularlo ahora
+        // sería mandar un paquete incompleto.
+        if ($shipment->isOnHold()) {
+            return $this->rotuloBloqueado($shipment, 'Está en espera: el cliente sigue agregando productos. Márcalo «Listo para enviar» desde el pedido y luego imprime el rótulo.');
+        }
+
         // Shalom con la cuenta de la tienda: el rótulo es el oficial y sale de
         // la guía. El de ebaemy no se imprime nunca para ese paquete.
         if (\App\Services\Tenant\ShalomGuide::replacesLabel($shipment)) {
@@ -3036,7 +3084,7 @@ class ShipmentController extends Controller
 
         $overdue = ShippingRequest::query()
             ->whereNotIn('status', ShippingRequest::CLOSED_STATUSES)
-            ->where('created_at', '<=', ShippingRequest::agingCutoff($setting->max_days, (bool) $setting->aging_skip_holidays))
+            ->agedBefore(ShippingRequest::agingCutoff($setting->max_days, (bool) $setting->aging_skip_holidays)->toDateString())
             ->count();
 
         $metrics = [

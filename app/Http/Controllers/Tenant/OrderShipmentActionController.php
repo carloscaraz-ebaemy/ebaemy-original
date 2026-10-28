@@ -82,6 +82,13 @@ class OrderShipmentActionController extends Controller
             app(ShipmentController::class)->createShalomGuide($request, $envio));
     }
 
+    /** Poner el pedido en espera (acumulando productos) o listo para enviar. */
+    public function espera(Request $request, Order $order)
+    {
+        return $this->reenviar($order, fn ($envio) =>
+            app(ShipmentController::class)->toggleHold($request, $envio));
+    }
+
     /** Cambiar la clave de recojo de la guía de Shalom. */
     public function shalomClave(Request $request, Order $order)
     {

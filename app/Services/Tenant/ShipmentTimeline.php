@@ -33,6 +33,19 @@ class ShipmentTimeline
                     'eta' => null, 'delay' => false, 'steps' => [], 'office' => null, 'cancelled' => true];
         }
 
+        // Pedido abierto: el cliente sigue agregando productos.
+        if ($s->isOnHold()) {
+            return ['tone' => 'wait', 'title' => 'Estamos guardando tu pedido',
+                    'detail' => 'Puedes seguir agregando productos. Cuando nos avises que ya no pides más, lo preparamos y te lo enviamos.',
+                    'eta' => null, 'delay' => false,
+                    'steps' => [
+                        ['label' => 'Pedido registrado', 'hint' => null, 'at' => $s->created_at, 'state' => 'done'],
+                        ['label' => 'Guardando tu pedido', 'hint' => 'Desde el ' . $this->dia($s->on_hold_since) . '.', 'at' => $s->on_hold_since, 'state' => 'current'],
+                        ['label' => 'Lo preparamos y te lo enviamos', 'hint' => null, 'at' => null, 'state' => 'todo'],
+                    ],
+                    'office' => $this->oficina($s), 'cancelled' => false];
+        }
+
         $ce = $s->carrier_events ?? [];
         $hito = [];
         foreach ((array) ($ce['events'] ?? []) as $ev) {

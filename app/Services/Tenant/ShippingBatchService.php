@@ -119,6 +119,10 @@ class ShippingBatchService
             return 'Ya figura como "' . $shipment->status_label . '": no entra a un lote nuevo.';
         }
 
+        if ($shipment->isOnHold()) {
+            return 'Está en espera: el cliente sigue agregando productos.';
+        }
+
         if ($shipment->print_batch_id) {
             $batch = $shipment->printBatch;
 

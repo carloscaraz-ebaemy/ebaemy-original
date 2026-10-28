@@ -620,6 +620,10 @@ class OrderCollection extends ResourceCollection
             'aging_meta'       => $aging['level'] !== null
                 ? \App\Models\Tenant\ShippingRequest::AGING_META[$aging['level']]
                 : null,
+            // En espera: el cliente sigue agregando productos y el reloj no corre.
+            'on_hold'          => $s->isOnHold(),
+            'hold_days'        => $s->holdDays(),
+            'printed_once'     => (int) $s->print_count > 0,
         ];
     }
 
