@@ -123,6 +123,7 @@
 
 /* Validación inline */
 .mp-co-field-err { font-size: 12px; color: #b91c1c; margin-top: 4px; min-height: 14px; line-height: 1.3; }
+.mp-co-field-err:empty { display: none; }
 input.mp-co-invalid, select.mp-co-invalid, textarea.mp-co-invalid {
     border-color: #ef4444 !important;
     box-shadow: 0 0 0 2px rgba(239,68,68,.12);
@@ -256,7 +257,7 @@ input.mp-co-invalid, select.mp-co-invalid, textarea.mp-co-invalid {
 
                 <label for="coAddr">Dirección *</label>
                 <input id="coAddr" type="text" name="delivery_address" required maxlength="500" autocomplete="street-address"
-                       placeholder="Calle, número y dpto. (ej. Av. Arequipa 123, dpto 4B)"
+                       placeholder="Ej. Av. Arequipa 123, dpto 4B"
                        value="{{ old('delivery_address') }}">
 
                 <details class="mp-co-notes" {{ old('delivery_notes') ? 'open' : '' }}>
