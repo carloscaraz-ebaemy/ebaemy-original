@@ -632,10 +632,20 @@
         } else {
             var dist = document.querySelector('[data-ubigeo-group="pub"] [data-ub="district"]');
             var disp = document.querySelector('[data-ubigeo-group="pub"] .ubigeo-display');
+            // En modo en línea el campo visible es el buscador, no el display.
+            var ubIn = document.querySelector('[data-ubigeo-group="pub"] .ub-input');
+            var ubField = ubIn ? ubIn.closest('.ubigeo-field') : null;
             if (!dist || !dist.value) {
                 if (!silencioso && disp) disp.classList.add('is-bad');
-                problemas.push({ msg: 'Elige a qué ciudad o distrito lo enviamos', el: disp });
-            } else if (disp) disp.classList.remove('is-bad');
+                if (!silencioso && ubField) ubField.classList.add('is-bad');
+                problemas.push({
+                    msg: ubIn && ubIn.value.trim() ? 'Toca tu ciudad en la lista para elegirla' : 'Elige a qué ciudad o distrito lo enviamos',
+                    el: ubIn || disp
+                });
+            } else {
+                if (disp) disp.classList.remove('is-bad');
+                if (ubField) ubField.classList.remove('is-bad');
+            }
 
             // La AGENCIA es obligatoria: sin ella el almacen no sabe donde dejar
             // el paquete y salia un rotulo de provincia sin destino.

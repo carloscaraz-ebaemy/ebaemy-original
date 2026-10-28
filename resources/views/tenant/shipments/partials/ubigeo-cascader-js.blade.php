@@ -76,6 +76,41 @@
         .ub-row-ctx { white-space: normal; }
     }
 
+    /* ── Modo en línea (formulario del cliente) ────────────────────────────
+       Usa los tokens del formulario público (--accent, --line…), con valores
+       de respaldo por si el widget se usa en otra página. */
+    .ub-input-wrap { position: relative; }
+    .ub-input-wrap .ub-ico { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--muted, #6b635b); pointer-events: none; }
+    .ub-input { width: 100%; min-height: 48px; padding: 12px 44px 12px 42px !important; border: 1.5px solid var(--line-2, #d7cfc5); border-radius: var(--r, 14px); font-size: 16px; background: var(--surface, #fffefc); color: var(--ink, #26211d); }
+    .ub-input:focus { outline: none; border-color: var(--accent, #b4472c); box-shadow: 0 0 0 4px var(--accent-soft, #f6efe9); }
+    .ub-inline-field.has-value .ub-input { font-weight: 650; }
+    .ub-inline-field.is-bad .ub-input { border-color: var(--bad, #b42318); background: var(--bad-soft, #fdf0ee); }
+    .ub-clear { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); width: 36px; height: 36px; border: 0; border-radius: 99px; background: transparent; color: var(--muted, #6b635b); display: grid; place-items: center; cursor: pointer; }
+    .ub-clear:hover { background: #f3efe9; }
+    .ubigeo-pop.ub-inline { position: static; margin-top: 6px; border: 1px solid var(--line, #e7e1d9); border-radius: var(--r, 14px); box-shadow: none; background: var(--surface, #fffefc); }
+    .ub-inline .ubigeo-results { max-height: none; }
+    .ub-inline .ub-row { padding: 12px 14px; border-bottom: 1px solid #f0ebe4; min-height: 52px; }
+    .ub-inline .ub-row:hover, .ub-inline .ub-row.active { background: var(--accent-soft, #f6efe9); }
+    .ub-inline .ub-row-name { font-size: 15.5px; font-weight: 650; color: var(--ink, #26211d); white-space: normal; }
+    .ub-inline .ub-row.active .ub-row-name { color: var(--accent, #b4472c); }
+    .ub-inline .ub-row-ctx { font-size: 13px; color: var(--muted, #6b635b); white-space: normal; }
+    .ub-inline .ub-chevron { color: var(--ink-2, #5a524b); font-size: 20px; }
+    .ub-badge { flex: 0 0 auto; font-size: 12px; font-weight: 650; color: var(--ok, #1f7a46); background: var(--ok-soft, #eaf6ee); border-radius: 99px; padding: 3px 9px; white-space: nowrap; }
+    .ub-inline .ub-sec { background: transparent; border-top: 0; color: var(--muted, #6b635b); font-size: 12px; letter-spacing: 0; text-transform: none; font-weight: 650; padding: 12px 14px 4px; }
+    .ub-more { display: block; width: 100%; min-height: 44px; border: 0; background: transparent; color: var(--accent, #b4472c); font-size: 14px; font-weight: 700; cursor: pointer; }
+    .ub-pop-chips { display: flex; flex-wrap: wrap; gap: 8px; padding: 6px 14px 14px; }
+    .ub-pop-chip { min-height: 38px; padding: 7px 14px; border: 1.5px solid var(--line-2, #d7cfc5); border-radius: 99px; background: var(--surface, #fffefc); font-size: 14px; font-weight: 600; color: var(--ink-2, #5a524b); cursor: pointer; }
+    .ub-pop-chip:hover { border-color: var(--accent, #b4472c); color: var(--accent, #b4472c); }
+    .ub-inline .ub-head { background: var(--accent-soft, #f6efe9); border-bottom: 1px solid var(--line, #e7e1d9); font-size: 13.5px; color: var(--ink-2, #5a524b); padding: 10px 14px; }
+    .ub-inline .ub-back { color: var(--accent, #b4472c); }
+    .ub-inline .ub-manual-toggle { background: transparent; border-top: 1px solid var(--line, #e7e1d9); font-size: 13.5px; color: var(--ink-2, #5a524b); padding: 12px 14px; min-height: 44px; }
+    .ub-inline .ub-manual-toggle b { color: var(--accent, #b4472c); }
+    .ub-inline .ubigeo-item:hover, .ub-inline .ubigeo-item.active { background: var(--accent-soft, #f6efe9); color: var(--accent, #b4472c); }
+    .ub-inline .ubigeo-item { font-size: 14px; padding: 11px 12px; }
+    .ub-inline .ub-void-t { color: var(--ink, #26211d); font-size: 15px; }
+    .ub-inline .ub-void-s { color: var(--muted, #6b635b); font-size: 13.5px; }
+    .ub-inline .ub-btn { min-height: 40px; border-radius: 99px; border: 1.5px solid var(--line-2, #d7cfc5); font-size: 13.5px; padding: 8px 14px; }
+
     /* Encabezados de sección del formulario de envío */
     .sh-section { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; color: #4f46e5; border-bottom: 1px solid #eef2ff; padding-bottom: 5px; margin: 20px 0 12px; }
     .sh-section:first-child { margin-top: 4px; }
@@ -147,7 +182,74 @@
         cDist.setAttribute('data-empty', 'Elige una provincia');
         cols.appendChild(cDep); cols.appendChild(cProv); cols.appendChild(cDist);
 
-        pop.appendChild(bar); pop.appendChild(results); pop.appendChild(manualBtn); pop.appendChild(cols);
+        // ── Modo en línea (formulario del cliente) ──────────────────────
+        //
+        // En popup había DOS campos: el que se ve y, al tocarlo, otro buscador
+        // flotando encima que tapaba la agencia. En línea el campo visible ES
+        // el buscador y la lista se abre debajo empujando el contenido. El
+        // `.ubigeo-display` sigue existiendo (oculto) porque otros scripts
+        // leen su texto.
+        var inline = field.getAttribute('data-ub-mode') === 'inline';
+        var agParam = field.getAttribute('data-ub-ag') ? '&ag=' + encodeURIComponent(field.getAttribute('data-ub-ag')) : '';
+        var label = '';
+        if (inline) {
+            field.classList.add('ub-inline-field');
+            pop.classList.add('ub-inline');
+            disp.hidden = true;
+            var oldWrap = field.querySelector('.ub-input-wrap'); if (oldWrap) oldWrap.remove();
+            var wrap = document.createElement('div'); wrap.className = 'ub-input-wrap';
+            wrap.innerHTML = '<svg class="ub-ico" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 10m-7 0a7 7 0 1 0 14 0a7 7 0 1 0 -14 0"/><path d="M21 21l-6 -6"/></svg>';
+            search.className = 'ub-input';
+            search.placeholder = 'Escribe tu ciudad o distrito';
+            search.setAttribute('aria-label', 'Ciudad o distrito de destino');
+            search.setAttribute('autocapitalize', 'words');
+            var clear = document.createElement('button'); clear.type = 'button'; clear.className = 'ub-clear'; clear.hidden = true;
+            clear.setAttribute('aria-label', 'Borrar');
+            clear.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M18 6l-12 12"/><path d="M6 6l12 12"/></svg>';
+            wrap.appendChild(search); wrap.appendChild(clear);
+            field.insertBefore(wrap, pop);
+            manualBtn.innerHTML = '<span>¿No la encuentras? <b>Elegir por departamento</b></span><span>▾</span>';
+            pop.appendChild(results); pop.appendChild(manualBtn); pop.appendChild(cols);
+        } else {
+            pop.appendChild(bar); pop.appendChild(results); pop.appendChild(manualBtn); pop.appendChild(cols);
+        }
+
+        // Ciudades a las que más se envía: el cliente toca la suya sin escribir.
+        var POPULARES = [
+            ['040101', 'Arequipa', 'Arequipa'], ['130101', 'Trujillo', 'La Libertad'], ['140101', 'Chiclayo', 'Lambayeque'],
+            ['200101', 'Piura', 'Piura'], ['080101', 'Cusco', 'Cusco'], ['120101', 'Huancayo', 'Junín'],
+            ['110101', 'Ica', 'Ica'], ['230101', 'Tacna', 'Tacna'], ['021801', 'Chimbote', 'Áncash'], ['160101', 'Iquitos', 'Loreto']
+        ];
+        function sugerencias() {
+            results.innerHTML = ''; filas = []; cursor = -1;
+            results.appendChild(seccion('Ciudades frecuentes'));
+            var box = document.createElement('div'); box.className = 'ub-pop-chips';
+            POPULARES.forEach(function (c) {
+                var b = document.createElement('button'); b.type = 'button'; b.className = 'ub-pop-chip';
+                b.textContent = c[1];
+                b.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    elegir({ district_id: c[0], province_id: c[0].substr(0, 4), department_id: c[0].substr(0, 2),
+                             name: c[1], province_name: c[1], department_name: c[2] });
+                });
+                box.appendChild(b);
+            });
+            results.appendChild(box);
+            results.hidden = false;
+        }
+        function ubLabel(name, prov, dep) {
+            var ctx = [prov, dep].filter(function (x, i, a) { return x && a.indexOf(x) === i && x !== name; });
+            return name + (ctx.length ? ', ' + ctx.join(', ') : '');
+        }
+        // Escribió algo distinto de lo elegido: la selección anterior ya no
+        // vale. Se suelta el distrito sin tocar lo que está escribiendo.
+        function soltar() {
+            if (!hDist.value) return;
+            hDep.value = hProv.value = hDist.value = ''; label = '';
+            sel = { dep: '', depN: '', prov: '', provN: '', dist: '', distN: '' };
+            disp.textContent = PH; disp.classList.remove('has-value'); field.classList.remove('has-value');
+            try { hDist.dispatchEvent(new Event('change', { bubbles: true })); } catch (e) {}
+        }
 
         function abrirManual() {
             cols.hidden = false;
@@ -170,6 +272,13 @@
             try { hDist.dispatchEvent(new Event('change', { bubbles: true })); } catch (e) {}
             if (dist) { disp.textContent = labelOverride || (depN + ' / ' + provN + ' / ' + distN); disp.classList.add('has-value'); }
             else { disp.textContent = PH; disp.classList.remove('has-value'); }
+            if (inline) {
+                label = dist ? (labelOverride || ubLabel(distN, provN, depN)) : '';
+                search.value = label;
+                field.classList.toggle('has-value', !!dist);
+                field.classList.remove('is-bad');
+                if (clear) clear.hidden = !search.value;
+            }
         }
 
         var sel = { dep: '', depN: '', prov: '', provN: '', dist: '', distN: '' };
@@ -202,8 +311,9 @@
                 dist: r.district_id || '',  distN: r.name || ''
             };
             setValue(sel.dep, sel.depN, sel.prov, sel.provN, sel.dist, sel.distN,
-                     r.name + ' — ' + (r.province_name || '') + ', ' + (r.department_name || ''));
+                     ubLabel(r.name, r.province_name || '', r.department_name || ''));
             pop.hidden = true;
+            if (inline) search.blur();
         }
 
         // ── Pintado de resultados ───────────────────────────────────────
@@ -226,6 +336,26 @@
 
             var el = document.createElement('div');
             el.className = 'ub-row';
+            if (inline) {
+                // Para el cliente: el nombre y dónde queda, en su idioma. Las
+                // etiquetas «Distrito/Provincia» eran jerga; solo se avisa
+                // cuando tocar NO elige (hay que entrar a ver sus distritos).
+                var ctx = r.type === 'district'
+                    ? [r.province_name, r.department_name].filter(function (x, i, a) { return x && a.indexOf(x) === i; }).join(', ')
+                    : (r.type === 'province' ? 'Provincia de ' + (r.department_name || '') : 'Departamento') + cuantos(r);
+                var badge = '';
+                if (r.type === 'district' && typeof r.shalom === 'number') {
+                    badge = r.shalom > 0
+                        ? '<span class="ub-badge">' + r.shalom + (r.shalom === 1 ? ' oficina' : ' oficinas') + ' Shalom</span>'
+                        : '';
+                }
+                el.innerHTML =
+                    '<div class="ub-row-main">' +
+                        '<div class="ub-row-name">' + ubEsc(r.name) + '</div>' +
+                        '<div class="ub-row-ctx">' + ubEsc(ctx) + '</div>' +
+                    '</div>' + badge +
+                    (drill ? '<span class="ub-chevron" aria-hidden="true">›</span>' : '');
+            } else
             el.innerHTML =
                 '<div class="ub-row-main">' +
                     '<div class="ub-row-name">' + ubEsc(r.name) + '</div>' +
@@ -279,7 +409,24 @@
                 filas.push({ el: el });
             }
 
-            principales.forEach(pinta);
+            // En línea la lista empuja el formulario: 8 bastan para encontrar
+            // lo que se escribió; el resto, a pedido.
+            if (inline && principales.length > 8) {
+                principales.slice(0, 8).forEach(pinta);
+                var resto = principales.slice(8);
+                var mas = document.createElement('button'); mas.type = 'button'; mas.className = 'ub-more';
+                mas.textContent = 'Ver ' + resto.length + ' resultados más';
+                mas.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    mas.remove();
+                    var antes = results.querySelector('.ub-sec');
+                    resto.forEach(function (r) { pinta(r); if (antes) results.insertBefore(filas[filas.length - 1].el, antes); });
+                });
+                results.appendChild(mas);
+                hermanos = [];
+            } else {
+                principales.forEach(pinta);
+            }
 
             if (hermanos.length) {
                 var prov = hermanos[0].province_name || hermanos[0].via || '';
@@ -362,6 +509,7 @@
 
         function reposo() {
             results.hidden = true; results.innerHTML = ''; filas = []; cursor = -1;
+            if (inline && !pop.hidden) sugerencias();
         }
 
         // ── Búsqueda ────────────────────────────────────────────────────
@@ -370,7 +518,7 @@
             var q = search.value.trim();
             if (q.length < 2) { reposo(); return; }
             var mio = ++seq;
-            ubJSON(UB_SEARCH + '?v=2&q=' + encodeURIComponent(q)).then(function (list) {
+            ubJSON(UB_SEARCH + '?v=2' + agParam + '&q=' + encodeURIComponent(q)).then(function (list) {
                 // Respuesta de una pulsacion anterior que llego tarde: si la
                 // pintamos, el cliente ve resultados de lo que ya borro.
                 if (mio !== seq) return;
@@ -380,9 +528,31 @@
         }
 
         search.addEventListener('input', function () {
+            if (inline) {
+                if (search.value !== label) soltar();
+                if (clear) clear.hidden = !search.value;
+                if (pop.hidden) { ubCerrarTodos(); pop.hidden = false; }
+            }
             clearTimeout(st);
             st = setTimeout(buscar, 250);
         });
+
+        if (inline) {
+            // Al entrar: si ya eligió, se selecciona el texto para reescribir de
+            // un toque; si no, se ofrecen las ciudades frecuentes.
+            search.addEventListener('focus', function () {
+                ubCerrarTodos();
+                pop.hidden = false; cerrarManual();
+                if (label && search.value === label) { try { search.select(); } catch (e) {} sugerencias(); }
+                else if (search.value.trim().length >= 2) buscar();
+                else sugerencias();
+            });
+            clear.addEventListener('click', function (e) {
+                e.stopPropagation();
+                search.value = ''; soltar(); clear.hidden = true;
+                search.focus();
+            });
+        }
 
         // Teclado: el que escribe rapido no quiere soltar el teclado para
         // apuntar con el mouse, y en celular Enter cierra sin mas vueltas.
@@ -396,7 +566,7 @@
                 else if (filas.length) filas[0].el.click();
                 else buscar();
             }
-            else if (e.key === 'Escape') { pop.hidden = true; }
+            else if (e.key === 'Escape') { pop.hidden = true; if (inline) search.blur(); }
         });
 
         // Abrir/cerrar NO se ata al nodo: lo llama la delegacion de abajo.
@@ -450,6 +620,8 @@
         if (!t || !t.closest) return;
         // Dentro del popup manda el widget (elegir, buscar): no tocar nada.
         if (t.closest('.ubigeo-pop')) return;
+        // En línea el buscador vive fuera del popup.
+        if (t.closest('.ub-input-wrap')) return;
         var disp = t.closest('.ubigeo-display');
         if (!disp) { ubCerrarTodos(); return; }
         var field = disp.closest('.ubigeo-field');

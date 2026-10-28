@@ -1356,13 +1356,31 @@ class ShipmentController extends Controller
     {
         $agrupado = $request->input('v') === '2';
 
-        return response()->json(
-            UbigeoSearch::search(
-                (string) $request->input('q', ''),
-                $agrupado ? 20 : UbigeoSearch::DEFAULT_LIMIT,
-                $agrupado
-            )
+        $rows = UbigeoSearch::search(
+            (string) $request->input('q', ''),
+            $agrupado ? 20 : UbigeoSearch::DEFAULT_LIMIT,
+            $agrupado
         );
+
+        // `?ag=shalom`: cuántas oficinas de Shalom tiene cada distrito, para
+        // que el cliente vea en la lista si su ciudad tiene dónde recoger.
+        if ($agrupado && $request->input('ag') === 'shalom' && $rows) {
+            try {
+                $ids = array_values(array_filter(array_column($rows, 'district_id')));
+                $count = $ids ? ShalomAgency::selectable()->whereIn('ubigeo', $ids)
+                    ->selectRaw('ubigeo, count(*) as n')->groupBy('ubigeo')->pluck('n', 'ubigeo')->all() : [];
+                foreach ($rows as &$r) {
+                    if (($r['type'] ?? '') === 'district') {
+                        $r['shalom'] = (int) ($count[$r['district_id']] ?? 0);
+                    }
+                }
+                unset($r);
+            } catch (\Throwable $e) {
+                // Sin catálogo: la búsqueda sigue igual, sin el dato.
+            }
+        }
+
+        return response()->json($rows);
     }
 
     /**

@@ -243,7 +243,10 @@
                     {{-- ─────── Rama AGENCIA (ubigeo) ─────── --}}
                     <div class="branch-agencia" hidden>
                         <label class="req">¿A dónde enviamos el paquete?</label>
-                        <div class="ubigeo-field" data-ubigeo-group="{{ $ubGroup }}">
+                        {{-- Modo «en línea»: el campo ES el buscador y los resultados
+                             empujan el contenido en vez de taparlo. El panel usa
+                             el mismo widget en modo popup (sin el atributo). --}}
+                        <div class="ubigeo-field" data-ubigeo-group="{{ $ubGroup }}" @if($esPublico) data-ub-mode="inline" data-ub-ag="shalom" @endif>
                             <div class="ubigeo-display" tabindex="0">Busca ciudad, provincia o distrito…</div>
                             <input type="hidden" name="department_id" data-ub="department">
                             <input type="hidden" name="province_id"   data-ub="province">
