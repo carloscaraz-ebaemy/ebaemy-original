@@ -13,6 +13,18 @@
      porque el termino buscado es lo unico que las distingue. --}}
 @if($q)
     @section('title', 'Buscar "'.$q.'" — Marketplace ebaemy')
+    {{-- Resultados de busqueda interna: Google pide no indexarlos (contenido
+         que cambia con cada termino y miles de URLs sin valor propio). Se usa
+         noindex y no robots.txt para que pueda leer la directiva y seguir
+         los enlaces a las fichas. --}}
+    @section('robots', 'noindex, follow')
+@elseif($listings->currentPage() > 1)
+    {{-- La pagina 2+ del catalogo es canonica de si misma: el layout tomaba
+         url()->current(), que quita el ?page y la apuntaba a la portada. --}}
+    @section('canonical', route('marketplace.index') . '?page=' . $listings->currentPage())
+    @if($listings->isEmpty())
+        @section('robots', 'noindex, follow')
+    @endif
 @endif
 
 @section('content')

@@ -126,6 +126,11 @@ class Handler extends ExceptionHandler
                     return response(view('ecommerce::errors.404'), 404);
                 } catch (\Throwable $e) {}
             }
+            if ($this->debeRenderizar404DelMarketplace($request)) {
+                try {
+                    return response(view('marketplace.errors.404'), 404);
+                } catch (\Throwable $e) {}
+            }
             return $this->errorResponse('No se encontró el recurso solicitado', 404, $exception);
         }
 
@@ -146,6 +151,11 @@ class Handler extends ExceptionHandler
             if ($this->debeRenderizar404DeTienda($request)) {
                 try {
                     return response(view('ecommerce::errors.404'), 404);
+                } catch (\Throwable $e) {}
+            }
+            if ($this->debeRenderizar404DelMarketplace($request)) {
+                try {
+                    return response(view('marketplace.errors.404'), 404);
                 } catch (\Throwable $e) {}
             }
             return $this->errorResponse('No se encontró la URL especificada', 404, $exception);
@@ -265,6 +275,23 @@ class Handler extends ExceptionHandler
      * con el navegador. No para `api*` ni para quien pida JSON expresamente:
      * ahi el JSON es la respuesta correcta y hay clientes que dependen de ella.
      */
+    /**
+     * 404 de persona en el marketplace de ebaemy.com: pagina HTML con buscador
+     * en vez del JSON crudo. Solo bajo /marketplace y sin tenant resuelto (en
+     * el dominio de una tienda /marketplace redirige a su escaparate).
+     */
+    private function debeRenderizar404DelMarketplace($request): bool
+    {
+        if ($request->expectsJson() || $request->ajax() || !$request->is('marketplace*') || $request->is('marketplace/api*')) {
+            return false;
+        }
+        try {
+            return !app(\Hyn\Tenancy\Contracts\CurrentHostname::class);
+        } catch (\Throwable $e) {
+            return true;
+        }
+    }
+
     private function debeRenderizar404DeTienda($request): bool
     {
         if ($request->expectsJson() || $request->ajax() || $request->is('api*')) {

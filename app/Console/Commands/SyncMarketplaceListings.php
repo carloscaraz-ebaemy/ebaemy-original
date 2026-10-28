@@ -80,7 +80,7 @@ class SyncMarketplaceListings extends Command
                     // Cambiar de conexión al central explícitamente para el upsert
                     $tenancy->tenant(null);
 
-                    $listing = MarketplaceListing::updateOrCreate(
+                    $listing = MarketplaceListingSyncService::upsertListing(
                         ['hostname_id' => $hostname->id, 'remote_item_id' => $it->id],
                         $payload
                     );

@@ -1347,9 +1347,10 @@ class MarketplaceController extends Controller
 
     public function show(string $slug)
     {
-        // Solo listings publicados (activos, con stock). Los pausados/rechazados
-        // devuelven 404 para no exponer productos retirados en búsquedas Google.
-        $listing = MarketplaceListing::published()
+        // Activos con foto, aunque esten agotados (ver scopeHasPublicPage). Los
+        // pausados/rechazados devuelven 404 para no exponer productos retirados
+        // en búsquedas Google.
+        $listing = MarketplaceListing::hasPublicPage()
             ->where('slug', $slug)
             ->firstOrFail();
 
@@ -1764,7 +1765,8 @@ class MarketplaceController extends Controller
      */
     public function shareProduct(Request $request, int $id)
     {
-        $listing = MarketplaceListing::published()->find($id);
+        // Igual que la ficha: un agotado conserva su enlace y su foto.
+        $listing = MarketplaceListing::hasPublicPage()->find($id);
         if (!$listing) {
             abort(404);
         }
@@ -1797,7 +1799,8 @@ class MarketplaceController extends Controller
      */
     public function shareImage(int $id)
     {
-        $listing = MarketplaceListing::published()->find($id);
+        // Igual que la ficha: un agotado conserva su enlace y su foto.
+        $listing = MarketplaceListing::hasPublicPage()->find($id);
         if (!$listing || !$listing->image_url) {
             abort(404);
         }
@@ -2267,7 +2270,8 @@ class MarketplaceController extends Controller
      */
     public function sitemap()
     {
-        $listings = MarketplaceListing::published()
+        // Mismo criterio que la ficha: un agotado conserva su URL en el indice.
+        $listings = MarketplaceListing::hasPublicPage()
             ->orderByDesc('updated_at')
             ->limit(40000) // límite seguro, sitemap máx 50k
             ->get(['slug', 'updated_at', 'image_url', 'title']);
@@ -2276,7 +2280,12 @@ class MarketplaceController extends Controller
         $xml .= '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" '
               . 'xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">' . "\n";
 
-        $xml .= $this->sitemapUrl(url('/marketplace'), now(), '1.0', 'daily');
+        // La portada y el directorio cambian cuando cambia el catalogo: su
+        // lastmod es el del ultimo producto modificado, no la hora de la
+        // peticion (un lastmod que siempre es «ahora» Google lo ignora).
+        $catalogoCambio = $listings->max('updated_at') ?: now();
+
+        $xml .= $this->sitemapUrl(url('/marketplace'), $catalogoCambio, '1.0', 'daily');
 
         // Categorías oficiales (URL canónica nueva) — prioridad alta.
         $officialCategories = MarketplaceCategory::query()
@@ -2316,7 +2325,26 @@ class MarketplaceController extends Controller
         // paginas siguen respondiendo para los enlaces que ya existen.
 
         // Directorio de tiendas (la pagina que responde a «ebaemy tiendas»).
-        $xml .= $this->sitemapUrl(route('marketplace.stores'), now(), '0.9', 'daily');
+        $xml .= $this->sitemapUrl(route('marketplace.stores'), $catalogoCambio, '0.9', 'daily');
+
+        // Paginas informativas: responden a busquedas de confianza («ebaemy
+        // devoluciones», «es seguro comprar en ebaemy») y no estaban en el
+        // sitemap. Su lastmod es la fecha de la vista, que solo cambia cuando
+        // se edita el texto.
+        foreach ([
+            'marketplace.faq'              => 'faq',
+            'marketplace.shipping_returns' => 'shipping_returns',
+            'marketplace.terms'            => 'terms',
+            'marketplace.privacy'          => 'privacy',
+        ] as $ruta => $vista) {
+            $archivo = resource_path("views/marketplace/legal/{$vista}.blade.php");
+            $xml .= $this->sitemapUrl(
+                route($ruta),
+                is_file($archivo) ? \Carbon\Carbon::createFromTimestamp(filemtime($archivo)) : $catalogoCambio,
+                '0.4',
+                'monthly'
+            );
+        }
 
         // Páginas públicas por tienda — una entrada por seller activo.
         // Tomamos el subdominio del FQDN denormalizado en marketplace_listings

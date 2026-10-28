@@ -69,7 +69,7 @@ class MarketplaceListingSyncService
                 return $listing;
             }
 
-            $listing = MarketplaceListing::updateOrCreate(
+            $listing = self::upsertListing(
                 ['hostname_id' => $hostnameId, 'remote_item_id' => $remoteItemId],
                 $payload
             );
@@ -109,6 +109,33 @@ class MarketplaceListingSyncService
         } finally {
             $tenancy->tenant($originalTenant ?: null);
         }
+    }
+
+    /**
+     * updateOrCreate del listing sin que `synced_at` cuente como cambio.
+     *
+     * El payload siempre trae `synced_at => now()`, así que el listing quedaba
+     * «sucio» en cada pasada del cron (cada 30 min) y Eloquent renovaba
+     * `updated_at` aunque el producto no hubiera cambiado. Ese `updated_at` es
+     * el `<lastmod>` del sitemap: Google recibía 264 de 323 fichas «modificadas»
+     * cada media hora y deja de fiarse de un lastmod que siempre cambia.
+     * Ahora `updated_at` solo se mueve con un cambio real y `synced_at` se
+     * escribe aparte, sin tocarlo.
+     */
+    public static function upsertListing(array $key, array $payload): MarketplaceListing
+    {
+        $syncedAt = $payload['synced_at'] ?? now();
+        unset($payload['synced_at']);
+
+        $listing = MarketplaceListing::updateOrCreate($key, $payload);
+
+        // toBase(): el update del query builder de Eloquent añadiría updated_at.
+        MarketplaceListing::query()->whereKey($listing->getKey())->toBase()
+            ->update(['synced_at' => $syncedAt]);
+        $listing->synced_at = $syncedAt;
+        $listing->syncOriginalAttribute('synced_at');
+
+        return $listing;
     }
 
     /**

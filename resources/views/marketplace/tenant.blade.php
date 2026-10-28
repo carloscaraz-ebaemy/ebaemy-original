@@ -42,7 +42,10 @@
     $description = 'Catálogo oficial de ' . $store->name . ' en el marketplace de ebaemy. ' . $total . ' producto' . ($total === 1 ? '' : 's') . ' disponibles.';
 @endphp
 
-@section('title', $store->name . ' — Tienda en Marketplace ebaemy')
+@php
+    $paginaActual = $listings->currentPage();
+@endphp
+@section('title', $store->name . ($paginaActual > 1 ? ' — página ' . $paginaActual : '') . ' — Tienda en Marketplace ebaemy')
 @section('description', \Illuminate\Support\Str::limit($description, 160))
 @section('keywords', $store->name . ', tienda online, marketplace, ebaemy, Perú')
 @section('og_title', $store->name . ' en ebaemy')
@@ -50,7 +53,13 @@
 @if($store->logo_url)
     @section('og_image', $store->logo_url)
 @endif
-@section('canonical', $tenantUrl)
+{{-- Paginacion: cada pagina es canonica de si misma (la 2 no es copia de la
+     1, tiene otros productos; apuntarla a la 1 le quitaba a Google la unica via
+     hacia esos productos). Una pagina pasada del final sale vacia: noindex. --}}
+@section('canonical', $paginaActual > 1 ? $tenantUrl . '?page=' . $paginaActual : $tenantUrl)
+@if($listings->isEmpty())
+@section('robots', 'noindex, follow')
+@endif
 
 @push('styles')
 <script type="application/ld+json">

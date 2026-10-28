@@ -49,14 +49,20 @@
                   . "radial-gradient(circle at 15% 85%, hsla({$catHue}, 85%, 65%, .18) 0%, transparent 45%)";
 @endphp
 
-@section('title', $category->name . ' — Marketplace ebaemy')
+@php
+    $paginaActual = $listings->currentPage();
+@endphp
+@section('title', $category->name . ($paginaActual > 1 ? ' — página ' . $paginaActual : '') . ' — Marketplace ebaemy')
 @section('description', \Illuminate\Support\Str::limit($catDesc, 160))
 @section('keywords', $category->name . ', marketplace, tiendas, ebaemy, Perú')
 @section('og_title', $category->name . ' en Marketplace ebaemy')
 @section('og_description', $total . ' productos de ' . $category->name . ' en ebaemy.com.')
-@section('canonical', $categoryUrl)
+{{-- Paginacion: cada pagina es canonica de si misma (la 2 no es copia de la
+     1, tiene otros productos; apuntarla a la 1 le quitaba a Google la unica via
+     hacia esos productos). Una pagina pasada del final sale vacia: noindex. --}}
+@section('canonical', $paginaActual > 1 ? $categoryUrl . '?page=' . $paginaActual : $categoryUrl)
 {{-- Sin productos no aporta nada al buscador y diluye el sitio: fuera del indice hasta que tenga. --}}
-@if(empty($total))
+@if(empty($total) || $listings->isEmpty())
 @section('robots', 'noindex, follow')
 @endif
 

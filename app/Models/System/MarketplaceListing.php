@@ -149,6 +149,23 @@ class MarketplaceListing extends Model
     }
 
     /**
+     * Listings que conservan su ficha publica: los de `published()` y ademas
+     * los agotados. Un agotado temporal sigue siendo el mismo producto; si su
+     * ficha daba 404, Google la sacaba del indice y al reponerlo volvia a
+     * empezar de cero. La ficha lo muestra «Sin stock disponible», sin boton
+     * de compra y con `OutOfStock` en los datos estructurados, y el carrito
+     * sigue validando con `published()`, asi que no se puede comprar.
+     *
+     * Pausado, rechazado o desactivado por el vendedor: fuera (404).
+     */
+    public function scopeHasPublicPage($query)
+    {
+        return $query->where('is_active', true)
+                     ->where('status', 'active')
+                     ->hasImage();
+    }
+
+    /**
      * Solo listings con alguna imagen mostrable. Un producto sin foto rompe
      * la card del marketplace (queda el bloque "Sin imagen") y no vende, asi
      * que se oculta del listado publico hasta que el seller suba una foto.

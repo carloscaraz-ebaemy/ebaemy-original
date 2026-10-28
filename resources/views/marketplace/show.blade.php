@@ -6,13 +6,25 @@
     // dentro de route(), Str::limit(), ternarios, etc. — genera PHP inválido
     // con ParseError. Usamos variables planas y json_encode() directo.
     $seoTitle       = $listing->title . ' — ' . $listing->seller_display . ' | Marketplace ebaemy';
-    $seoDescription = \Illuminate\Support\Str::limit(strip_tags($listing->description ?? $listing->title), 155);
+    // La descripcion viene del editor HTML del tenant: strip_tags dejaba las
+    // entidades y Google mostraba «60*40cm &nbsp;03 colores» en el resultado
+    // (y en el JSON-LD). Se decodifican, se colapsan los espacios y se corta
+    // por palabra, no a media palabra como hacia Str::limit.
+    $textoPlano = trim(preg_replace('/\s+/u', ' ', str_replace("\u{00A0}", ' ',
+        html_entity_decode(strip_tags((string) ($listing->description ?: $listing->title)), ENT_QUOTES | ENT_HTML5, 'UTF-8'))));
+    $recortar = function (string $texto, int $max) {
+        if (mb_strlen($texto) <= $max) return $texto;
+        $corte = mb_substr($texto, 0, $max);
+        $espacio = mb_strrpos($corte, ' ');
+        return rtrim($espacio !== false ? mb_substr($corte, 0, $espacio) : $corte, " ,;:.-") . '…';
+    };
+    $seoDescription = $recortar($textoPlano, 155);
     $seoKeywords    = $listing->title . ', ' . ($listing->category_name ?? '') . ', ' . $listing->seller_display . ', marketplace ebaemy';
     $seoImage       = $listing->image_url ?: asset('logo/logo.png');
     $canonical      = route('marketplace.item', $listing->slug);
     $shareImage     = $listing->image_url ? route('marketplace.share.image', $listing->id) : $seoImage;
     $shortUrl       = route('marketplace.share.product', $listing->id);
-    $ldDescription  = \Illuminate\Support\Str::limit(strip_tags($listing->description ?? $listing->title), 500);
+    $ldDescription  = $recortar($textoPlano, 500);
     $ldUrl          = route('marketplace.item', $listing->slug);
     $ldPrice        = number_format($listing->display_price, 2, '.', '');
     $ldAvailability = $listing->stock > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock';
@@ -53,7 +65,44 @@
             ],
         ],
     ];
-    if ($listing->brand_name)   $product['brand'] = ['@type' => 'Brand', 'name' => $listing->brand_name];
+    // Todas las fotos que la ficha muestra, no solo la principal: Google usa
+    // varias para la ficha de producto y Google Imagenes.
+    $ldImages = collect([$listing->image_url])
+        ->merge(is_array($listing->gallery_image_urls) ? $listing->gallery_image_urls : [])
+        ->filter(fn($u) => is_string($u) && str_starts_with($u, 'http'))
+        ->unique()->take(10)->values()->all();
+    if (count($ldImages) > 1) $product['image'] = $ldImages;
+
+    // Oferta con fecha de fin: hasta cuando vale el precio rebajado.
+    if ($listing->is_on_offer && $listing->offer_ends_at && $listing->offer_ends_at->isFuture()) {
+        $product['offers']['priceValidUntil'] = $listing->offer_ends_at->toDateString();
+    }
+
+    // Variantes con precios distintos: un solo `price` (el minimo) no
+    // coincidia con el precio que la ficha muestra al cargar, que es el de la
+    // variante principal. Se declara el rango real de las variantes activas.
+    if (isset($variants) && $variants->isNotEmpty()) {
+        $preciosVariantes = $variants->pluck('price')->filter(fn($p) => (float) $p > 0);
+        if ($preciosVariantes->isNotEmpty() && $preciosVariantes->min() != $preciosVariantes->max()) {
+            $ofertaBase = $product['offers'];
+            unset($ofertaBase['price'], $ofertaBase['url'], $ofertaBase['priceValidUntil']);
+            $product['offers'] = array_merge($ofertaBase, [
+                '@type'      => 'AggregateOffer',
+                'url'        => $ldUrl,
+                'lowPrice'   => number_format((float) $preciosVariantes->min(), 2, '.', ''),
+                'highPrice'  => number_format((float) $preciosVariantes->max(), 2, '.', ''),
+                'offerCount' => $preciosVariantes->count(),
+                'availability' => $variants->sum('stock') > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+            ]);
+        }
+    }
+
+    // «OEM», «Generico», «Sin marca»… dicen que NO hay marca: declararlas como
+    // Brand le daria a Google una marca que no existe.
+    $marcaGenerica = in_array(\Illuminate\Support\Str::slug((string) $listing->brand_name), [
+        'oem', 'generico', 'generica', 'sin-marca', 'na', 'n-a', 'ninguna', 'otro', 'otros', 'varios', 'nn',
+    ], true);
+    if ($listing->brand_name && !$marcaGenerica) $product['brand'] = ['@type' => 'Brand', 'name' => $listing->brand_name];
     if ($listing->internal_id)  $product['sku']   = $listing->internal_id;
     if (($listing->rating_count ?? 0) > 0) {
         $product['aggregateRating'] = [
@@ -184,7 +233,10 @@
                 {{-- En el DETALLE mostramos la variante completa (sin recorte _mp)
                      para que el producto se vea entero. Las thumbs y las cards
                      siguen usando el cuadrado _mp para grilla uniforme. --}}
-                <img id="mpGalleryMain" src="{{ $listing->image_full_url }}" alt="{{ $listing->title }}">
+                {{-- Es el LCP de la ficha: se pide primero. El 1:1 lo fija el
+                     contenedor (aspect-ratio), asi que no mueve el diseno. --}}
+                <img id="mpGalleryMain" src="{{ $listing->image_full_url }}" alt="{{ $listing->title }}"
+                     width="1080" height="1080" fetchpriority="high">
             @else
                 <div style="display:flex;height:100%;align-items:center;justify-content:center;color:var(--mp-muted);font-size:14px;font-weight:500">Sin imagen disponible</div>
             @endif
