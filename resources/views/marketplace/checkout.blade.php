@@ -14,6 +14,32 @@
     border-radius: 14px; padding: 22px; margin-bottom: 16px;
 }
 .mp-co-card h3 { margin: 0 0 14px; font-size: 16px; color: var(--mp-ink, #111827); }
+/* Formulario en dos pasos, compacto */
+.mp-co-step { padding: 20px 22px 22px; }
+.mp-co-step h3 { display: flex; align-items: center; gap: 10px; font-size: 17px; margin-bottom: 6px; }
+.mp-co-step__n { width: 26px; height: 26px; border-radius: 50%; background: var(--mp-primary, #0f8a82); color: #fff; font-size: 13px; font-weight: 800; display: grid; place-items: center; flex: none; }
+.mp-co-step label { margin: 12px 0 5px; font-weight: 600; color: #374151; }
+.mp-co-opt { color: #9ca3af; font-weight: 400; }
+.mp-co-doc { display: grid; grid-template-columns: 130px 1fr; gap: 12px; }
+.mp-co-doc .mp-co-doc-status:empty { display: none; }
+.mp-co-place { position: relative; }
+.mp-co-place__list { position: absolute; z-index: 40; left: 0; right: 0; top: calc(100% + 4px); margin: 0; padding: 4px; list-style: none; background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; box-shadow: 0 12px 28px rgba(15,23,42,.14); max-height: 300px; overflow: auto; }
+.mp-co-place__list li { padding: 9px 10px; border-radius: 8px; cursor: pointer; font-size: 14px; line-height: 1.3; }
+.mp-co-place__list li small { display: block; color: #6b7280; font-size: 12px; }
+.mp-co-place__list li[aria-selected="true"], .mp-co-place__list li:hover { background: #f0fdfa; }
+.mp-co-place__list .is-empty { color: #6b7280; cursor: default; background: none !important; }
+.mp-co-ubigeo-store { display: none; }
+.mp-co-notes { margin-top: 10px; }
+.mp-co-notes summary { cursor: pointer; font-size: 13.5px; font-weight: 600; color: var(--mp-primary, #0f8a82); list-style: none; padding: 4px 0; }
+.mp-co-notes summary::-webkit-details-marker { display: none; }
+.mp-co-notes[open] summary { margin-bottom: 6px; }
+.mp-co-foot { padding: 4px 4px 0; display: grid; gap: 12px; }
+.mp-co-foot__pay { margin: 0; font-size: 13px; color: #4b5563; display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; }
+.mp-co-foot .mp-co-optin { font-size: 13px; color: #4b5563; font-weight: 400; }
+@media (max-width: 599px) {
+    .mp-co-step { padding: 18px 16px 20px; }
+    .mp-co-doc { grid-template-columns: 110px 1fr; }
+}
 .mp-co-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .mp-co-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
 @media (max-width: 599px) {
@@ -173,95 +199,79 @@ input.mp-co-invalid, select.mp-co-invalid, textarea.mp-co-invalid {
 
     <div class="mp-co-grid">
         <div>
-            <section class="mp-co-card">
-                <h3>👤 Datos del comprador</h3>
-                <label>Nombre completo o razón social *</label>
-                <input type="text" name="customer_name" required maxlength="180" value="{{ old('customer_name') }}">
-
-                <div class="mp-co-row">
+            {{-- Rediseño 2026-10-27: dos pasos en vez de cuatro tarjetas.
+                 El documento va primero porque autocompleta el nombre; el
+                 distrito es UN buscador (los tres <select> siguen ocultos como
+                 almacen, con los mismos name= que espera el servidor). --}}
+            <section class="mp-co-card mp-co-step">
+                <h3><span class="mp-co-step__n">1</span> Tus datos</h3>
+                <div class="mp-co-doc">
+                    @php $selDoc = old('customer_doc_type', 'DNI'); @endphp
                     <div>
-                        <label>Tipo de documento</label>
-                        @php $selDoc = old('customer_doc_type', 'DNI'); @endphp
-                        <select name="customer_doc_type">
+                        <label for="coDocType">Documento</label>
+                        <select id="coDocType" name="customer_doc_type">
                             @foreach(['DNI','RUC','CE','Pasaporte'] as $t)
                                 <option value="{{ $t }}" {{ $selDoc === $t ? 'selected' : '' }}>{{ $t }}</option>
                             @endforeach
                         </select>
                     </div>
                     <div>
-                        <label>Número de documento</label>
-                        <input type="text" name="customer_doc_number" maxlength="20" inputmode="numeric" autocomplete="off" value="{{ old('customer_doc_number') }}">
+                        <label for="coDocNum">Número <span class="mp-co-opt">· completa tu nombre solo</span></label>
+                        <input id="coDocNum" type="text" name="customer_doc_number" maxlength="20" inputmode="numeric" autocomplete="off" value="{{ old('customer_doc_number') }}">
                         <div class="mp-co-doc-status" data-doc-status aria-live="polite"></div>
                     </div>
                 </div>
 
+                <label for="coName">Nombre completo o razón social *</label>
+                <input id="coName" type="text" name="customer_name" required maxlength="180" autocomplete="name" value="{{ old('customer_name') }}">
+
                 <div class="mp-co-row">
                     <div>
-                        <label>Teléfono / WhatsApp *</label>
-                        <input type="tel" name="customer_phone" required maxlength="40" inputmode="numeric" placeholder="9XX XXX XXX" value="{{ old('customer_phone') }}">
-                        <div class="mp-co-hint">Aquí te llega la confirmación de tu pedido.</div>
+                        <label for="coPhone">WhatsApp * <span class="mp-co-opt">· aquí te confirman</span></label>
+                        <input id="coPhone" type="tel" name="customer_phone" required maxlength="40" inputmode="numeric" autocomplete="tel" placeholder="9XX XXX XXX" value="{{ old('customer_phone') }}">
                     </div>
                     <div>
-                        <label>Email <span style="color:#9ca3af;font-weight:400">(opcional)</span></label>
-                        <input type="email" name="customer_email" maxlength="180" value="{{ old('customer_email') }}">
-                        <div class="mp-co-hint">Para enviarte tu comprobante.</div>
+                        <label for="coEmail">Email <span class="mp-co-opt">(opcional)</span></label>
+                        <input id="coEmail" type="email" name="customer_email" maxlength="180" autocomplete="email" placeholder="Para tu comprobante" value="{{ old('customer_email') }}">
                     </div>
                 </div>
             </section>
 
-            <section class="mp-co-card">
-                <h3>📦 Dirección de entrega</h3>
-                <label>Dirección completa *</label>
-                <input type="text" name="delivery_address" required maxlength="500"
-                       placeholder="Av. ejemplo 123, dpto 4B"
+            <section class="mp-co-card mp-co-step">
+                <h3><span class="mp-co-step__n">2</span> ¿Dónde lo entregamos?</h3>
+
+                <label for="coPlace">Distrito *</label>
+                <div class="mp-co-place">
+                    <input id="coPlace" type="text" autocomplete="off" placeholder="Escribe tu distrito, p. ej. Miraflores o Talara"
+                           role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="coPlaceList" data-place-input>
+                    <ul id="coPlaceList" class="mp-co-place__list" role="listbox" hidden data-place-list></ul>
+                </div>
+                {{-- Almacen del ubigeo: ocultos pero vivos (los usa el envio por
+                     zona y el autocompletado del RUC). --}}
+                <div class="mp-co-ubigeo-store" aria-hidden="true">
+                    <select name="delivery_department" data-ubigeo="dep" data-old="{{ old('delivery_department') }}" tabindex="-1"><option value="">—</option></select>
+                    <select name="delivery_province" data-ubigeo="prov" data-old="{{ old('delivery_province') }}" tabindex="-1" disabled><option value="">—</option></select>
+                    <select name="delivery_district" data-ubigeo="dist" data-old="{{ old('delivery_district') }}" tabindex="-1" disabled><option value="">—</option></select>
+                </div>
+
+                <label for="coAddr">Dirección *</label>
+                <input id="coAddr" type="text" name="delivery_address" required maxlength="500" autocomplete="street-address"
+                       placeholder="Calle, número y dpto. (ej. Av. Arequipa 123, dpto 4B)"
                        value="{{ old('delivery_address') }}">
 
-                {{-- Ubigeo dependiente (Departamento → Provincia → Distrito).
-                     Carga marketplace/ubigeo.json (INEI) y cascada client-side.
-                     Mantiene los mismos name= para no tocar el backend. --}}
-                <div class="mp-co-row-3">
-                    <div>
-                        <label>Departamento</label>
-                        <select name="delivery_department" data-ubigeo="dep" data-old="{{ old('delivery_department') }}">
-                            <option value="">— Selecciona —</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label>Provincia</label>
-                        <select name="delivery_province" data-ubigeo="prov" data-old="{{ old('delivery_province') }}" disabled>
-                            <option value="">— Selecciona —</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label>Distrito</label>
-                        <select name="delivery_district" data-ubigeo="dist" data-old="{{ old('delivery_district') }}" disabled>
-                            <option value="">— Selecciona —</option>
-                        </select>
-                    </div>
-                </div>
-
-                <label>Notas para los vendedores <span style="color:#9ca3af;font-weight:400">(opcional)</span></label>
-                <textarea name="delivery_notes" rows="3" maxlength="1000" placeholder="Referencias de la dirección, horarios, preferencias…">{{ old('delivery_notes') }}</textarea>
+                <details class="mp-co-notes" {{ old('delivery_notes') ? 'open' : '' }}>
+                    <summary>+ Agregar referencia o indicaciones</summary>
+                    <textarea name="delivery_notes" rows="2" maxlength="1000" placeholder="Frente al parque, tocar el timbre 2, horario…">{{ old('delivery_notes') }}</textarea>
+                </details>
             </section>
 
-            <section class="mp-co-card">
-                <h3>💳 Forma de pago</h3>
-                <p style="margin:0 0 8px"><span class="mp-co-paytag">✓ Sin pago adelantado</span></p>
-                <p style="color:#6b7280;margin:0">
-                    Cada tienda coordinará el pago contigo después de recibir el pedido (Yape, Plin, depósito o pago contraentrega según su política).
-                    Por ahora ebaemy no procesa cobros centralizados.
-                </p>
-            </section>
-
-            <section class="mp-co-card">
+            <div class="mp-co-foot">
+                <p class="mp-co-foot__pay"><span class="mp-co-paytag">✓ Sin pago adelantado</span> Pagas a cada tienda cuando te escribe (Yape, Plin, transferencia o contraentrega).</p>
                 <label class="mp-co-optin">
                     <input type="checkbox" name="accepts_marketing" value="1" {{ old('accepts_marketing') ? 'checked' : '' }}>
-                    <span>
-                        <strong>Acepto recibir promociones y novedades</strong> de ebaemy y sus tiendas verificadas por WhatsApp/email.
-                        Podré cancelar la suscripción en cualquier momento desde el enlace incluido en cada mensaje.
-                    </span>
+                    <span>Quiero recibir ofertas de ebaemy y sus tiendas por WhatsApp o email. Puedo darme de baja cuando quiera.</span>
                 </label>
-            </section>
+            </div>
         </div>
 
         <aside class="mp-co-card mp-co-summary">
@@ -941,15 +951,85 @@ input.mp-co-invalid, select.mp-co-invalid, textarea.mp-co-invalid {
                 }
             }
             onZone();
+            syncPlace();
         };
+
+        // ── Buscador de distrito: un solo campo en vez de tres desplegables ──
+        const placeIn   = document.querySelector('[data-place-input]');
+        const placeList = document.querySelector('[data-place-list]');
+        const fold = (t) => (t || '').toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+        const title = (t) => (t || '').toString().toLowerCase().replace(/(^|[\s(-])\S/g, c => c.toUpperCase());
+        let index = [], hits = [], active = -1;
+
+        function syncPlace() {
+            if (!placeIn || !distSel.value) return;
+            placeIn.value = distSel.value + ', ' + provSel.value
+                + (norm(provSel.value) !== norm(depSel.value) ? ' (' + title(depSel.value) + ')' : '');
+        }
+        function closeList() {
+            if (!placeList) return;
+            placeList.hidden = true; placeIn.setAttribute('aria-expanded', 'false'); active = -1;
+        }
+        function render() {
+            placeList.innerHTML = '';
+            if (!hits.length) {
+                placeList.innerHTML = '<li class="is-empty">No encontramos ese distrito. Revisa cómo se escribe.</li>';
+            }
+            hits.forEach((h, i) => {
+                const li = document.createElement('li');
+                li.setAttribute('role', 'option');
+                li.setAttribute('aria-selected', i === active ? 'true' : 'false');
+                li.innerHTML = '<strong></strong><small></small>';
+                li.firstChild.textContent = h.dist;
+                li.lastChild.textContent = h.prov + ', ' + title(h.dep);
+                li.addEventListener('mousedown', (e) => { e.preventDefault(); pick(h); });
+                placeList.appendChild(li);
+            });
+            placeList.hidden = false;
+            placeIn.setAttribute('aria-expanded', 'true');
+        }
+        function pick(h) {
+            window.__mpUbigeoSet(h.dep, h.prov, h.dist);
+            closeList();
+            if (window.__mpClearErr) window.__mpClearErr(placeIn);
+        }
+        if (placeIn && placeList) {
+            placeIn.addEventListener('input', () => {
+                // Escribir de nuevo anula la eleccion anterior.
+                if (distSel.value) { depSel.value = ''; onDep(); onZone(); }
+                const q = fold(placeIn.value);
+                if (q.length < 2) { closeList(); return; }
+                const starts = [], has = [];
+                for (const e of index) {
+                    if (e.d.startsWith(q)) starts.push(e);
+                    else if (has.length < 8 && e.all.includes(q)) has.push(e);
+                    if (starts.length >= 8) break;
+                }
+                hits = starts.concat(has).slice(0, 8);
+                active = hits.length ? 0 : -1;
+                render();
+            });
+            placeIn.addEventListener('keydown', (e) => {
+                if (placeList.hidden || !hits.length) return;
+                if (e.key === 'ArrowDown') { e.preventDefault(); active = (active + 1) % hits.length; render(); }
+                else if (e.key === 'ArrowUp') { e.preventDefault(); active = (active - 1 + hits.length) % hits.length; render(); }
+                else if (e.key === 'Enter') { e.preventDefault(); if (active >= 0) pick(hits[active]); }
+                else if (e.key === 'Escape') { closeList(); }
+            });
+            placeIn.addEventListener('blur', () => setTimeout(closeList, 120));
+        }
 
         fetch(URL, { credentials: 'same-origin' })
             .then(r => r.json())
             .then(d => {
                 data = d;
+                data.forEach(dep => dep.p.forEach(pr => pr.d.forEach(dist => {
+                    index.push({ dep: dep.n, prov: pr.n, dist: dist, d: fold(dist), all: fold(dist + ' ' + pr.n + ' ' + dep.n) });
+                })));
                 data.forEach(dep => depSel.appendChild(opt(dep.n)));
                 if (depSel.dataset.old) { depSel.value = depSel.dataset.old; if (depSel.value) onDep(); }
                 onZone();
+                syncPlace();
             })
             .catch(() => { /* sin ubigeo: el envío igual funciona (campos vacíos) */ });
     })();
@@ -981,6 +1061,7 @@ input.mp-co-invalid, select.mp-co-invalid, textarea.mp-co-invalid {
             input.classList.remove('mp-co-invalid');
             if (boxes.has(input)) boxes.get(input).textContent = '';
         }
+        window.__mpClearErr = clearErr;
 
         function validate() {
             const errors = [];
@@ -1016,6 +1097,15 @@ input.mp-co-invalid, select.mp-co-invalid, textarea.mp-co-invalid {
             if (email.value.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value.trim())) {
                 setErr(email, 'Revisa el formato del correo.');
                 errors.push(email);
+            }
+
+            // Distrito: hace falta para calcular el envio y para que la tienda
+            // sepa a donde mandar. Se elige de la lista del buscador.
+            const place = $('[data-place-input]');
+            const dist  = $('[name="delivery_district"]');
+            if (place) {
+                clearErr(place);
+                if (!dist || !dist.value) { setErr(place, 'Escribe tu distrito y elígelo de la lista.'); errors.push(place); }
             }
 
             if (!addr.value.trim() || addr.value.trim().length < 5) {
