@@ -487,7 +487,7 @@ class MarketplaceCheckoutController extends Controller
         // guard 'marketplace' eso devolvia ANY comprador logueado, permitiendole
         // ver ordenes ajenas.
         $order = MarketplaceOrder::query()
-            ->with(['items', 'tenantOrders'])
+            ->with(['items.listing', 'tenantOrders'])
             ->where('order_number', $number)
             ->firstOrFail();
 
@@ -527,8 +527,42 @@ class MarketplaceCheckoutController extends Controller
             $order->order_number
         );
 
+        // Un «paquete» por tienda, con lo que el comprador necesita saber:
+        // quien lo envia (nombre, no el dominio), como contactarla y cuanto
+        // cuesta el envio a SU destino. Los datos de la tienda salen de la
+        // ficha publicada; si el producto ya no esta, de cualquier otra suya.
+        $zona = (mb_strtoupper((string) $order->delivery_province) === 'LIMA'
+                 || mb_strtoupper((string) $order->delivery_department) === 'CALLAO') ? 'lima' : 'province';
+        $conDestino = (bool) $order->delivery_district;
+        $packages = $itemsByStore->map(function ($items, $hostnameId) use ($subOrders, $zona, $conDestino) {
+            $sub = $subOrders->get($hostnameId);
+            $listing = $items->pluck('listing')->filter()->first()
+                ?: \App\Models\System\MarketplaceListing::where('hostname_id', $hostnameId)->latest('updated_at')->first();
+            $subtotal = (float) $items->sum('total');
+            $discount = (float) ($sub?->discount_amount ?? 0);
+            $wa = preg_replace('/\D+/', '', (string) ($listing->seller_whatsapp ?? ''));
+            if ($wa !== '' && strlen($wa) === 9) {
+                $wa = '51' . $wa;
+            }
+
+            return (object) [
+                'name'     => html_entity_decode((string) ($listing?->seller_display ?: $items->first()->tenant_fqdn), ENT_QUOTES | ENT_HTML5, 'UTF-8'),
+                'logo'     => $listing->tenant_logo_url ?? null,
+                'store'    => $listing?->subdomain ? route('marketplace.tenant', $listing->subdomain) : null,
+                'whatsapp' => $wa ?: null,
+                'items'    => $items,
+                'status'   => $sub->status ?? 'pending',
+                'coupon'   => $sub?->coupon_code,
+                'discount' => $discount,
+                'total'    => max(0, $subtotal - $discount),
+                'ship'     => $conDestino
+                    ? \App\Services\Marketplace\ShippingSummaryText::forZone($listing->shipping ?? null, $zona, $subtotal)
+                    : null,
+            ];
+        })->values();
+
         return view('marketplace.order_confirmation', compact(
-            'order', 'itemsByStore', 'subOrders', 'adsPurchasePayload'
+            'order', 'itemsByStore', 'subOrders', 'adsPurchasePayload', 'packages'
         ));
     }
 }
