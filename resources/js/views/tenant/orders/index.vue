@@ -961,7 +961,7 @@
                                      el candado abria un desplegable con una
                                      sola opcion, la que ya tenia. -->
                                 <div
-                                    v-if="!isMarketplace(row) && puedeCambiarEstado(row)"
+                                    v-if="!esExterno(row) && puedeCambiarEstado(row)"
                                     class="ord-status-editbar"
                                 >
                                     <template v-if="editingStatusId === row.id">
@@ -1411,6 +1411,18 @@
                                     >
                                         <i class="el-icon-close"></i>
                                         Anular envío
+                                    </el-dropdown-item>
+                                    <!-- Anular el PEDIDO (no solo su envío). Los del
+                                         marketplace propio llegan como solicitud sin
+                                         pagar y se anulan aquí; los de Saga, ML o
+                                         TikTok se anulan en su portal (is_external). -->
+                                    <el-dropdown-item
+                                        v-if="puedeAnularPedido(row)"
+                                        command="cancelOrder"
+                                        :class="['ord-menu-danger', row.shipment ? '' : 'ord-menu-sep']"
+                                    >
+                                        <i class="el-icon-delete"></i>
+                                        Anular pedido
                                     </el-dropdown-item>
                                 </el-dropdown-menu>
                             </el-dropdown>
@@ -4530,6 +4542,7 @@ export default {
                 // documentos, que llama a estos mismos metodos por evento.
                 sagaLabel: () => this.downloadLabel(row),
                 shippingLink: () => this.copyShippingLink(row),
+                cancelOrder: () => this.anularPedido(row),
                 holdOn: () => this.cambiarEspera(row, true),
                 holdOff: () => this.cambiarEspera(row, false),
                 trackingLink: () => this.copyLink(
@@ -5534,6 +5547,38 @@ export default {
 
             window.open(url, "_blank");
         },
+        /** El estado lo manda un portal de fuera (misma regla que el servidor). */
+        esExterno(row) {
+            return row.is_external === undefined ? this.isMarketplace(row) : !!row.is_external;
+        },
+
+        puedeAnularPedido(row) {
+            return !this.esAnulado(row) && !this.esEntregado(row) && !this.esExterno(row);
+        },
+
+        /** Anula el pedido entero: el servidor libera stock y deja la bitácora. */
+        anularPedido(row) {
+            const pagado = Number(row.paid_total || 0) > 0;
+            this.$confirm(
+                (pagado
+                    ? "Este pedido tiene pagos registrados: revísalos o devuélvelos después de anularlo. "
+                    : "El pedido no tiene pagos. ") +
+                    "Se anula el pedido completo y se libera su stock. Se puede restaurar después desde el mismo menú.",
+                "Anular pedido #" + (row.order_id || row.id),
+                { confirmButtonText: "Anular pedido", cancelButtonText: "Cancelar", type: "warning" }
+            )
+                .then(() => this.$http.post(`/statusOrder/update`, { record: { id: row.id, status_order_id: 5 } }))
+                .then(r => {
+                    this.$message.success((r.data && r.data.message) || "Pedido anulado.");
+                    this.refreshAfterPayment(row.id);
+                })
+                .catch(e => {
+                    if (e === "cancel" || e === "close") return;
+                    const m = ((e && e.response && e.response.data) || {}).message;
+                    this.$message.error(m || "No se pudo anular el pedido.");
+                });
+        },
+
         isMarketplace(row) {
             const ref = (row.reference_payment || "").toUpperCase();
             return ref.startsWith("MARKETPLACE") || row.channel_type === "marketplace";

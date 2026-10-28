@@ -207,6 +207,10 @@ class OrderCollection extends ResourceCollection
                 'channel_name'         => optional($row->channel)->name ?? null,
                 'channel_type'         => optional($row->channel)->type ?? null,
                 'channel_code'         => optional($row->channel)->code ?? null,
+                // Saga, MercadoLibre, TikTok y Meta mandan su propio estado; el
+                // marketplace propio (MKP01, ebaemy.com) NO: sus pedidos son
+                // solicitudes que la tienda confirma o anula aquí.
+                'is_external'          => $row->isExternalChannel(),
                 // Almacén asignado
                 'warehouse_id'         => $row->warehouse_id,
                 'warehouse_description'=> optional($row->warehouse)->description ?? null,
