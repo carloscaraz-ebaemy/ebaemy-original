@@ -59,13 +59,14 @@ class AdRequestController extends Controller
             'scope'         => 'required|in:tienda,categoria,productos',
             'scope_detail'  => 'nullable|required_unless:scope,tienda|string|max:500',
             'zone'          => 'required|in:lima,peru',
-            'budget'        => 'required|numeric|min:50|max:20000',
+            'budget'        => 'required|numeric|min:20|max:20000',
             'days'          => 'required|integer|min:3|max:60',
             'contact_phone' => 'required|string|max:30',
             'notes'         => 'nullable|string|max:500',
         ], [
             'scope_detail.required_unless' => 'Indica la categoría o los productos que quieres anunciar.',
-            'budget.min'                   => 'El presupuesto mínimo es S/ 50.',
+            'budget.required'              => 'Escribe cuánto quieres invertir.',
+            'budget.min'                   => 'El presupuesto mínimo es S/ 20.',
             'contact_phone.required'       => 'Déjanos un WhatsApp para coordinar contigo.',
         ]);
 

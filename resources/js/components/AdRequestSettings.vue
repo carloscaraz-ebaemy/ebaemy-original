@@ -80,10 +80,12 @@
                     <section class="ar__card">
                         <h4 class="ar__h"><span class="ar__hn">2</span> Presupuesto y duración</h4>
                         <div class="ar__lbl">Presupuesto total</div>
-                        <div class="ar__chips">
-                            <button v-for="b in budgets" :key="b" type="button" class="ar__chip"
-                                    :class="{ 'is-on': f.budget === b }" @click="f.budget = b">S/ {{ b }}</button>
+                        <div class="ar__budget">
+                            <span class="ar__budget-cur">S/</span>
+                            <el-input-number v-model="f.budget" :min="minBudget" :max="maxBudget" :step="1" :precision="2"
+                                             controls-position="right" aria-label="Presupuesto total en soles" />
                         </div>
+                        <div class="ar__hint">Escribe el monto que quieras invertir, desde S/ {{ minBudget }}.</div>
                         <div class="ar__lbl">Durante</div>
                         <div class="ar__chips">
                             <button v-for="d in [7, 14, 30]" :key="d" type="button" class="ar__chip"
@@ -95,7 +97,10 @@
                             <button type="button" class="ar__chip" :class="{ 'is-on': f.zone === 'peru' }" @click="f.zone = 'peru'">Todo el Perú</button>
                         </div>
                         <p class="ar__sum">
-                            Unos <b>S/ {{ money(f.budget / f.days) }}</b> al día. Todo se invierte en Facebook e Instagram.
+                            Unos <b>S/ {{ money((f.budget || 0) / f.days) }}</b> al día. Todo se invierte en Facebook e Instagram.
+                        </p>
+                        <p v-if="f.budget && f.budget / f.days < minPerDay" class="ar__warn">
+                            Menos de S/ {{ minPerDay }} al día casi no se muestra. Con este monto, elige menos días.
                         </p>
                     </section>
 
@@ -133,7 +138,11 @@ export default {
             loading: false,
             saving: false,
             data: null,
-            budgets: [100, 150, 300, 500],
+            // Mismos topes que AdRequestController::store.
+            minBudget: 20,
+            maxBudget: 20000,
+            // Por debajo de esto Meta apenas entrega el anuncio (aviso, no bloqueo).
+            minPerDay: 4,
             how: ['Pides aquí', 'Te escribimos por WhatsApp y pagas', 'Lanzamos tu campaña', 'Ves tus pedidos y consultas aquí'],
             scopes: [
                 { value: 'tienda', icon: '⭐', label: 'Lo más atractivo de mi tienda', hint: '' },
@@ -241,6 +250,11 @@ export default {
 .ar__opt-txt small { font-size: 12px; color: #64748b; }
 .ar__lbl { font-size: 12px; font-weight: 600; color: #475569; margin: 10px 0 6px; }
 .ar__chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.ar__budget { display: flex; align-items: center; gap: 8px; }
+.ar__budget-cur { font-weight: 700; color: #334155; }
+.ar__budget .el-input-number { width: 180px; max-width: 100%; }
+.ar__hint { font-size: 12px; color: #64748b; margin-top: 4px; }
+.ar__warn { font-size: 12.5px; color: #b45309; background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 6px 10px; margin: 6px 0 0; }
 .ar__chip { border: 1.5px solid #e2e8f0; background: #fff; color: #334155; border-radius: 999px; padding: 6px 14px;
     font-size: 13px; font-weight: 600; cursor: pointer; min-height: 36px; }
 .ar__chip:hover { border-color: #a5b4fc; }
