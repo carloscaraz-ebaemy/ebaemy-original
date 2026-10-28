@@ -71,6 +71,10 @@
                             <span v-if="shipAlerts.sin_guia" class="ord-head-badge is-bad"
                                 >{{ shipAlerts.sin_guia }} sin guía</span
                             >
+                            <span v-if="shipAlerts.shalom_sin_entregar" class="ord-head-badge is-bad"
+                                :title="'Guías de Shalom creadas hace más de 2 días hábiles y no entregadas en la agencia'"
+                                >{{ shipAlerts.shalom_sin_entregar }} Shalom sin entregar</span
+                            >
                         </el-dropdown-item>
                         <el-dropdown-item command="lotes">
                             <i class="el-icon-tickets"></i>
@@ -1038,6 +1042,15 @@
                                 >
                                     {{ destinoEnvio(row) }}
                                 </div>
+                                <!-- Guía de Shalom creada que no se llevó a la agencia. -->
+                                <div
+                                    v-if="row.shipment && row.shipment.shalom && row.shipment.shalom.not_delivered"
+                                    class="ord-st-dest"
+                                    style="color:#b45309;font-weight:600"
+                                    title="Se creó la guía en Shalom pero el paquete no se entregó en la agencia. Llévalo o quita la guía desde el menú ⋮."
+                                >
+                                    ⚠ Guía Shalom sin entregar
+                                </div>
                                 <!-- Cada etapa con su color. En gris para
                                      todas, «Empacado» y «Entregado» se leian
                                      igual y habia que pararse a leer la fila
@@ -1271,6 +1284,13 @@
                                     >
                                         <i class="el-icon-printer"></i>
                                         Rótulo oficial de Shalom
+                                    </el-dropdown-item>
+                                    <el-dropdown-item
+                                        v-if="row.shipment && row.shipment.shalom && row.shipment.shalom.can_remove"
+                                        command="shalomRemove"
+                                    >
+                                        <i class="el-icon-remove-outline"></i>
+                                        Quitar guía de Shalom
                                     </el-dropdown-item>
                                     <el-dropdown-item
                                         v-if="row.shipment && !row.shipment.is_pickup && !row.shipment.has_guide"
@@ -3793,7 +3813,7 @@ export default {
          * señal real: un paquete sin guía es uno que la agencia ya tiene y del
          * que no se puede dar razón al cliente.
          */
-        shipAlerts: { type: Object, default: () => ({ sin_guia: 0, lotes: 0 }) },
+        shipAlerts: { type: Object, default: () => ({ sin_guia: 0, lotes: 0, shalom_sin_entregar: 0 }) },
     },
 
     components: {
@@ -4289,6 +4309,7 @@ export default {
 
             if (a.sin_guia) partes.push(a.sin_guia + " paquete(s) sin guía");
             if (a.lotes) partes.push(a.lotes + " lote(s) de impresión abierto(s)");
+            if (a.shalom_sin_entregar) partes.push(a.shalom_sin_entregar + " guía(s) de Shalom sin entregar en la agencia");
 
             return partes.join(" · ");
         },
@@ -4518,6 +4539,7 @@ export default {
                 uploadGuide: () => this.subirGuia(row),
                 shalomGuide: () => this.crearGuiaShalom(row),
                 shalomLabel: () => window.open(row.shipment.shalom.label_url, "_blank"),
+                shalomRemove: () => this.quitarGuiaShalom(row),
                 viewGuide: () => this.openGuide(row)
             };
             if (acciones[cmd]) acciones[cmd]();
@@ -5635,6 +5657,29 @@ export default {
                 )
                 .then(r => this.trasAccionDeEnvio(r, false, row.id))
                 .catch(e => this.trasAccionDeEnvio(e, true));
+        },
+
+        /**
+         * Quita la guía de Shalom que no se llevó a la agencia. Pide motivo
+         * (va a la bitácora) y recuerda anularla en pro.shalom.pe: el API de
+         * Shalom no permite anularla.
+         */
+        quitarGuiaShalom(row) {
+            const sh = row.shipment.shalom || {};
+            this.$prompt(
+                "La guía " + (row.shipment.tracking_number || "") + " se desvincula de este pedido y podrás crear otra. " +
+                    "Después anúlala también en pro.shalom.pe. ¿Por qué la quitas?",
+                "Quitar guía de Shalom",
+                {
+                    confirmButtonText: "Quitar guía",
+                    cancelButtonText: "Cancelar",
+                    inputPlaceholder: "Ej. no se llevó a la agencia, cambió el tamaño…",
+                    inputValidator: v => (v && v.trim().length >= 3) || "Escribe el motivo",
+                }
+            )
+                .then(({ value }) => this.$http.post(`/orders/${row.id}/envio/shalom-quitar`, { reason: value }))
+                .then(r => this.trasAccionDeEnvio(r, false, row.id))
+                .catch(e => { if (e !== "cancel" && e !== "close") this.trasAccionDeEnvio(e, true); });
         },
 
         crearGuiaShalom(row) {

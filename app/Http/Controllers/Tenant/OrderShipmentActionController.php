@@ -82,6 +82,13 @@ class OrderShipmentActionController extends Controller
             app(ShipmentController::class)->createShalomGuide($request, $envio));
     }
 
+    /** Quitar la guía de Shalom que no se entregó en la agencia. */
+    public function shalomQuitar(Request $request, Order $order)
+    {
+        return $this->reenviar($order, fn ($envio) =>
+            app(ShipmentController::class)->removeShalomGuide($request, $envio));
+    }
+
     /**
      * Resuelve el envío del pedido, ejecuta la acción y traduce la respuesta.
      *

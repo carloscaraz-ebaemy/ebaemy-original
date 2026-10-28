@@ -1026,6 +1026,39 @@ class ShipmentController extends Controller
         return response()->json(['success' => true, 'message' => $msg] + $r);
     }
 
+    /**
+     * Quitar la guía de Shalom creada desde ebaemy, porque el paquete no se
+     * llevó a la agencia. Libera el envío para crear otra y queda en la
+     * bitácora. La guía hay que anularla también en pro.shalom.pe.
+     */
+    public function removeShalomGuide(Request $request, ShippingRequest $shipment): \Illuminate\Http\JsonResponse
+    {
+        $data = $request->validate(['reason' => 'required|string|min:3|max:255'], [], ['reason' => 'motivo']);
+
+        if (!\App\Services\Tenant\ShalomTracking::removable($shipment)) {
+            return response()->json(['success' => false, 'message' => $shipment->carrier_status
+                ? 'Shalom ya recibió este paquete: la guía no se puede quitar.'
+                : 'Este envío no tiene una guía de Shalom creada desde ebaemy.']);
+        }
+
+        $guia = $shipment->tracking_number ?: (($shipment->carrier_events ?? [])['ose_id'] ?? '—');
+        app(\App\Services\Tenant\ShalomTracking::class)->detach($shipment);
+
+        ShippingAuditLog::log(
+            ShippingAuditLog::ACTION_EDIT,
+            $shipment->id,
+            'shalom_guide',
+            $guia,
+            null,
+            'Guía de Shalom quitada: ' . $data['reason']
+        );
+
+        return response()->json([
+            'success' => true,
+            'message' => "Guía {$guia} quitada del pedido. Anúlala también en pro.shalom.pe: el sistema de Shalom no permite anularla desde aquí.",
+        ]);
+    }
+
     /** Rótulo oficial de Shalom (PDF) para imprimir y pegar en el paquete. */
     public function shalomLabel(ShippingRequest $shipment)
     {

@@ -547,6 +547,8 @@ if ($hostname) {
                  ->whereNumber('order')->name('orders.shipping.shalom_guide');
             Route::get('orders/envio/{shipment}/shalom-rotulo', [\App\Http\Controllers\Tenant\ShipmentController::class, 'shalomLabel'])
                  ->whereNumber('shipment')->name('orders.shipping.shalom_label');
+            Route::post('orders/{order}/envio/shalom-quitar', [\App\Http\Controllers\Tenant\OrderShipmentActionController::class, 'shalomQuitar'])
+                 ->whereNumber('order')->name('orders.shipping.shalom_remove');
             Route::get('orders/ubigeo/provincias/{department}', [\App\Http\Controllers\Tenant\ShipmentController::class, 'provinces'])
                  ->name('orders.shipping.provinces');
             Route::get('orders/ubigeo/distritos/{province}', [\App\Http\Controllers\Tenant\ShipmentController::class, 'districts'])

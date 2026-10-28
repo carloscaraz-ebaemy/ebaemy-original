@@ -150,6 +150,80 @@ class ShalomTracking
         }
     }
 
+    /** Días hábiles (lunes a sábado) que una guía creada puede esperar sin entregarse. */
+    public const STALE_DAYS = 2;
+
+    /**
+     * Guía creada desde ebaemy que Shalom todavía no recibió en el mostrador:
+     * sin movimiento (o solo «registrado») pasados STALE_DAYS días hábiles.
+     */
+    public static function notDelivered(ShippingRequest $s): bool
+    {
+        $ce = $s->carrier_events ?? [];
+        if (($ce['created_via'] ?? null) !== 'api' || empty($ce['created_at'])) {
+            return false;
+        }
+        if (!in_array($s->carrier_status, [null, '', 'registrado'], true) || $s->is_cancelled) {
+            return false;
+        }
+        $desde = Carbon::parse($ce['created_at']);
+
+        return $desde->diffInDaysFiltered(fn (Carbon $d) => !$d->isSunday(), now()) >= self::STALE_DAYS;
+    }
+
+    /** ¿Se puede quitar? Solo guías creadas desde ebaemy que el paquete aún no usó. */
+    public static function removable(ShippingRequest $s): bool
+    {
+        $ce = $s->carrier_events ?? [];
+
+        return ($ce['created_via'] ?? null) === 'api'
+            && in_array($s->carrier_status, [null, '', 'registrado'], true);
+    }
+
+    /** Cuántas guías creadas siguen sin entregarse (aviso del menú Envíos). */
+    public static function notDeliveredCount(): int
+    {
+        if (!self::supported()) {
+            return 0;
+        }
+
+        return ShippingRequest::where('shipping_agency', 'Shalom')
+            ->whereNotNull('carrier_events')
+            ->where(fn ($q) => $q->whereNull('carrier_status')->orWhere('carrier_status', 'registrado'))
+            ->where('created_at', '>=', now()->subDays(60))
+            ->get()->filter(fn ($s) => self::notDelivered($s))->count();
+    }
+
+    /**
+     * Desvincula la guía del envío para poder crear otra. La guía sigue
+     * existiendo en Shalom: hay que anularla en pro.shalom.pe (el API no
+     * permite anular).
+     */
+    public function detach(ShippingRequest $s): void
+    {
+        $number = $s->tracking_number;
+        $code = $s->tracking_code;
+        if ($number && $code) {
+            try {
+                $this->api->unsubscribe($number, $code);
+            } catch (\Throwable $e) {
+            }
+            try {
+                \Illuminate\Support\Facades\DB::connection('system')->table('shalom_guides')
+                    ->where('order_number', $number)->where('order_code', $code)->delete();
+            } catch (\Throwable $e) {
+            }
+        }
+
+        $s->forceFill([
+            'tracking_number'    => null,
+            'tracking_code'      => null,
+            'carrier_status'     => null,
+            'carrier_events'     => null,
+            'carrier_checked_at' => null,
+        ])->save();
+    }
+
     /** ¿Conviene volver a consultar? Cada 30 min mientras no esté entregada. */
     public static function stale(ShippingRequest $s): bool
     {

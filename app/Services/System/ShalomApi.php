@@ -207,6 +207,20 @@ class ShalomApi
         return $this->send('post', '/tracking/subscriptions', ['orderNumber' => $orderNumber, 'orderCode' => $orderCode], null, 25);
     }
 
+    /** DELETE /tracking/subscriptions — dejar de recibir avisos de una guía. */
+    public function unsubscribe(string $orderNumber, string $orderCode): array
+    {
+        $key = $this->key();
+        if (!$key) {
+            throw new RuntimeException('No hay llave de Shalom API configurada.');
+        }
+        $res = Http::withHeaders(['x-api-key' => $key, 'Accept' => 'application/json'])->timeout(20)
+            ->delete(rtrim(config('services.shalom.url') ?: 'https://api.shalom-api.lat', '/') . '/tracking/subscriptions?'
+                . http_build_query(['orderNumber' => $orderNumber, 'orderCode' => $orderCode]));
+
+        return $res->json() ?? [];
+    }
+
     /** POST /track — búsqueda y estados de una guía (espejo de Shalom). */
     public function track(string $orderNumber, string $orderCode): array
     {

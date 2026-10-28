@@ -780,6 +780,10 @@ class OrderCollection extends ResourceCollection
             'clave_fija' => $tienda['clave_fija'],
             'status'     => $s->carrier_status ?? null,
             'label_url'  => $tiene && $tienda['ready'] ? url('orders/envio/' . $s->id . '/shalom-rotulo') : null,
+            // Guía creada que el paquete aún no usó: se puede quitar, y si
+            // pasan 2 días hábiles sin entregarla en la agencia, se avisa.
+            'can_remove'    => \App\Services\Tenant\ShalomTracking::removable($s),
+            'not_delivered' => \App\Services\Tenant\ShalomTracking::notDelivered($s),
         ];
     }
 

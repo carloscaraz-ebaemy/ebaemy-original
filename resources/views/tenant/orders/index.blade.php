@@ -9,10 +9,12 @@
         // Los dos avisos que vivian en el menu lateral. Se calculan AQUI y no
         // alli porque alli corrian en cada carga de cualquier pantalla del
         // panel; solo hacen falta en Pedidos, que es donde se actua sobre ellos.
-        $shipAlerts = ['sin_guia' => 0, 'lotes' => 0];
+        $shipAlerts = ['sin_guia' => 0, 'lotes' => 0, 'shalom_sin_entregar' => 0];
         try {
             $shipAlerts['sin_guia'] = \App\Models\Tenant\ShippingRequest::withoutGuide()->count();
             $shipAlerts['lotes']    = \App\Models\Tenant\ShippingPrintBatch::open()->count();
+            // Guías de Shalom creadas desde ebaemy que no se llevaron a la agencia.
+            $shipAlerts['shalom_sin_entregar'] = \App\Services\Tenant\ShalomTracking::notDeliveredCount();
         } catch (\Throwable $e) {
             // Tenant sin el modulo: los avisos no aplican y no es un error.
         }
