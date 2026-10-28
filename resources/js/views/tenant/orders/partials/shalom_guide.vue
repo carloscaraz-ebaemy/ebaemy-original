@@ -35,7 +35,7 @@
                 <el-radio-group v-model="content" size="small">
                     <el-radio-button v-for="c in tamanos" :key="c" :label="c">{{ c.replace('PAQUETE ', '') }}</el-radio-button>
                 </el-radio-group>
-                <small class="shg-sub">Shalom calcula el costo según el tamaño.</small>
+                <small class="shg-sub">Shalom calcula el costo según el tamaño. Si el paquete es más grande o pesado que lo elegido, en el mostrador lo miden y corrigen el precio.</small>
             </div>
 
             <div v-if="aereo" class="shg-field">

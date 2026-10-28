@@ -380,7 +380,7 @@
                             <div class="cost-row">
                                 <div class="cost-row__l">
                                     <b>{{ $tramoTienda ? '2.' : '1.' }} De la agencia a tu ciudad</b>
-                                    <small id="{{ $p }}flete_sub">Lo cobra la agencia. Depende del destino y del peso.</small>
+                                    <small id="{{ $p }}flete_sub">Lo cobra la agencia. Depende del destino y del tamaño: Shalom mide y pesa el paquete al recibirlo.</small>
                                 </div>
                                 <div class="cost-row__v is-soft" id="{{ $p }}flete_v">Lo pagas allá</div>
                             </div>
