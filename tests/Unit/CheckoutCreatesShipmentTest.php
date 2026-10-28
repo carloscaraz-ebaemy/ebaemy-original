@@ -144,4 +144,41 @@ class CheckoutCreatesShipmentTest extends TestCase
         };
         $this->assertNull($linker->ensureFromCheckout($o, ['ubigeo' => '150117']));
     }
+
+    /** @test */
+    public function backfill_dry_run_no_escribe_y_apply_crea_una_vez_y_es_idempotente()
+    {
+        $ch = \App\Models\Tenant\SalesChannel::where('code', 'ECOM')->first();
+        if (!$ch) {
+            $this->markTestSkipped('Sin canal ECOM');
+        }
+        $mk = function (string $addr, string $ubi, int $estado = 1) use ($ch) {
+            return Order::crearTolerandoEsquemaViejo([
+                'external_id' => (string) \Illuminate\Support\Str::uuid(),
+                'customer' => ['telefono' => '900', 'direccion' => $addr, 'ubigeo' => $ubi, 'numero_documento' => '46728787'],
+                'shipping_address' => $addr, 'items' => [], 'total' => 10, 'subtotal' => 10,
+                'status_order_id' => $estado, 'reference_payment' => 'efectivo', 'channel_id' => $ch->id,
+            ]);
+        };
+        $a = $mk('Av Uno 1', '150117');
+        $b = $mk('Recojo en tienda', '150101');
+        $c = $mk('Anulado 3', '150117', 5);   // no se toca
+
+        $cmd  = new \App\Console\Commands\ShippingBackfillCheckout();
+        $base = $cmd->backfillCurrentTenant(false);
+        $this->assertSame(0, ShippingRequest::whereIn('order_id', [$a->id, $b->id, $c->id])->count());
+        $this->assertGreaterThanOrEqual(2, $base['candidates']);
+        $this->assertGreaterThanOrEqual(1, $base['pickup']);
+
+        $r = $cmd->backfillCurrentTenant(true);
+        $this->assertSame($base['candidates'], $r['created'] + $r['errors']);
+        $this->assertSame(1, ShippingRequest::where('order_id', $a->id)->count());
+        $this->assertSame('domicilio', ShippingRequest::where('order_id', $a->id)->value('delivery_type'));
+        $this->assertSame('tienda', ShippingRequest::where('order_id', $b->id)->value('delivery_type'));
+        $this->assertSame(0, ShippingRequest::where('order_id', $c->id)->count());
+
+        $again = $cmd->backfillCurrentTenant(true);
+        $this->assertSame(0, $again['candidates']);
+        $this->assertSame(0, $again['created']);
+    }
 }
