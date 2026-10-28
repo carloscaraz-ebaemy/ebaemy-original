@@ -38,6 +38,15 @@
                 <small class="shg-sub">Shalom calcula el costo según el tamaño. Si el paquete es más grande o pesado que lo elegido, en el mostrador lo miden y corrigen el precio.</small>
             </div>
 
+            <div class="shg-field">
+                <label>¿Cuántos bultos? <span class="shg-req">*</span></label>
+                <el-input-number v-model="bultos" :min="1" :max="50" size="small"></el-input-number>
+                <small class="shg-sub">
+                    Cuéntalos al alistar el pedido. Es una sola guía y una sola clave para todos;
+                    Shalom los registra juntos{{ bultos > 1 ? ' y en cada caja va su rótulo' : '' }}.
+                </small>
+            </div>
+
             <div v-if="aereo" class="shg-field">
                 <label>Envío aéreo: ¿qué contiene? <span class="shg-req">*</span></label>
                 <el-select v-model="declaracion" placeholder="Declaración jurada" style="width:100%">
@@ -79,11 +88,13 @@ export default {
         orderId: { type: Number, default: null },
         shipmentId: { type: Number, default: null },
         shalom: { type: Object, default: null },
+        packageCount: { type: Number, default: 1 },
     },
     data() {
         return {
             tamanos: ["SOBRE", "PAQUETE XXS", "PAQUETE XS", "PAQUETE S", "PAQUETE M", "PAQUETE L"],
             content: "",
+            bultos: 1,
             clave: "",
             declaracion: "",
             declaraciones: ["Artículos de uso personal", "Documentos", "Ropa", "Electrodomésticos"],
@@ -107,6 +118,7 @@ export default {
         abrir() {
             // El tamaño típico de la tienda (configuración de Shalom) ya viene marcado.
             this.content = (this.shalom && this.shalom.default_content) || "";
+            this.bultos = this.packageCount || 1;
             this.clave = "";
             this.declaracion = "";
             this.error = null;
@@ -125,6 +137,7 @@ export default {
             this.$http
                 .post(`/orders/${this.orderId}/envio/shalom-guia`, {
                     content: this.content,
+                    bultos: this.bultos,
                     clave: this.clave || null,
                     declaracion: this.aereo ? this.declaracion : null,
                 })

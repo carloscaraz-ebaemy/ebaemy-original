@@ -554,6 +554,8 @@ class OrderCollection extends ResourceCollection
             'address'          => $s->shipping_destination,
             'tracking_number'  => $s->tracking_number,
             'has_guide'        => (bool) $s->shipping_guide_path,
+            // Bultos del envío: la guía de Shalom los manda como `cantidad`.
+            'package_count'    => max(1, (int) ($s->package_count ?: 1)),
             // Shalom con instancia: crear la guía y bajar su rótulo oficial.
             'shalom'           => self::shalomFlags($s),
             // URL de la guia que dio la agencia. La servia solo el panel de

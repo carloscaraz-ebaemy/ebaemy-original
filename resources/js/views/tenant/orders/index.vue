@@ -1476,6 +1476,7 @@
             :orderId="shalomOrderId"
             :shipmentId="shalomShipmentId"
             :shalom="shalomInfo"
+            :packageCount="shalomBultos"
             @saved="refrescarTrasEnvio"
         ></shalom-guide>
 
@@ -3976,6 +3977,7 @@ export default {
             shalomOrderId: null,
             shalomShipmentId: null,
             shalomInfo: null,
+            shalomBultos: 1,
             // Busqueda unica. Se manda al DataTable como la columna `search`,
             // que en el backend es «buscar en todo».
             q: "",
@@ -5675,6 +5677,7 @@ export default {
             this.shalomOrderId = row.id;
             this.shalomShipmentId = row.shipment ? row.shipment.id : null;
             this.shalomInfo = row.shipment ? row.shipment.shalom : null;
+            this.shalomBultos = (row.shipment && row.shipment.package_count) || 1;
             this.showShalomDialog = true;
         },
 

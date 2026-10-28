@@ -1022,7 +1022,15 @@ class ShipmentController extends Controller
             'content'     => 'required|string|in:' . implode(',', \App\Services\Tenant\ShalomGuide::CONTENTS),
             'clave'       => 'nullable|digits:4',
             'declaracion' => 'nullable|string|in:' . implode(',', \App\Services\Tenant\ShalomGuide::AIR_DECLARATIONS),
-        ], [], ['content' => 'tamaño del paquete', 'clave' => 'clave de recojo', 'declaracion' => 'declaración jurada']);
+            'bultos'      => 'nullable|integer|min:1|max:50',
+        ], [], ['content' => 'tamaño del paquete', 'clave' => 'clave de recojo', 'declaracion' => 'declaración jurada', 'bultos' => 'bultos']);
+
+        // Cuántos bultos salen se sabe al alistar, justo antes de crear la
+        // guía. Se guarda en el envío: ShalomGuide lo manda como `cantidad` y
+        // el panel y el rótulo leen el mismo número.
+        if (!empty($data['bultos']) && (int) $shipment->package_count !== (int) $data['bultos']) {
+            $shipment->forceFill(['package_count' => (int) $data['bultos']])->save();
+        }
 
         try {
             $r = app(\App\Services\Tenant\ShalomGuide::class)->create($shipment, $data['content'], $data['clave'] ?? null, $data['declaracion'] ?? null);
