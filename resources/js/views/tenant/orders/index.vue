@@ -1347,7 +1347,7 @@
                                              y con la cuenta conectada se crea arriba: subirla
                                              a mano era el mismo paso por otro camino. -->
                                         <el-dropdown-item
-                                            v-if="row.shipment && !row.shipment.is_pickup && !row.shipment.has_guide
+                                            v-if="row.shipment && row.shipment.delivery_type === 'agencia' && !row.shipment.has_guide
                                                   && !(row.shipment.shalom && (row.shipment.shalom.has_guide
                                                        || (row.shipment.shalom.ready && usaPanelShalom(row))))"
                                             command="uploadGuide"
@@ -1404,25 +1404,17 @@
                                         <i class="el-icon-refresh-left"></i>
                                         Restaurar pedido
                                     </el-dropdown-item>
+                                    <!-- UNA sola entrada para anular. Eran dos seguidas
+                                         («Anular envío» y «Anular pedido») y se leían como
+                                         la misma. Si aplican las dos, pregunta cuál; si
+                                         solo una, la nombra tal cual. -->
                                     <el-dropdown-item
-                                        v-if="row.shipment && !esEntregado(row)"
-                                        command="cancelShipment"
+                                        v-if="puedeAnularPedido(row) || (row.shipment && !esEntregado(row))"
+                                        command="cancelAny"
                                         class="ord-menu-danger ord-menu-sep"
                                     >
                                         <i class="el-icon-close"></i>
-                                        Anular envío
-                                    </el-dropdown-item>
-                                    <!-- Anular el PEDIDO (no solo su envío). Los del
-                                         marketplace propio llegan como solicitud sin
-                                         pagar y se anulan aquí; los de Saga, ML o
-                                         TikTok se anulan en su portal (is_external). -->
-                                    <el-dropdown-item
-                                        v-if="puedeAnularPedido(row)"
-                                        command="cancelOrder"
-                                        :class="['ord-menu-danger', row.shipment ? '' : 'ord-menu-sep']"
-                                    >
-                                        <i class="el-icon-delete"></i>
-                                        Anular pedido
+                                        {{ textoAnular(row) }}
                                     </el-dropdown-item>
                                 </el-dropdown-menu>
                             </el-dropdown>
@@ -4543,6 +4535,7 @@ export default {
                 sagaLabel: () => this.downloadLabel(row),
                 shippingLink: () => this.copyShippingLink(row),
                 cancelOrder: () => this.anularPedido(row),
+                cancelAny: () => this.anular(row),
                 holdOn: () => this.cambiarEspera(row, true),
                 holdOff: () => this.cambiarEspera(row, false),
                 trackingLink: () => this.copyLink(
@@ -5552,21 +5545,54 @@ export default {
             return row.is_external === undefined ? this.isMarketplace(row) : !!row.is_external;
         },
 
+        textoAnular(row) {
+            const pedido = this.puedeAnularPedido(row);
+            const envio = !!(row.shipment && !this.esEntregado(row));
+            return pedido && envio ? "Anular…" : pedido ? "Anular pedido" : "Anular envío";
+        },
+
+        /**
+         * Anular pedido o solo su envío. Son cosas distintas: el pedido entero
+         * deja de existir y libera stock; el envío se anula para rehacerlo (por
+         * ejemplo, si pasa de motorizado a agencia) y el pedido sigue.
+         */
+        anular(row) {
+            const pedido = this.puedeAnularPedido(row);
+            const envio = !!(row.shipment && !this.esEntregado(row));
+            if (pedido && !envio) return this.anularPedido(row);
+            if (envio && !pedido) return this.anularEnvio(row);
+            this.$confirm(
+                "«Anular pedido»: el pedido completo deja de existir y se libera su stock. " +
+                    "«Solo el envío»: el pedido sigue y se anula su envío para configurarlo de nuevo " +
+                    "(por ejemplo, si cambia de motorizado a agencia).",
+                "¿Qué quieres anular del pedido #" + (row.order_id || row.id) + "?",
+                {
+                    confirmButtonText: "Anular pedido",
+                    cancelButtonText: "Solo el envío",
+                    distinguishCancelAndClose: true,
+                    type: "warning",
+                }
+            )
+                .then(() => this.anularPedido(row, true))
+                .catch(accion => { if (accion === "cancel") this.anularEnvio(row); });
+        },
+
         puedeAnularPedido(row) {
             return !this.esAnulado(row) && !this.esEntregado(row) && !this.esExterno(row);
         },
 
         /** Anula el pedido entero: el servidor libera stock y deja la bitácora. */
-        anularPedido(row) {
+        anularPedido(row, yaElegido = false) {
             const pagado = Number(row.paid_total || 0) > 0;
-            this.$confirm(
+            const confirmar = yaElegido && !pagado ? Promise.resolve() : this.$confirm(
                 (pagado
                     ? "Este pedido tiene pagos registrados: revísalos o devuélvelos después de anularlo. "
                     : "El pedido no tiene pagos. ") +
                     "Se anula el pedido completo y se libera su stock. Se puede restaurar después desde el mismo menú.",
                 "Anular pedido #" + (row.order_id || row.id),
                 { confirmButtonText: "Anular pedido", cancelButtonText: "Cancelar", type: "warning" }
-            )
+            );
+            confirmar
                 .then(() => this.$http.post(`/statusOrder/update`, { record: { id: row.id, status_order_id: 5 } }))
                 .then(r => {
                     this.$message.success((r.data && r.data.message) || "Pedido anulado.");
@@ -6924,7 +6950,8 @@ export default {
             return !!(this.usaPanelShalom(row) || s.guide_url
                 || this.canDownloadLabel(row)
                 || (!this.esAnulado(row) && !this.esEntregado(row) && !sh.replaces_label)
-                || (!s.is_pickup && !s.has_guide && !sh.has_guide));
+                // La guía es de la agencia: el motorizado y el recojo no tienen.
+                || (s.delivery_type === "agencia" && !s.has_guide && !sh.has_guide));
         },
         esEntregado(row) {
             return Number(row.status_order_id) === 6;
