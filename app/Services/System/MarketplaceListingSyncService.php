@@ -121,13 +121,27 @@ class MarketplaceListingSyncService
      * cada media hora y deja de fiarse de un lastmod que siempre cambia.
      * Ahora `updated_at` solo se mueve con un cambio real y `synced_at` se
      * escribe aparte, sin tocarlo.
+     *
+     * Segunda trampa: las columnas JSON (`shipping`). MySQL guarda el JSON con
+     * las claves reordenadas y Eloquent compara los arrays con ===, que exige
+     * el mismo orden: la politica de envio salia «cambiada» en cada pasada y
+     * las 104 fichas de las tiendas que la tienen seguian renovando la fecha.
+     * Se comparan por contenido y, si es el mismo, no se reescriben.
      */
     public static function upsertListing(array $key, array $payload): MarketplaceListing
     {
         $syncedAt = $payload['synced_at'] ?? now();
         unset($payload['synced_at']);
 
-        $listing = MarketplaceListing::updateOrCreate($key, $payload);
+        $listing = MarketplaceListing::firstOrNew($key);
+        if ($listing->exists) {
+            foreach ($payload as $campo => $valor) {
+                if (is_array($valor) && self::mismoJson($listing->{$campo}, $valor)) {
+                    unset($payload[$campo]);
+                }
+            }
+        }
+        $listing->fill($payload)->save();
 
         // toBase(): el update del query builder de Eloquent añadiría updated_at.
         MarketplaceListing::query()->whereKey($listing->getKey())->toBase()
@@ -136,6 +150,20 @@ class MarketplaceListingSyncService
         $listing->syncOriginalAttribute('synced_at');
 
         return $listing;
+    }
+
+    /** Mismo contenido JSON sin importar el orden de las claves de los objetos. */
+    private static function mismoJson($actual, array $nuevo): bool
+    {
+        if (!is_array($actual)) {
+            return false;
+        }
+        $ordenar = function ($v) use (&$ordenar) {
+            if (!is_array($v)) return $v;
+            if (!array_is_list($v)) ksort($v);
+            return array_map($ordenar, $v);
+        };
+        return $ordenar($actual) == $ordenar($nuevo);
     }
 
     /**
