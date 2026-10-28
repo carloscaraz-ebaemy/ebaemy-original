@@ -316,8 +316,12 @@
             .then(function (rs) {
                 if (mio !== quoteSeq) return;
                 QUOTES = { t: rs[0], a: rs[1] };
-                if (conAereo && rs[1] && rs[1].available && modeBox) modeBox.hidden = false;
-                else if (airInp) airInp.value = '0';
+                // Aéreo solo si llega ANTES: Lima → Chincha tarda 24 h por las
+                // dos vías y el aéreo cuesta el doble; ofrecerlo solo confunde.
+                var masRapido = rs[1] && rs[1].available && rs[1].hours
+                    && (!rs[0] || !rs[0].available || !rs[0].hours || rs[1].hours < rs[0].hours);
+                if (conAereo && masRapido && modeBox) modeBox.hidden = false;
+                else { QUOTES.a = null; if (airInp) airInp.value = '0'; }
                 shPintarModo();
             });
     }
