@@ -204,6 +204,16 @@
                              dato que se guarda. El cliente puede corregirlo a mano
                              (número de puerta, dpto) sin perder el pin del mapa. --}}
                         <label class="req">Dirección de entrega</label>
+                        @if(!empty($mapsKey))
+                            {{-- En el celular lo más rápido y exacto es el GPS: un toque
+                                 y el pin, la dirección y el costo salen solos. --}}
+                            <button type="button" class="geo-btn" id="geoBtn">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="7"/></svg>
+                                <span>Usar mi ubicación actual</span>
+                            </button>
+                            <div class="geo-msg" id="geoMsg" hidden></div>
+                            <div class="geo-or">o escribe tu dirección</div>
+                        @endif
                         <div class="map-search">
                             <input type="text" name="shipping_destination" id="{{ $p }}addr_domicilio" value="{{ old('shipping_destination') }}"
                                    maxlength="500" autocomplete="off" placeholder="Ej. Av. Arequipa 1234, Miraflores">

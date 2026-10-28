@@ -183,6 +183,11 @@
         .found .new { background:var(--surface); color:var(--ink-2); box-shadow:inset 0 0 0 1.5px var(--line-2); }
 
         /* ── Google Maps ── */
+        .geo-btn { display:flex; align-items:center; justify-content:center; gap:8px; width:100%; min-height:48px; margin-top:4px;
+                   border:none; border-radius:var(--r); background:var(--accent); color:#fffefc; font-weight:700; font-size:15px; cursor:pointer; }
+        .geo-btn[disabled] { opacity:.7; cursor:wait; }
+        .geo-msg { margin-top:8px; padding:10px 12px; border-radius:var(--r-sm); font-size:13.5px; background:var(--warn-soft); border:1px solid var(--warn-line); color:var(--warn); }
+        .geo-or { text-align:center; font-size:13px; color:var(--muted); margin:10px 0 6px; }
         .map-search { position:relative; }
         #shipMap { width:100%; height:260px; border-radius:var(--r); border:1.5px solid var(--line); margin-top:10px; background:#ece6de; }
         .map-picked { margin-top:8px; padding:9px 12px; background:var(--ok-soft); border-radius:var(--r-sm); font-size:13.5px; display:none; }
@@ -550,18 +555,47 @@
             if (box) { box.style.display = 'block'; document.getElementById('priceText').textContent = p.toFixed(2); }
         }
 
+        // Un punto nuevo invalida la cotización anterior: sin esto, si la nueva
+        // consulta falla, el cliente se queda viendo el precio de otro lugar.
+        function clearQuote() {
+            ['pub_dist_km', 'pub_dist_text', 'pub_dur_text', 'pub_delivery_price'].forEach(function (id) {
+                document.getElementById(id).value = '';
+            });
+            var box = document.getElementById('priceBox');
+            if (box) box.style.display = 'none';
+        }
+
+        // Línea recta, la misma fórmula que ShippingRequest::haversineKm del
+        // servidor: si Google no da la ruta, el precio no desaparece.
+        function haversineKm(a, b) {
+            var rad = Math.PI / 180, dLat = (b.lat - a.lat) * rad, dLng = (b.lng - a.lng) * rad;
+            var h = Math.pow(Math.sin(dLat / 2), 2) + Math.cos(a.lat * rad) * Math.cos(b.lat * rad) * Math.pow(Math.sin(dLng / 2), 2);
+            return Math.round(6371 * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h)) * 100) / 100;
+        }
+        function fallbackDistance(lat, lng) {
+            var km = haversineKm(STORE, { lat: lat, lng: lng });
+            document.getElementById('pub_dist_km').value = km.toFixed(2);
+            document.getElementById('pub_dist_text').value = km + ' km aprox.';
+            quotePrice(km);
+        }
+
         // Distancia de manejo tienda → cliente (Google Distance Matrix).
+        var distSeq = 0;
         function computeDistance(lat, lng) {
+            clearQuote();
             if (!STORE) return;
+            // Solo cuenta la respuesta del ÚLTIMO punto: al arrastrar el pin
+            // rápido, una respuesta lenta no puede pisar a la más reciente.
+            var seq = ++distSeq;
             try {
                 if (!distSvc) distSvc = new google.maps.DistanceMatrixService();
                 distSvc.getDistanceMatrix({
                     origins: [STORE], destinations: [{ lat: lat, lng: lng }],
                     travelMode: 'DRIVING', unitSystem: google.maps.UnitSystem.METRIC
                 }, function (res, status) {
-                    if (status !== 'OK') return;
-                    var el = res.rows[0] && res.rows[0].elements[0];
-                    if (!el || el.status !== 'OK') return;
+                    if (seq !== distSeq) return;
+                    var el = status === 'OK' && res.rows[0] && res.rows[0].elements[0];
+                    if (!el || el.status !== 'OK') { fallbackDistance(lat, lng); return; }
                     var km = (el.distance.value / 1000);
                     // La distancia se guarda (la ven motorizado y panel, no el cliente).
                     document.getElementById('pub_dist_km').value = km.toFixed(2);
@@ -570,7 +604,7 @@
                     // El precio SÍ se le muestra al cliente.
                     quotePrice(km);
                 });
-            } catch (e) {}
+            } catch (e) { fallbackDistance(lat, lng); }
         }
 
         function pickComponent(components, type) {
@@ -639,6 +673,35 @@
                 placeMarker(loc);
                 applyPlace(loc.lat(), loc.lng(), p.formatted_address, p.address_components, p.place_id);
             });
+            // GPS del teléfono: fija el pin donde está el cliente y desde ahí
+            // salen la dirección (geocoding inverso) y el costo.
+            var geoBtn = document.getElementById('geoBtn'), geoMsg = document.getElementById('geoMsg');
+            if (geoBtn) {
+                var geoLabel = geoBtn.querySelector('span');
+                function geoSay(text) { geoMsg.textContent = text; geoMsg.hidden = !text; }
+                geoBtn.addEventListener('click', function () {
+                    if (!navigator.geolocation) { geoSay('Tu navegador no permite compartir la ubicación. Escribe tu dirección abajo.'); return; }
+                    geoSay('');
+                    geoBtn.disabled = true; geoLabel.textContent = 'Buscando tu ubicación…';
+                    navigator.geolocation.getCurrentPosition(function (pos) {
+                        geoBtn.disabled = false; geoLabel.textContent = 'Usar mi ubicación actual';
+                        var latlng = new google.maps.LatLng(pos.coords.latitude, pos.coords.longitude);
+                        // Al venir del GPS manda el punto: la dirección escrita antes se reemplaza.
+                        document.getElementById('pub_addr_domicilio').value = '';
+                        placeMarker(latlng);
+                        reverse(latlng);
+                        if (pos.coords.accuracy > 150) {
+                            geoSay('Tu ubicación es aproximada. Revisa el marcador en el mapa y arrástralo a tu puerta si hace falta.');
+                        }
+                    }, function (err) {
+                        geoBtn.disabled = false; geoLabel.textContent = 'Usar mi ubicación actual';
+                        geoSay(err.code === 1
+                            ? 'No diste permiso para ver tu ubicación. Actívalo en el candado de la barra de direcciones o escribe tu dirección abajo.'
+                            : 'No pudimos obtener tu ubicación. Revisa que el GPS esté encendido o escribe tu dirección abajo.');
+                    }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 });
+                });
+            }
+
             ready = true;
             if (pending) { google.maps.event.trigger(map, 'resize'); map.setCenter(marker.getPosition() || LIMA); }
         };
