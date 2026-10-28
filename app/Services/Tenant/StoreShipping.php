@@ -326,6 +326,7 @@ class StoreShipping
             'shalom_origin_id'   => $st->shalom_origin_id ? (int) $st->shalom_origin_id : null,
             'shalom_origin'      => $this->shalomOffice($st->shalom_origin_id),
             'shalom_air_enabled' => $st->shalom_air_enabled === null ? true : (bool) $st->shalom_air_enabled,
+            'shalom_package'     => ShalomPackage::normalize($st->shalom_package ?? null),
             // Cuenta Shalom Pro de la tienda (la contraseña nunca viaja).
             'shalom_pro'         => [
                 'user'         => $st->shalom_pro_user,
@@ -364,6 +365,8 @@ class StoreShipping
             'cutoff_time'            => ['nullable', 'date_format:H:i'],
             'shalom_origin_id'       => ['nullable', 'integer', 'min:1'],
             'shalom_air_enabled'     => ['nullable', 'boolean'],
+            'shalom_package'         => ['nullable', 'array'],
+            'shalom_package.type'    => ['nullable', 'in:size,bulto'],
         ];
     }
 
@@ -393,6 +396,10 @@ class StoreShipping
         if (array_key_exists('shalom_origin_id', $d)
             && \Illuminate\Support\Facades\Schema::connection('tenant')->hasColumn('shipping_settings', 'shalom_origin_id')) {
             $st->shalom_origin_id = $d['shalom_origin_id'] ?: null;
+        }
+        if (array_key_exists('shalom_package', $d)
+            && \Illuminate\Support\Facades\Schema::connection('tenant')->hasColumn('shipping_settings', 'shalom_package')) {
+            $st->shalom_package = ShalomPackage::normalize($d['shalom_package']);
         }
         if (array_key_exists('shalom_air_enabled', $d)
             && \Illuminate\Support\Facades\Schema::connection('tenant')->hasColumn('shipping_settings', 'shalom_air_enabled')) {

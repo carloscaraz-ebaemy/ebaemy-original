@@ -105,7 +105,8 @@ export default {
     },
     methods: {
         abrir() {
-            this.content = "";
+            // El tamaño típico de la tienda (configuración de Shalom) ya viene marcado.
+            this.content = (this.shalom && this.shalom.default_content) || "";
             this.clave = "";
             this.declaracion = "";
             this.error = null;

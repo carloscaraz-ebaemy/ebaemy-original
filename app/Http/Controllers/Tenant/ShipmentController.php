@@ -1585,10 +1585,16 @@ class ShipmentController extends Controller
         $arr = $q['hours'] ? (new \App\Services\Tenant\ShippingEta())->shalomArrival($q['hours']) : null;
         $prices = array_values($q['prices']);
 
+        // Precio aproximado del paquete típico de la tienda (si lo configuró).
+        $pkg = \App\Services\Tenant\ShalomPackage::normalize(rescue(fn () => ShippingSetting::current()->shalom_package, null, false));
+        $estimate = \App\Services\Tenant\ShalomPackage::estimate($q, $pkg);
+
         return response()->json([
             'available' => true,
             'hours'     => $q['hours'],
             'arrive'    => $arr['date'] ?? null,
+            'estimate'  => $estimate,
+            'package'   => $estimate !== null ? \App\Services\Tenant\ShalomPackage::label($pkg) : null,
             'price_min' => $prices ? min($prices) : $q['price'],
             'price_max' => $prices ? max($prices) : $q['price'],
         ])->header('Cache-Control', 'private, no-store');   // la fecha depende de la hora
@@ -1624,7 +1630,7 @@ class ShipmentController extends Controller
             return null;
         }
 
-        $key = "shalom_quote:{$origin}:{$office}" . ($air ? ':aereo' : '');
+        $key = "shalom_quote2:{$origin}:{$office}" . ($air ? ':aereo' : '');
         if (Cache::has($key)) {
             $c = Cache::get($key);
 

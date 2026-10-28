@@ -761,9 +761,11 @@ class OrderCollection extends ResourceCollection
         if ($tienda === null) {
             try {
                 $st = \App\Models\Tenant\ShippingSetting::current();
-                $tienda = ['plan' => \App\Services\System\ShalomPlan::allowsInstances(), 'ready' => !empty($st->shalom_instance_id) && !empty($st->shalom_origin_id), 'clave_fija' => $st->shalom_default_clave ?? null];
+                $pk = \App\Services\Tenant\ShalomPackage::normalize($st->shalom_package ?? null);
+                $tienda = ['plan' => \App\Services\System\ShalomPlan::allowsInstances(), 'ready' => !empty($st->shalom_instance_id) && !empty($st->shalom_origin_id), 'clave_fija' => $st->shalom_default_clave ?? null,
+                           'content' => $pk && $pk['type'] === 'size' ? $pk['size'] : ($pk ? 'PAQUETE L' : null)];
             } catch (\Throwable $e) {
-                $tienda = ['plan' => false, 'ready' => false, 'clave_fija' => null];
+                $tienda = ['plan' => false, 'ready' => false, 'clave_fija' => null, 'content' => null];
             }
         }
         $ce = $s->carrier_events ?? [];
@@ -778,6 +780,7 @@ class OrderCollection extends ResourceCollection
             'code'       => $s->tracking_code ?? null,
             'clave'      => $ce['clave'] ?? null,
             'clave_fija' => $tienda['clave_fija'],
+            'default_content' => $tienda['content'],
             'status'     => $s->carrier_status ?? null,
             'label_url'  => $tiene && $tienda['ready'] ? url('orders/envio/' . $s->id . '/shalom-imprimir') : null,
             'ticket_url' => $tiene && $tienda['ready'] ? url('orders/envio/' . $s->id . '/shalom-imprimir?doc=ticket') : null,

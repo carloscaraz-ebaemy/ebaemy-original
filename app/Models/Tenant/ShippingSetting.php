@@ -45,6 +45,8 @@ class ShippingSetting extends Model
         'shalom_default_clave',
         // ¿La tienda ofrece envío aéreo por Shalom en su formulario?
         'shalom_air_enabled',
+        // Paquete típico para estimar el flete (ver ShalomPackage).
+        'shalom_package',
     ];
 
     // La contraseña de Shalom Pro nunca sale en un toArray()/JSON.
@@ -67,6 +69,7 @@ class ShippingSetting extends Model
         'pickup_enabled'      => 'boolean',
         'shipping_confirmed_at' => 'datetime',
         'shalom_pro_password'   => 'encrypted',
+        'shalom_package'        => 'array',
         'shalom_instance_connected_at' => 'datetime',
     ];
 

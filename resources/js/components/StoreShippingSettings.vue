@@ -105,6 +105,36 @@
                         La oficina de Shalom donde dejas los paquetes. Con ella le decimos al cliente
                         cuánto tarda Shalom hasta su ciudad y cuánto cuesta el flete.
                     </p>
+                    <!-- Paquete típico: el cliente ve el precio aproximado de lo que
+                         la tienda realmente manda, no el de un sobre. -->
+                    <div v-if="usaShalom" class="ss__row" style="margin-top:10px;align-items:flex-start">
+                        <span style="padding-top:4px">Tu paquete típico</span>
+                        <div style="flex:1;min-width:220px">
+                            <el-radio-group v-model="pkgTipo" size="small">
+                                <el-radio-button label="">No indicar</el-radio-button>
+                                <el-radio-button label="size">Caja estándar</el-radio-button>
+                                <el-radio-button label="bulto">Bulto con medidas</el-radio-button>
+                            </el-radio-group>
+                            <div v-if="pkgTipo === 'size'" style="margin-top:8px">
+                                <el-radio-group v-model="pkgTam" size="small">
+                                    <el-radio-button v-for="t in pkgTamanos" :key="t.v" :label="t.v">{{ t.l }}</el-radio-button>
+                                </el-radio-group>
+                            </div>
+                            <div v-if="pkgTipo === 'bulto'" style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px;align-items:center">
+                                <el-input-number v-model="pkgL" :min="1" :max="300" size="small" controls-position="right" style="width:96px" placeholder="Largo"></el-input-number>
+                                <span>×</span>
+                                <el-input-number v-model="pkgA" :min="1" :max="300" size="small" controls-position="right" style="width:96px" placeholder="Ancho"></el-input-number>
+                                <span>×</span>
+                                <el-input-number v-model="pkgH" :min="1" :max="300" size="small" controls-position="right" style="width:96px" placeholder="Alto"></el-input-number>
+                                <span>cm ·</span>
+                                <el-input-number v-model="pkgKg" :min="0" :max="500" :precision="1" size="small" controls-position="right" style="width:100px" placeholder="Peso"></el-input-number>
+                                <span>kg</span>
+                            </div>
+                            <p class="ss__hint" style="margin:6px 0 0;font-size:12px">
+                                El cliente ve el flete aproximado de este paquete en vez de «desde S/ 8». Shalom confirma el precio al medir y pesar.
+                            </p>
+                        </div>
+                    </div>
                     <div v-if="usaShalom" class="ss__row" style="margin-top:8px">
                         <span>Envío aéreo</span>
                         <el-switch v-model="f.shalom_air_enabled"></el-switch>
@@ -215,7 +245,9 @@ export default {
         reason: { type: String, default: '' },
     },
     data() {
-        return { loading: false, saving: false, f: null, catalog: [], preview: { lines: [], notes: [] }, timer: null, oficinas: [], buscando: false, pro: null, proUser: '', proPass: '', guardandoPro: false, proClave: '', guardandoClave: false };
+        return { loading: false, saving: false, f: null, catalog: [], preview: { lines: [], notes: [] }, timer: null, oficinas: [], buscando: false,
+            pkgTipo: '', pkgTam: 'PAQUETE L', pkgL: null, pkgA: null, pkgH: null, pkgKg: null,
+            pkgTamanos: [{ v: 'SOBRE', l: 'Sobre' }, { v: 'PAQUETE XXS', l: 'XXS' }, { v: 'PAQUETE XS', l: 'XS' }, { v: 'PAQUETE S', l: 'S' }, { v: 'PAQUETE M', l: 'M' }, { v: 'PAQUETE L', l: 'L' }], pro: null, proUser: '', proPass: '', guardandoPro: false, proClave: '', guardandoClave: false };
     },
     computed: {
         usaShalom() {
@@ -250,6 +282,13 @@ export default {
                         shalom_air_enabled: d.shalom_air_enabled !== false,
                     };
                     this.oficinas = d.shalom_origin ? [d.shalom_origin] : [];
+                    const pk = d.shalom_package || null;
+                    this.pkgTipo = pk ? pk.type : '';
+                    this.pkgTam = pk && pk.size ? pk.size : 'PAQUETE L';
+                    this.pkgL = pk && pk.length ? pk.length : null;
+                    this.pkgA = pk && pk.width ? pk.width : null;
+                    this.pkgH = pk && pk.height ? pk.height : null;
+                    this.pkgKg = pk && pk.weight ? pk.weight : null;
                     this.pro = d.shalom_pro || null;
                     this.proUser = (this.pro && this.pro.user) || '';
                     this.proPass = '';
@@ -316,7 +355,10 @@ export default {
             if (el && typeof el.blur === 'function') el.blur();
             this.$nextTick(() => {
                 this.saving = true;
-                this.$http.post('/store-shipping', this.f)
+                const pkg = this.pkgTipo === 'size' ? { type: 'size', size: this.pkgTam }
+                    : this.pkgTipo === 'bulto' ? { type: 'bulto', length: this.pkgL, width: this.pkgA, height: this.pkgH, weight: this.pkgKg }
+                    : null;
+                this.$http.post('/store-shipping', Object.assign({}, this.f, { shalom_package: pkg }))
                     .then(r => {
                         this.$message.success((r.data && r.data.message) || 'Envíos guardados');
                         this.$emit('saved');

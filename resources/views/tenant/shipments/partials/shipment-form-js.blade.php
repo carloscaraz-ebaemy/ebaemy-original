@@ -288,7 +288,7 @@
         // «Desde»: el rango de Shalom va del sobre a la caja L; un paquete más
         // grande lo mide Shalom en la agencia y cuesta más. Un rango cerrado
         // se leía como el máximo que iba a pagar.
-        var p = q.price_min ? 'desde ' + shMoneda(q.price_min) : '';
+        var p = q.estimate ? 'aprox. ' + shMoneda(q.estimate) : (q.price_min ? 'desde ' + shMoneda(q.price_min) : '');
         return [q.hours ? q.hours + ' h' : '', p].filter(Boolean).join(' · ');
     }
     function shPintarModo() {
@@ -344,20 +344,28 @@
         {
             {
                 if (!q || !q.available) { shSinCotizacion(); return; }
-                var precio = q.price_min ? 'desde ' + shMoneda(q.price_min) : '';
-                var hastaL = q.price_max && q.price_max !== q.price_min ? shMoneda(q.price_max) : '';
+                // Con paquete típico de la tienda: su precio aproximado. Sin
+                // él: «desde» el sobre hasta la caja grande.
+                var conPaquete = !!q.estimate;
+                var precio = conPaquete ? 'aprox. ' + shMoneda(q.estimate) : (q.price_min ? 'desde ' + shMoneda(q.price_min) : '');
+                var hastaL = !conPaquete && q.price_max && q.price_max !== q.price_min ? shMoneda(q.price_max) : '';
                 var partes = [];
                 var via = airInp && airInp.value === '1' ? ' por vía aérea' : '';
                 if (q.hours) partes.push('Shalom tarda unas ' + q.hours + ' horas' + via + ' hasta esta oficina');
-                if (precio) partes.push('flete ' + precio + (hastaL ? ' (caja chica) a ' + hastaL + ' (caja grande)' : ''));
+                if (precio) partes.push('flete ' + precio + (conPaquete && q.package ? ' para tu pedido (' + q.package + ')' : '')
+                    + (hastaL ? ' (caja chica) a ' + hastaL + ' (caja grande)' : ''));
                 if (quoteEl && partes.length) {
-                    quoteEl.textContent = partes.join(' · ') + '. Si tu paquete es más grande o pesado, Shalom lo mide en la agencia y el precio final es mayor.';
+                    quoteEl.textContent = partes.join(' · ') + (conPaquete
+                        ? '. Es un precio aproximado: Shalom lo confirma al medir y pesar el paquete.'
+                        : '. Si tu paquete es más grande o pesado, Shalom lo mide en la agencia y el precio final es mayor.');
                     quoteEl.hidden = false;
                 }
                 if (precio && fleteV) {
                     fleteV.textContent = precio.charAt(0).toUpperCase() + precio.slice(1);
-                    if (fleteSub) fleteSub.textContent = 'Lo pagas en la agencia al recoger. Es la tarifa de Shalom para cajas hasta tamaño grande: '
-                        + 'Shalom mide y pesa tu paquete al recibirlo, y si es más grande el precio final es mayor.';
+                    if (fleteSub) fleteSub.textContent = conPaquete
+                        ? 'Lo pagas en la agencia al recoger. Aproximado para ' + (q.package || 'tu pedido') + ': Shalom confirma el precio al medir y pesar el paquete.'
+                        : 'Lo pagas en la agencia al recoger. Es la tarifa de Shalom para cajas hasta tamaño grande: '
+                          + 'Shalom mide y pesa tu paquete al recibirlo, y si es más grande el precio final es mayor.';
                 }
                 var li = document.querySelector('#eta-agencia .js-eta-arrive');
                 if (li && q.arrive) {

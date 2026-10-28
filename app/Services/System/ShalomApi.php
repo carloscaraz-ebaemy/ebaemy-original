@@ -94,10 +94,18 @@ class ShalomApi
         // 48 h); `tar_tiempo_llegada` repite el terrestre aunque sea aéreo.
         $hours = preg_match('/(\d+)/', (string) ($d['lead_time'] ?? ''), $m) ? $m[1] : ($d['data_tarifa']['tar_tiempo_llegada'] ?? null);
 
+        $dt = $d['data_tarifa'] ?? [];
+
         return [
             'hours'  => is_numeric($hours) && $hours > 0 ? (int) $hours : null,
             'price'  => isset($d['price']) && is_numeric($d['price']) ? (float) $d['price'] : null,
             'prices' => $prices,
+            // Tarifa de carga de la ruta, para estimar bultos (ShalomPackage).
+            'rates'  => [
+                'kg'  => is_numeric($t['peso'] ?? null) ? (float) $t['peso'] : 0.0,
+                'm3'  => is_numeric($t['volumen'] ?? null) ? (float) $t['volumen'] : 0.0,
+                'min' => is_numeric($dt['tar_preminimo'] ?? null) ? (float) $dt['tar_preminimo'] : 0.0,
+            ],
         ];
     }
 
