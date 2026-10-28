@@ -1534,6 +1534,17 @@ class EcommerceController extends Controller
                     'user_agent'        => substr((string) request()->userAgent(), 0, 500),
                 ]);
 
+                // Destino del comprador -> envio vigente del pedido (best-effort:
+                // nunca tumba el pedido). Ver OrderShipmentLinker::ensureFromCheckout.
+                app(\App\Services\Tenant\OrderShipmentLinker::class)->ensureFromCheckout($order, [
+                    'pickup'   => $isPickup,
+                    'ubigeo'   => $customer['ubigeo'] ?? null,
+                    'address'  => $customer['direccion'] ?? null,
+                    'name'     => $customer_name !== 'Cliente' ? $customer_name : null,
+                    'phone'    => $customer['telefono'] ?? null,
+                    'document' => $document_number ?: ($customer['numero_documento'] ?? null),
+                ]);
+
                 // ── Reservar el stock del pedido ──────────────────────────
                 //
                 // Aqui habia DOS bucles: uno para variantes y otro para los

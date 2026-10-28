@@ -334,6 +334,16 @@ class CulqiController extends Controller
             'card_fingerprint'  => $cardContext['fingerprint'],
         ]);
 
+        // Destino del comprador -> envio vigente del pedido (best-effort).
+        app(\App\Services\Tenant\OrderShipmentLinker::class)->ensureFromCheckout($order, [
+            'pickup'   => $isPickup,
+            'ubigeo'   => $customerData['ubigeo'] ?? null,
+            'address'  => $customerData['direccion'] ?? null,
+            'name'     => $customer_name !== 'Cliente' ? $customer_name : null,
+            'phone'    => $customerData['telefono'] ?? null,
+            'document' => $purchaseData['datos_del_cliente_o_receptor']['numero_documento'] ?? ($customerData['numero_documento'] ?? null),
+        ]);
+
         // ── PASO 4: Despachar captura en background ───────────────────────────
         $customerPhone = $customerData['telefono'] ?? ($user ? optional($user)->telefono ?? '' : '');
 
