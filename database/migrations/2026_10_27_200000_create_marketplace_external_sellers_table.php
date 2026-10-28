@@ -14,6 +14,11 @@ use Illuminate\Support\Facades\Schema;
  * saber que el vendedor es externo, y todo lo que entra a la BD del tenant ya
  * se salta los hostnames sin website.
  *
+ * La tienda se registra sola desde PRO 9 (botón "Publicar en ebaemy.com") y
+ * queda `pending` hasta que el administrador la aprueba en
+ * /admin/marketplace/tiendas-externas. Mientras tanto puede enviar productos,
+ * que se guardan ocultos y salen todos al aprobarla.
+ *
  * `api_secret` firma las peticiones en los dos sentidos (HMAC-SHA256): las que
  * el vendedor manda a ebaemy y los webhooks de pedidos que ebaemy le manda.
  */
@@ -29,10 +34,14 @@ return new class extends Migration {
             $table->string('source', 20)->default('pro9');
             $table->string('fqdn', 180)->unique();
             $table->string('name', 160);
+            $table->string('contact_phone', 30)->nullable();
+            $table->string('contact_email', 150)->nullable();
             $table->string('api_key', 64)->unique();
             $table->text('api_secret');                       // cifrado (cast encrypted)
             $table->string('webhook_url', 255)->nullable();   // base del sistema del vendedor para avisarle pedidos
-            $table->boolean('is_active')->default(true);
+            $table->string('status', 20)->default('pending')->index(); // pending|approved|rejected|suspended
+            $table->string('admin_notes', 500)->nullable();
+            $table->timestamp('reviewed_at')->nullable();
             $table->timestamp('last_request_at')->nullable();
             $table->timestamps();
         });

@@ -9,14 +9,28 @@ Tiendas que **no son tenants de ebaemy** (hoy, los tenants de PRO 9 en devaemy.c
 - Los procesos que entran a la BD de un tenant (sync, cupones, estados, comandos) ya saltan los hostnames sin website.
 - Si un subdominio coincide con un tenant de ebaemy, la página de tienda muestra el tenant.
 
-Alta (muestra clave y secreto una sola vez):
+## Alta y aprobación
+
+La tienda se registra sola. En PRO 9 está en **Tienda Virtual → Configuración → Canales → «Publicar en ebaemy.com»**:
+
+1. PRO 9 llama a `POST /api/marketplace/v1/sellers/register` firmado con la **llave de plataforma**. Esa llave es la misma en los dos `.env`:
+   - ebaemy: `MARKETPLACE_PRO9_KEY`, `MARKETPLACE_PRO9_SECRET`, `MARKETPLACE_PRO9_DOMAIN=devaemy.com`
+   - PRO 9: `EBAEMY_PLATFORM_KEY`, `EBAEMY_PLATFORM_SECRET`
+
+   Solo se aceptan dominios `*.devaemy.com` cuyo webhook esté en ese mismo dominio.
+2. ebaemy crea el vendedor en estado **`pending`**, avisa al administrador (campana del panel) y devuelve la clave y el secreto propios de la tienda, que PRO 9 guarda solo.
+3. Mientras está `pending`, la tienda ya puede enviar productos. Se guardan con `is_active = false`.
+4. El administrador entra a **/admin/marketplace/tiendas-externas** (menú «Tiendas PRO 9») y elige:
+   - **Aprobar:** salen a la venta de una vez todos los productos que el vendedor dejó activos.
+   - **Rechazar** o **Suspender:** se ocultan. La nota que se escriba la ve la tienda en su PRO 9.
+5. PRO 9 consulta el estado (`ping`) cada vez que el dueño abre la tarjeta.
+6. Una tienda rechazada puede volver a solicitar, y entonces vuelve a `pending`. Una suspendida no: el administrador la tiene que reactivar.
+
+Alta manual, para casos puntuales:
 
 ```
-php artisan marketplace:external-seller importaloya.devaemy.com "Importa Lo Ya" --webhook=https://importaloya.devaemy.com
-php artisan marketplace:external-seller importaloya.devaemy.com --rotate     # secreto nuevo
+php artisan marketplace:external-seller importaloya.devaemy.com "Importa Lo Ya" --webhook=https://importaloya.devaemy.com [--approve]
 ```
-
-La clave y el secreto se pegan en PRO 9: Tienda Virtual → Configuración → Canales → Marketplace ebaemy.com.
 
 ## Firma (los dos sentidos)
 
@@ -30,7 +44,9 @@ X-Signature:  hex(HMAC-SHA256(secreto, "{timestamp}\n{cuerpo crudo}"))
 
 | Método | Ruta | Uso |
 |---|---|---|
-| GET | `ping` | Probar credenciales; devuelve `store_url` |
+| POST | `sellers/register` | (llave de **plataforma**) La tienda pide vender; devuelve su clave y secreto y queda `pending` |
+| GET | `ping` | Probar credenciales; devuelve `status`, `admin_notes` y `store_url` |
+| POST | `listings/batch` | Hasta 50 productos `{remote_item_id, publishable, payload}` por petición |
 | GET | `categories` | Árbol de categorías (PRO 9 lo copia por `full_slug`) |
 | PUT | `listings/{remote_item_id}` | Crear/actualizar producto: `{seller, listing, options, variants}` |
 | DELETE | `listings/{remote_item_id}` | Pausar producto (no se borra) |
@@ -55,7 +71,8 @@ POST {webhook_url}/api/ebaemy/orders
 - Los fallos usan el mismo `retry_count` y el mismo comando `RetryFailedMarketplaceOrders` que los tenants locales.
 - PRO 9 avisa "despachado" y "entregado" con `orders/{order_number}/status`.
 
-## Pendiente
+## Variante en el pedido
 
-- El carrito no registra la variante elegida. Esta limitación ya existe para los tenants locales.
-- Cancelar desde PRO 9 todavía no avisa a ebaemy. El endpoint acepta `cancelled`, pero falta enganchar la anulación del pedido en PRO 9.
+- Cada talla o color es su propia línea del carrito, con clave `{listing}-{listing_variant}`.
+- La línea queda guardada en `marketplace_order_items` (`listing_variant_id`, `tenant_variant_id`, `variant_name`).
+- Al vendedor le llega como `variant_id` y `variant_name` en cada ítem.

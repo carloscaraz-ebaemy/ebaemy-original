@@ -76,7 +76,8 @@ class ExternalListingUpsertService
             'is_pack'         => false,
             'pack_contents'   => null,
             'pack_stock'      => null,
-            'is_active'       => true,
+            // Oculto hasta que el administrador apruebe la tienda (changeStatus lo destapa).
+            'is_active'       => $seller->is_active,
             'synced_at'       => now(),
         ]);
 

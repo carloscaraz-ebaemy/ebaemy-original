@@ -37,8 +37,14 @@ class VerifyExternalSellerSignature
         if (!$seller || !hash_equals($seller->sign($timestamp, $request->getContent()), $signature)) {
             return response()->json(['message' => 'Credenciales inválidas'], 401);
         }
-        if (!$seller->is_active) {
-            return response()->json(['message' => 'Vendedor desactivado en el marketplace'], 403);
+        // Una tienda por aprobar ya puede enviar productos (quedan ocultos);
+        // una rechazada o suspendida no.
+        if (!$seller->canUseApi()) {
+            return response()->json([
+                'message'     => 'Tienda ' . mb_strtolower($seller->statusLabel()) . ' en el marketplace',
+                'status'      => $seller->status,
+                'admin_notes' => $seller->admin_notes,
+            ], 403);
         }
 
         $seller->forceFill(['last_request_at' => now()])->saveQuietly();

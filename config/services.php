@@ -14,6 +14,18 @@ return [
     |
     */
 
+    // Sistemas externos cuyas tiendas pueden registrarse solas en el
+    // marketplace (POST /api/marketplace/v1/sellers/register). La misma
+    // clave/secreto va en el .env del otro sistema; `domain` limita qué
+    // dominios puede registrar (sus tiendas son subdominios de él).
+    'marketplace_platforms' => [
+        'pro9' => [
+            'key'    => env('MARKETPLACE_PRO9_KEY'),
+            'secret' => env('MARKETPLACE_PRO9_SECRET'),
+            'domain' => env('MARKETPLACE_PRO9_DOMAIN', 'devaemy.com'),
+        ],
+    ],
+
     'mailgun' => [
         'domain' => env('MAILGUN_DOMAIN'),
         'secret' => env('MAILGUN_SECRET'),

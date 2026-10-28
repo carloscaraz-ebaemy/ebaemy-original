@@ -2066,6 +2066,8 @@ if ($hostname) {
                 Route::get('reviews',                   'System\MarketplaceAdminController@reviews')->name('reviews');
                 Route::post('reviews/{id}/approve',     'System\MarketplaceAdminController@approveReview')->name('reviews.approve');
                 Route::post('reviews/{id}/reject',      'System\MarketplaceAdminController@rejectReview')->name('reviews.reject');
+                Route::get('tiendas-externas',        'System\MarketplaceExternalSellerController@index')->name('external_sellers');
+                Route::post('tiendas-externas/{id}',  'System\MarketplaceExternalSellerController@update')->name('external_sellers.update')->whereNumber('id');
                 Route::get('publicidad',              'System\MarketplaceAdRequestController@index')->name('ads');
                 Route::post('publicidad/{id}',        'System\MarketplaceAdRequestController@update')->name('ads.update')->whereNumber('id');
                 Route::get('seo',                     'System\MarketplaceAdminController@seo')->name('seo');

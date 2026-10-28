@@ -158,6 +158,11 @@ if ($hostname) {
 
         });
 
+        // Una tienda de un sistema externo (PRO 9) se registra sola; firmado con
+        // la llave de la PLATAFORMA, no de la tienda.
+        Route::post('marketplace/v1/sellers/register', 'System\Api\ExternalSellerController@register')
+            ->middleware([\App\Http\Middleware\VerifyMarketplacePlatformSignature::class]);
+
         // Vendedores externos (PRO 9): publican su catálogo por API firmada.
         // Heredan el throttle:60,1 del grupo 'api'; el emisor reintenta los 429.
         Route::prefix('marketplace/v1')

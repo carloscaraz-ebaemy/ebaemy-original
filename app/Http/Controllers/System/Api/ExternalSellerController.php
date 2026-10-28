@@ -21,9 +21,58 @@ class ExternalSellerController extends Controller
         $seller = $this->seller($request);
 
         return [
-            'ok'        => true,
-            'seller'    => $seller->name,
-            'store_url' => url('marketplace/tienda/' . strtok($seller->fqdn, '.')),
+            'ok'           => true,
+            'seller'       => $seller->name,
+            'status'       => $seller->status,
+            'status_label' => $seller->statusLabel(),
+            'admin_notes'  => $seller->status === 'approved' ? null : $seller->admin_notes,
+            'store_url'    => url('marketplace/tienda/' . strtok($seller->fqdn, '.')),
+        ];
+    }
+
+    /**
+     * Una tienda del sistema externo pide vender en el marketplace. Autenticado
+     * con la llave de PLATAFORMA (VerifyMarketplacePlatformSignature), no de
+     * tienda: devuelve la clave y el secreto propios de la tienda, que queda
+     * por aprobar. Repetirlo renueva el secreto (el sistema guarda el nuevo).
+     */
+    public function register(Request $request, \App\Services\System\ExternalSellerRegistrar $registrar)
+    {
+        $data = validator($request->json()->all(), [
+            'fqdn'        => 'required|string|max:180',
+            'name'        => 'required|string|max:160',
+            'webhook_url' => 'required|url|max:255',
+            'phone'       => 'nullable|string|max:30',
+            'email'       => 'nullable|email|max:150',
+        ])->validate();
+
+        // Solo dominios del propio sistema: una tienda de PRO 9 es un subdominio
+        // de devaemy.com, y su webhook vive en ese mismo dominio.
+        $domain = strtolower((string) ($request->attributes->get('marketplace_platform_config')['domain'] ?? ''));
+        $fqdn = strtolower(trim($data['fqdn']));
+        $webhookHost = strtolower((string) parse_url($data['webhook_url'], PHP_URL_HOST));
+        if ($domain === '' || !str_ends_with($fqdn, '.' . $domain) || $webhookHost !== $fqdn) {
+            return response()->json(['message' => 'Dominio no permitido para esta plataforma'], 422);
+        }
+
+        try {
+            $result = $registrar->register($fqdn, $data['name'], $data['webhook_url'], [
+                'phone' => $data['phone'] ?? null,
+                'email' => $data['email'] ?? null,
+            ]);
+        } catch (\InvalidArgumentException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+
+        $seller = $result['seller'];
+
+        return [
+            'ok'           => true,
+            'api_key'      => $seller->api_key,
+            'api_secret'   => $result['secret'],
+            'status'       => $seller->status,
+            'status_label' => $seller->statusLabel(),
+            'store_url'    => url('marketplace/tienda/' . strtok($seller->fqdn, '.')),
         ];
     }
 

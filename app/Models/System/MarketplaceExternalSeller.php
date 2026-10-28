@@ -14,18 +14,25 @@ class MarketplaceExternalSeller extends Model
 {
     use UsesSystemConnection;
 
+    public const STATUSES = [
+        'pending'   => 'Por aprobar',
+        'approved'  => 'Aprobada',
+        'rejected'  => 'Rechazada',
+        'suspended' => 'Suspendida',
+    ];
+
     protected $table = 'marketplace_external_sellers';
 
     protected $fillable = [
-        'hostname_id', 'source', 'fqdn', 'name', 'api_key', 'api_secret',
-        'webhook_url', 'is_active', 'last_request_at',
+        'hostname_id', 'source', 'fqdn', 'name', 'contact_phone', 'contact_email', 'api_key', 'api_secret',
+        'webhook_url', 'status', 'admin_notes', 'reviewed_at', 'last_request_at',
     ];
 
     protected $hidden = ['api_secret'];
 
     protected $casts = [
         'api_secret'      => 'encrypted',
-        'is_active'       => 'boolean',
+        'reviewed_at'     => 'datetime',
         'last_request_at' => 'datetime',
     ];
 
@@ -37,6 +44,42 @@ class MarketplaceExternalSeller extends Model
     public static function forHostname(?int $hostnameId): ?self
     {
         return $hostnameId ? static::where('hostname_id', $hostnameId)->first() : null;
+    }
+
+    /** Solo una tienda aprobada vende: sus productos se ven y recibe pedidos. */
+    public function getIsActiveAttribute(): bool
+    {
+        return $this->status === 'approved';
+    }
+
+    /** Puede usar la API (enviar productos, consultar su estado) aunque no esté aprobada aún. */
+    public function canUseApi(): bool
+    {
+        return in_array($this->status, ['pending', 'approved'], true);
+    }
+
+    public function statusLabel(): string
+    {
+        return self::STATUSES[$this->status] ?? $this->status;
+    }
+
+    /**
+     * Cambia el estado y muestra u oculta de una vez todos sus productos.
+     * Al aprobar salen los que el vendedor dejó activos ('active'); los que él
+     * pausó siguen pausados.
+     */
+    public function changeStatus(string $status, ?string $notes = null): void
+    {
+        $this->update([
+            'status'      => $status,
+            'admin_notes' => $notes ?? $this->admin_notes,
+            'reviewed_at' => now(),
+        ]);
+
+        $query = MarketplaceListing::where('hostname_id', $this->hostname_id);
+        $status === 'approved'
+            ? $query->where('status', 'active')->update(['is_active' => true])
+            : $query->update(['is_active' => false]);
     }
 
     /** Firma HMAC-SHA256 de "{timestamp}\n{cuerpo}" con el secreto del vendedor. */
