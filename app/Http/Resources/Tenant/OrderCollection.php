@@ -765,9 +765,10 @@ class OrderCollection extends ResourceCollection
                 $st = \App\Models\Tenant\ShippingSetting::current();
                 $pk = \App\Services\Tenant\ShalomPackage::normalize($st->shalom_package ?? null);
                 $tienda = ['plan' => \App\Services\System\ShalomPlan::allowsInstances(), 'ready' => !empty($st->shalom_instance_id) && !empty($st->shalom_origin_id), 'clave_fija' => $st->shalom_default_clave ?? null,
+                           'phone' => ($ph = substr(preg_replace('/\D/', '', (string) ($st->orders_wa ?? '')), -9)) && strlen($ph) === 9 ? $ph : null,
                            'content' => $pk && $pk['type'] === 'size' ? $pk['size'] : ($pk ? 'PAQUETE L' : null)];
             } catch (\Throwable $e) {
-                $tienda = ['plan' => false, 'ready' => false, 'clave_fija' => null, 'content' => null];
+                $tienda = ['plan' => false, 'ready' => false, 'clave_fija' => null, 'content' => null, 'phone' => null];
             }
         }
         $ce = $s->carrier_events ?? [];
@@ -792,6 +793,11 @@ class OrderCollection extends ResourceCollection
             // Guía creada que el paquete aún no usó: se puede quitar, y si
             // pasan 2 días hábiles sin entregarla en la agencia, se avisa.
             'can_remove'    => \App\Services\Tenant\ShalomTracking::removable($s),
+            // Cambios sobre la guía creada: null = se puede; si no, el motivo.
+            'manage_block'  => $tiene ? \App\Services\Tenant\ShalomGuideChanges::blocker($s) : null,
+            'bultos'        => max(1, (int) ($s->package_count ?: 1)),
+            'pickup_dni'    => $s->pickup_person_dni ?: $s->dni,
+            'store_phone'   => $tienda['phone'],
             'not_delivered' => \App\Services\Tenant\ShalomTracking::notDelivered($s),
         ];
     }

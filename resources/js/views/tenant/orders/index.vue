@@ -1293,28 +1293,13 @@
 
                                     <template v-if="tieneAccionesRotulo(row)">
                                         <li class="ord-menu-h">Rótulo y guía</li>
-                                        <!-- Shalom con instancia: la guía se crea desde
-                                             aquí y el rótulo es el oficial de Shalom. -->
-                                        <el-dropdown-item
-                                            v-if="row.shipment && row.shipment.shalom && row.shipment.shalom.can_create"
-                                            command="shalomGuide"
-                                        >
-                                            <i class="el-icon-document-add"></i>
-                                            Crear guía en Shalom
-                                        </el-dropdown-item>
-                                        <el-dropdown-item
-                                            v-if="row.shipment && row.shipment.shalom && row.shipment.shalom.label_url"
-                                            command="shalomLabel"
-                                        >
-                                            <i class="el-icon-printer"></i>
-                                            Imprimir rótulo de Shalom
-                                        </el-dropdown-item>
-                                        <el-dropdown-item
-                                            v-if="row.shipment && row.shipment.shalom && row.shipment.shalom.ticket_url"
-                                            command="shalomTicket"
-                                        >
-                                            <i class="el-icon-tickets"></i>
-                                            Ticket de Shalom (con QR)
+                                        <!-- Todo lo de Shalom en UNA entrada: crear, imprimir rótulo
+                                             y ticket, cambiar oficina, quién recoge, clave o bultos,
+                                             y quitar. Eran seis líneas sueltas en este menú. -->
+                                        <el-dropdown-item v-if="usaPanelShalom(row)" command="shalomGuide">
+                                            <i class="el-icon-s-promotion"></i>
+                                            {{ row.shipment.shalom.has_guide ? "Guía de Shalom" : "Crear guía en Shalom" }}
+                                            <small v-if="row.shipment.tracking_number" class="ord-menu-sub">{{ row.shipment.tracking_number }}</small>
                                         </el-dropdown-item>
                                         <!-- Con Shalom conectado el rótulo es el de Shalom:
                                              ofrecer también el de ebaemy era imprimir dos
@@ -1338,7 +1323,7 @@
                                         <el-dropdown-item
                                             v-if="row.shipment && !row.shipment.is_pickup && !row.shipment.has_guide
                                                   && !(row.shipment.shalom && (row.shipment.shalom.has_guide
-                                                       || (row.shipment.shalom.ready && row.shipment.shalom.can_create)))"
+                                                       || (row.shipment.shalom.ready && usaPanelShalom(row))))"
                                             command="uploadGuide"
                                         >
                                             <i class="el-icon-upload"></i>
@@ -1394,18 +1379,9 @@
                                         Restaurar pedido
                                     </el-dropdown-item>
                                     <el-dropdown-item
-                                        v-if="row.shipment && row.shipment.shalom && row.shipment.shalom.can_remove"
-                                        command="shalomRemove"
-                                        divided
-                                        class="ord-menu-danger"
-                                    >
-                                        <i class="el-icon-remove-outline"></i>
-                                        Quitar guía de Shalom
-                                    </el-dropdown-item>
-                                    <el-dropdown-item
                                         v-if="row.shipment && !esEntregado(row)"
                                         command="cancelShipment"
-                                        :divided="!(row.shipment.shalom && row.shipment.shalom.can_remove)"
+                                        divided
                                         class="ord-menu-danger"
                                     >
                                         <i class="el-icon-close"></i>
@@ -1477,6 +1453,7 @@
             :shipmentId="shalomShipmentId"
             :shalom="shalomInfo"
             :packageCount="shalomBultos"
+            :tracking="shalomTracking"
             @saved="refrescarTrasEnvio"
         ></shalom-guide>
 
@@ -1717,6 +1694,12 @@
 .ord-menu .ord-menu-h:not(:first-child) {
     margin-top: 4px;
     border-top: 1px solid #eef2f6;
+}
+.ord-menu .ord-menu-sub {
+    margin-left: 6px;
+    font-size: 11px;
+    color: #94a3b8;
+    font-variant-numeric: tabular-nums;
 }
 .ord-menu .el-dropdown-menu__item.ord-menu-danger {
     color: #b91c1c;
@@ -3978,6 +3961,7 @@ export default {
             shalomShipmentId: null,
             shalomInfo: null,
             shalomBultos: 1,
+            shalomTracking: null,
             // Busqueda unica. Se manda al DataTable como la columna `search`,
             // que en el backend es «buscar en todo».
             q: "",
@@ -4526,9 +4510,6 @@ export default {
                 // que sin URL no hace nada. El boton estaba muerto.
                 uploadGuide: () => this.subirGuia(row),
                 shalomGuide: () => this.crearGuiaShalom(row),
-                shalomLabel: () => window.open(row.shipment.shalom.label_url, "_blank"),
-                shalomRemove: () => this.quitarGuiaShalom(row),
-                shalomTicket: () => window.open(row.shipment.shalom.ticket_url, "_blank"),
                 viewGuide: () => this.openGuide(row)
             };
             if (acciones[cmd]) acciones[cmd]();
@@ -5655,29 +5636,12 @@ export default {
          * (va a la bitácora) y recuerda anularla en pro.shalom.pe: el API de
          * Shalom no permite anularla.
          */
-        quitarGuiaShalom(row) {
-            const sh = row.shipment.shalom || {};
-            this.$prompt(
-                "La guía " + (row.shipment.tracking_number || "") + " se desvincula de este pedido y podrás crear otra. " +
-                    "Después anúlala también en pro.shalom.pe. ¿Por qué la quitas?",
-                "Quitar guía de Shalom",
-                {
-                    confirmButtonText: "Quitar guía",
-                    cancelButtonText: "Cancelar",
-                    inputPlaceholder: "Ej. no se llevó a la agencia, cambió el tamaño…",
-                    inputValidator: v => (v && v.trim().length >= 3) || "Escribe el motivo",
-                }
-            )
-                .then(({ value }) => this.$http.post(`/orders/${row.id}/envio/shalom-quitar`, { reason: value }))
-                .then(r => this.trasAccionDeEnvio(r, false, row.id))
-                .catch(e => { if (e !== "cancel" && e !== "close") this.trasAccionDeEnvio(e, true); });
-        },
-
         crearGuiaShalom(row) {
             this.shalomOrderId = row.id;
             this.shalomShipmentId = row.shipment ? row.shipment.id : null;
             this.shalomInfo = row.shipment ? row.shipment.shalom : null;
             this.shalomBultos = (row.shipment && row.shipment.package_count) || 1;
+            this.shalomTracking = (row.shipment && row.shipment.tracking_number) || null;
             this.showShalomDialog = true;
         },
 
@@ -6835,11 +6799,17 @@ export default {
          */
         // ¿Hay algo que imprimir o adjuntar? Sin esto el título «Rótulo y
         // guía» quedaba suelto encima de nada.
+        // El panel «Guía de Shalom» se ofrece con el plan que crea guías, o
+        // si el envío ya tiene una creada desde ebaemy (para verla o quitarla).
+        usaPanelShalom(row) {
+            const sh = (row.shipment && row.shipment.shalom) || null;
+            return !!(sh && !this.esAnulado(row) && (sh.enabled || sh.can_remove));
+        },
         tieneAccionesRotulo(row) {
             const s = row.shipment;
             if (!s) return this.canDownloadLabel(row);
             const sh = s.shalom || {};
-            return !!(sh.can_create || sh.label_url || sh.ticket_url || s.guide_url
+            return !!(this.usaPanelShalom(row) || s.guide_url
                 || this.canDownloadLabel(row)
                 || (!this.esAnulado(row) && !this.esEntregado(row) && !sh.replaces_label)
                 || (!s.is_pickup && !s.has_guide && !sh.has_guide));

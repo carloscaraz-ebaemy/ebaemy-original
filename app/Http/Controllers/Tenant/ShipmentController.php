@@ -1081,6 +1081,56 @@ class ShipmentController extends Controller
         ]);
     }
 
+    /** Nueva clave de recojo de la guía de Shalom (un solo paso, sin código). */
+    public function shalomChangeClave(Request $request, ShippingRequest $shipment): \Illuminate\Http\JsonResponse
+    {
+        $data = $request->validate(['clave' => 'required|digits:4'], [], ['clave' => 'clave de recojo']);
+        try {
+            app(\App\Services\Tenant\ShalomGuideChanges::class)->changeClave($shipment, $data['clave']);
+        } catch (\Throwable $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()]);
+        }
+
+        return response()->json(['success' => true, 'message' => "Clave de recojo cambiada a {$data['clave']}. Avísale al cliente."]);
+    }
+
+    /** Pide a Shalom el código para cambiar la oficina de destino o quién recoge. */
+    public function shalomChangeStart(Request $request, ShippingRequest $shipment): \Illuminate\Http\JsonResponse
+    {
+        $data = $request->validate([
+            'tipo'         => 'required|in:' . implode(',', \App\Services\Tenant\ShalomGuideChanges::TYPES),
+            'telefono'     => ['required', 'regex:/^9\d{8}$/'],
+            'destino'      => 'required_if:tipo,cambio_destino|nullable|integer',
+            'destinatario' => 'required_if:tipo,cambiar_contacto|nullable|string|max:11',
+            'nombre'       => 'nullable|string|max:150',
+        ], [], ['telefono' => 'celular', 'destino' => 'oficina', 'destinatario' => 'documento de quien recoge']);
+
+        try {
+            $r = app(\App\Services\Tenant\ShalomGuideChanges::class)->start($shipment, $data['tipo'], $data['telefono'], $data);
+        } catch (\Throwable $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()]);
+        }
+
+        return response()->json(['success' => true] + $r);
+    }
+
+    /** Confirma el cambio con el código que Shalom mandó por SMS o email. */
+    public function shalomChangeConfirm(Request $request, ShippingRequest $shipment): \Illuminate\Http\JsonResponse
+    {
+        $data = $request->validate([
+            'challenge' => 'required|string|max:64',
+            'codigo'    => 'required|string|min:4|max:8',
+        ], [], ['codigo' => 'código']);
+
+        try {
+            $msg = app(\App\Services\Tenant\ShalomGuideChanges::class)->confirm($shipment, $data['challenge'], $data['codigo']);
+        } catch (\Throwable $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()]);
+        }
+
+        return response()->json(['success' => true, 'message' => $msg]);
+    }
+
     /**
      * Página para imprimir el rótulo (o el ticket) de Shalom. Muestra el PDF
      * oficial y, al imprimir, registra la impresión igual que el rótulo de

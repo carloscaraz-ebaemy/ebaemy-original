@@ -207,6 +207,39 @@ class ShalomApi
         }
     }
 
+    // ── Autogestiones: cambiar una guía ya creada (plan Pro/Business) ─────
+
+    /** POST /shipments/pickup-code — nueva clave de recojo, en un solo paso. */
+    public function changePickupCode(string $instanceId, string $guia, ?string $codigo, string $clave): array
+    {
+        $this->assertInstances();
+
+        return $this->send('post', '/shipments/pickup-code', array_filter([
+            'instanceId' => $instanceId, 'guia' => $guia, 'codigo' => $codigo, 'clave' => $clave,
+        ], fn ($v) => $v !== null && $v !== ''), null, 30);
+    }
+
+    /**
+     * POST /shipments/self-management — deja el cambio guardado y Shalom manda
+     * un código por SMS/email. Devuelve el challengeId (10 minutos, un uso).
+     */
+    public function startSelfManagement(string $instanceId, array $data): array
+    {
+        $this->assertInstances();
+
+        return $this->send('post', '/shipments/self-management', ['instanceId' => $instanceId] + $data, null, 30);
+    }
+
+    /** POST /shipments/self-management/confirm — aplica el cambio con el código recibido. */
+    public function confirmSelfManagement(string $instanceId, string $challengeId, string $code): array
+    {
+        $this->assertInstances();
+
+        return $this->send('post', '/shipments/self-management/confirm', [
+            'instanceId' => $instanceId, 'challengeId' => $challengeId, 'clave' => $code,
+        ], null, 30);
+    }
+
     /** POST /account/pending-shipments — envíos pendientes de la cuenta (espejo). */
     public function pendingShipments(string $instanceId): array
     {

@@ -102,7 +102,7 @@ class ShalomTracking
         foreach (['delivery_type', 'shipping_agency', 'district_id', 'agency_office_id', 'dni', 'pickup_person_dni'] as $campo) {
             if (array_key_exists($campo, $data) && (string) $data[$campo] !== (string) $s->{$campo}) {
                 return 'Este envío ya tiene la guía de Shalom ' . ($s->tracking_number ?: '') . ': el destino y quien recoge ya están '
-                    . 'registrados en Shalom. Para cambiarlos, quita primero la guía (menú del pedido) y anúlala en pro.shalom.pe.';
+                    . 'registrados en Shalom. Cámbialos desde «Guía de Shalom» en el menú del pedido, para que Shalom y el panel digan lo mismo.';
             }
         }
 

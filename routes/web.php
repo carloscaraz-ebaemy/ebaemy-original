@@ -545,6 +545,13 @@ if ($hostname) {
             // cuenta de la tienda y bajar su rótulo oficial.
             Route::post('orders/{order}/envio/shalom-guia', [\App\Http\Controllers\Tenant\OrderShipmentActionController::class, 'shalomGuia'])
                  ->whereNumber('order')->name('orders.shipping.shalom_guide')->middleware('throttle:10,1');
+            // Cambios sobre la guía ya creada (autogestiones de Shalom).
+            Route::post('orders/{order}/envio/shalom-clave', [\App\Http\Controllers\Tenant\OrderShipmentActionController::class, 'shalomClave'])
+                 ->whereNumber('order')->name('orders.shipping.shalom_clave')->middleware('throttle:10,1');
+            Route::post('orders/{order}/envio/shalom-cambio', [\App\Http\Controllers\Tenant\OrderShipmentActionController::class, 'shalomCambio'])
+                 ->whereNumber('order')->name('orders.shipping.shalom_change')->middleware('throttle:6,1');
+            Route::post('orders/{order}/envio/shalom-cambio/confirmar', [\App\Http\Controllers\Tenant\OrderShipmentActionController::class, 'shalomCambioConfirmar'])
+                 ->whereNumber('order')->name('orders.shipping.shalom_change_confirm')->middleware('throttle:10,1');
             Route::get('orders/envio/{shipment}/shalom-ticket', [\App\Http\Controllers\Tenant\ShipmentController::class, 'shalomVoucher'])
                  ->whereNumber('shipment')->name('orders.shipping.shalom_voucher');
             Route::get('orders/envio/{shipment}/shalom-imprimir', [\App\Http\Controllers\Tenant\ShipmentController::class, 'shalomPrint'])

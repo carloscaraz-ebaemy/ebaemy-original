@@ -82,6 +82,27 @@ class OrderShipmentActionController extends Controller
             app(ShipmentController::class)->createShalomGuide($request, $envio));
     }
 
+    /** Cambiar la clave de recojo de la guía de Shalom. */
+    public function shalomClave(Request $request, Order $order)
+    {
+        return $this->reenviar($order, fn ($envio) =>
+            app(ShipmentController::class)->shalomChangeClave($request, $envio));
+    }
+
+    /** Pedir el código de Shalom para cambiar destino o quién recoge. */
+    public function shalomCambio(Request $request, Order $order)
+    {
+        return $this->reenviar($order, fn ($envio) =>
+            app(ShipmentController::class)->shalomChangeStart($request, $envio));
+    }
+
+    /** Confirmar el cambio con el código de Shalom. */
+    public function shalomCambioConfirmar(Request $request, Order $order)
+    {
+        return $this->reenviar($order, fn ($envio) =>
+            app(ShipmentController::class)->shalomChangeConfirm($request, $envio));
+    }
+
     /** Quitar la guía de Shalom que no se entregó en la agencia. */
     public function shalomQuitar(Request $request, Order $order)
     {
