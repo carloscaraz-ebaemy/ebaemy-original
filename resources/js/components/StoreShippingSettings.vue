@@ -107,6 +107,35 @@
                     </p>
                 </section>
 
+                <!-- Cuenta Shalom Pro de la tienda: se guarda desde ya y se conecta
+                     cuando ebaemy active la creación de guías por API. -->
+                <section v-if="usaShalom && pro" class="ss__block">
+                    <h4 class="ss__h">Tu cuenta de Shalom Pro</h4>
+                    <p class="ss__hint">
+                        <template v-if="pro.connected">Conectada{{ pro.connected_at ? ' desde el ' + pro.connected_at : '' }}. Las guías se podrán crear desde Pedidos.</template>
+                        <template v-else-if="pro.plan_allows">Conéctala para crear las guías e imprimir el rótulo oficial de Shalom desde Pedidos.</template>
+                        <template v-else>Guárdala desde ya. Cuando activemos la creación de guías por sistema, se conectará con estos datos.</template>
+                    </p>
+                    <div class="ss__row">
+                        <span>Usuario</span>
+                        <el-input v-model="proUser" size="small" maxlength="150" placeholder="Correo o usuario de pro.shalom.pe" class="ss__sel ss__sel--wide" autocomplete="off"></el-input>
+                    </div>
+                    <div class="ss__row">
+                        <span>Contraseña</span>
+                        <el-input v-model="proPass" size="small" maxlength="150" show-password autocomplete="new-password"
+                                  :placeholder="pro.has_password ? 'Guardada · escribe otra para cambiarla' : 'Contraseña de Shalom Pro'" class="ss__sel ss__sel--wide"></el-input>
+                    </div>
+                    <div class="ss__row">
+                        <el-button size="small" type="primary" plain :loading="guardandoPro" @click="guardarPro">
+                            {{ pro.plan_allows ? 'Guardar y conectar' : 'Guardar cuenta' }}
+                        </el-button>
+                        <el-button v-if="pro.user" size="small" type="text" @click="quitarPro">Quitar</el-button>
+                    </div>
+                    <p class="ss__hint" style="margin:6px 0 0;font-size:12px">
+                        La contraseña se guarda cifrada y no se vuelve a mostrar. Solo se usa para conectar tu cuenta con Shalom.
+                    </p>
+                </section>
+
                 <!-- Recojo -->
                 <section class="ss__block">
                     <div class="ss__row ss__row--between">
@@ -171,7 +200,7 @@ export default {
         reason: { type: String, default: '' },
     },
     data() {
-        return { loading: false, saving: false, f: null, catalog: [], preview: { lines: [], notes: [] }, timer: null, oficinas: [], buscando: false };
+        return { loading: false, saving: false, f: null, catalog: [], preview: { lines: [], notes: [] }, timer: null, oficinas: [], buscando: false, pro: null, proUser: '', proPass: '', guardandoPro: false };
     },
     computed: {
         usaShalom() {
@@ -205,9 +234,34 @@ export default {
                         shalom_origin_id: d.shalom_origin_id || null,
                     };
                     this.oficinas = d.shalom_origin ? [d.shalom_origin] : [];
+                    this.pro = d.shalom_pro || null;
+                    this.proUser = (this.pro && this.pro.user) || '';
+                    this.proPass = '';
                 })
                 .catch(() => { this.$message.error('No se pudo cargar la configuración de envíos'); this.close(); })
                 .then(() => { this.loading = false; });
+        },
+        guardarPro() {
+            if (!this.proUser.trim()) return this.$message.warning('Escribe el usuario de Shalom Pro.');
+            this.enviarPro({ user: this.proUser.trim(), password: this.proPass });
+        },
+        quitarPro() {
+            this.$confirm('¿Quitar la cuenta de Shalom Pro de esta tienda?', 'Shalom Pro', { type: 'warning' })
+                .then(() => this.enviarPro({ user: '', password: '' }))
+                .catch(() => {});
+        },
+        enviarPro(datos) {
+            this.guardandoPro = true;
+            this.$http.post('/store-shipping/shalom-account', datos)
+                .then(r => {
+                    const d = r.data || {};
+                    this.pro = d.shalom_pro || this.pro;
+                    this.proUser = (this.pro && this.pro.user) || '';
+                    this.proPass = '';
+                    this.$message[d.connected || !datos.user ? 'success' : 'info'](d.message || 'Guardado');
+                })
+                .catch(e => this.$message.error(this.motivoDelError(e)))
+                .then(() => { this.guardandoPro = false; });
         },
         buscarOficinas(q) {
             this.buscando = true;

@@ -21,6 +21,20 @@ class StoreShippingController extends Controller
         return ['available' => true] + $shipping->formData();
     }
 
+    /** Cuenta Shalom Pro de la tienda: guardar y, si el plan lo permite, conectar. */
+    public function shalomAccount(Request $request, StoreShipping $shipping)
+    {
+        abort_unless(optional(auth()->user())->type === 'admin', 403, 'Solo el administrador puede cambiar la cuenta de Shalom.');
+        $d = $request->validate([
+            'user'     => ['nullable', 'string', 'max:150'],
+            'password' => ['nullable', 'string', 'max:150'],
+        ]);
+
+        $r = $shipping->saveShalomAccount(trim((string) ($d['user'] ?? '')) ?: null, $d['password'] ?? null);
+
+        return response()->json($r + ['shalom_pro' => $shipping->formData()['shalom_pro']], $r['saved'] ? 200 : 409);
+    }
+
     /**
      * Buscar la oficina de Shalom desde donde despacha la tienda (panel).
      * Lee el catálogo guardado en el sistema, no el API.

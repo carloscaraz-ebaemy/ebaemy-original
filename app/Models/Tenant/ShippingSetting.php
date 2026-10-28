@@ -36,7 +36,15 @@ class ShippingSetting extends Model
         'shipping_confirmed_at',
         // Oficina de Shalom desde donde despacha (ter_id). Ver ShippingEta.
         'shalom_origin_id',
+        // Instancia Shalom Pro (plan Pro/Business). Ver ShalomPlan.
+        'shalom_instance_id',
+        'shalom_instance_connected_at',
+        'shalom_pro_user',
+        'shalom_pro_password',
     ];
+
+    // La contraseña de Shalom Pro nunca sale en un toArray()/JSON.
+    protected $hidden = ['shalom_pro_password'];
 
     protected $casts = [
         'store_latitude'  => 'decimal:7',
@@ -54,6 +62,8 @@ class ShippingSetting extends Model
         'province_agencies'   => 'array',
         'pickup_enabled'      => 'boolean',
         'shipping_confirmed_at' => 'datetime',
+        'shalom_pro_password'   => 'encrypted',
+        'shalom_instance_connected_at' => 'datetime',
     ];
 
     // ── Cobro del servicio tienda → agencia ────────────────────────────────

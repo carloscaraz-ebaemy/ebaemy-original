@@ -64,6 +64,29 @@
     </div>
 
     <div class="sh-card">
+        <h2>Plan contratado</h2>
+        <p>El API no informa el plan: indícalo aquí. Decide qué se enciende en las tiendas.</p>
+        <form method="POST" action="{{ route('system.shalom.plan') }}" class="sh-row">
+            @csrf @method('PUT')
+            <select name="shalom_plan" style="flex:1;min-width:200px;border:1px solid var(--line);border-radius:9px;padding:9px 11px;font-size:13px;">
+                @foreach(\App\Services\System\ShalomPlan::PLANS as $k => $p)
+                    <option value="{{ $k }}" @selected($plan === $k)>{{ $p['label'] }} · {{ $p['instances'] === null ? 'instancias ilimitadas' : ($p['instances'] . ' ' . ($p['instances'] === 1 ? 'instancia' : 'instancias')) }}</option>
+                @endforeach
+            </select>
+            <button class="sh-btn go" type="submit">Guardar plan</button>
+        </form>
+        @php $pi = \App\Services\System\ShalomPlan::info($plan); @endphp
+        <ul style="margin:12px 0 0;padding-left:18px;font-size:13px;color:var(--mut);line-height:1.7">
+            <li>Oficinas, cotización de flete y tiempos, seguimiento de guías: <b style="color:var(--ok)">activo</b></li>
+            <li>Crear guías e imprimir el rótulo oficial de Shalom desde Pedidos (instancias):
+                <b style="color:{{ $pi['instances'] === 0 ? 'var(--bad)' : 'var(--ok)' }}">{{ $pi['instances'] === 0 ? 'no incluido' : 'activo' }}</b></li>
+            <li>Avisos automáticos de cambio de estado (webhooks):
+                <b style="color:{{ $pi['webhooks'] ? 'var(--ok)' : 'var(--bad)' }}">{{ $pi['webhooks'] ? 'incluido (pendiente de conectar)' : 'no incluido' }}</b></li>
+        </ul>
+        <p style="margin:10px 0 0;font-size:12.5px">Cada tienda guarda su usuario y contraseña de Shalom Pro en su política de envío. Con un plan con instancias, la tienda toca «Guardar y conectar».</p>
+    </div>
+
+    <div class="sh-card">
         <h2>Catálogo de oficinas guardado</h2>
         <div class="sh-kv">
             <div><b>{{ number_format($stats['selectable']) }}</b>elegibles por el cliente</div>

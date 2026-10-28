@@ -873,6 +873,7 @@ if ($hostname) {
             Route::post('store-shipping', 'Tenant\StoreShippingController@save');
             Route::post('store-shipping/preview', 'Tenant\StoreShippingController@preview');
             Route::get('store-shipping/shalom-offices', 'Tenant\StoreShippingController@shalomOffices');
+            Route::post('store-shipping/shalom-account', 'Tenant\StoreShippingController@shalomAccount');
             // Política de cambios y devoluciones (datos → texto de la página pública)
             Route::get('store-returns', 'Tenant\StoreReturnsController@show');
             Route::post('store-returns', 'Tenant\StoreReturnsController@save');
@@ -2043,6 +2044,7 @@ if ($hostname) {
             Route::prefix('admin/shalom')->name('system.shalom.')->group(function () {
                 Route::get('/',      'System\ShalomSystemController@index')->name('index');
                 Route::put('key',    'System\ShalomSystemController@updateKey')->name('key');
+                Route::put('plan',   'System\ShalomSystemController@updatePlan')->name('plan');
                 Route::post('check', 'System\ShalomSystemController@check')->name('check');
                 Route::post('sync',  'System\ShalomSystemController@sync')->name('sync');
             });

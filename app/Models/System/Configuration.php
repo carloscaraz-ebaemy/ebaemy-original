@@ -64,6 +64,7 @@ class Configuration extends Model
         'shalom_synced_at',
         'shalom_last_error',
         'shalom_last_error_at',
+        'shalom_plan',
     ];
 
     // La llave nunca viaja en un toArray()/JSON de la configuración.

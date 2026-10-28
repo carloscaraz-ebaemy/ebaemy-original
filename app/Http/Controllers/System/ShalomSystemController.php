@@ -30,6 +30,7 @@ class ShalomSystemController extends Controller
             'config'     => $config,
             'keySource'  => $this->api->keySource(),
             'keyPreview' => $key ? (substr($key, 0, 7) . '…' . substr($key, -4)) : null,
+            'plan'       => \App\Services\System\ShalomPlan::current(),
             'stats'      => [
                 'total'      => ShalomAgency::count(),
                 'selectable' => ShalomAgency::selectable()->count(),
@@ -64,6 +65,15 @@ class ShalomSystemController extends Controller
         $config->forceFill(['shalom_api_key' => $key])->save();
 
         return back()->with('shalom_ok', 'Llave guardada y verificada. Todas las tiendas la usan desde ahora.');
+    }
+
+    /** El plan contratado: decide si se encienden instancias y webhooks. */
+    public function updatePlan(Request $request)
+    {
+        $data = $request->validate(['shalom_plan' => 'required|in:' . implode(',', array_keys(\App\Services\System\ShalomPlan::PLANS))]);
+        SystemConfiguration::first()->forceFill(['shalom_plan' => $data['shalom_plan']])->save();
+
+        return back()->with('shalom_ok', 'Plan actualizado: ' . \App\Services\System\ShalomPlan::PLANS[$data['shalom_plan']]['label'] . '.');
     }
 
     public function check()

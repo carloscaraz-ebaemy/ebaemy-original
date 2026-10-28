@@ -101,6 +101,81 @@ class ShalomApi
         ];
     }
 
+    // ── Instancias (cuenta Shalom Pro de una tienda) ──────────────────────
+    //
+    // Requieren plan Pro o Business. Con el plan Básico ShalomPlan las deja
+    // apagadas y aquí se corta antes de llamar: el API respondería 403.
+
+    /** POST /instances — crea la instancia de una tienda. Devuelve su instanceId. */
+    public function createInstance(string $name): string
+    {
+        $this->assertInstances();
+        $r = $this->send('post', '/instances', ['name' => $name], null, 25);
+        if (empty($r['instanceId'])) {
+            throw new RuntimeException('Shalom API no devolvió instanceId.');
+        }
+
+        return $r['instanceId'];
+    }
+
+    /** POST /instances/login — conecta la cuenta Shalom Pro (usuario y contraseña de la tienda). */
+    public function loginInstance(string $instanceId, string $username, string $password): array
+    {
+        $this->assertInstances();
+
+        return $this->send('post', '/instances/login', compact('instanceId', 'username', 'password'), null, 90);
+    }
+
+    /** POST /instances/status — ¿sigue logueada en Shalom Pro? */
+    public function instanceStatus(string $instanceId): array
+    {
+        $this->assertInstances();
+
+        return $this->send('post', '/instances/status', ['instanceId' => $instanceId], null, 25);
+    }
+
+    /**
+     * POST /account/register — crea la guía en la cuenta de la tienda.
+     * $data: origen, destino (ter_id), documento, name, firstname, lastname,
+     * phone, content (p. ej. «PAQUETE XS»), cantidad, clave.
+     */
+    public function registerGuide(string $instanceId, array $data): array
+    {
+        $this->assertInstances();
+
+        return $this->send('post', '/account/register', ['instanceId' => $instanceId] + $data, null, 90);
+    }
+
+    /** GET /track/label — PDF del rótulo oficial de Shalom (binario). */
+    public function officialLabel(string $instanceId, array $guide): string
+    {
+        $this->assertInstances();
+        $key = $this->key();
+        if (!$key) {
+            throw new RuntimeException('No hay llave de Shalom API configurada.');
+        }
+        $res = Http::withHeaders(['x-api-key' => $key])->timeout(60)
+            ->get(rtrim(config('services.shalom.url') ?: 'https://api.shalom-api.lat', '/') . '/track/label', ['instanceId' => $instanceId] + $guide);
+        if ($res->failed()) {
+            throw new RuntimeException('Shalom API ' . $res->status() . ': no se pudo bajar el rótulo.');
+        }
+
+        return $res->body();
+    }
+
+    /** GET /account/dni/{dni} — nombres y apellidos separados (RENIEC), para registrar la guía. */
+    public function dni(string $dni): array
+    {
+        return $this->send('get', '/account/dni/' . preg_replace('/\D/', '', $dni), [], null, 20);
+    }
+
+    private function assertInstances(): void
+    {
+        if (!ShalomPlan::allowsInstances()) {
+            throw new RuntimeException('El plan Básico de Shalom API no incluye instancias. Cámbialo en /admin/shalom al contratar Pro o Business.');
+        }
+    }
+
     /** POST /track — búsqueda y estados de una guía (espejo de Shalom). */
     public function track(string $orderNumber, string $orderCode): array
     {

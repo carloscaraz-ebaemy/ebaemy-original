@@ -206,6 +206,61 @@ class StoreShipping
         }
     }
 
+    /**
+     * Guarda la cuenta Shalom Pro de la tienda y, si el plan de ebaemy ya
+     * incluye instancias, la conecta (crea la instancia y hace login).
+     * Con el plan Básico solo guarda: la conexión queda para cuando se active.
+     *
+     * @return array{saved:bool, connected:bool, message:string}
+     */
+    public function saveShalomAccount(?string $user, ?string $password): array
+    {
+        $st = $this->settings();
+        if (!\Illuminate\Support\Facades\Schema::connection('tenant')->hasColumn('shipping_settings', 'shalom_pro_user')) {
+            return ['saved' => false, 'connected' => false, 'message' => 'Falta actualizar la base de datos de la tienda.'];
+        }
+
+        $st->shalom_pro_user = $user ?: null;
+        if ($password !== null && $password !== '') {
+            $st->shalom_pro_password = $password;
+        }
+        if (!$user) {                        // quitar la cuenta = desconectar
+            $st->shalom_pro_password = null;
+            $st->shalom_instance_id = null;
+            $st->shalom_instance_connected_at = null;
+        }
+        $st->save();
+
+        if (!$user || !\App\Services\System\ShalomPlan::allowsInstances()) {
+            return ['saved' => true, 'connected' => false, 'message' => $user
+                ? 'Cuenta de Shalom Pro guardada. Se conectará cuando ebaemy active la creación de guías.'
+                : 'Cuenta de Shalom Pro quitada.'];
+        }
+
+        if (empty($st->getRawOriginal('shalom_pro_password'))) {
+            return ['saved' => true, 'connected' => false, 'message' => 'Falta la contraseña de Shalom Pro.'];
+        }
+
+        $api = app(\App\Services\System\ShalomApi::class);
+        try {
+            if (!$st->shalom_instance_id) {
+                $host = optional(app(\Hyn\Tenancy\Environment::class)->hostname())->fqdn ?: 'tienda';
+                $st->shalom_instance_id = $api->createInstance($host);
+                $st->save();
+            }
+            $r = $api->loginInstance($st->shalom_instance_id, $st->shalom_pro_user, $st->shalom_pro_password);
+            if (empty($r['success'])) {
+                return ['saved' => true, 'connected' => false, 'message' => 'Shalom Pro no aceptó el usuario o la contraseña.'];
+            }
+            $st->shalom_instance_connected_at = now();
+            $st->save();
+        } catch (\Throwable $e) {
+            return ['saved' => true, 'connected' => false, 'message' => 'Guardada, pero no se pudo conectar: ' . $e->getMessage()];
+        }
+
+        return ['saved' => true, 'connected' => true, 'message' => 'Cuenta de Shalom Pro conectada.'];
+    }
+
     /** La oficina de Shalom (catálogo del sistema) para mostrarla en el panel. */
     public function shalomOffice($terId): ?array
     {
@@ -251,6 +306,14 @@ class StoreShipping
             // Oficina de Shalom de origen: con ella se cotiza el viaje real.
             'shalom_origin_id'   => $st->shalom_origin_id ? (int) $st->shalom_origin_id : null,
             'shalom_origin'      => $this->shalomOffice($st->shalom_origin_id),
+            // Cuenta Shalom Pro de la tienda (la contraseña nunca viaja).
+            'shalom_pro'         => [
+                'user'         => $st->shalom_pro_user,
+                'has_password' => !empty($st->getRawOriginal('shalom_pro_password')),
+                'connected'    => !empty($st->shalom_instance_id),
+                'connected_at' => optional($st->shalom_instance_connected_at)->format('d/m/Y H:i'),
+                'plan_allows'  => \App\Services\System\ShalomPlan::allowsInstances(),
+            ],
         ];
     }
 
