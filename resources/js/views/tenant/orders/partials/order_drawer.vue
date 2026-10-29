@@ -202,7 +202,7 @@
                                 >Ver / editar</el-button
                             >
                             <el-button
-                                v-if="!row.shipment.is_pickup && !row.shipment.has_guide"
+                                v-if="row.shipment.delivery_type === 'agencia' && !row.shipment.has_guide"
                                 size="mini"
                                 @click="$emit('upload-guide', row)"
                                 >Subir guía</el-button

@@ -931,6 +931,12 @@ class ShipmentController extends Controller
             return $bloqueo;
         }
 
+        // La guía es de la agencia. Motorizado y recojo en tienda no tienen:
+        // se despachan con su rótulo y el estado del envío.
+        if ($shipment->delivery_type !== ShippingRequest::DELIVERY_AGENCIA) {
+            return $this->rechazo($request, 'Este envío no va por agencia: no lleva guía, solo su rótulo.');
+        }
+
         if ($this->paymentBlocks($shipment)) {
             return back()->with('error', "Confirma primero el pago de {$shipment->shipment_code} para subir la guía.");
         }

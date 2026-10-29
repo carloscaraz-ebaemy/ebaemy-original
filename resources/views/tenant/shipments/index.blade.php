@@ -1379,7 +1379,8 @@
                                        class="sh-act sh-act--ok" title="{{ $tituloGuia }}">
                                         <i class="fas fa-file-alt"></i>
                                     </a>
-                                @elseif(!$s->is_cancelled)
+                                {{-- La guía es de la agencia: motorizado y recojo en tienda solo imprimen su rótulo. --}}
+                                @elseif(!$s->is_cancelled && $s->delivery_type === \App\Models\Tenant\ShippingRequest::DELIVERY_AGENCIA)
                                     <button type="button" class="sh-act sh-act--primary js-upload-guide {{ $bloqueado ? 'is-off' : '' }}"
                                             @if($bloqueado) disabled title="Confirma el pago para habilitar" @endif
                                             data-bs-toggle="modal" data-bs-target="#modalSubirGuia"
