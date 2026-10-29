@@ -28,7 +28,7 @@
     <div class="pb-bar">
         <div class="pb-t">
             <b>Rótulo {{ $shipment->shipment_code }}</b>
-            <span>{{ $shipment->full_name }}{{ $shipment->package_count > 1 ? ' · ' . $shipment->package_count . ' bultos: imprime una copia por caja' : '' }}</span>
+            <span>{{ $shipment->full_name }}{{ $shipment->package_count > 1 ? ' · ' . $shipment->package_count . ' bultos, un rótulo por caja' : '' }}</span>
         </div>
         <div class="pb-sp"></div>
         <div class="pb-seg" role="group" aria-label="Papel">
@@ -44,7 +44,14 @@
     </div>
 </div>
 
-@include('tenant.shipments.partials.label-body')
+@php $bultoDe = max(1, (int) ($shipment->package_count ?: 1)); @endphp
+@if($bultoDe > 1)
+    @for($bultoN = 1; $bultoN <= $bultoDe; $bultoN++)
+        @include('tenant.shipments.partials.label-body', ['bultoN' => $bultoN, 'bultoDe' => $bultoDe])
+    @endfor
+@else
+    @include('tenant.shipments.partials.label-body')
+@endif
 
 <script>
 /*

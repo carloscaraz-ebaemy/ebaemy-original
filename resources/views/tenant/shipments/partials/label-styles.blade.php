@@ -11,6 +11,9 @@
     body.fmt-a4 .barcode-img { height: 1.6cm; }
     .bulto-box { display: inline-block; flex: 1; height: .9cm; border: 2px solid #000; border-radius: 3px; background: #fff; }
     .bulto-total { font-weight: bold; font-size: 16px; }
+    .bulto-num { font-weight: 800; font-size: 22px; line-height: 1.1; font-variant-numeric: tabular-nums; }
+    .bulto-num small { font-size: .55em; font-weight: 600; }
+    body.fmt-a5 .bulto-num { font-size: 28px; } body.fmt-a4 .bulto-num { font-size: 40px; }
     body.fmt-a5 .bulto-box { height: 1.1cm; } body.fmt-a5 .bulto-total { font-size: 20px; }
     body.fmt-a4 .bulto-box { height: 1.7cm; } body.fmt-a4 .bulto-total { font-size: 30px; }
 

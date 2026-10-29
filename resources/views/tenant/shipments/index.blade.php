@@ -2812,7 +2812,7 @@
             }
             var ids = okEl.map(function (c) { return c.value; });
             // Dentro de la página (diálogo de impresión), como la Nota de Venta.
-            window.ebAbrirImpresion('{{ route("shipments.print_batch") }}?ids=' + ids.join(','), 'Rótulos seleccionados');
+            window.ebAbrirImpresion('{{ route("shipments.print_review") }}?ids=' + ids.join(','), 'Imprimir lote');
         } else if (clear) {
             ev.preventDefault();
             $checks().forEach(function (c) { c.checked = false; });

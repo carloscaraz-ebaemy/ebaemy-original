@@ -72,6 +72,7 @@
                 <th class="c-code">Código</th>
                 <th class="c-cli">Cliente</th>
                 <th class="c-dest">Destino</th>
+                <th class="c-n">Bultos</th>
                 <th class="c-prod">Producto</th>
                 <th class="c-obs">Observaciones</th>
             </tr>
@@ -103,6 +104,7 @@
                     </td>
                     {{-- Los saltos de línea del detalle se pierden en una celda:
                          se separan los ítems con "·" para que no se peguen. --}}
+                    <td class="c-n"><b>{{ max(1, (int) ($s->package_count ?: 1)) }}</b></td>
                     <td class="c-prod">{{ $s->contentInline() ?: '—' }}</td>
                     <td class="c-obs"></td>
                 </tr>
@@ -110,7 +112,7 @@
         </tbody>
     </table>
 
-    <div class="mf-total">Total de paquetes: {{ count($items) }}</div>
+    <div class="mf-total">Total: {{ count($items) }} {{ count($items) === 1 ? 'pedido' : 'pedidos' }} · {{ collect($items)->sum(fn ($it) => max(1, (int) ($it['shipment']->package_count ?: 1))) }} bultos</div>
 
     <div class="mf-foot">
         <div class="sign"><div class="line">Despachado por (nombre y firma)</div></div>

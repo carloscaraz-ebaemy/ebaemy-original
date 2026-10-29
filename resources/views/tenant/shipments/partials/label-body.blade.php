@@ -144,6 +144,14 @@
             </div>
         @endif
 
+        @if(!empty($bultoN) && $bultoDe > 1)
+            {{-- Varias cajas para el mismo domicilio: que el motorizado lleve todas. --}}
+            <div style="display:flex;align-items:center;justify-content:space-between;margin:4px 0;padding:4px 10px;border:2px solid #000;border-radius:6px;">
+                <span class="section-title" style="margin:0">Bulto</span>
+                <span class="bulto-num">{{ $bultoN }} <small>de</small> {{ $bultoDe }}</span>
+            </div>
+        @endif
+
         <div class="divider"></div>
 
         @if(!empty($qr))
@@ -191,14 +199,22 @@
                 <div class="section-title">Agencia</div>
                 <div class="v">{{ strtoupper($shipment->shipping_agency ?: '—') }}</div>
             </div>
-            <div class="box">
-                <div class="section-title">Bulto N° (escribir a mano)</div>
-                <div style="display:flex;align-items:center;gap:8px;margin-top:2px;">
-                    <span class="bulto-box"></span>
-                    <span class="bulto-total">/</span>
-                    <span class="bulto-box"></span>
+            @if(!empty($bultoN))
+                {{-- Una copia por bulto: la numeración sale impresa. --}}
+                <div class="box">
+                    <div class="section-title">Bulto</div>
+                    <div class="bulto-num">{{ $bultoN }} <small>de</small> {{ $bultoDe }}</div>
                 </div>
-            </div>
+            @else
+                <div class="box">
+                    <div class="section-title">Bulto N° (escribir a mano)</div>
+                    <div style="display:flex;align-items:center;gap:8px;margin-top:2px;">
+                        <span class="bulto-box"></span>
+                        <span class="bulto-total">/</span>
+                        <span class="bulto-box"></span>
+                    </div>
+                </div>
+            @endif
         </div>
 
         @if($shipment->weight)

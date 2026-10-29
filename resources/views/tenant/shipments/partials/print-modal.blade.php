@@ -31,7 +31,7 @@
         tit = document.getElementById('ebpmT'), aparte = document.getElementById('ebpmAparte');
     var huboImpresion = false;
     // Las rutas que abren una pantalla de impresión.
-    var ES_IMPRESION = /\/registro-envio\/(\d+\/imprimir|lote-imprimir|lotes\/\d+\/imprimir|shalom-lote)|\/orders\/envio\/\d+\/(rotulo|shalom-imprimir)/;
+    var ES_IMPRESION = /\/registro-envio\/(\d+\/imprimir|lote-imprimir|lote-revisar|lotes\/\d+\/imprimir|shalom-lote)|\/orders\/envio\/\d+\/(rotulo|shalom-imprimir)/;
 
     window.ebAbrirImpresion = function (url, titulo) {
         huboImpresion = false;

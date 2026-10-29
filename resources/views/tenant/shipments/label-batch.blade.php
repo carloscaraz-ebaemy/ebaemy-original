@@ -2,13 +2,14 @@
 <html lang="es">
 @php
     $format = in_array($format ?? 'a4', ['a5','a4'], true) ? ($format ?? 'a4') : 'a4';
+    $hojas = collect($items)->sum(fn ($it) => max(1, (int) ($it['shipment']->package_count ?: 1)));
     $pageSize   = ['a5' => 'A5', 'a4' => 'A4'][$format];
     $pageMargin = $format === 'a5' ? '8mm' : '12mm';
 @endphp
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rótulos ({{ count($items) }}) — {{ strtoupper($format) }}</title>
+    <title>Rótulos ({{ $hojas }}) — {{ strtoupper($format) }}</title>
     {{-- La regla @page se reescribe al cambiar de formato (script del pie), sin
          volver al servidor: así el cambio de tamaño no cuenta como reimpresión
          del lote ni ensucia el historial con motivos falsos. --}}
@@ -38,7 +39,7 @@
     <div class="pb-bar">
         <div class="pb-t">
             <b>{{ isset($batch) && $batch ? 'Lote ' . $batch->code : 'Rótulos' }}</b>
-            <span>{{ count($items) }} {{ count($items) === 1 ? 'rótulo' : 'rótulos' }} de ebaemy{{ collect($shalom ?? [])->count() ? ' · ' . collect($shalom)->count() . ' por Shalom aparte' : '' }}</span>
+            <span>{{ $hojas }} {{ $hojas === 1 ? 'rótulo' : 'rótulos' }} de {{ count($items) }} {{ count($items) === 1 ? 'pedido' : 'pedidos' }}{{ collect($shalom ?? [])->count() ? ' · ' . collect($shalom)->count() . ' por Shalom aparte' : '' }}</span>
         </div>
         <div class="pb-sp"></div>
         @php
@@ -54,7 +55,7 @@
             <label class="pb-chk"><input type="checkbox" id="mfToggle" checked onchange="document.body.classList.toggle('no-manifest', !this.checked)"> Hoja de manifiesto</label>
             <button type="button" class="pb-btn pb-btn--primary" onclick="window.print()">
                 <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M5 7V2h10v5M5 15H3V8h14v7h-2"/><rect x="5" y="12" width="10" height="6"/></svg>
-                Imprimir {{ count($items) }}{{ $conManifiesto ? ' + manifiesto' : '' }}
+                Imprimir {{ $hojas }}{{ $conManifiesto ? ' + manifiesto' : '' }}
             </button>
         @elseif($conManifiesto)
             {{-- Lote todo de Shalom: sus rótulos salen del PDF de Shalom, pero el
@@ -157,7 +158,11 @@
 
 <div class="batch">
     @foreach($items as $it)
-        @include('tenant.shipments.partials.label-body', ['shipment' => $it['shipment'], 'ubigeo' => $it['ubigeo'], 'qr' => $it['qr'], 'barcode' => $it['barcode']])
+        {{-- Un rótulo por bulto, numerado: cada pedido lleva sus propias cajas. --}}
+        @php $de = max(1, (int) ($it['shipment']->package_count ?: 1)); @endphp
+        @for($n = 1; $n <= $de; $n++)
+            @include('tenant.shipments.partials.label-body', ['shipment' => $it['shipment'], 'ubigeo' => $it['ubigeo'], 'qr' => $it['qr'], 'barcode' => $it['barcode'], 'bultoN' => $n, 'bultoDe' => $de])
+        @endfor
     @endforeach
 </div>
 

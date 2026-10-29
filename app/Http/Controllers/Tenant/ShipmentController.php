@@ -390,7 +390,8 @@ class ShipmentController extends Controller
             'skipped'   => $result['skipped'],
             'orders_without_shipment' => $withoutShipment,
             'over_limit'=> $overLimit,
-            'print_url' => route('shipments.batches.print', $result['batch']),
+            // Primero la revisión de bultos y tamaños; desde ahí se imprime.
+            'print_url' => route('shipments.print_review', ['batch' => $result['batch']->id]),
             'message'   => "Lote {$result['batch']->code} creado con {$result['added']} envío(s).",
         ]);
     }
@@ -2818,6 +2819,134 @@ class ShipmentController extends Controller
     }
 
     /**
+     * Revisión del lote ANTES de imprimir: bultos y tamaño de cada pedido.
+     *
+     * Un lote mezcla recojo en tienda, motorizado y varias agencias, y cada
+     * pedido tiene su cantidad de cajas y su medida. Sin este paso todo salía
+     * con 1 bulto y las guías de Shalom con el mismo tamaño típico; había que
+     * corregirlos uno por uno antes. Aquí se ven todos juntos, agrupados por
+     * cómo salen, ya llenos con lo que tiene cada uno: solo se tocan las
+     * excepciones. Al continuar se guarda, se crean las guías de Shalom que
+     * falten (cada una con lo suyo) y se abre la impresión de siempre.
+     *
+     * Recibe `ids` (selección del panel de Envíos) o `batch` (lote creado
+     * desde Pedidos). El destino final lo arma el servidor, no viaja en la URL.
+     */
+    public function reviewBatch(Request $request)
+    {
+        $batch = null;
+        if ($request->filled('batch')) {
+            $batch = ShippingPrintBatch::findOrFail((int) $request->query('batch'));
+            // Un lote ya impreso se reimprime con motivo desde su ficha.
+            if ($batch->isPrinted()) {
+                return redirect()->route('shipments.batches.show', $batch);
+            }
+            $all = $batch->shipments()->with(['order.activeShipment'])->orderBy('priority')->orderBy('id')->get();
+            $next = route('shipments.batches.print', $batch);
+        } else {
+            $ids = collect(explode(',', (string) $request->query('ids', '')))
+                ->map(fn ($x) => (int) trim($x))->filter()->unique()->take(60)->values();
+            abort_if($ids->isEmpty(), 404);
+            $all = ShippingRequest::whereIn('id', $ids)->with(['order.activeShipment'])->orderBy('id')->get();
+            $next = route('shipments.print_batch') . '?ids=' . $all->pluck('id')->implode(',');
+        }
+        abort_if($all->isEmpty(), 404);
+
+        $st = ShippingSetting::current();
+        $grupos = [];
+        foreach ($all as $s) {
+            $motivo = $this->paymentBlocks($s) ? 'Pago sin confirmar' : $s->labelBlockReason(true);
+            $shalomApi = \App\Services\Tenant\ShalomGuide::replacesLabel($s, $st);
+            $conGuia = $shalomApi && \App\Services\Tenant\ShalomTracking::hasGuide($s);
+
+            if ($s->delivery_type === ShippingRequest::DELIVERY_TIENDA) {
+                [$clave, $titulo, $nota] = ['tienda', 'Recojo en tienda', 'No llevan rótulo: se preparan y esperan al cliente.'];
+                $motivo = null;
+            } elseif ($s->delivery_type === ShippingRequest::DELIVERY_DOMICILIO) {
+                [$clave, $titulo, $nota] = ['moto', 'Motorizado', 'Rótulo de la tienda, uno por bulto.'];
+            } elseif ($shalomApi) {
+                [$clave, $titulo, $nota] = ['shalom', 'Shalom', 'Se crea su guía con los bultos y el tamaño de cada pedido, y sale el rótulo oficial de Shalom.'];
+            } else {
+                $ag = trim((string) $s->shipping_agency) ?: 'Agencia sin elegir';
+                [$clave, $titulo, $nota] = ['ag:' . mb_strtolower($ag), $ag, 'Rótulo de la tienda, uno por bulto. La guía te la da la agencia al dejar el paquete.'];
+            }
+
+            $grupos[$clave] ??= ['titulo' => $titulo, 'nota' => $nota, 'clave' => $clave, 'filas' => []];
+            $grupos[$clave]['filas'][] = [
+                'id'        => $s->id,
+                'ref'       => $s->publicRef() ?: ('#' . $s->id),
+                'cliente'   => $s->full_name,
+                'destino'   => $s->is_domicilio
+                    ? ($s->destination_city ?: $s->shipping_destination)
+                    : trim(($s->agency_office_name ?: $s->reference ?: '') . ($s->destination_city ? ' · ' . $s->destination_city : ''), ' ·'),
+                'bultos'    => max(1, (int) ($s->package_count ?: 1)),
+                'peso'      => $s->weight ? (float) $s->weight : null,
+                // Fuera del lote: se muestra para que se sepa por qué no sale.
+                'motivo'    => $motivo,
+                // Con guía ya creada, sus bultos son los de la guía: cambiarlos
+                // exige anularla en Shalom y volver a crearla.
+                'bloqueado' => $conGuia,
+                'guia'      => $conGuia ? $s->tracking_number : null,
+            ];
+        }
+
+        // Orden: Shalom primero (lo más rápido), agencias, motorizado, recojo.
+        $orden = fn ($k) => $k === 'shalom' ? 0 : ($k === 'moto' ? 2 : ($k === 'tienda' ? 3 : 1));
+        uksort($grupos, fn ($a, $b) => [$orden($a), $a] <=> [$orden($b), $b]);
+
+        return view('tenant.shipments.label-batch-review', [
+            'grupos'  => array_values($grupos),
+            'tamanos' => \App\Services\Tenant\ShalomPackage::SIZES,
+            'tipico'  => \App\Services\Tenant\ShalomGuide::defaultContent($st),
+            'next'    => $next,
+            'batch'   => $batch,
+        ]);
+    }
+
+    /** Guarda los bultos y el peso que se corrigieron en la revisión del lote. */
+    public function saveBatchReview(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $data = $request->validate([
+            'rows'          => 'required|array|max:60',
+            'rows.*.id'     => 'required|integer',
+            'rows.*.bultos' => 'required|integer|min:1|max:99',
+            'rows.*.peso'   => 'nullable|numeric|min:0|max:9999',
+        ]);
+        $st = ShippingSetting::current();
+        $porId = collect($data['rows'])->keyBy('id');
+        $guardados = 0;
+
+        foreach (ShippingRequest::whereIn('id', $porId->keys())->get() as $s) {
+            $r = $porId[$s->id];
+            // Lo que no entra al lote no se toca (salvo el recojo, que nunca
+            // lleva rótulo), y una guía de Shalom ya creada manda sobre sus bultos.
+            if ($s->delivery_type !== ShippingRequest::DELIVERY_TIENDA && $s->labelBlockReason(true) !== null) {
+                continue;
+            }
+            if (\App\Services\Tenant\ShalomGuide::replacesLabel($s, $st) && \App\Services\Tenant\ShalomTracking::hasGuide($s)) {
+                continue;
+            }
+            $cambios = [];
+            if ((int) $s->package_count !== (int) $r['bultos']) {
+                $cambios['package_count'] = (int) $r['bultos'];
+            }
+            $peso = isset($r['peso']) && $r['peso'] !== '' && $r['peso'] !== null ? round((float) $r['peso'], 2) : null;
+            if ($peso !== null && round((float) $s->weight, 2) !== $peso) {
+                $cambios['weight'] = $peso;
+            }
+            if ($cambios) {
+                foreach ($cambios as $campo => $valor) {
+                    ShippingAuditLog::log(ShippingAuditLog::ACTION_EDIT, $s->id, $campo, $s->getOriginal($campo), $valor, 'Revisión del lote');
+                }
+                $s->forceFill($cambios)->save();
+                $guardados++;
+            }
+        }
+
+        return response()->json(['success' => true, 'saved' => $guardados]);
+    }
+
+    /**
      * Separa de una tanda los envíos que llevan el rótulo OFICIAL de Shalom.
      *
      * Un lote mezcla agencias y cada una tiene su procedimiento: los de Shalom
@@ -2861,8 +2990,11 @@ class ShipmentController extends Controller
                 $out[] = ['id' => $s->id, 'code' => $code, 'ok' => false, 'message' => $why];
                 continue;
             }
-            if (!$content) {
-                $out[] = ['id' => $s->id, 'code' => $code, 'ok' => false, 'message' => 'La tienda no tiene «tamaño típico» de paquete: crea esta guía desde su panel o configúralo en la política de envío.'];
+            // Tamaño elegido para ESTE pedido en la revisión del lote; si no, el típico.
+            $tam = (string) $request->input('sizes.' . $s->id, '');
+            $contenido = isset(\App\Services\Tenant\ShalomPackage::SIZES[$tam]) ? $tam : $content;
+            if (!$contenido) {
+                $out[] = ['id' => $s->id, 'code' => $code, 'ok' => false, 'message' => 'La tienda no tiene «tamaño típico» de paquete: elige el tamaño en la revisión del lote o configúralo en la política de envío.'];
                 continue;
             }
             if (!empty($s->shalom_air)) {
@@ -2870,7 +3002,7 @@ class ShipmentController extends Controller
                 continue;
             }
             try {
-                $r = $guide->create($s, $content);
+                $r = $guide->create($s, $contenido);
                 $out[] = ['id' => $s->id, 'code' => $code, 'ok' => true, 'message' => 'Guía ' . ($r['number'] ?: 'creada') . ' · ' . max(1, (int) $s->package_count) . ' bulto(s)'];
             } catch (\Throwable $e) {
                 $out[] = ['id' => $s->id, 'code' => $code, 'ok' => false, 'message' => $e->getMessage()];

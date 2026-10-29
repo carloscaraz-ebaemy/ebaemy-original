@@ -23,7 +23,7 @@
             <a href="{{ route('shipments.batches') }}" class="lg-btn">← Lotes</a>
 
             @if(!$batch->isPrinted())
-                <a href="{{ route('shipments.batches.print', $batch) }}" target="_blank"
+                <a href="{{ route('shipments.print_review', ['batch' => $batch->id]) }}" target="_blank"
                    class="lg-btn lg-btn--primary {{ $batch->shipments->isEmpty() ? 'is-disabled' : '' }}">
                     🖨️ Imprimir lote
                 </a>
