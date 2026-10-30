@@ -191,7 +191,13 @@ class ShipmentTimeline
             ? 'https://www.google.com/maps/search/?api=1&query=' . $o->latitude . ',' . $o->longitude
             : ($dir ? 'https://www.google.com/maps/search/?api=1&query=' . rawurlencode($s->shipping_agency . ' ' . $nombre . ' ' . $dir) : null);
 
-        return ['agency' => $s->shipping_agency, 'name' => $nombre, 'address' => $dir, 'hours' => $o->hours ?? null, 'maps' => $maps];
+        // Contra entrega: el cliente paga el envío al recoger. Decírselo evita
+        // el «¿cuánto pago?» por WhatsApp y la sorpresa en el mostrador.
+        $p = ShalomTracking::price($s);
+        $entregado = $s->status === SR::STATUS_ENTREGADO || $s->carrier_status === 'entregado';
+        $paga = $p && $p['pay_on_pickup'] && !$entregado ? ($p['shalom'] ?? $p['quoted']) : null;
+
+        return ['agency' => $s->shipping_agency, 'name' => $nombre, 'address' => $dir, 'hours' => $o->hours ?? null, 'maps' => $maps, 'pay' => $paga];
     }
 
     private function fecha($v): ?Carbon

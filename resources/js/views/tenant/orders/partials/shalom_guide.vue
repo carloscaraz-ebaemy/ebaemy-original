@@ -21,6 +21,24 @@
                     <span>Clave de recojo</span><b>{{ sh.clave || "—" }}</b>
                     <span>Bultos</span><b>{{ sh.bultos || 1 }}</b>
                     <span v-if="sh.status">Estado</span><b v-if="sh.status">{{ estadoTxt }}</b>
+                    <template v-if="sh.price">
+                        <span>Envío</span>
+                        <b>
+                            <template v-if="sh.price.confirmed">
+                                S/ {{ sh.price.shalom.toFixed(2) }}
+                                <em v-if="sh.price.diff" :class="sh.price.diff > 0 ? 'shg-up' : 'shg-down'">
+                                    ({{ sh.price.diff > 0 ? "+" : "−" }}S/ {{ Math.abs(sh.price.diff).toFixed(2) }} vs. cotizado)
+                                </em>
+                            </template>
+                            <template v-else>S/ {{ (sh.price.quoted || sh.price.shalom).toFixed(2) }} <em>cotizado</em></template>
+                        </b>
+                        <template v-if="sh.price.confirmed && sh.price.content_shalom">
+                            <span>Shalom midió</span><b>{{ sh.price.content_shalom }}</b>
+                        </template>
+                        <template v-if="sh.price.pay_on_pickup">
+                            <span>Lo paga</span><b>el cliente al recoger</b>
+                        </template>
+                    </template>
                 </div>
                 <div v-if="sh.label_url || sh.ticket_url" class="shg-card__print">
                     <el-button v-if="sh.label_url" size="small" type="primary" icon="el-icon-printer" @click="abrirUrl(sh.label_url)">Imprimir rótulo</el-button>
@@ -414,6 +432,9 @@ export default {
 .shg-card__grid { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; margin-top: 8px; font-size: 13px; }
 .shg-card__grid span { color: #64748b; }
 .shg-card__grid b { color: #0f172a; font-weight: 600; }
+.shg-card__grid em { font-style: normal; font-weight: 500; color: #64748b; }
+.shg-card__grid em.shg-up { color: #b45309; }
+.shg-card__grid em.shg-down { color: #15803d; }
 .shg-card__print { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
 .shg-card__print .el-button + .el-button { margin-left: 0; }
 

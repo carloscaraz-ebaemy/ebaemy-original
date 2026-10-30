@@ -181,6 +181,20 @@
                             <template v-if="row.shipment.tracking_number">
                                 <dt>Tracking</dt><dd>{{ row.shipment.tracking_number }}</dd>
                             </template>
+                            <template v-if="row.shipment.shalom && row.shipment.shalom.price">
+                                <dt>Costo Shalom</dt>
+                                <dd v-if="row.shipment.shalom.price.confirmed">
+                                    S/ {{ row.shipment.shalom.price.shalom.toFixed(2) }}
+                                    <span v-if="row.shipment.shalom.price.diff" :class="row.shipment.shalom.price.diff > 0 ? 'od-up' : 'od-down'">
+                                        {{ row.shipment.shalom.price.diff > 0 ? "subió" : "bajó" }} S/ {{ Math.abs(row.shipment.shalom.price.diff).toFixed(2) }}
+                                    </span>
+                                    <span v-if="row.shipment.shalom.price.pay_on_pickup" class="od-muted">· paga el cliente</span>
+                                </dd>
+                                <dd v-else>
+                                    S/ {{ (row.shipment.shalom.price.quoted || row.shipment.shalom.price.shalom).toFixed(2) }}
+                                    <span class="od-muted">cotizado; se confirma al dejarlo en la agencia</span>
+                                </dd>
+                            </template>
                             <template v-if="row.shipment.batch_label">
                                 <dt>Lote</dt><dd>{{ row.shipment.batch_label }}</dd>
                             </template>
@@ -627,6 +641,9 @@ export default {
     font-size: 12px;
     margin: 0 0 8px;
 }
+.od-up { color: #b45309; font-weight: 600; }
+.od-down { color: #15803d; font-weight: 600; }
+.od-muted { color: #64748b; font-size: 12px; }
 .od-warn {
     color: #92400e;
     background: #fef3c7;

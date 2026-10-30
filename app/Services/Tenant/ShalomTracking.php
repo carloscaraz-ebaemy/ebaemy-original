@@ -167,6 +167,7 @@ class ShalomTracking
         ]);
 
         $estado = self::noRetroceder($s->carrier_status, $last);
+        $ce = self::conPrecio($s, $ce, $search, $estado);
         $s->forceFill(['carrier_status' => $estado, 'carrier_events' => $ce, 'carrier_checked_at' => now()])->saveQuietly();
 
         if ($estado === 'destino') {
@@ -174,6 +175,80 @@ class ShalomTracking
         }
 
         return true;
+    }
+
+    /**
+     * El precio del envío según Shalom. Al crear la guía Shalom da una
+     * cotización (por el tamaño declarado); al recibir el paquete en la
+     * agencia lo mide y pesa y fija el monto real, que puede subir o bajar
+     * (2026-10-29: paquete S a S/ 12 quedó como mini XS a S/ 10). Se guarda
+     * el último monto y, desde que el paquete está en manos de Shalom, se da
+     * por confirmado. El primer cambio frente a la cotización va a la bitácora.
+     */
+    private static function conPrecio(ShippingRequest $s, array $ce, array $search, ?string $estado): array
+    {
+        if (isset($search['monto']) && is_numeric($search['monto']) && (float) $search['monto'] > 0) {
+            $ce['price_shalom'] = round((float) $search['monto'] + (float) ($search['montoAdicional'] ?? 0), 2);
+            if ($estado && $estado !== 'registrado') {
+                $ce['price_confirmed'] = true;
+            }
+        }
+        if (!empty($search['tipo_pago'])) {
+            $ce['pay_type'] = (string) $search['tipo_pago'];
+        }
+        $cot = self::cotizado($ce);
+        if (!empty($ce['price_confirmed']) && empty($ce['price_logged']) && $cot !== null
+            && abs($cot - (float) $ce['price_shalom']) >= 0.01) {
+            $ce['price_logged'] = now()->toDateTimeString();
+            \App\Models\Tenant\ShippingAuditLog::log(\App\Models\Tenant\ShippingAuditLog::ACTION_EDIT, $s->id, 'shalom_price',
+                number_format($cot, 2), number_format((float) $ce['price_shalom'], 2),
+                'Shalom ajustó el precio al recibir el paquete' . (!empty($ce['shalom_content']) ? ' (' . $ce['shalom_content'] . ')' : '') . '.');
+        }
+
+        return $ce;
+    }
+
+    /** Cotización al crear la guía (las guías de antes la tienen solo en la respuesta guardada). */
+    private static function cotizado(array $ce): ?float
+    {
+        if (isset($ce['price_quoted']) && is_numeric($ce['price_quoted'])) {
+            return (float) $ce['price_quoted'];
+        }
+        $raw = !empty($ce['register_raw']) ? json_decode((string) $ce['register_raw'], true) : null;
+        $p = is_array($raw) ? data_get($raw, 'data.precio') : null;
+
+        return is_numeric($p) ? (float) $p : null;
+    }
+
+    /**
+     * Precio del envío para mostrar: cotizado, el de Shalom y si el cliente
+     * lo paga al recoger (contra entrega). Null si no hay ningún dato.
+     *
+     * @return array{quoted:?float, shalom:?float, confirmed:bool, diff:?float, pay_on_pickup:bool,
+     *               content_quoted:?string, content_shalom:?string}|null
+     */
+    public static function price(ShippingRequest $s): ?array
+    {
+        if ($s->shipping_agency !== 'Shalom') {
+            return null;
+        }
+        $ce = $s->carrier_events ?? [];
+        $cot = self::cotizado($ce);
+        $sh = isset($ce['price_shalom']) ? (float) $ce['price_shalom'] : null;
+        if ($cot === null && $sh === null) {
+            return null;
+        }
+        $conf = !empty($ce['price_confirmed']) && $sh !== null;
+
+        return [
+            'quoted'         => $cot,
+            'shalom'         => $sh,
+            'confirmed'      => $conf,
+            'diff'           => $conf && $cot !== null ? round($sh - $cot, 2) : null,
+            'pay_on_pickup'  => stripos((string) ($ce['pay_type'] ?? ''), 'contra') !== false,
+            'content_quoted' => isset($ce['content']) ? ucfirst(mb_strtolower(str_replace('PAQUETE ', 'Paquete ', (string) $ce['content']))) : null,
+            'content_shalom' => !empty($ce['shalom_content']) ? ucfirst(mb_strtolower((string) $ce['shalom_content'])) : null,
+        ];
     }
 
     /** El estado nunca vuelve atrás: un dato atrasado no deshace «entregado». */
@@ -215,6 +290,8 @@ class ShalomTracking
             $msg = "¡Hola {$name}! 📦\n\nTu pedido ya llegó a *Shalom*"
                 . ($s->agency_office_name ? " — oficina *{$s->agency_office_name}*" : '') . ".\n"
                 . "Puedes recogerlo con tu DNI.\n"
+                . (($p = self::price($s)) && $p['pay_on_pickup'] && ($p['shalom'] ?? $p['quoted'])
+                    ? '💵 Pagas S/ ' . number_format((float) ($p['shalom'] ?? $p['quoted']), 2) . " del envío al recoger.\n" : '')
                 . "📄 Guía: {$s->tracking_number} · Código: {$s->tracking_code}\n"
                 . (!empty($ce['clave']) ? "🔑 Clave de recojo: {$ce['clave']}\n" : '')
                 . ($fqdn ? "\n🔎 https://{$fqdn}/envio/seguimiento?code={$s->shipment_code}" : '');

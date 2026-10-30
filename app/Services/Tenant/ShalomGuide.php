@@ -267,6 +267,9 @@ class ShalomGuide
         $ce['created_via'] = 'api';
         $ce['created_at'] = now()->toDateTimeString();
         $ce['register_raw'] = mb_substr(json_encode($r, JSON_UNESCAPED_UNICODE), 0, 4000);
+        if (is_numeric($cot = data_get($r, 'data.precio') ?? data_get($r, 'precio'))) {
+            $ce['price_quoted'] = round((float) $cot, 2);
+        }
 
         $s->forceFill([
             'tracking_number' => $found['number'] ?: $s->tracking_number,

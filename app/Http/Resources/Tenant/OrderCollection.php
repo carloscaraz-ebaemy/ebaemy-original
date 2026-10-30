@@ -810,6 +810,8 @@ class OrderCollection extends ResourceCollection
             'pickup_dni'    => $s->pickup_person_dni ?: $s->dni,
             'store_phone'   => $tienda['phone'],
             'not_delivered' => \App\Services\Tenant\ShalomTracking::notDelivered($s),
+            // Cotizado al crear la guía y lo que cobró Shalom al medir el paquete.
+            'price'         => \App\Services\Tenant\ShalomTracking::price($s),
         ];
     }
 

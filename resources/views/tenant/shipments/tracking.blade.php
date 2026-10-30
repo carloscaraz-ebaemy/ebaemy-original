@@ -65,6 +65,8 @@
         .office-k { font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); }
         .office-n { font-size:16px; font-weight:800; margin-top:3px; }
         .office-a { font-size:13.5px; color:#475569; margin-top:2px; line-height:1.4; }
+        .office-pay { margin-top:10px; padding:9px 12px; border-radius:10px; background:#fef9c3; color:#713f12; font-size:14px; line-height:1.4; }
+        .office-pay b { font-size:15.5px; }
         .office-btn { display:block; text-align:center; margin-top:10px; padding:11px; border-radius:10px; background:var(--brand); color:#fff; font-weight:700; text-decoration:none; font-size:14.5px; }
         .foot { text-align:center; color:var(--muted); font-size:11.5px; margin-top:16px; }
     </style>
@@ -178,6 +180,9 @@
                             <div class="office-n">{{ $of['name'] }}</div>
                             @if($of['address'])<div class="office-a">{{ $of['address'] }}</div>@endif
                             @if($of['hours'])<div class="office-a">{{ $of['hours'] }}</div>@endif
+                            @if(!empty($of['pay']))
+                                <div class="office-pay">Al recoger pagas <b>S/ {{ number_format($of['pay'], 2) }}</b> del envío. Lleva tu DNI.</div>
+                            @endif
                             @if($of['maps'])<a class="office-btn" href="{{ $of['maps'] }}" target="_blank" rel="noopener">Cómo llegar</a>@endif
                         </div>
                     @endif
