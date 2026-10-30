@@ -130,8 +130,9 @@
                                             <select class="rv-sel js-size" aria-label="Tamaño de {{ $f['ref'] }}">
                                                 @unless($tipico)<option value="">Elige…</option>@endunless
                                                 @foreach($tamanos as $k => $l)
-                                                    <option value="{{ $k }}" {{ $tipico === $k ? 'selected' : '' }}>{{ $k === 'SOBRE' ? 'Sobre' : 'Caja ' . $l }}</option>
+                                                    <option value="{{ $k }}" {{ !$f['tienda'] && $tipico === $k ? 'selected' : '' }}>{{ $k === 'SOBRE' ? 'Sobre' : 'Caja ' . $l }}</option>
                                                 @endforeach
+                                                <option value="__tienda" {{ $f['tienda'] ? 'selected' : '' }}>Sin guía · rótulo de la tienda</option>
                                             </select>
                                         @else
                                             <input type="number" class="rv-kg js-peso" min="0" max="9999" step="0.1" inputmode="decimal"
@@ -208,13 +209,15 @@
             if (filas.length) {
                 go.lastChild.textContent = ' Guardando…';
                 await post(SAVE, { rows: filas.map(function (tr) {
-                    var p = tr.querySelector('.js-peso');
-                    return { id: +tr.getAttribute('data-id'), bultos: bultosDe(tr), peso: p && p.value !== '' ? p.value : null };
+                    var p = tr.querySelector('.js-peso'), t = tr.querySelector('.js-size');
+                    var fila = { id: +tr.getAttribute('data-id'), bultos: bultosDe(tr), peso: p && p.value !== '' ? p.value : null };
+                    if (t) fila.tienda = t.value === '__tienda';
+                    return fila;
                 }) });
             }
 
             // Guías de Shalom que faltan, cada una con sus bultos y su tamaño. De a 10: cada guía tarda.
-            var sh = filas.filter(function (tr) { return tr.getAttribute('data-shalom') === '1'; });
+            var sh = filas.filter(function (tr) { var t = tr.querySelector('.js-size'); return tr.getAttribute('data-shalom') === '1' && t && t.value !== '__tienda'; });
             var ok = 0, mal = [];
             for (var i = 0; i < sh.length; i += 10) {
                 go.lastChild.textContent = ' Creando guías de Shalom… ' + Math.min(i + 10, sh.length) + ' de ' + sh.length;

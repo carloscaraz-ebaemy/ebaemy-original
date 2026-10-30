@@ -1349,7 +1349,7 @@
                                         <el-dropdown-item
                                             v-if="row.shipment && row.shipment.delivery_type === 'agencia' && !row.shipment.has_guide
                                                   && !(row.shipment.shalom && (row.shipment.shalom.has_guide
-                                                       || (row.shipment.shalom.ready && usaPanelShalom(row))))"
+                                                       || (row.shipment.shalom.ready && usaPanelShalom(row) && !row.shipment.shalom.store_label)))"
                                             command="uploadGuide"
                                         >
                                             <i class="el-icon-upload"></i>

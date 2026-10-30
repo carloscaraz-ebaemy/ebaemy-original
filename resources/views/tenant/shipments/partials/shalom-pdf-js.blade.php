@@ -51,7 +51,9 @@ window.ShalomPdf = (function () {
                 if (MEMO[fuentes[i].url]) { bufs[i] = MEMO[fuentes[i].url]; if (alAvanzar) alAvanzar(hechos++, fuentes.length); continue; }
                 var r = await fetch(fuentes[i].url, { credentials: 'same-origin' });
                 if (!r.ok || (r.headers.get('content-type') || '').indexOf('pdf') === -1) {
-                    throw new Error('Shalom no entregó el PDF de ' + (fuentes[i].nombre || 'un envío') + '.');
+                    var err = new Error('Shalom no entregó el PDF de ' + (fuentes[i].nombre || 'un envío') + '.');
+                    err.descarga = true;
+                    throw err;
                 }
                 bufs[i] = MEMO[fuentes[i].url] = await r.arrayBuffer();
                 if (alAvanzar) alAvanzar(hechos++, fuentes.length);

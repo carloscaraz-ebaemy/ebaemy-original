@@ -25,4 +25,5 @@
     'fuera'     => [],
     'registrar' => $doc === 'rotulo' ? [['id' => $shipment->id, 'reimp' => (int) $shipment->print_count > 0]] : [],
     'original'  => $pdfUrl,
+    'respaldo'  => $doc === 'rotulo' ? url('orders/envio/' . $shipment->id . '/rotulo?tienda=1') : null,
 ])

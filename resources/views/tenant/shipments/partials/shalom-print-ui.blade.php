@@ -195,6 +195,9 @@
     var FUENTES = {!! json_encode(array_values($fuentes), JSON_UNESCAPED_UNICODE) !!};
     var REGISTRAR = {!! json_encode(array_values($registrar ?? []), JSON_UNESCAPED_UNICODE) !!};
     var ORIGINAL = {!! json_encode($original ?? null) !!};
+    // Si Shalom no entrega el PDF, el paquete igual tiene que salir: rótulo
+    // de la tienda con el N° de guía (solo en la impresión de un envío).
+    var RESPALDO = {!! json_encode($respaldo ?? null) !!};
     var TOTAL = {{ (int) $total }};
     var stage = document.getElementById('stage'), btn = document.getElementById('imprimir'),
         dl = document.getElementById('descargar'), aviso = document.getElementById('aviso'),
@@ -265,7 +268,10 @@
             .catch(function (e) {
                 if (n !== seq) return;
                 hecho.textContent = '';
-                if (ORIGINAL) {
+                if (e && e.descarga) {
+                    stage.innerHTML = '<div class="stage-msg"><b>Shalom no entregó el rótulo</b>Puede ser una caída momentánea de Shalom: vuelve a intentar en unos minutos.'
+                        + (RESPALDO ? '<br><br><a class="btn btn-primary" style="padding:0 18px" href="' + RESPALDO + '">Imprimir el rótulo de la tienda con el N° de guía</a>' : '') + '</div>';
+                } else if (ORIGINAL) {
                     // Sin armar: el PDF tal cual de Shalom, avisando las copias.
                     actual = null; dl.href = ORIGINAL; frame.src = ORIGINAL; listo(true);
                     stage.innerHTML = '<div class="stage-msg"><b>Se imprimirá el PDF original de Shalom</b>No se pudo acomodar al papel elegido.</div>';

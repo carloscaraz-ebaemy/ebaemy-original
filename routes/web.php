@@ -551,6 +551,9 @@ if ($hostname) {
             // poder tocar la puerta publica.
             Route::get('orders/envio/{shipment}/rotulo', [\App\Http\Controllers\Tenant\ShipmentController::class, 'printLabel'])
                  ->whereNumber('shipment')->name('orders.shipping.label');
+            // Shalom sin guía: salir con el rótulo de la tienda (guía en mostrador).
+            Route::post('orders/envio/{shipment}/rotulo-tienda', [\App\Http\Controllers\Tenant\ShipmentController::class, 'useStoreLabel'])
+                 ->whereNumber('shipment')->name('orders.shipping.store_label');
             Route::get('orders/envio/{shipment}/guia-remision', [\App\Http\Controllers\Tenant\ShipmentController::class, 'generateDispatch'])
                  ->whereNumber('shipment')->name('orders.shipping.dispatch');
             Route::get('orders/envio/{shipment}/guia', [\App\Http\Controllers\Tenant\ShipmentController::class, 'downloadGuide'])

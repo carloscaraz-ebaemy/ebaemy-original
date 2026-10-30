@@ -795,8 +795,11 @@ class OrderCollection extends ResourceCollection
             'status'     => $s->carrier_status ?? null,
             'label_url'  => $tiene && $tienda['ready'] ? url('orders/envio/' . $s->id . '/shalom-imprimir') : null,
             'ticket_url' => $tiene && $tienda['ready'] ? url('orders/envio/' . $s->id . '/shalom-imprimir?doc=ticket') : null,
-            // Con Shalom conectado, el rótulo es el de Shalom: el de ebaemy no se ofrece.
-            'replaces_label' => $tienda['plan'] && $tienda['ready'],
+            // Con la guía creada, el rótulo es el de Shalom: el de ebaemy no se
+            // ofrece. Sin guía sí: «Imprimir rótulo» deja elegir entre crearla
+            // o salir con el rótulo de la tienda (pedidos de antes, Shalom caído).
+            'replaces_label' => $tiene && $tienda['plan'] && $tienda['ready'],
+            'store_label'    => \App\Services\Tenant\ShalomGuide::usesStoreLabel($s),
             'air'        => (bool) ($s->shalom_air ?? false),
             // Guía creada que el paquete aún no usó: se puede quitar, y si
             // pasan 2 días hábiles sin entregarla en la agencia, se avisa.

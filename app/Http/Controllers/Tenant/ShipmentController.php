@@ -1048,6 +1048,9 @@ class ShipmentController extends Controller
         $msg = $r['number']
             ? "Guía de Shalom {$r['number']} · código {$r['code']} · clave de recojo {$r['clave']}."
             : 'Guía creada en Shalom; su número aparecerá en unos minutos. Ya puedes imprimir el rótulo oficial.';
+        if (!empty($r['recovered'])) {
+            $msg = 'El intento anterior sí había creado la guía en Shalom: la unimos al pedido, sin crear otra. ' . $msg;
+        }
 
         return response()->json(['success' => true, 'message' => $msg] + $r);
     }
@@ -2618,6 +2621,49 @@ class ShipmentController extends Controller
         ]);
     }
 
+    /**
+     * Paquete de Shalom sin guía: antes era un callejón sin salida («primero
+     * crea su guía»), y un pedido de antes de conectar la cuenta, o uno que
+     * Shalom rechaza, no se podía rotular. Ahora se elige: crear la guía aquí
+     * mismo o imprimir el rótulo de la tienda y sacar la guía en el mostrador.
+     */
+    private function eleccionShalom(ShippingRequest $shipment)
+    {
+        $st = ShippingSetting::current();
+        $tipico = \App\Services\Tenant\ShalomGuide::defaultContent($st);
+        $bloqueo = \App\Services\Tenant\ShalomGuide::blocker($shipment, $st);
+        if (!$bloqueo && !empty($shipment->shalom_air)) {
+            $bloqueo = 'Va por vía aérea: Shalom pide declarar el contenido. Créala desde el pedido («Guía de Shalom»).';
+        }
+
+        return response()->view('tenant.shipments.shalom-choice', [
+            'shipment' => $shipment,
+            'tamanos'  => \App\Services\Tenant\ShalomPackage::SIZES,
+            'tipico'   => $tipico,
+            'bloqueo'  => $bloqueo,
+            'crearUrl' => $shipment->order_id ? url('orders/' . $shipment->order_id . '/envio/shalom-guia') : null,
+            'imprimirShalom' => url('orders/envio/' . $shipment->id . '/shalom-imprimir'),
+            'tiendaUrl' => url('orders/envio/' . $shipment->id . '/rotulo-tienda'),
+        ]);
+    }
+
+    /** Elegir el rótulo de la tienda para un paquete de Shalom sin guía. */
+    public function useStoreLabel(Request $request, ShippingRequest $shipment)
+    {
+        if ($shipment->order && ($motivo = $shipment->order->motivoBloqueoModificacion())) {
+            return $this->rotuloBloqueado($shipment, $motivo);
+        }
+        if ($shipment->shipping_agency !== 'Shalom' || $shipment->delivery_type !== ShippingRequest::DELIVERY_AGENCIA) {
+            return redirect(url('orders/envio/' . $shipment->id . '/rotulo'));
+        }
+        if (\App\Services\Tenant\ShalomTracking::hasGuide($shipment)) {
+            return redirect(url('orders/envio/' . $shipment->id . '/shalom-imprimir'));
+        }
+        \App\Services\Tenant\ShalomGuide::setStoreLabel($shipment, true);
+
+        return redirect(url('orders/envio/' . $shipment->id . '/rotulo'));
+    }
+
     public function printLabel(Request $request, ShippingRequest $shipment)
     {
         // El PEDIDO anulado bloquea el rotulo aunque su envio siga vigente: son
@@ -2644,13 +2690,15 @@ class ShipmentController extends Controller
 
         // Shalom con la cuenta de la tienda: el rótulo es el oficial y sale de
         // la guía. El de ebaemy no se imprime nunca para ese paquete.
-        if (\App\Services\Tenant\ShalomGuide::replacesLabel($shipment)) {
+        // `tienda=1`: Shalom no entrega su PDF y el paquete tiene que salir; el
+        // rótulo de la tienda lleva el N° de guía, que es lo que lee la agencia.
+        $respaldo = $request->boolean('tienda') && \App\Services\Tenant\ShalomTracking::hasGuide($shipment);
+        if (!$respaldo && \App\Services\Tenant\ShalomGuide::replacesLabel($shipment)) {
             if (\App\Services\Tenant\ShalomTracking::hasGuide($shipment)) {
                 return redirect(url('orders/envio/' . $shipment->id . '/shalom-imprimir'));
             }
 
-            return $this->rotuloBloqueado($shipment, "{$shipment->shipment_code} va por Shalom con tu cuenta: primero crea su guía "
-                . '(«Guía de Shalom» en el pedido) y después imprime el rótulo de Shalom.');
+            return $this->eleccionShalom($shipment);
         }
 
         // Reimpresión de un rótulo suelto: exige motivo y queda en el historial.
@@ -2856,7 +2904,9 @@ class ShipmentController extends Controller
         $grupos = [];
         foreach ($all as $s) {
             $motivo = $this->paymentBlocks($s) ? 'Pago sin confirmar' : $s->labelBlockReason(true);
-            $shalomApi = \App\Services\Tenant\ShalomGuide::replacesLabel($s, $st);
+            // Con la cuenta conectada se agrupa en Shalom aunque se haya elegido
+            // el rótulo de la tienda: ahí mismo se puede cambiar de idea.
+            $shalomApi = \App\Services\Tenant\ShalomGuide::accountReady($s, $st);
             $conGuia = $shalomApi && \App\Services\Tenant\ShalomTracking::hasGuide($s);
 
             if ($s->delivery_type === ShippingRequest::DELIVERY_TIENDA) {
@@ -2865,7 +2915,7 @@ class ShipmentController extends Controller
             } elseif ($s->delivery_type === ShippingRequest::DELIVERY_DOMICILIO) {
                 [$clave, $titulo, $nota] = ['moto', 'Motorizado', 'Rótulo de la tienda, uno por bulto.'];
             } elseif ($shalomApi) {
-                [$clave, $titulo, $nota] = ['shalom', 'Shalom', 'Se crea su guía con los bultos y el tamaño de cada pedido, y sale el rótulo oficial de Shalom.'];
+                [$clave, $titulo, $nota] = ['shalom', 'Shalom', 'Se crea su guía con los bultos y el tamaño de cada pedido, y sale el rótulo oficial de Shalom. Si alguno lo llevas al mostrador sin guía, elige «Sin guía · rótulo de la tienda».'];
             } else {
                 $ag = trim((string) $s->shipping_agency) ?: 'Agencia sin elegir';
                 [$clave, $titulo, $nota] = ['ag:' . mb_strtolower($ag), $ag, 'Rótulo de la tienda, uno por bulto. La guía te la da la agencia al dejar el paquete.'];
@@ -2887,6 +2937,7 @@ class ShipmentController extends Controller
                 // exige anularla en Shalom y volver a crearla.
                 'bloqueado' => $conGuia,
                 'guia'      => $conGuia ? $s->tracking_number : null,
+                'tienda'    => $shalomApi && \App\Services\Tenant\ShalomGuide::usesStoreLabel($s),
             ];
         }
 
@@ -2911,6 +2962,7 @@ class ShipmentController extends Controller
             'rows.*.id'     => 'required|integer',
             'rows.*.bultos' => 'required|integer|min:1|max:99',
             'rows.*.peso'   => 'nullable|numeric|min:0|max:9999',
+            'rows.*.tienda' => 'nullable|boolean',
         ]);
         $st = ShippingSetting::current();
         $porId = collect($data['rows'])->keyBy('id');
@@ -2925,6 +2977,11 @@ class ShipmentController extends Controller
             }
             if (\App\Services\Tenant\ShalomGuide::replacesLabel($s, $st) && \App\Services\Tenant\ShalomTracking::hasGuide($s)) {
                 continue;
+            }
+            // Shalom sin guía: sale con el rótulo de la tienda o con la guía.
+            if ($s->shipping_agency === 'Shalom' && $s->delivery_type === ShippingRequest::DELIVERY_AGENCIA
+                && !\App\Services\Tenant\ShalomTracking::hasGuide($s) && array_key_exists('tienda', $r)) {
+                \App\Services\Tenant\ShalomGuide::setStoreLabel($s, (bool) $r['tienda']);
             }
             $cambios = [];
             if ((int) $s->package_count !== (int) $r['bultos']) {
