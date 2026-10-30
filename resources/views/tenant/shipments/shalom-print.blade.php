@@ -13,7 +13,9 @@
         : ($bultos > 1 ? 'Sale un rótulo para cada caja.' : 'Pégalo en la caja.'),
     'doc'       => $doc,
     'docUrls'   => ['rotulo' => '?doc=rotulo', 'ticket' => '?doc=ticket'],
-    'fuentes'   => [['url' => $pdfUrl, 'copies' => $copias, 'nombre' => $shipment->shipment_code]],
+    'fuentes'   => [['url' => $pdfUrl, 'copies' => $copias, 'nombre' => $shipment->shipment_code,
+                     'contenido' => $shipment->labelContentLines(), 'guia' => $shipment->tracking_number,
+                     'ref' => $shipment->publicRef(), 'cliente' => $shipment->full_name]],
     'resumen'   => array_values(array_filter([
         ['Guía', $guia],
         $shipment->tracking_code ? ['Código', $shipment->tracking_code] : null,

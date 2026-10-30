@@ -7,6 +7,8 @@
         'url'    => url('orders/envio/' . $s->id . ($doc === 'ticket' ? '/shalom-ticket' : '/shalom-rotulo')),
         'copies' => $doc === 'rotulo' ? max(1, (int) ($s->package_count ?: 1)) : 1,
         'nombre' => $s->shipment_code,
+        'contenido' => $s->labelContentLines(), 'guia' => $s->tracking_number,
+        'ref' => $s->publicRef(), 'cliente' => $s->full_name,
     ])->values()->all();
     $bultos = $listos->sum(fn ($s) => max(1, (int) ($s->package_count ?: 1)));
 @endphp

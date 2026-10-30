@@ -105,7 +105,7 @@
                     {{-- Los saltos de línea del detalle se pierden en una celda:
                          se separan los ítems con "·" para que no se peguen. --}}
                     <td class="c-n"><b>{{ max(1, (int) ($s->package_count ?: 1)) }}</b></td>
-                    <td class="c-prod">{{ $s->contentInline() ?: '—' }}</td>
+                    <td class="c-prod">{{ implode(' · ', $s->labelContentLines()) ?: '—' }}</td>
                     <td class="c-obs"></td>
                 </tr>
             @endforeach

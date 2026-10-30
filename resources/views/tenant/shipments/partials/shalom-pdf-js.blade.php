@@ -8,7 +8,10 @@
 
      Se hace aquí y no en el servidor porque pdf-lib abre cualquier PDF; el
      lector de PDF del servidor (FPDI libre) no abre los comprimidos.
-     Uso: ShalomPdf.build([{url, copies}], formato, alAvanzar) → Promise<blobUrl>. --}}
+     - Opcional: una hoja con el CONTENIDO del paquete detrás de cada envío
+       (el rótulo de Shalom solo dice el tamaño; quien embala necesita la
+       lista de productos). Mismo tamaño que el rótulo, así comparte la hoja.
+     Uso: ShalomPdf.build([{url, copies, contenido?, guia?, ref?, cliente?}], formato, alAvanzar, {detalle}) → Promise<blobUrl>. --}}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
 <script>
 window.ShalomPdf = (function () {
@@ -34,7 +37,55 @@ window.ShalomPdf = (function () {
         return { w: sw * k, h: sh * k };
     }
 
-    async function build(fuentes, formato, alAvanzar) {
+    // Helvetica estándar solo dibuja Latin-1: lo demás (emojis) se quita.
+    function latin1(t) { return String(t || '').replace(/[^\x20-\x7E\xA0-\xFF]/g, '').replace(/\s+/g, ' ').trim(); }
+
+    function envolver(texto, font, size, ancho) {
+        var palabras = texto.split(' '), lineas = [], act = '';
+        palabras.forEach(function (p) {
+            var prueba = act ? act + ' ' + p : p;
+            if (font.widthOfTextAtSize(prueba, size) <= ancho || !act) { act = prueba; } else { lineas.push(act); act = p; }
+        });
+        if (act) lineas.push(act);
+        return lineas;
+    }
+
+    // Hoja de contenido del tamaño del rótulo (w × h puntos).
+    async function hojaContenido(L, doc, fonts, f, w, h) {
+        var pg = doc.addPage([w, h]);
+        var k = Math.min(w, h) / 420, m = 26 * k, ancho = w - 2 * m;
+        var negro = L.rgb(0.1, 0.1, 0.12), gris = L.rgb(0.35, 0.36, 0.4);
+        pg.drawRectangle({ x: m / 2, y: m / 2, width: w - m, height: h - m, borderColor: negro, borderWidth: 1.2 * k });
+        var y = h - m - 16 * k;
+        pg.drawText('CONTENIDO DEL PAQUETE', { x: m, y: y, size: 18 * k, font: fonts.b, color: negro });
+        y -= 18 * k;
+        var cab = latin1([f.guia ? 'Guía ' + f.guia : null, f.ref, f.cliente].filter(Boolean).join('  ·  '));
+        if (cab) { pg.drawText(cab, { x: m, y: y, size: 10.5 * k, font: fonts.r, color: gris, maxWidth: ancho }); y -= 8 * k; }
+        pg.drawLine({ start: { x: m, y: y }, end: { x: w - m, y: y }, thickness: 0.8 * k, color: gris });
+
+        // Se achica la letra hasta que entre todo.
+        var items = (f.contenido || []).map(latin1).filter(Boolean);
+        var size = 15 * k, filas;
+        for (var t = 0; t < 8; t++) {
+            filas = [];
+            items.forEach(function (it, i) {
+                envolver(it, fonts.r, size, ancho - 22 * k).forEach(function (l, j) { filas.push({ n: j === 0 ? (i + 1) + '.' : '', l: l }); });
+            });
+            if (filas.length * size * 1.35 <= y - m - 4 * k) break;
+            size *= 0.86;
+        }
+        y -= size * 1.6;
+        filas.forEach(function (r) {
+            if (y < m) return;
+            if (r.n) pg.drawText(r.n, { x: m, y: y, size: size, font: fonts.b, color: negro });
+            pg.drawText(r.l, { x: m + 22 * k, y: y, size: size, font: fonts.r, color: negro });
+            y -= size * 1.35;
+        });
+        return pg;
+    }
+
+    async function build(fuentes, formato, alAvanzar, opts) {
+        opts = opts || {};
         var L = window.PDFLib;
         if (!L) throw new Error('No cargó el armador de PDF.');
         var F = FORMATOS[formato] || FORMATOS['a4-2'];
@@ -63,12 +114,23 @@ window.ShalomPdf = (function () {
         for (var w = 0; w < Math.min(4, fuentes.length); w++) trabajadores.push(bajar());
         await Promise.all(trabajadores);
 
+        var notas = null, fonts = null;
         for (var i = 0; i < fuentes.length; i++) {
             // Copia: pdf-lib puede dejar el ArrayBuffer inutilizable tras leerlo.
             var src = await L.PDFDocument.load(bufs[i].slice(0), { ignoreEncryption: true });
             var pags = await out.embedPdf(src, src.getPageIndices());
             for (var c = 0; c < Math.max(1, fuentes[i].copies || 1); c++) {
                 pags.forEach(function (p) { cola.push(p); });
+            }
+            if (opts.detalle && fuentes[i].contenido && fuentes[i].contenido.length && pags.length) {
+                if (!notas) {
+                    notas = await L.PDFDocument.create();
+                    fonts = { r: await notas.embedFont(L.StandardFonts.Helvetica), b: await notas.embedFont(L.StandardFonts.HelveticaBold) };
+                }
+                var w0 = pags[0].width, h0 = pags[0].height;
+                // Ticket alto y angosto: la hoja de contenido va apaisada igual que un rótulo.
+                var pc = await hojaContenido(L, notas, fonts, fuentes[i], Math.max(w0, h0), Math.min(w0, h0));
+                cola.push(await out.embedPage(pc));
             }
         }
 

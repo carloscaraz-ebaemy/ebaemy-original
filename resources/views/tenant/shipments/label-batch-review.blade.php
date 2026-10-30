@@ -36,6 +36,15 @@
         .rv-kg { width: 76px; text-align: right; }
         .rv-unit { font-size: 12.5px; color: var(--muted); margin-left: 4px; }
         .rv-off td { color: var(--muted); }
+        .rv-t tr.rv-c td { border-top: 0; padding-top: 0; font-size: 12.5px; color: var(--ink-2); }
+        .rv-c-l { font-weight: 600; color: var(--ink); }
+        .rv-c--falta .rv-c-l { color: var(--warn); }
+        .rv-c-ed { border: 0; background: none; color: var(--accent); font: 600 12.5px/1 inherit; cursor: pointer; padding: 0 0 0 6px; }
+        .rv-c-t { display: block; width: 100%; box-sizing: border-box; margin-top: 6px; border: 1px solid var(--line-2); border-radius: 8px;
+                  padding: 7px 9px; font: 13px/1.4 inherit; color: var(--ink); resize: vertical; }
+        .rv-c-t[hidden], .rv-c-n[hidden] { display: none; }
+        .rv-c--falta .rv-c-t { border-color: oklch(0.8 0.08 75); background: var(--warn-soft); }
+        .rv-c-n { display: block; margin-top: 4px; font-size: 12px; color: var(--muted); }
         .rv-why { font-size: 12.5px; color: var(--warn); }
         .rv-lock { font-size: 12.5px; color: var(--ink-2); }
         .rv-res { max-width: 980px; margin: 0 auto 14px; padding: 0 16px; font-size: 13.5px; }
@@ -143,6 +152,23 @@
                                 @endif
                             @endunless
                         </tr>
+                        @if(!$esTienda && !$f['motivo'])
+                            {{-- Qué lleva: es lo que imprime el rótulo (y la hoja de contenido de Shalom). --}}
+                            <tr class="rv-c {{ count($f['contenido']) ? '' : 'rv-c--falta' }}" data-for="{{ $f['id'] }}">
+                                <td colspan="4">
+                                    @if(count($f['contenido']))
+                                        <span class="rv-c-l">Lleva:</span> {{ implode(' · ', $f['contenido']) }}
+                                        <button type="button" class="rv-c-ed js-ced">{{ $f['escrito'] !== '' ? 'Editar' : 'Agregar nota' }}</button>
+                                    @else
+                                        <span class="rv-c-l">Sin contenido:</span> el rótulo saldrá sin el detalle de productos. Escribe qué lleva.
+                                    @endif
+                                    <textarea class="rv-c-t js-cont" rows="2" maxlength="2000" {{ count($f['contenido']) ? 'hidden' : '' }}
+                                              placeholder="Un producto por línea. Ej.: 2 × Polo negro talla M"
+                                              aria-label="Contenido de {{ $f['ref'] }}">{{ $f['escrito'] }}</textarea>
+                                    @if($f['productos'] > 0)<span class="rv-c-n" {{ count($f['contenido']) ? 'hidden' : '' }}>Los {{ $f['productos'] }} productos del pedido ya salen en el rótulo; aquí va lo adicional.</span>@endif
+                                </td>
+                            </tr>
+                        @endif
                     @endforeach
                     </tbody>
                 </table>
@@ -168,13 +194,22 @@
         total.textContent = n;
     }
     document.addEventListener('click', function (e) {
+        var ed = e.target.closest('.js-ced');
+        if (ed) {
+            var td = ed.closest('td'), t = td.querySelector('.js-cont'), n = td.querySelector('.rv-c-n');
+            t.hidden = false; if (n) n.hidden = false; ed.hidden = true; t.focus();
+            return;
+        }
         var b = e.target.closest('.js-inc, .js-dec');
         if (!b) return;
         var i = b.parentNode.querySelector('.js-bultos');
         i.value = Math.min(99, Math.max(1, (parseInt(i.value, 10) || 1) + (b.classList.contains('js-inc') ? 1 : -1)));
         recontar();
     });
-    document.addEventListener('input', function (e) { if (e.target.classList.contains('js-bultos')) recontar(); });
+    document.addEventListener('input', function (e) {
+        if (e.target.classList.contains('js-bultos')) recontar();
+        if (e.target.classList.contains('js-cont')) e.target.setAttribute('data-dirty', '1');
+    });
     document.addEventListener('change', function (e) {
         if (e.target.classList.contains('js-bultos')) { e.target.value = Math.min(99, Math.max(1, parseInt(e.target.value, 10) || 1)); recontar(); }
         if (e.target.classList.contains('js-all-size') && e.target.value) {
@@ -206,9 +241,11 @@
         go.disabled = true;
         res.textContent = '';
         try {
-            if (filas.length) {
+            var contenidos = {};
+            document.querySelectorAll('.js-cont[data-dirty]').forEach(function (t) { contenidos[t.closest('tr').getAttribute('data-for')] = t.value; });
+            if (filas.length || Object.keys(contenidos).length) {
                 go.lastChild.textContent = ' Guardando…';
-                await post(SAVE, { rows: filas.map(function (tr) {
+                await post(SAVE, { contenidos: contenidos, rows: filas.map(function (tr) {
                     var p = tr.querySelector('.js-peso'), t = tr.querySelector('.js-size');
                     var fila = { id: +tr.getAttribute('data-id'), bultos: bultosDe(tr), peso: p && p.value !== '' ? p.value : null };
                     if (t) fila.tienda = t.value === '__tienda';

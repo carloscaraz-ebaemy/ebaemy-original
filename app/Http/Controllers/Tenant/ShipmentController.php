@@ -2938,6 +2938,10 @@ class ShipmentController extends Controller
                 'bloqueado' => $conGuia,
                 'guia'      => $conGuia ? $s->tracking_number : null,
                 'tienda'    => $shalomApi && \App\Services\Tenant\ShalomGuide::usesStoreLabel($s),
+                // Lo que lista el rótulo: productos del pedido + lo escrito a mano.
+                'contenido' => $s->labelContentLines(),
+                'escrito'   => (string) $s->package_content,
+                'productos' => count($s->labelContentLines()) - count($s->contentLines()),
             ];
         }
 
@@ -2958,15 +2962,31 @@ class ShipmentController extends Controller
     public function saveBatchReview(Request $request): \Illuminate\Http\JsonResponse
     {
         $data = $request->validate([
-            'rows'          => 'required|array|max:60',
+            'rows'          => 'present|array|max:60',
             'rows.*.id'     => 'required|integer',
             'rows.*.bultos' => 'required|integer|min:1|max:99',
             'rows.*.peso'   => 'nullable|numeric|min:0|max:9999',
             'rows.*.tienda' => 'nullable|boolean',
+            // Contenido escrito a mano para el rótulo, por envío: {id: texto}.
+            'contenidos'    => 'nullable|array|max:60',
+            'contenidos.*'  => 'nullable|string|max:2000',
         ]);
         $st = ShippingSetting::current();
         $porId = collect($data['rows'])->keyBy('id');
         $guardados = 0;
+
+        foreach ((array) ($data['contenidos'] ?? []) as $id => $texto) {
+            $s = ShippingRequest::find((int) $id);
+            if (!$s || $s->is_cancelled) {
+                continue;
+            }
+            $nuevo = trim((string) $texto);
+            if ($nuevo !== trim((string) $s->package_content)) {
+                ShippingAuditLog::log(ShippingAuditLog::ACTION_EDIT, $s->id, 'package_content', $s->package_content, $nuevo ?: null, 'Revisión del lote');
+                $s->forceFill(['package_content' => $nuevo !== '' ? $nuevo : null])->save();
+                $guardados++;
+            }
+        }
 
         foreach (ShippingRequest::whereIn('id', $porId->keys())->get() as $s) {
             $r = $porId[$s->id];

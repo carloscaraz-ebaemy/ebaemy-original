@@ -44,6 +44,9 @@
         .sheet { background: var(--panel); box-shadow: 0 1px 2px oklch(0.3 0.02 258 / 0.12), 0 6px 18px -6px oklch(0.3 0.02 258 / 0.18); border-radius: 2px; }
         .sheet canvas { display: block; width: 100%; height: auto; }
         .sheet-n { font-size: 12px; color: var(--muted); margin-top: -10px; font-variant-numeric: tabular-nums; }
+        .chk { display: flex; align-items: center; gap: 8px; font-size: 13.5px; font-weight: 600; cursor: pointer; }
+        .chk input { width: 17px; height: 17px; accent-color: var(--accent); }
+        .chk-n { margin: 4px 0 0 25px; font-size: 12.5px; color: var(--muted); line-height: 1.4; }
         .stage-msg { margin: auto; max-width: 420px; text-align: center; color: var(--ink-2); padding: 40px 20px; }
         .stage-msg b { display: block; font-size: 15px; color: var(--ink); margin-bottom: 4px; }
         .skeleton { width: min(560px, 100%); aspect-ratio: 210 / 297; background: linear-gradient(100deg, var(--panel) 40%, var(--panel-2) 50%, var(--panel) 60%) 0 0 / 200% 100%; animation: shimmer 1.4s linear infinite; border-radius: 2px; }
@@ -146,6 +149,13 @@
                 </div>
             </section>
 
+            @if($doc === 'rotulo' && collect($fuentes)->contains(fn ($f) => !empty($f['contenido'])))
+                <section>
+                    <label class="chk"><input type="checkbox" id="detalle" checked> Hoja con el contenido del paquete</label>
+                    <p class="chk-n">El rótulo de Shalom solo dice el tamaño. Esta hoja lista los productos de cada envío, para embalar y pegar junto al rótulo.</p>
+                </section>
+            @endif
+
             <section>
                 <p class="lbl">Resumen</p>
                 <dl class="facts">
@@ -223,6 +233,17 @@
         armar(fmt);
     }
 
+    // Hoja de contenido: se recuerda en este equipo y rearma sin volver a bajar los PDF.
+    var det = document.getElementById('detalle');
+    if (det) {
+        try { if (localStorage.getItem('shalom_detalle') === '0') det.checked = false; } catch (e) {}
+        det.addEventListener('change', function () {
+            try { localStorage.setItem('shalom_detalle', det.checked ? '1' : '0'); } catch (e) {}
+            var on = botones.filter ? botones.filter(function (b) { return b.getAttribute('aria-checked') === 'true'; })[0] : null;
+            armar(on ? on.getAttribute('data-fmt') : ShalomPdf.recordado(DOC));
+        });
+    }
+
     async function dibujar(url, n) {
         stage.innerHTML = '';
         var pdf = await pdfjsLib.getDocument(url).promise;
@@ -254,7 +275,8 @@
         var n = ++seq;
         listo(false); decir(''); hojas.textContent = '…';
         stage.innerHTML = '<div class="skeleton" aria-hidden="true"></div>';
-        ShalomPdf.build(FUENTES, fmt, function (i, t) { if (t > 1) hecho.textContent = 'Bajando de Shalom ' + (i + 1) + ' de ' + t + '…'; })
+        var det = document.getElementById('detalle');
+        ShalomPdf.build(FUENTES, fmt, function (i, t) { if (t > 1) hecho.textContent = 'Bajando de Shalom ' + (i + 1) + ' de ' + t + '…'; }, { detalle: !!(det && det.checked) })
             .then(function (url) {
                 if (n !== seq) return;
                 hecho.textContent = '';
