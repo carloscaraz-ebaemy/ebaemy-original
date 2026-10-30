@@ -152,8 +152,8 @@
 
             @if($doc === 'rotulo' && collect($fuentes)->contains(fn ($f) => !empty($f['contenido'])))
                 <section>
-                    <label class="chk"><input type="checkbox" id="detalle" checked> Hoja con el contenido del paquete</label>
-                    <p class="chk-n">El rótulo de Shalom solo dice el tamaño. Esta hoja lista los productos de cada envío, para embalar y pegar junto al rótulo.</p>
+                    <label class="chk"><input type="checkbox" id="detalle" checked> Contenido del paquete debajo del rótulo</label>
+                    <p class="chk-n">El rótulo de Shalom solo dice el tamaño. Debajo va la lista de productos, en la misma hoja: en A5 un pedido por hoja, en A4 dos.</p>
                 </section>
             @endif
 
@@ -281,11 +281,9 @@
             .then(function (url) {
                 if (n !== seq) return;
                 hecho.textContent = '';
-                // Con una hoja por documento, el contenido sale en otra hoja:
-                // en «A4 · 2 por hoja» comparte la hoja con el rótulo.
-                var F = ShalomPdf.FORMATOS[fmt];
-                if (det && det.checked && DOC === 'rotulo' && F && F.slots === 1) {
-                    decir('Con este papel, el contenido sale en una hoja aparte. <button type="button" class="lnk" id="a4dos">Usar A4 · 2 por hoja</button> para que vaya en la misma hoja que el rótulo.');
+                // A4 con un rótulo por hoja deja media hoja en blanco por pedido.
+                if (DOC === 'rotulo' && fmt === 'a4-1' && FUENTES.length > 1) {
+                    decir('Cada pedido ocupa una hoja A4 entera. <button type="button" class="lnk" id="a4dos">Usar A4 · 2 por hoja</button> para imprimir dos pedidos por hoja.');
                     var b2 = document.getElementById('a4dos'); if (b2) b2.onclick = function () { elegir('a4-2', true); };
                 }
                 if (actual) URL.revokeObjectURL(actual);
