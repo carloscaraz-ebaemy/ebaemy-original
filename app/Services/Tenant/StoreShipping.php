@@ -367,6 +367,14 @@ class StoreShipping
             'shalom_air_enabled'     => ['nullable', 'boolean'],
             'shalom_package'         => ['nullable', 'array'],
             'shalom_package.type'    => ['nullable', 'in:size,bulto'],
+            // Cada clave se declara: `validated()` descarta las que no tienen
+            // regla, y sin `size` ni medidas el paquete típico se guardaba
+            // vacío sin avisar (hasta 2026-10-30 ninguna tienda lo tenía).
+            'shalom_package.size'    => ['nullable', 'in:' . implode(',', array_keys(ShalomPackage::SIZES))],
+            'shalom_package.length'  => ['nullable', 'numeric', 'min:0', 'max:300'],
+            'shalom_package.width'   => ['nullable', 'numeric', 'min:0', 'max:300'],
+            'shalom_package.height'  => ['nullable', 'numeric', 'min:0', 'max:300'],
+            'shalom_package.weight'  => ['nullable', 'numeric', 'min:0', 'max:500'],
         ];
     }
 
