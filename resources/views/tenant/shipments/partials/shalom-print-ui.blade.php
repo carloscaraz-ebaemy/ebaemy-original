@@ -44,6 +44,7 @@
         .sheet { background: var(--panel); box-shadow: 0 1px 2px oklch(0.3 0.02 258 / 0.12), 0 6px 18px -6px oklch(0.3 0.02 258 / 0.18); border-radius: 2px; }
         .sheet canvas { display: block; width: 100%; height: auto; }
         .sheet-n { font-size: 12px; color: var(--muted); margin-top: -10px; font-variant-numeric: tabular-nums; }
+        .lnk { border: 0; background: none; padding: 0; color: var(--accent); font: 600 inherit; text-decoration: underline; cursor: pointer; }
         .chk { display: flex; align-items: center; gap: 8px; font-size: 13.5px; font-weight: 600; cursor: pointer; }
         .chk input { width: 17px; height: 17px; accent-color: var(--accent); }
         .chk-n { margin: 4px 0 0 25px; font-size: 12.5px; color: var(--muted); line-height: 1.4; }
@@ -280,6 +281,13 @@
             .then(function (url) {
                 if (n !== seq) return;
                 hecho.textContent = '';
+                // Con una hoja por documento, el contenido sale en otra hoja:
+                // en «A4 · 2 por hoja» comparte la hoja con el rótulo.
+                var F = ShalomPdf.FORMATOS[fmt];
+                if (det && det.checked && DOC === 'rotulo' && F && F.slots === 1) {
+                    decir('Con este papel, el contenido sale en una hoja aparte. <button type="button" class="lnk" id="a4dos">Usar A4 · 2 por hoja</button> para que vaya en la misma hoja que el rótulo.');
+                    var b2 = document.getElementById('a4dos'); if (b2) b2.onclick = function () { elegir('a4-2', true); };
+                }
                 if (actual) URL.revokeObjectURL(actual);
                 actual = url; dl.href = url; frame.src = url;
                 listo(true);

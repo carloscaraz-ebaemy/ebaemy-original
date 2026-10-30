@@ -114,7 +114,10 @@ window.ShalomPdf = (function () {
         for (var w = 0; w < Math.min(4, fuentes.length); w++) trabajadores.push(bajar());
         await Promise.all(trabajadores);
 
-        var notas = null, fonts = null;
+        // Primero todos los rótulos (de dos en dos por hoja en A4) y después
+        // las hojas de contenido. Con un solo rótulo, su contenido ocupa la
+        // otra mitad de la misma hoja.
+        var notas = null, fonts = null, detalles = [];
         for (var i = 0; i < fuentes.length; i++) {
             // Copia: pdf-lib puede dejar el ArrayBuffer inutilizable tras leerlo.
             var src = await L.PDFDocument.load(bufs[i].slice(0), { ignoreEncryption: true });
@@ -130,9 +133,10 @@ window.ShalomPdf = (function () {
                 var w0 = pags[0].width, h0 = pags[0].height;
                 // Ticket alto y angosto: la hoja de contenido va apaisada igual que un rótulo.
                 var pc = await hojaContenido(L, notas, fonts, fuentes[i], Math.max(w0, h0), Math.min(w0, h0));
-                cola.push(await out.embedPage(pc));
+                detalles.push(await out.embedPage(pc));
             }
         }
+        cola = cola.concat(detalles);
 
         var hoja = null, usados = 0;
         cola.forEach(function (p) {

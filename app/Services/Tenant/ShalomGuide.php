@@ -110,6 +110,9 @@ class ShalomGuide
         if ($s->shipping_agency !== 'Shalom') {
             return 'El envío no va por Shalom.';
         }
+        if ($s->delivery_type !== ShippingRequest::DELIVERY_AGENCIA) {
+            return 'El envío no va por agencia (es ' . ($s->delivery_type === ShippingRequest::DELIVERY_TIENDA ? 'recojo en tienda' : 'motorizado') . '): no lleva guía de Shalom.';
+        }
         if (empty($st->shalom_instance_id)) {
             return 'Conecta tu cuenta de Shalom Pro en la política de envío.';
         }
@@ -437,7 +440,9 @@ class ShalomGuide
         }
         $pdf = $bajar();
         if (is_string($pdf) && str_starts_with($pdf, '%PDF')) {
-            $disco->put($ruta, $pdf);
+            // La copia es solo para ir más rápido: si no se puede guardar
+            // (permisos de la carpeta), el PDF se entrega igual.
+            rescue(fn () => $disco->put($ruta, $pdf), null, false);
         }
 
         return $pdf;

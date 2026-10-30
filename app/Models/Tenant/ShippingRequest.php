@@ -462,6 +462,14 @@ class ShippingRequest extends Model
             // Agencia (provincia). Sin estos dos el rotulo sale inservible.
             if (trim((string) $this->shipping_agency) === '') $faltan[] = 'agencia de transporte';
             if (trim((string) $this->district_id) === '')     $faltan[] = 'distrito de destino';
+            // Shalom sin oficina: el cliente marcó «No encuentro mi oficina» o
+            // su zona no tenía oficinas en la lista. Sin ella no se crea la guía.
+            // Solo antes de despachar: lo ya enviado no se toca.
+            if ($this->shipping_agency === 'Shalom' && self::hasAgencyOffice() && empty($this->agency_office_id)
+                && !in_array($this->status, self::LABEL_LOCKED_STATUSES, true)
+                && $this->created_at && $this->created_at->gte('2026-10-28')) {
+                $faltan[] = 'oficina de Shalom (elígela en el envío)';
+            }
         }
 
         // Cliente empresa: la agencia no le entrega a un RUC, necesita una

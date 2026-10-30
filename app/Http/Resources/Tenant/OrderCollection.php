@@ -764,7 +764,12 @@ class OrderCollection extends ResourceCollection
      */
     protected static function shalomFlags($s): ?array
     {
-        if ($s->shipping_agency !== 'Shalom') {
+        // Solo envíos por agencia Shalom. Un envío que pasó de Shalom a
+        // motorizado o recojo conserva la agencia escrita (cambiar la
+        // modalidad no la borra) y ofrecía «Crear guía en Shalom»; si ya
+        // tenía guía, el panel sigue para poder verla o quitarla.
+        $tieneGuia = !empty($s->tracking_code) || !empty(($s->carrier_events ?? [])['ose_id']);
+        if ($s->shipping_agency !== 'Shalom' || ($s->delivery_type !== 'agencia' && !$tieneGuia)) {
             return null;
         }
         static $tienda = null;

@@ -183,15 +183,22 @@ class ShipmentController extends Controller
             $existing->refresh();
         }
 
+        // Qué había antes, para que la bitácora diga QUÉ cambió (la oficina de
+        // Shalom sobre todo: sin esto no se sabía si el cliente no la eligió).
+        $vigilados = ['shipping_agency', 'agency_office_name', 'district_id', 'shipping_destination', 'full_name', 'phone', 'dni', 'reference'];
+        $antes = $existing ? $existing->only($vigilados) : [];
+
         $shipment = $linker->ensure($order, $data);
 
         if ($existing) {
+            $despues = $shipment->fresh()->only($vigilados);
+            $cambios = collect($vigilados)->filter(fn ($k) => (string) ($antes[$k] ?? '') !== (string) ($despues[$k] ?? ''))->values();
             ShippingAuditLog::log(
                 ShippingAuditLog::ACTION_EDIT,
                 $shipment->id,
-                null,
-                null,
-                null,
+                $cambios->count() === 1 ? $cambios->first() : ($cambios->count() ? 'varios' : null),
+                $cambios->count() ? $cambios->map(fn ($k) => $k . ': ' . ($antes[$k] ?? '—'))->implode(' · ') : null,
+                $cambios->count() ? $cambios->map(fn ($k) => $k . ': ' . ($despues[$k] ?? '—'))->implode(' · ') : null,
                 'Datos de envío actualizados desde el pedido #' . $linker->orderCode($order)
             );
         }
