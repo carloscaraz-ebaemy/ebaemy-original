@@ -246,9 +246,17 @@ class ShalomTracking
             'confirmed'      => $conf,
             'diff'           => $conf && $cot !== null ? round($sh - $cot, 2) : null,
             'pay_on_pickup'  => stripos((string) ($ce['pay_type'] ?? ''), 'contra') !== false,
-            'content_quoted' => isset($ce['content']) ? ucfirst(mb_strtolower(str_replace('PAQUETE ', 'Paquete ', (string) $ce['content']))) : null,
-            'content_shalom' => !empty($ce['shalom_content']) ? ucfirst(mb_strtolower((string) $ce['shalom_content'])) : null,
+            'content_quoted' => isset($ce['content']) ? self::tamano((string) $ce['content']) : null,
+            'content_shalom' => !empty($ce['shalom_content']) ? self::tamano((string) $ce['shalom_content']) : null,
         ];
+    }
+
+    /** «1 MINI PAQUETERIA XS» → «1 Mini paqueteria XS»: legible y con la talla en mayúsculas. */
+    private static function tamano(string $t): string
+    {
+        $t = ucfirst(mb_strtolower(trim($t)));
+
+        return preg_replace_callback('/(xxs|xs|s|m|l|xl)/i', fn ($m) => mb_strtoupper($m[1]), $t);
     }
 
     /** El estado nunca vuelve atrás: un dato atrasado no deshace «entregado». */
