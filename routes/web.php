@@ -489,6 +489,8 @@ if ($hostname) {
             });
 
             Route::get('orders/records', 'Tenant\OrderController@records');
+            // Ventas por día y por origen (tienda, marketplace, registro).
+            Route::get('orders/ventas', 'Tenant\OrderSalesController@summary');
             // CSV del listado FILTRADO. Mismo patron que shipments.export.
             Route::get('orders/export', 'Tenant\OrderController@export')->name('orders.export');
             Route::get('orders/record/{order}', 'Tenant\OrderController@record');

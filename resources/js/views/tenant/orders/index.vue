@@ -33,6 +33,9 @@
                  cargaba con siete controles. Lo que no se usa en cada consulta
                  —ajustes de la tienda y la descarga— sube aqui. -->
             <div class="right-wrapper pull-right ord-head-actions">
+                <button class="ord-head-btn" title="Cuánto se cobra por día: tienda, marketplace y registro" @click="showVentas = true">
+                    <i class="fas fa-chart-line"></i> Ventas
+                </button>
                 <!-- Las cuatro pantallas de apoyo del envio. Estaban
                      repartidas entre tres entradas del menu lateral y este
                      boton; ahora entran todas por aqui, que es desde donde se
@@ -1528,6 +1531,7 @@
         ></store-shipping-settings>
 
         <!-- Guía de Shalom creada por API (plan con instancias). -->
+        <sales-summary :showDialog.sync="showVentas"></sales-summary>
         <shalom-guide
             :showDialog.sync="showShalomDialog"
             :orderId="shalomOrderId"
@@ -3876,6 +3880,7 @@ import ManualOrder from "./partials/manual_order.vue";
 import OrderDetail from "./partials/order_detail.vue";
 import ShipmentGuide from "./partials/shipment_guide.vue";
 import ShalomGuide from "./partials/shalom_guide.vue";
+import SalesSummary from "./partials/sales_summary.vue";
 import PrintDialog from "./partials/print_dialog.vue";
 import StoreShippingSettings from "../../../components/StoreShippingSettings.vue";
 import BillingType from "./partials/billing_type.vue";
@@ -3903,6 +3908,7 @@ export default {
     },
 
     components: {
+        SalesSummary,
         ShipmentGuide,
         ShalomGuide,
         PrintDialog,
@@ -4080,6 +4086,7 @@ export default {
             shalomOrderId: null,
             // Claves de recojo que el operador destapó (por pedido).
             clavesVisibles: {},
+            showVentas: false,
             shalomShipmentId: null,
             shalomInfo: null,
             shalomBultos: 1,
