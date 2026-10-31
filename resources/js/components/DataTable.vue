@@ -217,7 +217,9 @@
                     <div v-if="records.length > 0">
                         <el-pagination
                             @current-change="getRecords"
-                            layout="total, prev, pager, next"
+                            @size-change="cambiarTamano"
+                            :layout="pageSizes ? 'total, sizes, prev, pager, next' : 'total, prev, pager, next'"
+                            :page-sizes="pageSizes || [10]"
                             :total="pagination.total"
                             :current-page.sync="pagination.current_page"
                             :page-size="pagination.per_page"
@@ -300,6 +302,11 @@ import queryString from "query-string";
 
 export default {
     props: {
+        // Filas por página a elegir (p. ej. [10, 25, 50, 100, 200]). Solo las
+        // pantallas cuyo servidor acepta `per_page` lo activan; la elección
+        // se recuerda en este equipo con `pageSizeKey`.
+        pageSizes: { type: Array, default: null },
+        pageSizeKey: { type: String, default: null },
         productType: {
             type: String,
             required: false,
@@ -360,6 +367,7 @@ export default {
     },
     data() {
         return {
+            tamano: null,
             search: {
                 column: null,
                 value: null,
@@ -612,6 +620,7 @@ export default {
             }
             return queryString.stringify({
                 page: this.pagination.current_page,
+                per_page: this.pageSizes ? this.filasPorPagina() : undefined,
                 limit: this.limit,
                 isPharmacy:this.fromPharmacy,
                 isRestaurant:this.fromRestaurant,
@@ -626,6 +635,18 @@ export default {
         },
         changeClearInput() {
             this.search.value = "";
+            this.getRecords();
+        },
+        filasPorPagina() {
+            if (this.tamano) return this.tamano;
+            let guardado = null;
+            try { guardado = this.pageSizeKey ? parseInt(localStorage.getItem(this.pageSizeKey), 10) : null; } catch (e) {}
+            return this.pageSizes.indexOf(guardado) !== -1 ? guardado : null;
+        },
+        cambiarTamano(n) {
+            this.tamano = n;
+            try { if (this.pageSizeKey) localStorage.setItem(this.pageSizeKey, String(n)); } catch (e) {}
+            this.pagination.current_page = 1;
             this.getRecords();
         },
         getSearch() {

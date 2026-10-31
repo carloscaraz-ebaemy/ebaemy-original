@@ -451,6 +451,15 @@
                         Vencidos <b>{{ chipCounts.vencidos }}</b>
                     </button>
                     <button
+                        v-if="chipCounts.espera"
+                        class="ord-prio-btn is-hold"
+                        :class="{ 'is-on': agingFilter === 'espera' }"
+                        title="En espera o con el despacho postergado: no cuentan como vencidos y van al final de la lista"
+                        @click="verAntiguedad('espera')"
+                    >
+                        En espera <b>{{ chipCounts.espera }}</b>
+                    </button>
+                    <button
                         v-if="agingFilter"
                         class="ord-prio-clear"
                         @click="agingFilter = ''; applyLogisticFilters()"
@@ -625,6 +634,8 @@
                 <data-table
                     ref="ordersTable"
                     :resource="resource"
+                    :page-sizes="[10, 25, 50, 100, 200]"
+                    page-size-key="orders_per_page"
                     @records-changed="onRecordsChanged"
                 >
                     <tr slot="heading" width="100%">
@@ -2741,6 +2752,7 @@
 }
 .ord-prio-btn.is-warn { color: #92400e; border-color: #fde68a; background: #fffbeb; }
 .ord-prio-btn.is-bad  { color: #b91c1c; border-color: #fecaca; background: #fef2f2; }
+.ord-prio-btn.is-hold { color: #6d28d9; border-color: #ddd6fe; background: #f5f3ff; }
 .ord-prio-btn.is-on {
     border-color: #4f46e5;
     background: #eef2ff;
@@ -4029,6 +4041,7 @@ export default {
                 { value: "", label: "Cualquier antigüedad" },
                 { value: "urgentes", label: "Urgentes" },
                 { value: "vencidos", label: "Vencidos" },
+                { value: "espera", label: "En espera o postergados" },
             ],
             // Ruta lineal del pedido para el stepper (Cancelado=5 va aparte).
             statusSteps: [

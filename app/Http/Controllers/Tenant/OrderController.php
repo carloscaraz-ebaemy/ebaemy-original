@@ -141,8 +141,12 @@ class OrderController extends Controller
     public function records(Request $request)
     {
         $query = $this->buildOrdersQuery($request);
+        // Filas por página elegidas en la tabla; fuera de la lista, la de siempre.
+        $porPagina = in_array((int) $request->input('per_page'), [10, 25, 50, 100, 200], true)
+            ? (int) $request->input('per_page')
+            : config('tenant.items_per_page');
 
-        return new OrderCollection($query->paginate(config('tenant.items_per_page')));
+        return new OrderCollection($query->paginate($porPagina));
     }
 
     /**
@@ -319,7 +323,9 @@ class OrderController extends Controller
             ]);
         }
 
-        $porPagina = (int) config('tenant.items_per_page');
+        $porPagina = in_array((int) $request->input('per_page'), [10, 25, 50, 100, 200], true)
+            ? (int) $request->input('per_page')
+            : (int) config('tenant.items_per_page');
         $porPagina = $porPagina > 0 ? $porPagina : 20;
 
         return response()->json([
@@ -519,7 +525,7 @@ class OrderController extends Controller
      * solicitud de cambio de destino: con muchas ventas, al fondo de la lista
      * nadie los veía (ShalomGuideChanges::requestWhenArrives).
      */
-    private function pinShalomAlerts($query): void
+    private function pinShalomAlerts($query, bool $porDefecto = true): void
     {
         static $ok = null;
         $ok ??= ShippingRequest::moduleInstalled()
@@ -527,6 +533,16 @@ class OrderController extends Controller
         if ($ok) {
             $query->orderByRaw("EXISTS (SELECT 1 FROM shipping_requests sr WHERE sr.order_id = orders.id"
                 . " AND sr.carrier_status = 'destino' AND sr.carrier_events LIKE '%pending_destino%') DESC");
+        }
+        // En espera / postergados: DESPUÉS de los que hay que atender y ANTES
+        // de los ya atendidos (enviado 4, anulado 5, entregado 6). Mezclados
+        // tapaban lo que sí se despacha; al fondo de todo no se veían nunca.
+        static $hold = null;
+        $hold ??= ShippingRequest::hasHoldColumns();
+        if ($hold && $porDefecto) {
+            $query->orderByRaw("CASE WHEN orders.status_order_id IN (4, 5, 6) THEN 2"
+                . " WHEN EXISTS (SELECT 1 FROM shipping_requests sh WHERE sh.order_id = orders.id"
+                . " AND sh.on_hold_since IS NOT NULL AND sh.cancelled_at IS NULL) THEN 1 ELSE 0 END ASC");
         }
     }
 
@@ -536,7 +552,7 @@ class OrderController extends Controller
         $dir   = strtolower((string) $request->input('orden_dir', 'desc')) === 'asc' ? 'asc' : 'desc';
 
         $query->reorder();
-        $this->pinShalomAlerts($query);
+        $this->pinShalomAlerts($query, !array_key_exists($clave, self::ORDENES));
 
         if (!array_key_exists($clave, self::ORDENES)) {
             // El de siempre: lo mas reciente arriba.
@@ -842,7 +858,9 @@ class OrderController extends Controller
         // con la MISMA primitiva que pinta el semáforo, para que el filtro y el
         // badge no se desalineen (fines de semana y feriados incluidos).
         $aging = $request->input('aging');
-        if (in_array($aging, ['urgentes', 'vencidos'], true)) {
+        if ($aging === 'espera') {
+            $this->soloEnEspera($query);
+        } elseif (in_array($aging, ['urgentes', 'vencidos'], true)) {
             $setting = ShippingSetting::currentOrNull();
 
             $this->applyAging($query, $aging, $setting);
@@ -904,6 +922,16 @@ class OrderController extends Controller
         $this->whereShipment($query, fn($s) => $s
             ->agedBefore($cutoff)
             ->whereNotIn('status', ShippingRequest::CLOSED_STATUSES));
+    }
+
+    /** En espera o postergados (el reloj de días hábiles está detenido). */
+    private function soloEnEspera($query)
+    {
+        if (!ShippingRequest::hasHoldColumns()) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $this->whereShipment($query, fn ($s) => $s->whereNotNull('on_hold_since'));
     }
 
     private function whereShipment($query, callable $constraint)
@@ -1115,6 +1143,7 @@ class OrderController extends Controller
             // `applyAging`— y no con una copia.
             'urgentes'      => $this->contarPorAntiguedad($base, 'urgentes'),
             'vencidos'      => $this->contarPorAntiguedad($base, 'vencidos'),
+            'espera'        => $this->soloEnEspera((clone $base)->reorder())->count(),
             'nuevos'        => ShippingRequest::moduleInstalled()
                 ? (clone $base)->whereHas('shipments', fn($s) => $s
                     ->vigente()
