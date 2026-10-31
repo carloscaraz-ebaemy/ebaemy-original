@@ -402,6 +402,9 @@ if ($hostname) {
                  ->whereNumber('order')->name('orders.billing_type');
             // Emitir la nota de venta a mano. Hasta ahora solo se generaba sola
             // en tres flujos y no habia puerta para el resto de pedidos.
+            // Venta con productos escritos a mano: propuesta de líneas para revisar.
+            Route::get('orders/{order}/nota-venta/preparar', 'Tenant\OrderController@prepararNotaVenta')
+                 ->whereNumber('order')->name('orders.sale_note.prepare');
             Route::post('orders/{order}/nota-venta', 'Tenant\OrderController@generarNotaVenta')
                  ->whereNumber('order')->name('orders.sale_note');
             // Verificar o rechazar un cobro. Sirve a las dos tablas de pagos

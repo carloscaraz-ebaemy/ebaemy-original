@@ -228,7 +228,28 @@ class OrderDocuments
      */
     private function tieneContenidoFacturable(): bool
     {
-        return (float) $this->order->total > 0 && count($this->lineas()) > 0;
+        return ((float) $this->order->total > 0 && count($this->lineas()) > 0)
+            || $this->esVentaEscritaAMano();
+    }
+
+    /**
+     * Venta del registro por enlace: los productos van escritos a mano en el
+     * envío y el cobro en el envío, así que el pedido queda con 0 líneas y
+     * total 0 aunque SÍ hubo venta (217 pedidos así en alasitas). Cobrado =
+     * pago verificado (status ≥ 2), sin consultar pagos fila por fila.
+     *
+     * Su nota de venta no sale en un clic: se arma revisando las líneas
+     * (OrderController::prepararNotaVenta).
+     */
+    public function esVentaEscritaAMano(): bool
+    {
+        $estado = (int) $this->order->status_order_id;
+        if (count($this->lineas()) > 0 || $estado < 2 || $estado === 5) {
+            return false;
+        }
+        $envio = $this->envio();
+
+        return $envio && !$envio->is_cancelled && trim((string) $envio->package_content) !== '';
     }
 
     /**
@@ -583,6 +604,9 @@ class OrderDocuments
             // lo que pidió al comprar y lo que el operador haya corregido. La
             // pantalla lo destaca para que el operador no tenga que deducirlo.
             'sugerido'    => !$reg && $this->esSugerido($tipo),
+            // Nota de venta de un pedido con productos escritos a mano: se
+            // emite revisando líneas y precios, no en un clic.
+            'revisar'     => !$reg && $tipo === self::NOTA_VENTA && $this->esVentaEscritaAMano(),
         ];
     }
 

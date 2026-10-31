@@ -332,19 +332,7 @@ class ShipmentDispatchPrefill
         if ($this->generico !== false) {
             return $this->generico;
         }
-        try {
-            $this->generico = Item::query()
-                ->where(function ($q) {
-                    $q->where('internal_id', 'XX-100')
-                      ->orWhereIn(\Illuminate\Support\Facades\DB::raw('LOWER(TRIM(description))'),
-                                  ['productos varios', 'producto variado', 'productos variados', 'varios', 'producto varios']);
-                })
-                ->where('active', true)
-                ->orderByRaw("internal_id = 'XX-100' DESC")
-                ->first();
-        } catch (\Throwable $e) {
-            $this->generico = null;
-        }
+        $this->generico = ProductoVarios::buscar();
 
         return $this->generico;
     }

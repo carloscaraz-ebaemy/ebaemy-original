@@ -207,7 +207,7 @@ class DocumentInput
                     'item_id' => $item->id,
                     'item' => [
                         'description' => trim($item->description),
-                        'description' => trim($item->description == 'REPLACE DESCRIPTION' || $item->barcode == 'VARIOUS_ITEM' ? $row['item']['description'] : trim($item->description)),
+                        'description' => trim(\App\Services\Tenant\ProductoVarios::es($item) && !empty($row['item']['description']) ? $row['item']['description'] : trim($item->description)),
                         'item_type_id' => $item->item_type_id,
                         'internal_id' => $item->barcode == 'VARIOUS_ITEM' ? null : $item->internal_id,
                         'item_code' => trim($item->item_code),

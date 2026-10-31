@@ -2565,6 +2565,124 @@ class OrderController extends Controller
      * conocer esa arqueologia.
      */
     /**
+     * Arma la nota de venta de un pedido con los productos escritos a mano.
+     *
+     * Las ventas del enlace de registro no tienen líneas en el pedido: los
+     * productos van como texto en el envío y el cobro también. No se emite a
+     * ciegas porque el texto no trae precios; se devuelve una propuesta para
+     * que el operador la revise: cada línea con su producto del catálogo o,
+     * si no está, como «PRODUCTOS VARIOS» con la descripción del pedido.
+     *
+     * El envío NO entra (decisión del dueño): el importe sugerido es lo
+     * cobrado menos la tarifa del envío.
+     */
+    public function prepararNotaVenta(Order $order)
+    {
+        $order->loadMissing(['sale_note', 'sale_note.documents', 'shipment']);
+        $docs = OrderDocuments::for($order);
+
+        if (!$docs->esVentaEscritaAMano()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Este pedido no tiene productos escritos en el envío para revisar.',
+            ], 422);
+        }
+
+        $envio = $order->shipment;
+        $prefill = new \App\Services\Tenant\ShipmentDispatchPrefill();
+        $lineas = collect($prefill->items($envio))->map(fn ($l) => [
+            'item_id'      => $l['item_id'],
+            'description'  => $l['description'],
+            'internal_id'  => $l['item']['internal_id'] ?? null,
+            'unit_type_id' => $l['unit_type_id'],
+            'quantity'     => (float) $l['quantity'],
+            'unit_price'   => 0,
+            'sin_catalogo' => $l['sin_catalogo'],
+        ])->values();
+
+        $cobrado = (float) $envio->paid_total;
+        $aCobrar = $envio->has_amount ? (float) $envio->amount_to_collect : $cobrado;
+        $tarifa  = (float) ($envio->delivery_price ?? 0);
+        $sugerido = round(max(0, ($aCobrar > 0 ? $aCobrar : $cobrado) - $tarifa), 2);
+
+        // Con una sola línea el precio sale solo; con varias lo reparte el
+        // operador, que es quien sabe cuánto costó cada cosa.
+        if ($lineas->count() === 1 && $sugerido > 0) {
+            $l = $lineas[0];
+            $l['unit_price'] = round($sugerido / max(1, $l['quantity']), 2);
+            $lineas[0] = $l;
+        }
+
+        return response()->json([
+            'success'   => true,
+            'lineas'    => $lineas,
+            'a_cobrar'  => round($aCobrar, 2),
+            'cobrado'   => round($cobrado, 2),
+            'envio'     => round($tarifa, 2),
+            'sugerido'  => $sugerido,
+            'contenido' => $envio->package_content,
+            'avisos'    => $prefill->avisos(),
+        ]);
+    }
+
+    /**
+     * Escribe en el pedido las líneas revisadas de una venta escrita a mano.
+     * Devuelve el mensaje de error o null.
+     *
+     * Quedan en `orders.items` con el mismo formato que las del checkout, así
+     * la nota de venta sale por `OrderToSaleNoteService` como cualquier otra y
+     * el pedido deja de figurar con total 0.
+     */
+    private function guardarLineasRevisadas(Order $order, $lineas): ?string
+    {
+        if (!is_array($lineas) || !count($lineas)) {
+            return 'Revisa los productos y sus precios antes de emitir: el pedido no tiene líneas.';
+        }
+
+        $items = [];
+        $total = 0.0;
+        foreach ($lineas as $i => $l) {
+            $item = Item::find($l['item_id'] ?? null);
+            $qty = (float) ($l['quantity'] ?? 0);
+            $precio = round((float) ($l['unit_price'] ?? 0), 2);
+            $n = $i + 1;
+
+            if (!$item) {
+                return "La línea {$n} no tiene un producto del catálogo.";
+            }
+            if ($qty <= 0 || $precio <= 0) {
+                return "La línea {$n} necesita cantidad y precio mayores que cero.";
+            }
+
+            $texto = trim((string) ($l['description'] ?? ''));
+            $descripcion = \App\Services\Tenant\ProductoVarios::es($item) && $texto !== ''
+                ? mb_substr($texto, 0, 250)
+                : $item->description;
+
+            $items[] = [
+                'id'              => $item->id,
+                'item_id'         => $item->id,
+                'description'     => $descripcion,
+                'name'            => $descripcion,
+                'internal_id'     => $item->internal_id,
+                'unit_type_id'    => $item->unit_type_id ?: 'NIU',
+                'quantity'        => $qty,
+                'unit_price'      => $precio,
+                'sale_unit_price' => $precio,
+                'total'           => round($qty * $precio, 2),
+                'from_shipment'   => true,
+            ];
+            $total += $qty * $precio;
+        }
+
+        $order->items = $items;
+        $order->total = round($total, 2);
+        $order->save();
+
+        return null;
+    }
+
+    /**
      * Emite la nota de venta del pedido a mano.
      *
      * La NV ya se generaba sola en tres sitios (checkout en efectivo, captura de
@@ -2578,7 +2696,7 @@ class OrderController extends Controller
      * único sitio que sabe armar la NV (ítems con IGV, descuentos, pagos, serie
      * y correlativo) y ya es idempotente con `lockForUpdate`.
      */
-    public function generarNotaVenta(Order $order)
+    public function generarNotaVenta(Request $request, Order $order)
     {
         $docs = OrderDocuments::for($order->loadMissing([
             'sale_note', 'sale_note.documents', 'shipment',
@@ -2624,7 +2742,23 @@ class OrderController extends Controller
             ], 422);
         }
 
+        // Venta escrita a mano: las líneas llegan revisadas desde el diálogo y
+        // se guardan en el pedido antes de emitir. Todo o nada: si la nota no
+        // sale, el pedido vuelve a quedar como estaba.
+        $revisada = $docs->esVentaEscritaAMano();
+        if ($revisada) {
+            DB::connection('tenant')->beginTransaction();
+            if ($error = $this->guardarLineasRevisadas($order, $request->input('lineas'))) {
+                DB::connection('tenant')->rollBack();
+                return response()->json(['success' => false, 'message' => $error], 422);
+            }
+        }
+
         $nota = app(\App\Services\Tenant\OrderToSaleNoteService::class)->generate($order);
+
+        if ($revisada) {
+            $nota ? DB::connection('tenant')->commit() : DB::connection('tenant')->rollBack();
+        }
 
         if (!$nota) {
             return response()->json([

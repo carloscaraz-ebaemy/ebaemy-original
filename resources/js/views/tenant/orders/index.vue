@@ -1609,6 +1609,14 @@
             @saved="refrescarTrasEnvio"
         ></billing-type>
 
+        <!-- Nota de venta de un pedido con los productos escritos en el envío:
+             se revisan líneas y precios antes de emitir. -->
+        <nota-venta-revision
+            :showDialog.sync="showNvRevision"
+            :row="nvRevisionRow"
+            @emitted="refrescarTrasEnvio"
+        ></nota-venta-revision>
+
         <!-- Emitir boleta o factura. Es EL MISMO componente de Notas de Venta,
              reutilizado tal cual: lee todo de `/sale-notes/...` y postea a
              `/documents`. Por eso el pedido necesita su nota de venta primero. -->
@@ -3959,6 +3967,7 @@ import SalesSummary from "./partials/sales_summary.vue";
 import PrintDialog from "./partials/print_dialog.vue";
 import StoreShippingSettings from "../../../components/StoreShippingSettings.vue";
 import BillingType from "./partials/billing_type.vue";
+import NotaVentaRevision from "./partials/nota_venta_revision.vue";
 import SaleNoteGenerate from "../sale_notes/partials/option_documents.vue";
 import DocumentsPanel from "./partials/documents_panel.vue";
 import OrderDrawer from "./partials/order_drawer.vue";
@@ -3989,6 +3998,7 @@ export default {
         PrintDialog,
         StoreShippingSettings,
         BillingType,
+        NotaVentaRevision,
         SaleNoteGenerate,
         DocumentsPanel,
         OrderDrawer,
@@ -4261,6 +4271,8 @@ export default {
             showCpeDialog: false,
             cpeSaleNoteId: null,
             showBillingDialog: false,
+            showNvRevision: false,
+            nvRevisionRow: null,
             billingOrderId: null,
             billingData: null,
             // null = alta; con id, el mismo dialogo edita ese pedido.
@@ -5649,6 +5661,12 @@ export default {
         },
 
         emitirNotaVenta(row) {
+            const nv = (row.documents || {}).nota_venta;
+            if (nv && nv.revisar) {
+                this.nvRevisionRow = row;
+                this.showNvRevision = true;
+                return;
+            }
             this.$confirm(
                 "Se emitira la nota de venta del pedido " +
                     row.order_id +
