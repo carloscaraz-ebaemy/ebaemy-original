@@ -88,6 +88,8 @@
                                 <div class="shg-o"><b>{{ o.name }}</b><small>{{ o.place }}</small></div>
                             </el-option>
                         </el-select>
+                        <small v-if="oficinaElegida" class="shg-sub">{{ oficinaElegida.address }}</small>
+                        <small v-else class="shg-sub">Escribe la ciudad y, si quieres, el distrito. Ej.: «Piura Castilla».</small>
                     </div>
                     <template v-else>
                         <div class="shg-field">
@@ -269,6 +271,9 @@ export default {
         aereo() {
             return !!this.sh.air;
         },
+        oficinaElegida() {
+            return this.oficinas.find(o => o.id === this.f.destino) || null;
+        },
         estadoTxt() {
             return ESTADOS[this.sh.status] || this.sh.status;
         },
@@ -322,7 +327,7 @@ export default {
             if (!q || q.length < 2) return;
             this.buscando = true;
             this.$http
-                .get("/store-shipping/shalom-offices", { params: { q } })
+                .get("/store-shipping/shalom-offices", { params: { q, destino: 1 } })
                 .then(r => { this.oficinas = Array.isArray(r.data) ? r.data : []; })
                 .catch(() => { this.oficinas = []; })
                 .then(() => { this.buscando = false; });

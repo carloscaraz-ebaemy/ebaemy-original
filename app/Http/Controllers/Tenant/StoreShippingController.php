@@ -49,28 +49,59 @@ class StoreShippingController extends Controller
     public function shalomOffices(Request $request)
     {
         $q = trim((string) $request->query('q', ''));
+        $tokens = array_values(array_filter(preg_split('/[\s,\/]+/', $q), fn ($t) => mb_strlen($t) >= 2));
         try {
+            // Cada palabra tiene que estar en la ciudad, el distrito o el nombre
+            // de la oficina. La dirección ya no cuenta: «piura» traía primero
+            // una oficina de Cusco cuya dirección decía «Jr. Piura».
+            // Como destino solo sirven las que reciben envíos; como origen, todas.
             $rows = \App\Models\System\ShalomAgency::where('listed', true)
-                ->when($q !== '', function ($w) use ($q) {
-                    foreach (preg_split('/\s+/', $q) as $t) {
+                ->when($request->boolean('destino'), fn ($w) => $w->where('receives', true))
+                ->when($tokens, function ($w) use ($tokens) {
+                    foreach ($tokens as $t) {
                         $w->where(function ($x) use ($t) {
-                            $x->where('name', 'like', "%{$t}%")->orWhere('full_name', 'like', "%{$t}%")
-                              ->orWhere('address', 'like', "%{$t}%");
+                            foreach (['name', 'full_name', 'department', 'province', 'zone'] as $col) {
+                                $x->orWhere($col, 'like', "%{$t}%");
+                            }
                         });
                     }
                 })
-                ->orderBy('department')->orderBy('province')->orderBy('name')
-                ->limit(40)->get();
+                ->limit(300)->get();
         } catch (\Throwable $e) {
             return [];
         }
 
-        return $rows->map(fn ($a) => [
-            'id'      => $a->ter_id,
-            'name'    => $a->name,
-            'place'   => trim($a->province . ', ' . $a->department, ', '),
-            'address' => $a->address,
-        ])->values();
+        // Primero lo que coincide con la ciudad o el distrito, después por nombre.
+        $norm = fn ($s) => mb_strtolower(\Illuminate\Support\Str::ascii((string) $s));
+        $puntos = function ($a) use ($tokens, $norm) {
+            $p = 0;
+            foreach ($tokens as $t) {
+                $t = $norm($t);
+                foreach (['province' => 8, 'zone' => 6, 'department' => 4, 'name' => 3] as $col => $peso) {
+                    $v = $norm($a->{$col});
+                    if ($v === $t) $p += $peso * 2;
+                    elseif (str_starts_with($v, $t)) $p += $peso;
+                    elseif (str_contains($v, $t)) $p += 1;
+                }
+            }
+            return $p;
+        };
+
+        return $rows->sortBy([
+                fn ($a, $b) => $puntos($b) <=> $puntos($a),
+                fn ($a, $b) => [$a->department, $a->province, $a->zone, $a->name] <=> [$b->department, $b->province, $b->zone, $b->name],
+            ])
+            ->take(60)
+            ->map(fn ($a) => [
+                'id'      => $a->ter_id,
+                'name'    => $a->name,
+                // Con el distrito: en Piura hay 31 oficinas y por la calle no se distinguen.
+                'place'   => implode(' · ', array_filter([
+                    $a->zone && $a->zone !== $a->province ? $a->zone : null,
+                    trim($a->province . ', ' . $a->department, ', '),
+                ])),
+                'address' => $a->address,
+            ])->values();
     }
 
     /** «Así lo verá el comprador» con los datos del formulario, sin guardar. */
