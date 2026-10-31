@@ -234,8 +234,10 @@ class ShalomGuideChanges
             $ce['rerouted_at'] = now()->format('Y-m-d H:i');
             $s->forceFill(['carrier_events' => $ce, 'carrier_status' => 'transito'])->saveQuietly();
             ShippingAuditLog::log(ShippingAuditLog::ACTION_EDIT, $s->id, 'agency_office_id', $antes, $office->name ?? $pend['destino'], 'Oficina de destino cambiada en Shalom');
+            $nueva = $this->adoptarGuiaNueva($s);
 
-            return 'Listo: Shalom llevará el paquete a la oficina ' . ($office->name ?? $pend['destino']) . '.';
+            return 'Listo: Shalom llevará el paquete a la oficina ' . ($office->name ?? $pend['destino']) . '.'
+                . ($nueva ? " Nueva guía: {$nueva}." : '');
         }
 
         $antes = $s->pickup_person_dni;
@@ -246,6 +248,57 @@ class ShalomGuideChanges
         ShippingAuditLog::log(ShippingAuditLog::ACTION_EDIT, $s->id, 'pickup_person_dni', $antes, $pend['destinatario'], 'Quien recoge cambiado en Shalom');
 
         return 'Listo: ahora puede recoger el paquete la persona con documento ' . $pend['destinatario'] . '.';
+    }
+
+    /**
+     * Un cambio de destino CIERRA la guía original en Shalom (la marca
+     * «entregada» a la hora del cambio) y el tramo nuevo viaja con OTRA guía.
+     * Seguir mirando la vieja daba el paquete por entregado (alasitas,
+     * 101957624 → 102043534, 2026-10-31). Se toma la guía nueva del historial
+     * de autogestiones y la anterior queda guardada. Devuelve el número nuevo.
+     */
+    public function adoptarGuiaNueva(ShippingRequest $s): ?string
+    {
+        try {
+            $r = $this->api->selfManagementHistory($this->instance(), (string) $s->tracking_number);
+        } catch (\Throwable $e) {
+            return null;
+        }
+        $cambio = collect($r['data'] ?? [])
+            ->filter(fn ($x) => ($x['autogestion'] ?? '') === 'cambio_destino' && !empty($x['guia_nueva']['ose_nroguiacliente']))
+            ->sortByDesc('fecha_autogestion')->first();
+        if (!$cambio) {
+            return null;
+        }
+        $nueva = (string) $cambio['guia_nueva']['ose_nroguiacliente'];
+        $codigo = (string) ($cambio['guia_nueva']['ose_codigo'] ?? '');
+        if ($nueva === (string) $s->tracking_number) {
+            return null;
+        }
+        $ce = $s->carrier_events ?? [];
+        $ce['guias_anteriores'] = array_values(array_merge($ce['guias_anteriores'] ?? [], [[
+            'guia' => $s->tracking_number, 'codigo' => $s->tracking_code, 'ose_id' => $ce['ose_id'] ?? null,
+            'hasta' => $cambio['guia_nueva']['ose_fhemision'] ?? now()->toDateTimeString(),
+        ]]));
+        $ce['ose_id'] = $cambio['ose_id_new'] ?? null;
+        $ce['dest'] = $cambio['guia_nueva']['terminal'] ?? ($ce['dest'] ?? null);
+        if (is_numeric($cambio['flete'] ?? null) && (float) $cambio['flete'] > 0) {
+            $ce['reroute_flete'] = round((float) $cambio['flete'], 2);
+        }
+        unset($ce['events'], $ce['rerouted_at']);   // la guía nueva trae su propio recorrido
+        $antes = $s->tracking_number;
+        $s->forceFill([
+            'tracking_number' => $nueva,
+            'tracking_code'   => $codigo !== '' ? $codigo : $s->tracking_code,
+            'carrier_status'  => 'registrado',
+            'carrier_events'  => $ce,
+        ])->saveQuietly();
+        ShippingAuditLog::log(ShippingAuditLog::ACTION_EDIT, $s->id, 'tracking_number', $antes, $nueva,
+            'Guía nueva de Shalom por el cambio de destino' . (isset($ce['reroute_flete']) ? ' (flete del reenvío S/ ' . number_format($ce['reroute_flete'], 2) . ')' : ''));
+        rescue(fn () => app(ShalomTracking::class)->watch($s->fresh()), null, false);
+        rescue(fn () => app(ShalomTracking::class)->refresh($s->fresh()), null, false);
+
+        return $nueva;
     }
 
     private function assertManageable(ShippingRequest $s): void

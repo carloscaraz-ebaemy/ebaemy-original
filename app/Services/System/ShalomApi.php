@@ -241,6 +241,14 @@ class ShalomApi
         ], null, 30);
     }
 
+    /** GET /shipments/self-management — autogestiones hechas sobre una guía (trae la guía nueva de un cambio de destino). */
+    public function selfManagementHistory(string $instanceId, string $guia): array
+    {
+        $this->assertInstances();
+
+        return $this->send('get', '/shipments/self-management', ['instanceId' => $instanceId, 'guia' => $guia, 'per_page' => 20], null, 30);
+    }
+
     /** POST /account/pending-shipments — envíos pendientes de la cuenta (espejo). */
     public function pendingShipments(string $instanceId): array
     {
