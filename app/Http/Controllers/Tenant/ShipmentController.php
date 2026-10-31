@@ -1109,7 +1109,14 @@ class ShipmentController extends Controller
      */
     public function toggleHold(Request $request, ShippingRequest $shipment): \Illuminate\Http\JsonResponse
     {
-        $data = $request->validate(['hold' => 'required|boolean']);
+        $data = $request->validate([
+            'hold'      => 'required|boolean',
+            // Postergar: ya rotulado y pagado, pero se despacha más adelante
+            // (pedido 496: «de aquí a 15 días»). El reloj se detiene igual.
+            'postergar' => 'nullable|boolean',
+            'motivo'    => 'nullable|string|max:200',
+        ]);
+        $postergar = !empty($data['postergar']);
         if (!ShippingRequest::hasHoldColumns()) {
             return response()->json(['success' => false, 'message' => 'Esta tienda todavía no tiene activada la espera de pedidos.']);
         }
@@ -1120,13 +1127,19 @@ class ShipmentController extends Controller
             if (in_array($shipment->status, ShippingRequest::LABEL_LOCKED_STATUSES, true)) {
                 return response()->json(['success' => false, 'message' => 'El pedido ya salió de la tienda: no se puede poner en espera.']);
             }
-            if ((int) $shipment->print_count > 0) {
-                return response()->json(['success' => false, 'message' => 'Su rótulo ya se imprimió: ya no se pueden agregar productos.']);
+            if ((int) $shipment->print_count > 0 && !$postergar) {
+                return response()->json(['success' => false, 'message' => 'Su rótulo ya se imprimió: ya no se pueden agregar productos. Usa «Postergar despacho».']);
             }
             $shipment->forceFill(['on_hold_since' => now()])->save();
-            ShippingAuditLog::log(ShippingAuditLog::ACTION_EDIT, $shipment->id, 'on_hold_since', null, now()->toDateTimeString(), 'En espera: el cliente sigue agregando productos');
+            $motivo = trim((string) ($data['motivo'] ?? ''));
+            ShippingAuditLog::log(ShippingAuditLog::ACTION_EDIT, $shipment->id, 'on_hold_since', null, now()->toDateTimeString(),
+                $postergar
+                    ? 'Despacho postergado hasta nuevo aviso' . ($motivo !== '' ? ': ' . $motivo : '')
+                    : 'En espera: el cliente sigue agregando productos');
 
-            return response()->json(['success' => true, 'message' => 'Pedido en espera: los días hábiles no corren mientras el cliente siga agregando productos.']);
+            return response()->json(['success' => true, 'message' => $postergar
+                ? 'Despacho postergado: los días hábiles no corren hasta que lo reanudes.'
+                : 'Pedido en espera: los días hábiles no corren mientras el cliente siga agregando productos.']);
         }
 
         if (!$shipment->isOnHold()) {
@@ -1134,10 +1147,13 @@ class ShipmentController extends Controller
         }
         $desde = $shipment->on_hold_since;
         $shipment->forceFill(['on_hold_since' => null, 'aging_from' => now()])->save();
+        $dias = $desde ? $desde->diffInDays(now()) : 0;
+        $rotulado = (int) $shipment->print_count > 0;
         ShippingAuditLog::log(ShippingAuditLog::ACTION_EDIT, $shipment->id, 'on_hold_since', optional($desde)->toDateTimeString(), null,
-            'Listo para enviar: el cliente ya no agrega más (estuvo ' . ($desde ? $desde->diffInDays(now()) : 0) . ' día(s) en espera)');
+            ($rotulado ? 'Despacho reanudado' : 'Listo para enviar: el cliente ya no agrega más') . " (estuvo {$dias} día(s) en espera)");
 
-        return response()->json(['success' => true, 'message' => 'Listo para enviar: los días hábiles empiezan a contar desde hoy.']);
+        return response()->json(['success' => true, 'message' => ($rotulado ? 'Despacho reanudado' : 'Listo para enviar')
+            . ': los días hábiles empiezan a contar desde hoy.']);
     }
 
     /** Nueva clave de recojo de la guía de Shalom (un solo paso, sin código). */

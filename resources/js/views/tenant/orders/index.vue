@@ -1331,12 +1331,22 @@
                                         <i class="el-icon-time"></i>
                                         Acumular productos (en espera)
                                     </el-dropdown-item>
+                                    <!-- Ya rotulado y pagado, pero se despacha más adelante:
+                                         se posterga y el reloj se detiene igual. -->
+                                    <el-dropdown-item
+                                        v-if="row.shipment && !row.shipment.on_hold && row.shipment.printed_once
+                                              && !esAnulado(row) && !esEntregado(row) && puedeEsperar(row) && !yaSalio(row)"
+                                        command="holdPostpone"
+                                    >
+                                        <i class="el-icon-time"></i>
+                                        Postergar despacho (hasta nuevo aviso)
+                                    </el-dropdown-item>
                                     <el-dropdown-item
                                         v-if="row.shipment && row.shipment.on_hold"
                                         command="holdOff"
                                     >
                                         <i class="el-icon-circle-check"></i>
-                                        Listo para enviar
+                                        {{ row.shipment.printed_once ? "Reanudar despacho" : "Listo para enviar" }}
                                     </el-dropdown-item>
                                     <!-- Recojo en tienda: del mostrador a «entregado»
                                          en un clic (su flujo no tiene rotulo). -->
@@ -4588,6 +4598,7 @@ export default {
                 cancelAny: () => this.anular(row),
                 holdOn: () => this.cambiarEspera(row, true),
                 holdOff: () => this.cambiarEspera(row, false),
+                holdPostpone: () => this.postergarDespacho(row),
                 trackingLink: () => this.copyLink(
                     window.location.origin + "/envio/seguimiento?code=" + encodeURIComponent(row.shipment.code),
                     "Enlace de seguimiento"
@@ -6335,6 +6346,33 @@ export default {
                 .catch(e => this.trasAccionDeEnvio(e, true));
         },
 
+        /** El paquete ya salió de la tienda: nada que postergar. */
+        yaSalio(row) {
+            const st = (row.shipment && row.shipment.status) || "";
+            return ["despachado", "en_agencia", "en_ruta", "en_camino", "entregado", "listo_recojo", "anulado", "enviado"].indexOf(st) !== -1;
+        },
+
+        /**
+         * Postergar: pagado y rotulado, pero se despacha más adelante (p. ej.
+         * «de aquí a 15 días»). Los días hábiles no corren hasta reanudarlo.
+         */
+        postergarDespacho(row) {
+            this.$prompt(
+                "El pedido queda en espera hasta nuevo aviso: no cuenta como vencido. "
+                    + "Cuando toque enviarlo, usa «Reanudar despacho».",
+                "Postergar despacho",
+                {
+                    confirmButtonText: "Postergar",
+                    cancelButtonText: "Cancelar",
+                    inputPlaceholder: "Motivo (opcional). Ej.: el cliente lo pide para el 15/11",
+                    inputValidator: v => !v || v.length <= 200 || "Máximo 200 caracteres.",
+                }
+            )
+                .then(({ value }) => this.$http.post(`/orders/${row.id}/envio/espera`, { hold: true, postergar: true, motivo: value || null }))
+                .then(r => this.trasAccionDeEnvio(r, false, row.id))
+                .catch(e => { if (e !== "cancel") this.trasAccionDeEnvio(e, true); });
+        },
+
         copyShippingLink(row) {
             return this.copyLink(
                 window.location.origin + "/pedido/" + row.external_id + "/datos-envio",
@@ -7084,11 +7122,14 @@ export default {
             // detenido y lo que importa es desde cuándo.
             if (s && s.on_hold) {
                 const d = s.hold_days || 0;
+                const cuando = d === 0 ? "desde hoy" : d === 1 ? "hace 1 día" : "hace " + d + " días";
                 return {
-                    texto: "En espera · " + (d === 0 ? "desde hoy" : d === 1 ? "hace 1 día" : "hace " + d + " días"),
+                    texto: (s.printed_once ? "Postergado · " : "En espera · ") + cuando,
                     color: "#6d28d9",
-                    titulo: "El cliente sigue agregando productos: los días hábiles no corren. "
-                        + "Cuando avise que ya no pide más, márcalo «Listo para enviar».",
+                    titulo: s.printed_once
+                        ? "Despacho postergado hasta nuevo aviso: los días hábiles no corren. Cuando toque enviarlo, «Reanudar despacho»."
+                        : "El cliente sigue agregando productos: los días hábiles no corren. "
+                            + "Cuando avise que ya no pide más, márcalo «Listo para enviar».",
                     estilo: { color: "#6d28d9", background: "#ede9fe" },
                 };
             }
