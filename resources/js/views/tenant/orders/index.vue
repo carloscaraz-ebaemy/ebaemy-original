@@ -75,6 +75,10 @@
                                 :title="'Guías de Shalom creadas hace más de 2 días hábiles y no entregadas en la agencia'"
                                 >{{ shipAlerts.shalom_sin_entregar }} Shalom sin entregar</span
                             >
+                            <span v-if="shipAlerts.shalom_destino_listo" class="ord-head-badge is-bad"
+                                :title="'Paquetes de Shalom que ya llegaron y tienen un cambio de destino pendiente'"
+                                >{{ shipAlerts.shalom_destino_listo }} cambio(s) de destino listos</span
+                            >
                         </el-dropdown-item>
                         <el-dropdown-item command="lotes">
                             <i class="el-icon-tickets"></i>
@@ -1050,6 +1054,20 @@
                                     title="Se creó la guía en Shalom pero el paquete no se entregó en la agencia. Llévalo o quita la guía desde el menú ⋮."
                                 >
                                     ⚠ Guía Shalom sin entregar
+                                </div>
+                                <!-- Cambio de oficina que Shalom permite recién al llegar. -->
+                                <div
+                                    v-if="row.shipment && row.shipment.shalom && row.shipment.shalom.pending_destino"
+                                    class="ord-st-dest"
+                                    :style="{ color: row.shipment.shalom.pending_destino.ready ? '#b91c1c' : '#b45309', fontWeight: 600, cursor: 'pointer' }"
+                                    :title="row.shipment.shalom.pending_destino.ready
+                                        ? 'Ya llegó: abre la guía de Shalom y cambia la oficina de destino.'
+                                        : 'Shalom permite el cambio cuando el paquete llegue. Te avisaremos.'"
+                                    @click.stop="crearGuiaShalom(row)"
+                                >
+                                    {{ row.shipment.shalom.pending_destino.ready
+                                        ? '🔔 Llegó: cambia el destino a ' + row.shipment.shalom.pending_destino.name
+                                        : '⏳ Cambio a ' + row.shipment.shalom.pending_destino.name + ' al llegar' }}
                                 </div>
                                 <!-- Cada etapa con su color. En gris para
                                      todas, «Empacado» y «Entregado» se leian
@@ -4332,6 +4350,7 @@ export default {
             if (a.sin_guia) partes.push(a.sin_guia + " paquete(s) sin guía");
             if (a.lotes) partes.push(a.lotes + " lote(s) de impresión abierto(s)");
             if (a.shalom_sin_entregar) partes.push(a.shalom_sin_entregar + " guía(s) de Shalom sin entregar en la agencia");
+            if (a.shalom_destino_listo) partes.push(a.shalom_destino_listo + " cambio(s) de destino de Shalom listos para hacer");
 
             return partes.join(" · ");
         },

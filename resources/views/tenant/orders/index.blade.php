@@ -15,6 +15,7 @@
             $shipAlerts['lotes']    = \App\Models\Tenant\ShippingPrintBatch::open()->count();
             // Guías de Shalom creadas desde ebaemy que no se llevaron a la agencia.
             $shipAlerts['shalom_sin_entregar'] = \App\Services\Tenant\ShalomTracking::notDeliveredCount();
+            $shipAlerts['shalom_destino_listo'] = \App\Services\Tenant\ShalomGuideChanges::pendingReadyCount();
         } catch (\Throwable $e) {
             // Tenant sin el modulo: los avisos no aplican y no es un error.
         }

@@ -823,6 +823,10 @@ class OrderCollection extends ResourceCollection
             'not_delivered' => \App\Services\Tenant\ShalomTracking::notDelivered($s),
             // Cotizado al crear la guía y lo que cobró Shalom al medir el paquete.
             'price'         => \App\Services\Tenant\ShalomTracking::price($s),
+            // Cambio de oficina que espera a que el paquete llegue (ready = ya llegó).
+            'pending_destino' => ($p = \App\Services\Tenant\ShalomGuideChanges::pendingDestino($s))
+                ? $p + ['ready' => $s->carrier_status === 'destino', 'from' => $s->agency_office_name]
+                : null,
         ];
     }
 

@@ -50,6 +50,46 @@ class ShalomGuideChanges
         return null;
     }
 
+    /**
+     * Cambio de destino que Shalom aún no permite (el paquete va en camino):
+     * se guarda para avisar a la tienda cuando llegue y, mientras, no se le
+     * manda al cliente el «ya llegó» de la oficina que se va a cambiar.
+     */
+    public static function setPendingDestino(ShippingRequest $s, ShalomAgency $office): void
+    {
+        $ce = $s->carrier_events ?? [];
+        $ce['pending_destino'] = [
+            'id'      => (int) $office->ter_id,
+            'name'    => $office->name,
+            'place'   => trim($office->province . ', ' . $office->department, ', '),
+            'address' => $office->address,
+            'at'      => now()->toDateTimeString(),
+        ];
+        unset($ce['pending_alerted']);
+        $s->forceFill(['carrier_events' => $ce])->saveQuietly();
+        ShippingAuditLog::log(ShippingAuditLog::ACTION_EDIT, $s->id, 'pending_destino', $s->agency_office_name, $office->name,
+            'Cambio de destino pendiente: Shalom lo permite cuando el paquete llegue a ' . ($s->agency_office_name ?: 'su destino'));
+    }
+
+    public static function pendingDestino(ShippingRequest $s): ?array
+    {
+        $p = ($s->carrier_events ?? [])['pending_destino'] ?? null;
+
+        return is_array($p) && !empty($p['id']) ? $p : null;
+    }
+
+    /** Guías con el cambio pendiente que ya llegaron: hay que hacerlo ahora. */
+    public static function pendingReadyCount(): int
+    {
+        try {
+            return ShippingRequest::where('shipping_agency', 'Shalom')->where('carrier_status', 'destino')
+                ->where('carrier_events', 'like', '%pending_destino%')
+                ->get(['id', 'carrier_events'])->filter(fn ($s) => self::pendingDestino($s))->count();
+        } catch (\Throwable $e) {
+            return 0;
+        }
+    }
+
     public function changeClave(ShippingRequest $s, string $clave): void
     {
         $this->assertManageable($s);
@@ -112,9 +152,13 @@ class ShalomGuideChanges
         } catch (RuntimeException $e) {
             // Con el paquete en ruta Shalom no deja cambiar el destino: se hace
             // cuando llega a la oficina de destino. Su texto no lo dejaba claro.
+            // Queda pendiente y se avisa a la tienda cuando llegue (ShalomTracking).
             if ($tipo === 'cambio_destino' && stripos($e->getMessage(), 'no se encuentra en destino') !== false) {
-                throw new RuntimeException('Shalom deja cambiar la oficina cuando el paquete ya llegó a su destino actual ('
-                    . ($s->agency_office_name ?: 'la oficina de destino') . '). Ahora va en camino: inténtalo cuando llegue.');
+                self::setPendingDestino($s, $office);
+
+                return ['pending' => true, 'message' => 'Shalom deja cambiar la oficina cuando el paquete llegue a '
+                    . ($s->agency_office_name ?: 'su destino actual') . '. Quedó pendiente el cambio a ' . $office->name
+                    . ': te avisaremos en el pedido y por WhatsApp cuando llegue.'];
             }
             throw $e;
         }
@@ -153,6 +197,12 @@ class ShalomGuideChanges
                 'reference'             => $office->name ?? null,
                 'destination_city'      => $office->zone ?? null,
             ], fn ($v) => $v !== null))->save();
+            // Vuelve a viajar: el «llegó» de la oficina anterior ya no vale y
+            // el aviso al cliente se manda cuando llegue a la nueva.
+            $ce = $s->carrier_events ?? [];
+            unset($ce['pending_destino'], $ce['pending_alerted'], $ce['notified_destino']);
+            $ce['rerouted_at'] = now()->format('Y-m-d H:i');
+            $s->forceFill(['carrier_events' => $ce, 'carrier_status' => 'transito'])->saveQuietly();
             ShippingAuditLog::log(ShippingAuditLog::ACTION_EDIT, $s->id, 'agency_office_id', $antes, $office->name ?? $pend['destino'], 'Oficina de destino cambiada en Shalom');
 
             return 'Listo: Shalom llevará el paquete a la oficina ' . ($office->name ?? $pend['destino']) . '.';

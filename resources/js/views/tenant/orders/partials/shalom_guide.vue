@@ -14,6 +14,16 @@
 
         <!-- ═══════════════ CON GUÍA: ver, imprimir y cambiar ═══════════════ -->
         <template v-if="conGuia">
+            <div v-if="sh.pending_destino" :class="['shg-pend', { 'is-ready': sh.pending_destino.ready }]">
+                <template v-if="sh.pending_destino.ready">
+                    Ya llegó a <b>{{ sh.pending_destino.from }}</b>: haz ahora el cambio a <b>{{ sh.pending_destino.name }}</b>
+                    con «Cambiar la oficina de destino».
+                </template>
+                <template v-else>
+                    Cambio pendiente a <b>{{ sh.pending_destino.name }}</b>. Shalom lo permite cuando el paquete llegue a
+                    <b>{{ sh.pending_destino.from }}</b>; te avisaremos aquí y por WhatsApp.
+                </template>
+            </div>
             <div class="shg-card">
                 <div class="shg-card__n">{{ tracking || "Número en camino…" }}<span v-if="sh.code"> · {{ sh.code }}</span></div>
                 <div class="shg-card__grid">
@@ -324,6 +334,12 @@ export default {
                 bultos: Math.max(1, (this.sh.bultos || 1) + (modo === "bultos" ? 1 : 0)),
                 motivo: "",
             };
+            // Con un cambio pendiente, la oficina elegida ya viene marcada.
+            const p = this.sh.pending_destino;
+            if (modo === "destino" && p) {
+                this.oficinas = [{ id: p.id, name: p.name, place: p.place, address: p.address }];
+                this.f.destino = p.id;
+            }
         },
         volver() {
             this.modo = null;
@@ -388,6 +404,8 @@ export default {
                     nombre: this.f.nombre,
                 })
                     .then(d => {
+                        // El paquete aún va en camino: queda pendiente y se avisa al llegar.
+                        if (d.pending) { this.terminado(d.message); return; }
                         this.challenge = d.challenge;
                         this.aviso = "Shalom envió un código por " + (d.canal === "email" ? "correo" : "SMS") + ". Escríbelo abajo.";
                     })
@@ -442,6 +460,8 @@ export default {
 .shg-warn { font-size: 13px; background: #fff7e6; color: #8a5300; border-radius: 8px; padding: 10px 12px; margin: 0 0 12px; line-height: 1.45; }
 .shg-alert { background: #fef2f2; color: #b91c1c; border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; font-size: 13px; }
 .shg-alert--foot { text-align: left; }
+.shg-pend { background: #fffbeb; color: #92400e; border: 1px solid #fde68a; border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; font-size: 13px; line-height: 1.45; }
+.shg-pend.is-ready { background: #fef2f2; color: #991b1b; border-color: #fecaca; }
 .shg-okline { background: #f0fdf4; color: #166534; border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; font-size: 13px; }
 .shg-ok { background: #f0fdf4; border-radius: 10px; padding: 14px; text-align: center; }
 .shg-ok__t { font-weight: 700; color: #166534; }

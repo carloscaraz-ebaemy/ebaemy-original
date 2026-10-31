@@ -156,6 +156,14 @@ class ShalomTracking
                 $last = $e['key'];
             }
         }
+        // Tras cambiar la oficina, el «llegó» de la anterior no cuenta.
+        $reruta = ($s->carrier_events ?? [])['rerouted_at'] ?? null;
+        if ($reruta && $last === 'destino') {
+            $llego = collect($events)->firstWhere('key', 'destino')['at'] ?? null;
+            if ($llego && $llego <= $reruta) {
+                $last = 'transito';
+            }
+        }
 
         $ce = array_merge($s->carrier_events ?? [], [
             'events'  => $events,
@@ -171,7 +179,11 @@ class ShalomTracking
         $s->forceFill(['carrier_status' => $estado, 'carrier_events' => $ce, 'carrier_checked_at' => now()])->saveQuietly();
 
         if ($estado === 'destino') {
-            self::notifyArrived($s);
+            if (ShalomGuideChanges::pendingDestino($s)) {
+                self::notifyStorePending($s);   // al cliente no: su oficina va a cambiar
+            } else {
+                self::notifyArrived($s);
+            }
         }
 
         return true;
@@ -276,6 +288,35 @@ class ShalomTracking
      * WhatsApp «ya llegó a tu oficina», una sola vez por guía. Lo llaman el
      * webhook y la consulta periódica: el que se entere primero avisa.
      */
+    /** WhatsApp a la tienda: llegó y ya se puede hacer el cambio de destino pendiente. */
+    public static function notifyStorePending(ShippingRequest $s): void
+    {
+        $ce = $s->carrier_events ?? [];
+        $p = ShalomGuideChanges::pendingDestino($s);
+        if (!$p || !empty($ce['pending_alerted'])) {
+            return;
+        }
+        $ce['pending_alerted'] = now()->toDateTimeString();
+        $s->forceFill(['carrier_events' => $ce])->saveQuietly();
+
+        try {
+            $digits = preg_replace('/\D/', '', (string) \App\Models\Tenant\ShippingSetting::current()->orders_wa);
+            if (strlen($digits) === 9) {
+                $digits = '51' . $digits;
+            }
+            if (strlen($digits) < 11) {
+                return;
+            }
+            $msg = "🔔 *Cambio de destino listo*\n\n"
+                . "La guía {$s->tracking_number}" . ($s->order_id ? ' (pedido #' . str_pad((string) $s->order_id, 6, '0', STR_PAD_LEFT) . ')' : '')
+                . " llegó a *{$s->agency_office_name}*.\n"
+                . "Ya puedes cambiarla a *{$p['name']}*: Pedidos → ⋮ → Guía de Shalom → Cambiar la oficina de destino.";
+            dispatch(\App\Jobs\SendWhatsAppMessage::text($digits, $msg));
+        } catch (\Throwable $e) {
+            Log::info('[shalom] Aviso de cambio pendiente no enviado: ' . $e->getMessage());
+        }
+    }
+
     public static function notifyArrived(ShippingRequest $s, ?string $fqdn = null): void
     {
         $ce = $s->carrier_events ?? [];
