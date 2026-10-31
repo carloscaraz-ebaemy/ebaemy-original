@@ -64,6 +64,29 @@ class UbigeoSearch
     private const CACHE_TTL = 86400;
 
     /**
+     * Nombres con que la gente conoce su ciudad y que NO son el del distrito
+     * oficial: «Chosica» no existía para el buscador porque el distrito se
+     * llama Lurigancho, y el cliente concluía que no había oficina de Shalom.
+     * Clave = nombre conocido; valor = [distrito, provincia] tal como el
+     * catálogo (se resuelven por nombre, no por código).
+     */
+    private const ALIASES = [
+        'chosica'          => ['lurigancho', 'lima'],
+        'huachipa'         => ['lurigancho', 'lima'],
+        'huaycan'          => ['ate', 'lima'],
+        'manchay'          => ['pachacamac', 'lima'],
+        'canto grande'     => ['san juan de lurigancho', 'lima'],
+        'zarate'           => ['san juan de lurigancho', 'lima'],
+        'pachacutec'       => ['ventanilla', 'callao'],
+        'huacachina'       => ['ica', 'ica'],
+        'tingo maria'      => ['rupa rupa', 'leoncio prado'],
+        'la merced'        => ['chanchamayo', 'chanchamayo'],
+        'pucallpa'         => ['calleria', 'coronel portillo'],
+        'puerto maldonado' => ['tambopata', 'tambopata'],
+        'cerro de pasco'   => ['chaupimarca', 'pasco'],
+    ];
+
+    /**
      * @param  bool  $withGroups  true = incluye filas de provincia y
      *                            departamento (las agrupa la UI nueva).
      *                            false = solo distritos, que es lo unico que
@@ -110,6 +133,25 @@ class UbigeoSearch
                 continue;
             }
             self::keepBest($hits, self::districtRow($d, $base + self::districtBonus($d), null, $base));
+        }
+
+        // -- Nombres conocidos (Chosica → Lurigancho) --------------------
+        foreach (self::ALIASES as $alias => [$distrito, $provincia]) {
+            $base = self::score($alias, $query, $tokens);
+            if ($base === null) {
+                continue;
+            }
+            foreach ($catalog['districts'] as $d) {
+                if ($d['norm'] === $distrito && $d['province_norm'] === $provincia) {
+                    $fila = self::districtRow($d, $base + self::districtBonus($d) + 5, null, $base);
+                    $conocido = str_replace(' De ', ' de ', mb_convert_case($alias, MB_CASE_TITLE, 'UTF-8'));
+                    $fila['label']   = $d['name'] . ' (' . $conocido . ') — ' . $d['province_name'] . ', ' . $d['department_name'];
+                    $fila['context'] = $conocido . ' es el distrito ' . $d['name'] . ' · ' . $d['province_name'] . ' · ' . $d['department_name'];
+                    $fila['name']    = $d['name'] . ' (' . $conocido . ')';
+                    $fila['alias']   = $conocido;
+                    self::keepBest($hits, $fila);
+                }
+            }
         }
 
         // -- Nivel 2: provincias. La fila de provincia no basta: lo que el
