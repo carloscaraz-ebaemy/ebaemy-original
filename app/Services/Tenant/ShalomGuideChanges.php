@@ -161,8 +161,11 @@ class ShalomGuideChanges
             // salió hay que mandarlo, o responde 400 (pasó con la guía en camino).
             // Es el documento con que se creó la guía: el del cliente, o el del
             // autorizado si el cliente es empresa.
+            // `guide_recipient_doc` cuando la guía se pasó a otro pedido y el
+            // cliente del envío ya no es el destinatario de la guía.
             $esEmpresa = strlen(preg_replace('/\D/', '', (string) $s->dni)) === 11;
-            $doc = preg_replace('/\D/', '', (string) ($esEmpresa ? $s->pickup_person_dni : $s->dni));
+            $doc = preg_replace('/\D/', '', (string) (($s->carrier_events ?? [])['guide_recipient_doc']
+                ?? ($esEmpresa ? $s->pickup_person_dni : $s->dni)));
             if ($doc !== '') {
                 $data['destinatario'] = $doc;
             }
