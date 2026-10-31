@@ -89,19 +89,32 @@ class ShipmentDispatchPrefill
 
         $texto = mb_substr($texto, 0, 100);   // límite de SUNAT
 
+        // OJO: la dirección va en `person_addresses` (PersonAddress), que es
+        // la lista que muestra el formulario de la guía y de donde toma el
+        // punto de llegada al guardar. Se creaba en `dispatch_addresses`: su
+        // id no existía en esa lista y el campo mostraba solo el número
+        // («Punto de llegada: 11») sin dirección que enviar a SUNAT.
         try {
-            $existente = DispatchAddress::where('person_id', $persona->id)
-                                        ->where('address', $texto)->first();
+            $existente = \App\Models\Tenant\PersonAddress::where('person_id', $persona->id)
+                ->where('address', $texto)->where('has_consigned', false)->first();
             if ($existente) {
                 return $existente->id;
             }
 
-            return DispatchAddress::create([
-                'person_id'   => $persona->id,
-                'address'     => $texto,
-                'is_active'   => true,
-                'location_id' => $this->ubigeo($s),
-            ])->id;
+            [$dep, $prov, $dist] = $this->ubigeo($s);
+            $dir = new \App\Models\Tenant\PersonAddress();
+            $dir->person_id = $persona->id;
+            $dir->country_id = 'PE';
+            $dir->department_id = $dep;
+            $dir->province_id = $prov;
+            $dir->district_id = $dist;
+            $dir->address = $texto;
+            $dir->main = 0;
+            $dir->establishment_code = '0000';
+            $dir->has_consigned = 0;
+            $dir->save();
+
+            return $dir->id;
         } catch (\Throwable $e) {
             Log::warning('[Shipments] Dirección de guía: ' . $e->getMessage());
             return null;
