@@ -1158,14 +1158,32 @@ class ShipmentController extends Controller
     {
         $data = $request->validate([
             'tipo'         => 'required|in:' . implode(',', \App\Services\Tenant\ShalomGuideChanges::TYPES),
-            'telefono'     => ['required', 'regex:/^9\d{8}$/'],
+            // avisar = «avísame cuando llegue» (sin SMS); cancelar = quitar esa solicitud.
+            'avisar'       => 'nullable|boolean',
+            'cancelar'     => 'nullable|boolean',
+            'telefono'     => ['required_without_all:avisar,cancelar', 'nullable', 'regex:/^9\d{8}$/'],
             'destino'      => 'required_if:tipo,cambio_destino|nullable|integer',
             'destinatario' => 'required_if:tipo,cambiar_contacto|nullable|string|max:11',
             'nombre'       => 'nullable|string|max:150',
         ], [], ['telefono' => 'celular', 'destino' => 'oficina', 'destinatario' => 'documento de quien recoge']);
 
+        if ($data['tipo'] === 'cambio_destino' && (!empty($data['avisar']) || !empty($data['cancelar']))) {
+            try {
+                if (!empty($data['cancelar'])) {
+                    \App\Services\Tenant\ShalomGuideChanges::cancelPendingDestino($shipment);
+
+                    return response()->json(['success' => true, 'message' => 'Solicitud cancelada.']);
+                }
+                $msg = app(\App\Services\Tenant\ShalomGuideChanges::class)->requestWhenArrives($shipment, (int) ($data['destino'] ?? 0));
+            } catch (\Throwable $e) {
+                return response()->json(['success' => false, 'message' => $e->getMessage()]);
+            }
+
+            return response()->json(['success' => true, 'pending' => true, 'message' => $msg]);
+        }
+
         try {
-            $r = app(\App\Services\Tenant\ShalomGuideChanges::class)->start($shipment, $data['tipo'], $data['telefono'], $data);
+            $r = app(\App\Services\Tenant\ShalomGuideChanges::class)->start($shipment, $data['tipo'], (string) $data['telefono'], $data);
         } catch (\Throwable $e) {
             \Log::warning('Shalom rechazó el cambio de guía', ['envio' => $shipment->id, 'tipo' => $data['tipo'], 'motivo' => $e->getMessage()]);
             ShippingAuditLog::log(ShippingAuditLog::ACTION_EDIT, $shipment->id, $data['tipo'], null, null, 'Shalom no aceptó el cambio: ' . mb_substr($e->getMessage(), 0, 200));

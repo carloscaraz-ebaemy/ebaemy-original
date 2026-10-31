@@ -514,10 +514,29 @@ class OrderController extends Controller
      * mas bajo; el listado dejaria de estar en orden cronologico sin que nadie
      * hubiera pedido ese cambio.
      */
+    /**
+     * Arriba de todo, los pedidos cuyo paquete de Shalom ya llegó y tienen una
+     * solicitud de cambio de destino: con muchas ventas, al fondo de la lista
+     * nadie los veía (ShalomGuideChanges::requestWhenArrives).
+     */
+    private function pinShalomAlerts($query): void
+    {
+        static $ok = null;
+        $ok ??= ShippingRequest::moduleInstalled()
+            && \Illuminate\Support\Facades\Schema::connection('tenant')->hasColumn('shipping_requests', 'carrier_events');
+        if ($ok) {
+            $query->orderByRaw("EXISTS (SELECT 1 FROM shipping_requests sr WHERE sr.order_id = orders.id"
+                . " AND sr.carrier_status = 'destino' AND sr.carrier_events LIKE '%pending_destino%') DESC");
+        }
+    }
+
     private function applyOrderSort($query, Request $request): void
     {
         $clave = (string) $request->input('orden', '');
         $dir   = strtolower((string) $request->input('orden_dir', 'desc')) === 'asc' ? 'asc' : 'desc';
+
+        $query->reorder();
+        $this->pinShalomAlerts($query);
 
         if (!array_key_exists($clave, self::ORDENES)) {
             // El de siempre: lo mas reciente arriba.
@@ -525,8 +544,6 @@ class OrderController extends Controller
 
             return;
         }
-
-        $query->reorder();
 
         if ($clave === 'cliente') {
             // El nombre esta dentro del JSON y bajo dos claves segun el origen

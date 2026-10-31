@@ -71,6 +71,35 @@ class ShalomGuideChanges
             'Cambio de destino pendiente: Shalom lo permite cuando el paquete llegue a ' . ($s->agency_office_name ?: 'su destino'));
     }
 
+    /** Solicitud del usuario: «avísame cuando llegue» para cambiar a esta oficina. */
+    public function requestWhenArrives(ShippingRequest $s, int $destino): string
+    {
+        $this->assertManageable($s);
+        $office = ShalomAgency::selectable()->find($destino);
+        if (!$office) {
+            throw new RuntimeException('Elige una oficina de Shalom de la lista.');
+        }
+        if ((int) $office->ter_id === (int) $s->agency_office_id) {
+            throw new RuntimeException('El paquete ya va a esa oficina.');
+        }
+        self::setPendingDestino($s, $office);
+
+        return 'Solicitud guardada: cuando el paquete llegue a ' . ($s->agency_office_name ?: 'su destino')
+            . ', el pedido subirá al inicio de la lista y te avisaremos por WhatsApp para cambiarlo a ' . $office->name . '.';
+    }
+
+    public static function cancelPendingDestino(ShippingRequest $s): void
+    {
+        $p = self::pendingDestino($s);
+        if (!$p) {
+            return;
+        }
+        $ce = $s->carrier_events ?? [];
+        unset($ce['pending_destino'], $ce['pending_alerted']);
+        $s->forceFill(['carrier_events' => $ce])->saveQuietly();
+        ShippingAuditLog::log(ShippingAuditLog::ACTION_EDIT, $s->id, 'pending_destino', $p['name'], null, 'Solicitud de cambio de destino cancelada');
+    }
+
     public static function pendingDestino(ShippingRequest $s): ?array
     {
         $p = ($s->carrier_events ?? [])['pending_destino'] ?? null;
@@ -152,13 +181,11 @@ class ShalomGuideChanges
         } catch (RuntimeException $e) {
             // Con el paquete en ruta Shalom no deja cambiar el destino: se hace
             // cuando llega a la oficina de destino. Su texto no lo dejaba claro.
-            // Queda pendiente y se avisa a la tienda cuando llegue (ShalomTracking).
+            // Se ofrece pedir el aviso de llegada (requestWhenArrives): la
+            // solicitud la hace el usuario, no se guarda sola.
             if ($tipo === 'cambio_destino' && stripos($e->getMessage(), 'no se encuentra en destino') !== false) {
-                self::setPendingDestino($s, $office);
-
-                return ['pending' => true, 'message' => 'Shalom deja cambiar la oficina cuando el paquete llegue a '
-                    . ($s->agency_office_name ?: 'su destino actual') . '. Quedó pendiente el cambio a ' . $office->name
-                    . ': te avisaremos en el pedido y por WhatsApp cuando llegue.'];
+                return ['wait' => true, 'message' => 'Shalom deja cambiar la oficina cuando el paquete llegue a '
+                    . ($s->agency_office_name ?: 'su destino actual') . '. Ahora va en camino.'];
             }
             throw $e;
         }

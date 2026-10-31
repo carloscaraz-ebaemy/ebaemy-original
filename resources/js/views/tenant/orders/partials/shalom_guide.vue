@@ -20,8 +20,9 @@
                     con «Cambiar la oficina de destino».
                 </template>
                 <template v-else>
-                    Cambio pendiente a <b>{{ sh.pending_destino.name }}</b>. Shalom lo permite cuando el paquete llegue a
+                    Solicitaste cambiar a <b>{{ sh.pending_destino.name }}</b>. Shalom lo permite cuando el paquete llegue a
                     <b>{{ sh.pending_destino.from }}</b>; te avisaremos aquí y por WhatsApp.
+                    <a class="shg-pend-x" @click="cancelarSolicitud">Cancelar solicitud</a>
                 </template>
             </div>
             <div class="shg-card">
@@ -128,7 +129,16 @@
                     </div>
                 </template>
 
-                <div v-else class="shg-field">
+                <!-- Shalom aún no lo permite (paquete en camino): se ofrece la solicitud. -->
+                <div v-if="espera && !challenge" class="shg-pend">
+                    {{ espera }}
+                    <div style="margin-top:8px">
+                        <el-button size="small" type="warning" :loading="cargando" @click="solicitarAviso">Avisarme cuando llegue</el-button>
+                    </div>
+                    <small class="shg-sub" style="color:inherit">El pedido subirá al inicio de la lista y te llegará un WhatsApp para hacer el cambio.</small>
+                </div>
+
+                <div v-if="challenge" class="shg-field">
                     <label>Código que llegó por SMS <span class="shg-req">*</span></label>
                     <el-input v-model="f.codigo" maxlength="8" placeholder="Ej. M9M7NT" style="max-width:200px"></el-input>
                     <small class="shg-sub">Vence en 10 minutos. Si no llegó, vuelve atrás y pídelo de nuevo.</small>
@@ -280,6 +290,7 @@ export default {
             f: {},
             oficinas: [],
             buscando: false,
+            espera: null,
         };
     },
     computed: {
@@ -319,8 +330,19 @@ export default {
         cerrar() {
             this.$emit("update:showDialog", false);
         },
+        solicitarAviso() {
+            this.post("shalom-cambio", { tipo: "cambio_destino", destino: this.f.destino, avisar: 1 })
+                .then(d => this.terminado(d.message))
+                .catch(e => this.fallo(e, "No se pudo guardar la solicitud."));
+        },
+        cancelarSolicitud() {
+            this.post("shalom-cambio", { tipo: "cambio_destino", cancelar: 1 })
+                .then(d => this.terminado(d.message))
+                .catch(e => this.fallo(e, "No se pudo cancelar la solicitud."));
+        },
         ir(modo) {
             this.modo = modo;
+            this.espera = null;
             this.challenge = null;
             this.error = null;
             this.aviso = null;
@@ -404,8 +426,8 @@ export default {
                     nombre: this.f.nombre,
                 })
                     .then(d => {
-                        // El paquete aún va en camino: queda pendiente y se avisa al llegar.
-                        if (d.pending) { this.terminado(d.message); return; }
+                        // El paquete aún va en camino: se ofrece «Avisarme cuando llegue».
+                        if (d.wait) { this.espera = d.message; return; }
                         this.challenge = d.challenge;
                         this.aviso = "Shalom envió un código por " + (d.canal === "email" ? "correo" : "SMS") + ". Escríbelo abajo.";
                     })
@@ -461,6 +483,7 @@ export default {
 .shg-alert { background: #fef2f2; color: #b91c1c; border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; font-size: 13px; }
 .shg-alert--foot { text-align: left; }
 .shg-pend { background: #fffbeb; color: #92400e; border: 1px solid #fde68a; border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; font-size: 13px; line-height: 1.45; }
+.shg-pend-x { margin-left: 6px; color: inherit; text-decoration: underline; cursor: pointer; font-weight: 600; }
 .shg-pend.is-ready { background: #fef2f2; color: #991b1b; border-color: #fecaca; }
 .shg-okline { background: #f0fdf4; color: #166534; border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; font-size: 13px; }
 .shg-ok { background: #f0fdf4; border-radius: 10px; padding: 14px; text-align: center; }
