@@ -2590,7 +2590,10 @@ class ShipmentController extends Controller
             $batchId
         );
 
-        return back()->with('success', "Envío {$shipment->shipment_code} anulado. Sigue en el historial y puede restaurarse.");
+        $pedido = $this->anularPedidoSinEnvio($shipment, (string) $request->input('reason'));
+
+        return back()->with('success', "Envío {$shipment->shipment_code} anulado"
+            . ($pedido ? " y su pedido #{$pedido} también" : '') . '. Sigue en el historial y puede restaurarse.');
     }
 
     /**
@@ -2640,11 +2643,77 @@ class ShipmentController extends Controller
         );
 
         $msg = "Envío {$shipment->shipment_code} restaurado a «{$shipment->status_label}».";
+        if ($pedido = $this->restaurarPedidoDelEnvio($shipment)) {
+            $msg .= " Su pedido #{$pedido} volvió a estar vigente.";
+        }
         if (!$shipment->print_batch_id && $shipment->needsShippingLabel()) {
             $msg .= ' Ya puede volver a imprimirse.';
         }
 
         return back()->with('success', $msg);
+    }
+
+    /**
+     * Anular el envío anula también su pedido si era su única entrega y el
+     * pedido seguía abierto (1-3). Antes el pedido quedaba vivo en «Pago
+     * verificado» —25 en alasitas, anulados por doble registro o falta de
+     * pago— y parecía una venta pendiente. Sin aviso al cliente: lo anuló la
+     * tienda. Devuelve el número del pedido anulado o null.
+     */
+    private function anularPedidoSinEnvio(ShippingRequest $shipment, string $motivo): ?string
+    {
+        $order = $shipment->order_id ? \App\Models\Tenant\Order::find($shipment->order_id) : null;
+        if (!$order || !in_array((int) $order->status_order_id, [1, 2, 3], true)) {
+            return null;
+        }
+        $otro = ShippingRequest::where('order_id', $order->id)->where('id', '!=', $shipment->id)
+            ->where('status', '!=', ShippingRequest::STATUS_ANULADO)->exists();
+        if ($otro) {
+            return null;
+        }
+        $antes = (int) $order->status_order_id;
+        try {
+            app(\App\Services\Tenant\OrderService::class)->cancelEcommerceOrder($order, 'Envío anulado: ' . $motivo);
+            \App\Models\Tenant\OrderStatusLog::create([
+                'order_id' => $order->id, 'from_status' => $antes, 'to_status' => 5,
+                'payment_status' => $order->payment_status, 'actor_id' => auth()->id(),
+                'payload' => ['reason' => 'Envío anulado: ' . $motivo, 'auto_envio' => $shipment->id],
+                'created_at' => now(),
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning('No se pudo anular el pedido del envío anulado', ['envio' => $shipment->id, 'error' => $e->getMessage()]);
+
+            return null;
+        }
+
+        return str_pad((string) $order->id, 6, '0', STR_PAD_LEFT);
+    }
+
+    /** Si el pedido se anuló JUNTO con este envío, vuelve al estado que tenía. */
+    private function restaurarPedidoDelEnvio(ShippingRequest $shipment): ?string
+    {
+        $order = $shipment->order_id ? \App\Models\Tenant\Order::find($shipment->order_id) : null;
+        if (!$order || (int) $order->status_order_id !== 5) {
+            return null;
+        }
+        // Con productos, anular liberó su stock reservado: volver a abrirlo sin
+        // reservar de nuevo descuadraría el stock. Eso lo decide una persona.
+        if (count((array) ($order->items ?? [])) > 0) {
+            return null;
+        }
+        $log = \App\Models\Tenant\OrderStatusLog::where('order_id', $order->id)->where('to_status', 5)->latest('id')->first();
+        $payload = $log ? (is_array($log->payload) ? $log->payload : (array) json_decode((string) $log->payload, true)) : [];
+        if ((int) ($payload['auto_envio'] ?? 0) !== (int) $shipment->id) {
+            return null;   // lo anuló una persona: restaurarlo es decisión aparte
+        }
+        $order->forceFill(['status_order_id' => (int) $log->from_status ?: 2])->save();
+        \App\Models\Tenant\OrderStatusLog::create([
+            'order_id' => $order->id, 'from_status' => 5, 'to_status' => (int) $order->status_order_id,
+            'payment_status' => $order->payment_status, 'actor_id' => auth()->id(),
+            'payload' => ['reason' => 'Envío restaurado', 'auto_envio' => $shipment->id], 'created_at' => now(),
+        ]);
+
+        return str_pad((string) $order->id, 6, '0', STR_PAD_LEFT);
     }
 
     /** Rótulo imprimible del envío (standalone, listo para imprimir/PDF). */
