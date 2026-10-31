@@ -1167,6 +1167,8 @@ class ShipmentController extends Controller
         try {
             $r = app(\App\Services\Tenant\ShalomGuideChanges::class)->start($shipment, $data['tipo'], $data['telefono'], $data);
         } catch (\Throwable $e) {
+            \Log::warning('Shalom rechazó el cambio de guía', ['envio' => $shipment->id, 'tipo' => $data['tipo'], 'motivo' => $e->getMessage()]);
+            ShippingAuditLog::log(ShippingAuditLog::ACTION_EDIT, $shipment->id, $data['tipo'], null, null, 'Shalom no aceptó el cambio: ' . mb_substr($e->getMessage(), 0, 200));
             return response()->json(['success' => false, 'message' => $e->getMessage()]);
         }
 

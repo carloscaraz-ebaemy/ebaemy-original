@@ -4,7 +4,7 @@
         :visible="showDialog"
         :title="conGuia ? 'Guía de Shalom' : 'Crear guía en Shalom'"
         top="6vh"
-        width="500px"
+        width="620px"
         custom-class="shg-dialog"
         @close="cerrar"
         @open="abrir"
@@ -83,7 +83,7 @@
                     <div v-if="modo === 'destino'" class="shg-field">
                         <label>Oficina de Shalom <span class="shg-req">*</span></label>
                         <el-select v-model="f.destino" filterable remote :remote-method="buscarOficinas" :loading="buscando"
-                                   popper-class="shg-of-pop"
+                                   popper-class="shg-of-pop" :popper-append-to-body="false"
                                    placeholder="Escribe la ciudad o el nombre de la oficina" style="width:100%">
                             <!-- Con la dirección completa: por el nombre (una calle) no se sabe cuál es. -->
                             <el-option v-for="o in oficinas" :key="o.id" :value="o.id" :label="o.name + ' — ' + o.place">
@@ -210,6 +210,7 @@
         </template>
 
         <span slot="footer">
+            <div v-if="error" class="shg-alert shg-alert--foot">{{ error }}</div>
             <el-button @click="cerrar">{{ hecho || (conGuia && !modo) ? 'Cerrar' : 'Cancelar' }}</el-button>
             <el-button v-if="!conGuia && !hecho" type="primary" :loading="cargando"
                        :disabled="!content || !sh.ready || (aereo && !declaracion)" @click="crear">
@@ -436,6 +437,7 @@ export default {
 .shg-hint { font-size: 13px; color: #475569; margin: 0 0 14px; line-height: 1.45; }
 .shg-warn { font-size: 13px; background: #fff7e6; color: #8a5300; border-radius: 8px; padding: 10px 12px; margin: 0 0 12px; line-height: 1.45; }
 .shg-alert { background: #fef2f2; color: #b91c1c; border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; font-size: 13px; }
+.shg-alert--foot { text-align: left; }
 .shg-okline { background: #f0fdf4; color: #166534; border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; font-size: 13px; }
 .shg-ok { background: #f0fdf4; border-radius: 10px; padding: 14px; text-align: center; }
 .shg-ok__t { font-weight: 700; color: #166534; }
@@ -470,8 +472,10 @@ export default {
 </style>
 
 <style>
-/* La lista de oficinas va al <body>: el alto fijo de 34px de Element cortaba la dirección. */
+/* La lista va dentro del diálogo y con su mismo ancho: el alto fijo de 34px
+   de Element cortaba la dirección y, al soltarlo, la lista se salía del modal. */
+.shg-of-pop { max-width: 100%; box-sizing: border-box; }
 .shg-of-pop .el-select-dropdown__item { height: auto; white-space: normal; border-bottom: 1px solid #f1f5f9; }
-.shg-of-pop .el-select-dropdown__wrap { max-height: 360px; }
-.shg-of-pop { max-width: 460px; }
+.shg-of-pop .el-select-dropdown__wrap { max-height: 320px; }
+.shg-dialog { max-width: 94vw; }
 </style>
