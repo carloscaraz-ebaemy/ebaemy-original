@@ -181,6 +181,13 @@
                             <template v-if="row.shipment.tracking_number">
                                 <dt>Tracking</dt><dd>{{ row.shipment.tracking_number }}</dd>
                             </template>
+                            <template v-if="row.shipment.pickup_person">
+                                <dt>Recoge</dt>
+                                <dd>
+                                    {{ row.shipment.pickup_person.name || "—" }}
+                                    <span v-if="row.shipment.pickup_person.dni" class="od-muted">· DNI {{ row.shipment.pickup_person.dni }}</span>
+                                </dd>
+                            </template>
                             <template v-if="row.shipment.shalom && row.shipment.shalom.price">
                                 <dt>Costo Shalom</dt>
                                 <dd v-if="row.shipment.shalom.price.confirmed">

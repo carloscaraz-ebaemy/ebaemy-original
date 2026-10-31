@@ -81,10 +81,11 @@
 
     {{-- Destinatario --}}
     @php
-        // Cliente EMPRESA: la agencia no le entrega a un RUC, entrega a la
-        // persona designada. Se imprime destacada para que el counter la vea.
-        $recoge = $shipment->is_company ? trim((string) $shipment->pickup_person_name) : '';
-        $recogeDni = $shipment->is_company ? trim((string) $shipment->pickup_person_dni) : '';
+        // Cliente EMPRESA (la agencia no le entrega a un RUC) u otra persona
+        // autorizada después: se imprime destacada para que el counter la vea.
+        $otro = $shipment->hasOtherPickup();
+        $recoge = $otro ? trim((string) $shipment->pickup_person_name) : '';
+        $recogeDni = $otro ? trim((string) $shipment->pickup_person_dni) : '';
     @endphp
     <div class="section">
         <div class="section-title">Destinatario</div>

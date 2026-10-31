@@ -599,7 +599,8 @@ class OrderCollection extends ResourceCollection
             // el rotulo ya la imprime en su propia seccion. En el panel no se
             // veia por ningun lado, asi que el operador no podia comprobar
             // contra el papel sin abrir el envio.
-            'pickup_person'    => $s->is_company && trim((string) $s->pickup_person_name) !== ''
+            // También cuando se autorizó a otra persona (Shalom «quién recoge»).
+            'pickup_person'    => $s->hasOtherPickup()
                 ? [
                     'name'  => $s->pickup_person_name,
                     'dni'   => $s->pickup_person_dni,
@@ -813,6 +814,11 @@ class OrderCollection extends ResourceCollection
             'manage_block'  => $tiene ? \App\Services\Tenant\ShalomGuideChanges::blocker($s) : null,
             'bultos'        => max(1, (int) ($s->package_count ?: 1)),
             'pickup_dni'    => $s->pickup_person_dni ?: $s->dni,
+            // A nombre de quién está la guía y quién la retira, si es otra persona.
+            'recipient'     => $s->full_name,
+            'pickup'        => $s->hasOtherPickup()
+                ? trim($s->pickup_person_name . ($s->pickup_person_dni ? ' · DNI ' . $s->pickup_person_dni : ''))
+                : null,
             'store_phone'   => $tienda['phone'],
             'not_delivered' => \App\Services\Tenant\ShalomTracking::notDelivered($s),
             // Cotizado al crear la guía y lo que cobró Shalom al medir el paquete.

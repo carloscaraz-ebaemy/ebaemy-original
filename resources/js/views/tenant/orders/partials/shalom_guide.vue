@@ -18,6 +18,10 @@
                 <div class="shg-card__n">{{ tracking || "Número en camino…" }}<span v-if="sh.code"> · {{ sh.code }}</span></div>
                 <div class="shg-card__grid">
                     <span>Oficina</span><b>{{ sh.office || "—" }}</b>
+                    <span>Destinatario</span><b>{{ sh.recipient || "—" }}</b>
+                    <template v-if="sh.pickup">
+                        <span>Recoge</span><b>{{ sh.pickup }} <em>autorizada</em></b>
+                    </template>
                     <span>Clave de recojo</span><b>{{ sh.clave || "—" }}</b>
                     <span>Bultos</span><b>{{ sh.bultos || 1 }}</b>
                     <span v-if="sh.status">Estado</span><b v-if="sh.status">{{ estadoTxt }}</b>

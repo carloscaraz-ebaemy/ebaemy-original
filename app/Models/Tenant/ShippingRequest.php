@@ -1134,6 +1134,22 @@ class ShippingRequest extends Model
         return trim((string) $this->pickup_person_dni) ?: (string) $this->dni;
     }
 
+    /**
+     * Recoge OTRA persona: la designada de una empresa, o la que se autorizó
+     * después (p. ej. «Cambiar quién recoge» en Shalom). Antes solo se miraba
+     * a las empresas y, con un cliente persona, el cambio se guardaba y no se
+     * veía en ningún lado.
+     */
+    public function hasOtherPickup(): bool
+    {
+        $nombre = trim((string) $this->pickup_person_name);
+        $dni = preg_replace('/\D/', '', (string) $this->pickup_person_dni);
+        if ($nombre === '' && $dni === '') {
+            return false;
+        }
+        return $this->is_company || ($dni !== '' && $dni !== preg_replace('/\D/', '', (string) $this->dni));
+    }
+
     // ── Código de pago (control de duplicados) ─────────────────────────────
 
     /**
