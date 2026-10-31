@@ -107,7 +107,17 @@ class ShalomGuideChanges
             $local = ['destinatario' => $doc, 'nombre' => trim((string) ($params['nombre'] ?? ''))];
         }
 
-        $r = $this->api->startSelfManagement($this->instance(), $data);
+        try {
+            $r = $this->api->startSelfManagement($this->instance(), $data);
+        } catch (RuntimeException $e) {
+            // Con el paquete en ruta Shalom no deja cambiar el destino: se hace
+            // cuando llega a la oficina de destino. Su texto no lo dejaba claro.
+            if ($tipo === 'cambio_destino' && stripos($e->getMessage(), 'no se encuentra en destino') !== false) {
+                throw new RuntimeException('Shalom deja cambiar la oficina cuando el paquete ya llegó a su destino actual ('
+                    . ($s->agency_office_name ?: 'la oficina de destino') . '). Ahora va en camino: inténtalo cuando llegue.');
+            }
+            throw $e;
+        }
         if (empty($r['challengeId'])) {
             throw new RuntimeException('Shalom no envió el código: ' . ($r['message'] ?? $r['error'] ?? 'sin detalle'));
         }
