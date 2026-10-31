@@ -181,6 +181,15 @@
                             <template v-if="row.shipment.tracking_number">
                                 <dt>Tracking</dt><dd>{{ row.shipment.tracking_number }}</dd>
                             </template>
+                            <template v-if="row.shipment.shalom && row.shipment.shalom.has_guide && row.shipment.shalom.clave">
+                                <dt>Clave de recojo</dt>
+                                <dd>
+                                    <button type="button" class="od-clave" :title="verClave ? 'Ocultar' : 'Ver la clave'" @click="verClave = !verClave">
+                                        🔑 <b>{{ verClave ? row.shipment.shalom.clave : '••••' }}</b>
+                                        <span v-if="verClave"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 12C3.7 8 7.5 5 12 5s8.3 3 9.5 7c-1.2 4-5 7-9.5 7s-8.3-3-9.5-7z"/><circle cx="12" cy="12" r="2.5"/></svg></span><span v-else><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.6 10.6a2 2 0 0 0 2.8 2.8"/><path d="M9.4 5.2A9.6 9.6 0 0 1 12 5c4.5 0 8.3 3 9.5 7a10 10 0 0 1-2.4 3.8M6.4 6.4A10 10 0 0 0 2.5 12c1.2 4 5 7 9.5 7 1.6 0 3.1-.4 4.4-1"/><path d="M3 3l18 18"/></svg></span>
+                                    </button>
+                                </dd>
+                            </template>
                             <template v-if="row.shipment.pickup_person">
                                 <dt>Recoge</dt>
                                 <dd>
@@ -322,6 +331,15 @@ export default {
     props: {
         visible: { type: Boolean, default: false },
         row: { type: Object, default: null },
+    },
+    data() {
+        return { verClave: false };
+    },
+    watch: {
+        // Otro pedido: la clave vuelve a ocultarse.
+        row() {
+            this.verClave = false;
+        },
     },
     computed: {
         items() {
@@ -651,6 +669,8 @@ export default {
 .od-up { color: #b45309; font-weight: 600; }
 .od-down { color: #15803d; font-weight: 600; }
 .od-muted { color: #64748b; font-size: 12px; }
+.od-clave { display: inline-flex; align-items: center; gap: 5px; border: 0; background: #fef3c7; color: #92400e; border-radius: 6px; padding: 1px 8px; font: inherit; cursor: pointer; }
+.od-clave:hover { background: #fde68a; }
 .od-warn {
     color: #92400e;
     background: #fef3c7;

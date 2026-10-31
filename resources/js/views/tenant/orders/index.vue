@@ -815,8 +815,21 @@
                                     >sin documento</span
                                 >
                             </div>
-                            <div v-if="row.customer_telefono" class="ord-o-tel">
+                            <div v-if="row.customer_telefono || claveShalom(row)" class="ord-o-tel">
                                 {{ row.customer_telefono }}
+                                <!-- Clave de recojo de Shalom: cambia por día (no se
+                                     puede repetir la de ayer) y no hay que abrir
+                                     la guía para dictársela al cliente. -->
+                                <button
+                                    v-if="claveShalom(row)"
+                                    type="button"
+                                    class="ord-o-clave"
+                                    :title="clavesVisibles[row.id] ? 'Ocultar la clave de recojo' : 'Ver la clave de recojo de Shalom'"
+                                    @click.stop="$set(clavesVisibles, row.id, !clavesVisibles[row.id])"
+                                >🔑 {{ clavesVisibles[row.id] ? claveShalom(row) : '••••' }}
+                                    <span v-if="clavesVisibles[row.id]" class="ord-o-ojo"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 12C3.7 8 7.5 5 12 5s8.3 3 9.5 7c-1.2 4-5 7-9.5 7s-8.3-3-9.5-7z"/><circle cx="12" cy="12" r="2.5"/></svg></span>
+                                    <span v-else class="ord-o-ojo"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.6 10.6a2 2 0 0 0 2.8 2.8"/><path d="M9.4 5.2A9.6 9.6 0 0 1 12 5c4.5 0 8.3 3 9.5 7a10 10 0 0 1-2.4 3.8M6.4 6.4A10 10 0 0 0 2.5 12c1.2 4 5 7 9.5 7 1.6 0 3.1-.4 4.4-1"/><path d="M3 3l18 18"/></svg></span>
+                                </button>
                             </div>
                             <!-- Cliente EMPRESA: la agencia no le entrega un
                                  paquete a un RUC, se lo entrega a la persona
@@ -2033,6 +2046,22 @@
     margin-right: 6px;
     color: #cbd5e1;
 }
+.ord-o-clave {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: 6px;
+    padding: 0 6px;
+    border: 0;
+    border-radius: 6px;
+    background: #fef3c7;
+    color: #92400e;
+    font: 700 12px/1.6 inherit;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+}
+.ord-o-clave:hover { background: #fde68a; }
+.ord-o-ojo { display: inline-flex; }
 .ord-o-tel {
     font-variant-numeric: tabular-nums;
 }
@@ -4026,6 +4055,8 @@ export default {
             impresion: { visible: false, url: "", title: "Imprimir" },
             shippingSettingsVisible: false,
             shalomOrderId: null,
+            // Claves de recojo que el operador destapó (por pedido).
+            clavesVisibles: {},
             shalomShipmentId: null,
             shalomInfo: null,
             shalomBultos: 1,
@@ -5786,6 +5817,10 @@ export default {
          * (va a la bitácora) y recuerda anularla en pro.shalom.pe: el API de
          * Shalom no permite anularla.
          */
+        claveShalom(row) {
+            const sh = row.shipment && row.shipment.shalom;
+            return sh && sh.has_guide && sh.clave ? sh.clave : null;
+        },
         crearGuiaShalom(row) {
             this.shalomOrderId = row.id;
             this.shalomShipmentId = row.shipment ? row.shipment.id : null;
