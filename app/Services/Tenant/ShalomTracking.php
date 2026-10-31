@@ -343,7 +343,7 @@ class ShalomTracking
                     ? '💵 Pagas S/ ' . number_format((float) ($p['shalom'] ?? $p['quoted']), 2) . " del envío al recoger.\n" : '')
                 . "📄 Guía: {$s->tracking_number} · Código: {$s->tracking_code}\n"
                 . (!empty($ce['clave']) ? "🔑 Clave de recojo: {$ce['clave']}\n" : '')
-                . ($fqdn ? "\n🔎 https://{$fqdn}/envio/seguimiento?code={$s->shipment_code}" : '');
+                . ($fqdn ? "\n📲 Tu ticket con QR para mostrar en la agencia (con tu DNI):\nhttps://{$fqdn}/envio/seguimiento?code={$s->shipment_code}" : '');
             dispatch(\App\Jobs\SendWhatsAppMessage::text($digits, $msg));
         } catch (\Throwable $e) {
             Log::info('[shalom] WhatsApp de llegada no enviado: ' . $e->getMessage());
