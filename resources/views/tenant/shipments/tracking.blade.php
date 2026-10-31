@@ -172,6 +172,53 @@
                         </div>
                     @endif
 
+                    {{-- Ticket de Shalom con su QR: se muestra en la agencia y lo escanean,
+                         sin dictar guía ni clave. Se pide el DNI porque el QR sirve
+                         para retirar el paquete y el código ENV- es casi correlativo. --}}
+                    @if($shipment->tracking_number && empty($limited) && \App\Services\Tenant\ShalomTracking::applies($shipment) && $shipment->carrier_status !== 'entregado')
+                        <div class="tkt" id="tkt">
+                            <div class="tkt-k">Tu ticket de Shalom (con QR)</div>
+                            <p class="tkt-p">Muéstralo en la agencia junto con tu DNI: lo escanean y no tienes que dictar nada.</p>
+                            <form class="tkt-f" id="tktForm" autocomplete="off">
+                                <input type="tel" inputmode="numeric" maxlength="11" id="tktDni" placeholder="Escribe tu DNI para verlo" aria-label="DNI">
+                                <button type="submit">Ver mi ticket</button>
+                            </form>
+                            <p class="tkt-e" id="tktErr" hidden>Ese DNI no coincide con el envío o el ticket todavía no está listo.</p>
+                            <div id="tktBox" hidden>
+                                <img id="tktImg" alt="Ticket de Shalom con código QR">
+                                <a id="tktSave" class="tkt-s" download="ticket-shalom-{{ $shipment->tracking_number }}.png">Guardar imagen</a>
+                            </div>
+                        </div>
+                        <style>
+                            .tkt{margin-top:14px;border:1px solid #e2e8f0;border-radius:14px;padding:14px;background:#fff}
+                            .tkt-k{font-size:12px;text-transform:uppercase;font-weight:700;color:#0f766e;letter-spacing:.04em}
+                            .tkt-p{font-size:13px;color:var(--muted);margin:4px 0 10px}
+                            .tkt-f{display:flex;gap:8px}
+                            .tkt-f input{flex:1;min-width:0;border:1px solid #cbd5e1;border-radius:10px;padding:10px 12px;font-size:16px}
+                            .tkt-f button{border:0;border-radius:10px;background:#0f766e;color:#fff;font-weight:700;padding:10px 14px;font-size:14px;white-space:nowrap}
+                            .tkt-e{color:#b91c1c;font-size:13px;margin:8px 0 0}
+                            #tktBox img{display:block;width:100%;max-width:420px;margin:12px auto 0;border-radius:8px;border:1px solid #e2e8f0}
+                            .tkt-s{display:block;text-align:center;margin-top:10px;font-weight:700;color:#0f766e}
+                        </style>
+                        <script>
+                            (function () {
+                                var f = document.getElementById('tktForm'); if (!f) return;
+                                var url = @json(route('shipments.public.ticket')) + '?code=' + encodeURIComponent(@json($shipment->shipment_code));
+                                f.addEventListener('submit', function (e) {
+                                    e.preventDefault();
+                                    var dni = document.getElementById('tktDni').value.replace(/\D/g, '');
+                                    var err = document.getElementById('tktErr'), box = document.getElementById('tktBox'), img = document.getElementById('tktImg');
+                                    err.hidden = true;
+                                    if (dni.length < 8) { err.hidden = false; return; }
+                                    var src = url + '&dni=' + dni;
+                                    img.onload = function () { box.hidden = false; f.hidden = true; document.getElementById('tktSave').href = src; };
+                                    img.onerror = function () { err.hidden = false; box.hidden = true; };
+                                    img.src = src;
+                                });
+                            })();
+                        </script>
+                    @endif
+
                     {{-- Dónde recoge: la oficina de la agencia, con cómo llegar. --}}
                     @if(!empty($tl['office']) && empty($limited))
                         @php $of = $tl['office']; @endphp

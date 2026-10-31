@@ -177,8 +177,8 @@ class ShalomApi
         return $this->send('delete', '/instances', ['instanceId' => $instanceId], null, 25);
     }
 
-    /** GET /track/voucher — ticket oficial de Shalom (PDF, con su QR). */
-    public function voucher(string $instanceId, array $guide): string
+    /** GET /track/voucher — ticket oficial de Shalom (PDF, con su QR); `png` lo da como imagen. */
+    public function voucher(string $instanceId, array $guide, ?string $format = null): string
     {
         $this->assertInstances();
         $key = $this->key();
@@ -186,7 +186,8 @@ class ShalomApi
             throw new RuntimeException('No hay llave de Shalom API configurada.');
         }
         $res = Http::withHeaders(['x-api-key' => $key])->timeout(60)
-            ->get(rtrim(config('services.shalom.url') ?: 'https://api.shalom-api.lat', '/') . '/track/voucher', ['instanceId' => $instanceId] + $guide);
+            ->get(rtrim(config('services.shalom.url') ?: 'https://api.shalom-api.lat', '/') . '/track/voucher',
+                ['instanceId' => $instanceId] + $guide + ($format ? ['format' => $format] : []));
         if ($res->failed()) {
             throw new RuntimeException('Shalom API ' . $res->status() . ': no se pudo bajar el ticket.');
         }

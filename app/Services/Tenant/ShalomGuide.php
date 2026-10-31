@@ -470,6 +470,25 @@ class ShalomGuide
         return $this->cached($s, 'ticket', fn () => $this->api->voucher($st->shalom_instance_id, $ose ? ['ose_id' => $ose] : ['orderNumber' => $s->tracking_number, 'orderCode' => $s->tracking_code]));
     }
 
+    /**
+     * El mismo ticket como imagen PNG: el cliente lo muestra desde el celular
+     * en la agencia y escanean su QR, en vez de dictar guía y clave.
+     */
+    public function voucherImage(ShippingRequest $s): string
+    {
+        $st = ShippingSetting::current();
+        if (empty($st->shalom_instance_id)) {
+            throw new RuntimeException('La tienda no tiene su cuenta de Shalom Pro conectada.');
+        }
+        $ose = ($s->carrier_events ?? [])['ose_id'] ?? null;
+        if (!$ose && (!$s->tracking_number || !$s->tracking_code)) {
+            throw new RuntimeException('El envío todavía no tiene guía de Shalom.');
+        }
+
+        return $this->cached($s, 'ticket', fn () => $this->api->voucher($st->shalom_instance_id,
+            $ose ? ['ose_id' => $ose] : ['orderNumber' => $s->tracking_number, 'orderCode' => $s->tracking_code], 'png'), 'png');
+    }
+
     /** Rótulo oficial de Shalom (PDF). */
     public function label(ShippingRequest $s): string
     {
@@ -494,18 +513,19 @@ class ShalomGuide
      * El nombre lleva la guía: si se quita y se crea otra, sale un archivo
      * nuevo y el viejo no se vuelve a servir. Solo se guarda si es un PDF.
      */
-    private function cached(ShippingRequest $s, string $doc, callable $bajar): string
+    private function cached(ShippingRequest $s, string $doc, callable $bajar, string $ext = 'pdf'): string
     {
         $ce = $s->carrier_events ?? [];
         $guia = md5(($ce['ose_id'] ?? '') . '|' . $s->tracking_number . '|' . $s->tracking_code);
-        $ruta = 'shalom-pdf/' . $s->getConnection()->getDatabaseName() . '/' . $s->id . '-' . $doc . '-' . $guia . '.pdf';
+        $ruta = 'shalom-pdf/' . $s->getConnection()->getDatabaseName() . '/' . $s->id . '-' . $doc . '-' . $guia . '.' . $ext;
         $disco = \Illuminate\Support\Facades\Storage::disk('local');
 
         if ($disco->exists($ruta)) {
             return $disco->get($ruta);
         }
         $pdf = $bajar();
-        if (is_string($pdf) && str_starts_with($pdf, '%PDF')) {
+        $firma = $ext === 'png' ? "\x89PNG" : '%PDF';
+        if (is_string($pdf) && str_starts_with($pdf, $firma)) {
             // La copia es solo para ir más rápido: si no se puede guardar
             // (permisos de la carpeta), el PDF se entrega igual.
             rescue(fn () => $disco->put($ruta, $pdf), null, false);

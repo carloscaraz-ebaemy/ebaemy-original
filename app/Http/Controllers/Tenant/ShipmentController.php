@@ -4036,6 +4036,40 @@ class ShipmentController extends Controller
     }
 
     /**
+     * Ticket oficial de Shalom (imagen con su QR) para el seguimiento público.
+     *
+     * El cliente lo muestra en la agencia y escanean el QR en vez de dictar.
+     * Exige el código ENV- completo Y el DNI de quien recibe o recoge: el
+     * código es casi correlativo y el QR sirve para retirar el paquete.
+     */
+    public function publicTicket(Request $request)
+    {
+        $code = strtoupper(trim((string) $request->query('code', '')));
+        $dni = preg_replace('/\D/', '', (string) $request->query('dni', ''));
+        $s = $code !== '' ? ShippingRequest::where('shipment_code', $code)->first() : null;
+        $docs = $s ? array_filter([preg_replace('/\D/', '', (string) $s->dni), preg_replace('/\D/', '', (string) $s->pickup_person_dni)]) : [];
+
+        if (!$s || strlen($dni) < 8 || !in_array($dni, $docs, true) || !\App\Services\Tenant\ShalomTracking::applies($s)) {
+            abort(404);
+        }
+        try {
+            $png = app(\App\Services\Tenant\ShalomGuide::class)->voucherImage($s);
+        } catch (\Throwable $e) {
+            Log::info('Ticket de Shalom no disponible para el seguimiento: ' . $e->getMessage());
+            abort(404);
+        }
+        if (!str_starts_with($png, "\x89PNG")) {
+            abort(404);
+        }
+
+        return response($png, 200, [
+            'Content-Type'        => 'image/png',
+            'Cache-Control'       => 'private, no-store',
+            'Content-Disposition' => 'inline; filename="ticket-shalom-' . $s->tracking_number . '.png"',
+        ]);
+    }
+
+    /**
      * Formulario público de datos de entrega de un PEDIDO existente.
      *
      * GET /pedido/{external_id}/datos-envio
