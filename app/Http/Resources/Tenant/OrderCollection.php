@@ -509,6 +509,12 @@ class OrderCollection extends ResourceCollection
         }
 
         $aging = $s->aging($maxDays, $skipHolidays);
+        // Pedido ya cerrado (enviado 4, anulado 5, entregado 6): el reloj se
+        // detiene aunque su envío no se haya cerrado con él. Los anulados
+        // #512 y #515 de alasitas seguían «vencidos» con el envío en recibido.
+        if (in_array((int) $row->status_order_id, [4, 5, 6], true)) {
+            $aging = ['days' => $aging['days'], 'level' => null];
+        }
 
         return [
             'id'               => $s->id,

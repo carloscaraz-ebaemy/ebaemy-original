@@ -922,6 +922,9 @@ class OrderController extends Controller
         $this->whereShipment($query, fn($s) => $s
             ->agedBefore($cutoff)
             ->whereNotIn('status', ShippingRequest::CLOSED_STATUSES));
+        // Y el PEDIDO también abierto: anulado, enviado o entregado no vence
+        // aunque su envío se haya quedado en «recibido».
+        $query->whereNotIn('orders.status_order_id', [4, 5, 6]);
     }
 
     /** En espera o postergados (el reloj de días hábiles está detenido). */
