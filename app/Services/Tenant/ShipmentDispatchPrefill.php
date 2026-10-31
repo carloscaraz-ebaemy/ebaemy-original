@@ -6,7 +6,6 @@ use App\Models\Tenant\Item;
 use App\Models\Tenant\Person;
 use App\Models\Tenant\ShippingRequest;
 use Illuminate\Support\Facades\Log;
-use Modules\Dispatch\Models\DispatchAddress;
 
 /**
  * Precarga de la Guía de Remisión a partir de un Registro de Envío.
@@ -21,6 +20,9 @@ class ShipmentDispatchPrefill
 {
     /** Avisos para el operador: lo que hay que revisar antes de emitir. */
     private array $avisos = [];
+
+    /** Producto comodín de la tienda (false = aún no buscado). */
+    private Item|null|false $generico = false;
 
     public function avisos(): array
     {
@@ -268,27 +270,36 @@ class ShipmentDispatchPrefill
 
         $items = [];
         $sinCasar = 0;
+        $comoVarios = 0;
 
         foreach ($lineas as $linea) {
             [$cantidad, $descripcion] = $this->partirCantidad($linea);
 
             $item = $this->buscarEnCatalogo($descripcion);
-            if (!$item) {
+            // Fuera del catálogo: la guía exige un producto con código. Se usa
+            // el producto por defecto de la tienda («PRODUCTOS VARIOS») con el
+            // texto del pedido como descripción, que es lo que sale impreso.
+            $generico = null;
+            if (!$item && ($generico = $this->productoPorDefecto())) {
+                $comoVarios++;
+            } elseif (!$item) {
                 $sinCasar++;
             }
+            $base = $item ?: $generico;
+            $texto = $item ? $item->description : $descripcion;
 
             $items[] = [
-                'item_id'      => $item->id ?? null,
-                'description'  => $item ? $item->description : $descripcion,
-                'unit_type_id' => $item->unit_type_id ?? 'NIU',
+                'item_id'      => $base->id ?? null,
+                'description'  => $texto,
+                'unit_type_id' => $base->unit_type_id ?? 'NIU',
                 'quantity'     => $cantidad,
                 'unit_price'   => 0,
                 'total'        => 0,
-                'item'         => $item ? [
-                    'id'           => $item->id,
-                    'description'  => $item->description,
-                    'internal_id'  => $item->internal_id,
-                    'unit_type_id' => $item->unit_type_id ?? 'NIU',
+                'item'         => $base ? [
+                    'id'           => $base->id,
+                    'description'  => $texto,
+                    'internal_id'  => $base->internal_id,
+                    'unit_type_id' => $base->unit_type_id ?? 'NIU',
                 ] : ['description' => $descripcion, 'unit_type_id' => 'NIU'],
                 'IdLoteSelected' => '',
                 'lots'           => [],
@@ -298,12 +309,44 @@ class ShipmentDispatchPrefill
             ];
         }
 
+        if ($comoVarios > 0) {
+            $this->avisos[] = $comoVarios . ' producto(s) del pedido no están en el catálogo: van como «'
+                            . $this->productoPorDefecto()->description . '» con la descripción del pedido. Revísala antes de emitir.';
+        }
         if ($sinCasar > 0) {
-            $this->avisos[] = $sinCasar . ' de ' . count($lineas) . ' producto(s) del detalle no se '
-                            . 'encontraron en el catálogo y van como descripción libre. Revísalos antes de emitir.';
+            $this->avisos[] = $sinCasar . ' de ' . count($lineas) . ' producto(s) del detalle no están en el catálogo '
+                            . 'y la tienda no tiene un producto «PRODUCTOS VARIOS» para usarlos. Agrégalos desde '
+                            . '«Agregar producto» antes de emitir.';
         }
 
         return $items;
+    }
+
+    /**
+     * El producto comodín de la tienda para lo que no está en el catálogo.
+     * No todas lo tienen ni lo llaman igual: alasitas «PRODUCTOS VARIOS»,
+     * calixto y talara «producto variado» (código XX-100).
+     */
+    private function productoPorDefecto(): ?Item
+    {
+        if ($this->generico !== false) {
+            return $this->generico;
+        }
+        try {
+            $this->generico = Item::query()
+                ->where(function ($q) {
+                    $q->where('internal_id', 'XX-100')
+                      ->orWhereIn(\Illuminate\Support\Facades\DB::raw('LOWER(TRIM(description))'),
+                                  ['productos varios', 'producto variado', 'productos variados', 'varios', 'producto varios']);
+                })
+                ->where('active', true)
+                ->orderByRaw("internal_id = 'XX-100' DESC")
+                ->first();
+        } catch (\Throwable $e) {
+            $this->generico = null;
+        }
+
+        return $this->generico;
     }
 
     /**
