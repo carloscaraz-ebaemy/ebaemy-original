@@ -8,6 +8,7 @@ use App\Models\System\MarketplaceListing;
 use App\Models\System\MarketplaceListingOption;
 use App\Models\System\MarketplaceListingOptionValue;
 use App\Models\System\MarketplaceListingVariant;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -81,7 +82,13 @@ class ExternalListingUpsertService
             'synced_at'       => now(),
         ]);
 
-        return DB::connection('system')->transaction(function () use ($seller, $remoteItemId, $data, $payload) {
+        // Si el producto cambia de categoria hay que limpiar tambien el total
+        // de la categoria de la que sale, no solo el de la que entra.
+        $categoriaAnterior = MarketplaceListing::where('hostname_id', $seller->hostname_id)
+            ->where('remote_item_id', $remoteItemId)
+            ->value('category_name');
+
+        $listing = DB::connection('system')->transaction(function () use ($seller, $remoteItemId, $data, $payload) {
             $listing = MarketplaceListing::updateOrCreate(
                 ['hostname_id' => $seller->hostname_id, 'remote_item_id' => $remoteItemId],
                 $data
@@ -95,14 +102,87 @@ class ExternalListingUpsertService
 
             return $listing;
         });
+
+        $this->olvidarCachesDelStorefront($listing, $categoriaAnterior);
+
+        return $listing;
+    }
+
+    /**
+     * Invalida las cachés del storefront que dejan de ser ciertas cuando un
+     * anuncio aparece, cambia o se pausa.
+     *
+     * Sin esto, despublicar funcionaba en la base pero el producto seguía
+     * viéndose hasta media hora en los listados (y seis horas en «comprados
+     * juntos»), que es la caja donde vive cada tarjeta. La ficha individual no
+     * se cachea, así que daba 404 mientras el listado seguía mostrándola: el
+     * síntoma exacto que reportaba el vendedor.
+     *
+     * Las claves parametrizadas por categoría se calculan desde el anuncio, y
+     * se acepta `$categoriaAnterior` porque al recategorizar hay que limpiar
+     * también el total de donde estaba antes.
+     */
+    private function olvidarCachesDelStorefront(?MarketplaceListing $listing, ?string $categoriaAnterior = null): void
+    {
+        // Mismo reparto por franjas que usa el bloque de ofertas del día.
+        $franja = (int) (now()->dayOfYear * 4 + intdiv((int) now()->hour, 6));
+
+        $claves = [
+            'mp_facet_categories_v1',
+            'mp_facet_brands_v1',
+            'mp_shops_top_v2',
+            'mp_suggest_popular_v1',
+            'marketplace_public_roots_v3',
+            'mp_stores_dir_v1',
+            'mp_daily_offers_v6_' . $franja,
+        ];
+
+        if ($listing) {
+            $claves[] = 'mp_bought_together_' . $listing->id;
+            $claves[] = 'mp_shop_total_v1_' . $listing->hostname_id;
+            $claves[] = 'mp_shop_catids_v1_' . $listing->hostname_id;
+
+            if ($listing->category_name) {
+                $claves[] = 'mp_cat_total_v1_' . md5((string) $listing->category_name);
+            }
+            if ($listing->marketplace_category_id) {
+                $claves[] = 'mp_catoff_total_v1_' . $listing->marketplace_category_id;
+            }
+        }
+
+        if ($categoriaAnterior) {
+            $claves[] = 'mp_cat_total_v1_' . md5($categoriaAnterior);
+        }
+
+        foreach (array_unique($claves) as $clave) {
+            Cache::forget($clave);
+        }
     }
 
     /** El vendedor despublicó o borró el producto: se pausa, no se borra (conserva histórico). */
     public function pause(MarketplaceExternalSeller $seller, int $remoteItemId): bool
     {
-        return (bool) MarketplaceListing::where('hostname_id', $seller->hostname_id)
+        // Se resuelve el anuncio antes de actualizarlo: hace falta su id,
+        // tienda y categoria para saber que cachés dejan de ser ciertas. El
+        // valor devuelto sigue diciendo si habia algo que pausar, que es lo
+        // que PRO 9 usa para avisar de un retiro que no encontro nada.
+        $listing = MarketplaceListing::where('hostname_id', $seller->hostname_id)
             ->where('remote_item_id', $remoteItemId)
-            ->update(['is_active' => false, 'status' => 'paused', 'synced_at' => now()]);
+            ->first();
+
+        if (!$listing) {
+            return false;
+        }
+
+        $listing->forceFill([
+            'is_active' => false,
+            'status'    => 'paused',
+            'synced_at' => now(),
+        ])->save();
+
+        $this->olvidarCachesDelStorefront($listing);
+
+        return true;
     }
 
     private function syncVariants(MarketplaceExternalSeller $seller, MarketplaceListing $listing, array $options, array $variants): void

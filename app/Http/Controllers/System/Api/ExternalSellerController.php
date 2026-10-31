@@ -133,8 +133,15 @@ class ExternalSellerController extends Controller
             }
             try {
                 if (empty($entry['publishable'])) {
-                    $service->pause($seller, $remoteItemId);
-                    $results[] = ['remote_item_id' => $remoteItemId, 'ok' => true, 'paused' => true];
+                    // `paused` devolvia true fijo, ignorando el valor real de
+                    // pause(). El reenvio periodico del vendedor quedaba ciego
+                    // ante un retiro que no encontro ningun anuncio: creia
+                    // haberlo retirado y el producto seguia publicado.
+                    $results[] = [
+                        'remote_item_id' => $remoteItemId,
+                        'ok'             => true,
+                        'paused'         => $service->pause($seller, $remoteItemId),
+                    ];
                 } else {
                     $listing = $service->upsert($seller, $remoteItemId, (array) ($entry['payload'] ?? []));
                     $results[] = ['remote_item_id' => $remoteItemId, 'ok' => true, 'listing_id' => $listing->id];
