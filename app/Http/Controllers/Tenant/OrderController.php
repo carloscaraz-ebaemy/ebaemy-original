@@ -1003,9 +1003,13 @@ class OrderController extends Controller
                 // nota de venta, boleta ni factura. Antes solo miraba los de
                 // marketplace externo (Saga) y en una tienda que vende por el
                 // registro de pedidos marcaba siempre 0.
+                // Y que tenga productos: sin líneas no hay de qué emitir (la nota
+                // de venta sale de los productos). Los del registro sin
+                // productos —guía enviada, todo completo— inflaban esto a 455.
                 $query->whereIn('status_order_id', [2, 3, 4, 6])
                     ->whereNull('number_document')
                     ->whereNull('document_external_id')
+                    ->whereRaw("JSON_LENGTH(COALESCE(orders.items, '[]')) > 0")
                     ->whereDoesntHave('sale_note');
                 if (MarketplaceOrder::moduleInstalled()) {
                     $query->where(fn ($w) => $w->whereDoesntHave('marketplaceOrder')
