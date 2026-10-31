@@ -128,6 +128,49 @@
                     </small>
                 </div>
 
+                <!-- Con qué se documenta la venta. Con RUC se propone factura
+                     (a un RUC no se le emite boleta). Se emite después, desde
+                     «Documentos» del pedido. -->
+                <div class="mo-f mo-f--full">
+                    <label class="mo-lbl">Comprobante</label>
+                    <div class="mo-doctypes" role="radiogroup" aria-label="Comprobante">
+                        <label v-for="c in comprobantes" :key="c.v" class="mo-doctype" :class="{ 'is-off': c.v === '03' && esEmpresa }">
+                            <input type="radio" :value="c.v" v-model="comprobante" :disabled="c.v === '03' && esEmpresa" @change="comprobanteTocado = true" />
+                            <span>{{ c.l }}</span>
+                        </label>
+                    </div>
+                    <small class="mo-hint">
+                        {{ esEmpresa ? 'Es un RUC: corresponde factura a nombre de la empresa.' : 'Se emite después desde «Documentos» del pedido.' }}
+                    </small>
+                </div>
+
+                <!-- Factura a otra empresa: recibe una persona (DNI) y se
+                     factura a un RUC 20 (pedido 533). El envío y el rótulo
+                     siguen a nombre de quien recibe. -->
+                <template v-if="comprobante === '01' && !esEmpresa">
+                    <div class="mo-f">
+                        <label class="mo-lbl req">RUC para la factura</label>
+                        <div class="mo-input-wrap">
+                            <input
+                                ref="facturaRuc"
+                                v-model="facturaRuc"
+                                type="text"
+                                class="mo-input"
+                                maxlength="11"
+                                inputmode="numeric"
+                                placeholder="11 dígitos"
+                                @input="alEscribirRuc"
+                            />
+                            <i v-if="buscandoRuc" class="mo-spin el-icon-loading"></i>
+                        </div>
+                        <small class="mo-hint" :class="{ 'is-warn': rucAviso }">{{ rucEstado || 'Con 11 dígitos se consulta en SUNAT.' }}</small>
+                    </div>
+                    <div class="mo-f">
+                        <label class="mo-lbl req">Razón social</label>
+                        <input v-model="facturaNombre" type="text" class="mo-input" maxlength="255" placeholder="Empresa a la que se factura" />
+                    </div>
+                </template>
+
                 <div class="mo-f">
                     <label class="mo-lbl req" for="mo-phone">Celular (WhatsApp)</label>
                     <input
@@ -449,41 +492,6 @@
                     </label>
                 </div>
 
-                <!-- Cliente EMPRESA: la agencia no le entrega a un RUC,
-                     pide el DNI y el nombre de la persona que va a recoger.
-                     Sin esto salian rotulos a nombre de una razon social y
-                     sin nadie a quien entregarle la caja. -->
-                <template v-if="esEmpresa">
-                    <div class="mo-f mo-f--full mo-empresa-aviso">
-                        Es un RUC: la agencia necesita saber qué persona recoge el paquete.
-                    </div>
-
-                    <div class="mo-f">
-                        <label class="mo-lbl req">Quién recoge</label>
-                        <input
-                            ref="recogeNombre"
-                            v-model="envio.pickup_person_name"
-                            type="text"
-                            class="mo-input"
-                            maxlength="160"
-                            placeholder="Nombre y apellidos"
-                        />
-                    </div>
-
-                    <div class="mo-f">
-                        <label class="mo-lbl req">DNI de quien recoge</label>
-                        <input
-                            ref="recogeDni"
-                            v-model="envio.pickup_person_dni"
-                            type="text"
-                            class="mo-input"
-                            maxlength="20"
-                            inputmode="numeric"
-                            placeholder="8 dígitos"
-                            @input="soloDigitosEnEnvio('pickup_person_dni')"
-                        />
-                    </div>
-                </template>
 
                 <div v-if="envio.a_domicilio" class="mo-f mo-f--full">
                     <label class="mo-lbl req">Dirección de reparto</label>
@@ -499,6 +507,42 @@
             </div>
             </template>
             </template>
+
+            <!-- Cliente EMPRESA (RUC): la agencia no le entrega a una razón
+                 social y en tienda o con el motorizado tampoco hay a quién
+                 darle la caja. Va en las tres modalidades; antes solo salía
+                 con agencia. -->
+            <div v-if="esEmpresa" ref="recoge" class="mo-grid" style="margin-top:12px">
+                <div class="mo-f mo-f--full mo-empresa-aviso">
+                    Es un RUC: indica qué persona {{ envio.delivery_type === 'domicilio' ? 'recibe' : 'recoge' }} el paquete.
+                </div>
+
+                <div class="mo-f">
+                    <label class="mo-lbl" :class="{ req: envio.delivery_type === 'agencia' }">Quién {{ envio.delivery_type === 'domicilio' ? 'recibe' : 'recoge' }}</label>
+                    <input
+                        ref="recogeNombre"
+                        v-model="envio.pickup_person_name"
+                        type="text"
+                        class="mo-input"
+                        maxlength="160"
+                        placeholder="Nombre y apellidos"
+                    />
+                </div>
+
+                <div class="mo-f">
+                    <label class="mo-lbl" :class="{ req: envio.delivery_type === 'agencia' }">DNI</label>
+                    <input
+                        ref="recogeDni"
+                        v-model="envio.pickup_person_dni"
+                        type="text"
+                        class="mo-input"
+                        maxlength="20"
+                        inputmode="numeric"
+                        placeholder="8 dígitos"
+                        @input="soloDigitosEnEnvio('pickup_person_dni')"
+                    />
+                </div>
+            </div>
 
             <!-- == Qué lleva el pedido =====================================
                  Dos formas de contestarlo, y no son la misma cosa:
@@ -599,6 +643,18 @@ export default {
             ],
             docType: "dni",
             documento: "",
+            comprobantes: [
+                { v: "80", l: "Nota de venta" },
+                { v: "03", l: "Boleta" },
+                { v: "01", l: "Factura" },
+            ],
+            comprobante: null,
+            comprobanteTocado: false,
+            facturaRuc: "",
+            facturaNombre: "",
+            buscandoRuc: false,
+            rucEstado: "",
+            rucAviso: false,
             // `items` vive dentro de `form` porque es lo que se envia tal
             // cual: el resto del formulario tambien, y tenerlo suelto era la
             // forma de olvidarse de limpiarlo.
@@ -756,6 +812,9 @@ export default {
         },
         esEmpresa() {
             return this.docType === "dni" && (this.documento || "").length === 11;
+        },
+        comprobanteSugerido() {
+            return this.esEmpresa ? "01" : null;
         },
         /**
          * Cuando el destino es obligatorio.
@@ -971,6 +1030,12 @@ export default {
         },
     },
     watch: {
+        // Con RUC, factura; al volver a DNI se suelta la sugerencia (no la
+        // elección que hizo el operador a mano).
+        comprobanteSugerido(v) {
+            if (v) { this.comprobante = v; return; }
+            if (!this.comprobanteTocado && this.comprobante === "01") this.comprobante = null;
+        },
         /**
          * Crear dos pedidos seguidos reutiliza ESTA instancia: el listado
          * monta el componente con `:key="manualOrderId || 'nuevo'"`, y entre
@@ -1141,6 +1206,11 @@ export default {
                     this.form.phone = (c.phone || "").replace(/\D+/g, "");
                     this.form.email = c.email || "";
                     this.documento = (c.document_number || "").replace(/\D+/g, "");
+                    // Comprobante ya elegido (y la empresa, si se factura a otra).
+                    this.comprobante = d.billing_document_type_id || null;
+                    this.comprobanteTocado = !!d.billing_document_type_id;
+                    this.facturaRuc = ((d.billing_customer || {}).numero || "").replace(/\D+/g, "");
+                    this.facturaNombre = (d.billing_customer || {}).nombre || "";
 
                     // Un pedido guardado ya trae nombre: dejarlo bloqueado
                     // esperando una consulta que nadie va a lanzar seria un
@@ -1858,11 +1928,38 @@ export default {
             });
         },
 
+        alEscribirRuc() {
+            this.facturaRuc = (this.facturaRuc || "").replace(/\D/g, "");
+            this.rucEstado = ""; this.rucAviso = false;
+            if (this.facturaRuc.length !== 11) return;
+            const ruc = this.facturaRuc;
+            this.buscandoRuc = true;
+            this.$http
+                .get("/orders/search-customer", { params: { document_number: ruc } })
+                .then(r => {
+                    if (ruc !== this.facturaRuc) return;
+                    const c = (r.data && r.data.customer) || {};
+                    if (r.data && r.data.found && c.name) {
+                        this.facturaNombre = c.name;
+                        this.rucEstado = "Datos traídos de SUNAT.";
+                    } else {
+                        this.rucEstado = "No figura en SUNAT: escribe la razón social.";
+                        this.rucAviso = true;
+                    }
+                })
+                .catch(() => { this.rucEstado = "No se pudo consultar: escribe la razón social."; this.rucAviso = true; })
+                .then(() => { this.buscandoRuc = false; });
+        },
+
         guardar() {
             // Primero lo que falta. Antes esto no existia porque el boton
             // estaba apagado hasta que todo estuviera: el precio era que nadie
             // sabia QUE faltaba.
-            const falta = this.queFalta;
+            const falta = this.queFalta.slice();
+            if (this.comprobante === "01" && !this.esEmpresa) {
+                if ((this.facturaRuc || "").length !== 11) falta.push({ texto: "Escribe el RUC (11 dígitos) para la factura.", donde: "facturaRuc" });
+                else if (!(this.facturaNombre || "").trim()) falta.push({ texto: "Escribe la razón social para la factura.", donde: "facturaRuc" });
+            }
             if (falta.length) {
                 this.problemas = falta.map(x => x.texto);
                 this.$message.warning(
@@ -1885,6 +1982,10 @@ export default {
             this.$http
                 .post(url, {
                     channel_id: this.form.channel_id,
+                    billing_document_type_id: this.comprobante || null,
+                    billing_customer: this.comprobante === "01" && !this.esEmpresa && this.facturaRuc
+                        ? { numero: this.facturaRuc, nombre: (this.facturaNombre || "").trim() }
+                        : null,
                     customer: {
                         name: (this.form.name || "").trim(),
                         document_number: this.documento || null,

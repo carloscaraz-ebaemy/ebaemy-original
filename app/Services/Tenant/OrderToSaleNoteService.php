@@ -112,7 +112,15 @@ class OrderToSaleNoteService
                 $saleNote->date_of_issue = now()->format('Y-m-d');
                 $saleNote->time_of_issue = now()->format('H:i:s');
                 $saleNote->customer_id = $person?->id;
-                $saleNote->customer = $customerData;
+                // El documento a nombre de la empresa facturada, si la hay; la
+                // entrega (shipping_*) sigue con los datos de quien recibe.
+                $saleNote->customer = ($empresa = $this->empresaFacturada($order))
+                    ? array_merge($customerData ?: [], [
+                        'numero' => $empresa['numero'], 'numero_documento' => $empresa['numero'],
+                        'apellidos_y_nombres_o_razon_social' => $empresa['nombre'] ?? ($person->name ?? ''),
+                        'codigo_tipo_documento_identidad' => '6',
+                    ])
+                    : $customerData;
                 $saleNote->currency_type_id = 'PEN';
                 $saleNote->exchange_rate_sale = 1;
                 $saleNote->total = $order->total;
@@ -324,6 +332,13 @@ class OrderToSaleNoteService
      */
     protected function resolveCustomer(Order $order): ?Person
     {
+        // Factura a otra empresa: recibe una persona (DNI) y se factura a un
+        // RUC (alta manual, «RUC para la factura»). El documento va a la
+        // empresa; la entrega sigue a nombre de quien recibe.
+        if ($empresa = $this->empresaFacturada($order)) {
+            return Person::resolveCustomer($empresa['numero'], $empresa['nombre'] ?? null, []);
+        }
+
         if ($order->person_id) {
             $ficha = Person::find($order->person_id);
 
@@ -350,6 +365,21 @@ class OrderToSaleNoteService
             'address'   => $customer['direccion'] ?? $customer['address'] ?? null,
             'email'     => $customer['correo_electronico'] ?? $customer['email'] ?? null,
         ]);
+    }
+
+    /** RUC y razón social a los que se factura, si no son los del cliente. */
+    protected function empresaFacturada(Order $order): ?array
+    {
+        $bc = $order->billing_customer ?? null;
+        if (is_string($bc)) {
+            $bc = json_decode($bc, true);
+        }
+        $numero = preg_replace('/\D+/', '', (string) (($bc ?? [])['numero'] ?? ''));
+        if (($order->billing_document_type_id ?? null) !== '01' || strlen($numero) !== 11) {
+            return null;
+        }
+
+        return ['numero' => $numero, 'nombre' => trim((string) ($bc['nombre'] ?? '')) ?: null];
     }
 
     protected function resolvePaymentMethod(Order $order): string

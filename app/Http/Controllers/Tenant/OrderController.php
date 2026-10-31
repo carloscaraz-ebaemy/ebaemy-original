@@ -2303,6 +2303,38 @@ class OrderController extends Controller
      * vias. Un pedido sin lineas y sin rotulo no es un encargo: es un pedido
      * vacio, y nadie sabria que meter en la caja.
      */
+    /**
+     * El comprobante elegido en el alta o la edición manual (nota de venta,
+     * boleta o factura). Con un RUC el formulario propone factura: antes había
+     * que crear el pedido y corregirlo después en «Documentos». No emite nada
+     * y no toca un pedido que ya tiene boleta o factura.
+     */
+    private function aplicarComprobanteElegido(Order $order, Request $request): void
+    {
+        $tipo = (string) $request->input('billing_document_type_id', '');
+        if (!in_array($tipo, BillingDocumentResolver::ELEGIBLES, true)
+            || !\Illuminate\Support\Facades\Schema::connection('tenant')->hasColumn('orders', 'billing_document_type_id')
+            || ($order->billing_document_type_id === $tipo && !$request->filled('billing_customer'))) {
+            return;
+        }
+        $docs = OrderDocuments::for($order->loadMissing(['sale_note', 'sale_note.documents', 'document']));
+        if ($docs->tiene(OrderDocuments::BOLETA) || $docs->tiene(OrderDocuments::FACTURA)) {
+            return;
+        }
+        // Factura a otra empresa (recibe una persona, se factura a un RUC).
+        $bc = (array) $request->input('billing_customer', []);
+        $numero = preg_replace('/\D+/', '', (string) ($bc['numero'] ?? ''));
+        $otra = $tipo === BillingDocumentResolver::FACTURA && strlen($numero) === 11
+            ? array_filter(['numero' => $numero, 'nombre' => trim((string) ($bc['nombre'] ?? ''))])
+            : null;
+        $order->forceFill([
+            'billing_document_type_id' => $tipo,
+            'billing_customer'         => $otra,
+            'billing_set_by'           => auth()->id(),
+            'billing_set_at'           => now(),
+        ])->save();
+    }
+
     public function storeManual(Request $request)
     {
         $request->validate([
@@ -2408,6 +2440,7 @@ class OrderController extends Controller
         // Reservar DESPUES de crear el pedido: si la creacion falla, no queda
         // stock comprometido contra un pedido que no existe.
         $stock->reservar($lineas, $warehouseId);
+        $this->aplicarComprobanteElegido($order, $request);
 
         return response()->json([
             'success' => true,
@@ -2729,6 +2762,9 @@ class OrderController extends Controller
                 'email'           => $cliente['correo_electronico'] ?? ($cliente['email'] ?? ''),
             ],
             'items'      => $lineas,
+            // El comprobante elegido y, si se factura a otra empresa, su RUC.
+            'billing_document_type_id' => $order->billing_document_type_id ?? null,
+            'billing_customer'         => $order->billing_customer ?? null,
             'total'      => (float) $order->total,
             // Contenido del bulto: texto libre que vive en el ENVIO, no una
             // linea de venta. El editor de productos lo muestra al lado del
@@ -2891,6 +2927,7 @@ class OrderController extends Controller
             throw $e;
         }
 
+        $this->aplicarComprobanteElegido($order, $request);
         $order->refresh();
 
         return response()->json([
