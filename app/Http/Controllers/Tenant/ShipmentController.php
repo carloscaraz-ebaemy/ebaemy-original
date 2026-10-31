@@ -3527,6 +3527,10 @@ class ShipmentController extends Controller
             // Marca para el formulario: precargar cliente, dirección,
             // transportista y productos aunque no haya documento de origen.
             'from_shipment' => true,
+            // Agencia (Shalom, Marvisur…) = transporte PÚBLICO (01): va la
+            // empresa transportista. El formulario arranca en privado (02),
+            // que borra el transportista y pide conductor y vehículo propios.
+            'transport_mode_type_id' => $shipment->is_agencia ? '01' : '02',
             'customer_id'  => $persona->id ?? null,
             'customer'     => $persona ? $persona->toArray() : null,
             'observations' => trim('Envio ' . $shipment->shipment_code

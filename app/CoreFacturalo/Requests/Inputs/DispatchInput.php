@@ -356,7 +356,15 @@ class DispatchInput
         if (array_key_exists('items', $inputs)) {
             $items = [];
             foreach ($inputs['items'] as $row) {
-                $item = Item::find($row['item_id']);
+                $item = Item::find($row['item_id'] ?? null);
+                // Producto sin código (escrito a mano, no está en el catálogo):
+                // mensaje claro en vez de un 500 más abajo.
+                if (!$item) {
+                    $desc = $row['description'] ?? ($row['item']['description'] ?? 'un producto');
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'items' => ["«{$desc}» no está en tu catálogo de productos. Quítalo de la guía y agrégalo con «Agregar producto»."],
+                    ]);
+                }
                 $itemDispatch = $row['item'] ?? [];
                 $row['IdLoteSelected'] = $row['IdLoteSelected'] ?? $itemDispatch['IdLoteSelected'] ?? null;
 

@@ -1694,6 +1694,13 @@ export default {
             this.calculatePackagesFromItems();
         },
         async submit() {
+            // Un producto escrito a mano (no está en el catálogo) no tiene
+            // código: SUNAT lo exige y el servidor se caía con un 500.
+            const sinCatalogo = (this.form.items || []).filter(i => !i.item_id);
+            if (sinCatalogo.length) {
+                const nombre = (sinCatalogo[0].item && sinCatalogo[0].item.description) || sinCatalogo[0].description || 'un producto';
+                return this.$message.error('«' + nombre + '» no está en tu catálogo de productos. Quítalo y agrégalo con «Agregar producto» (o créalo primero en Productos).');
+            }
             // if (this.form.is_transport_m1l && (!this.form.license_plate_m1l || this.form.license_plate_m1l.trim() === '')) {
             //     this.errors = {license_plate_m1l: ['El número de placa es obligatorio']};
             //     return this.$message.error('El número de placa es obligatorio');
