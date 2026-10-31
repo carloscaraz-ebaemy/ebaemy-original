@@ -4350,6 +4350,29 @@ class ShipmentController extends Controller
                 ->with('duplicate', true);
         }
 
+        // Ya compró por el marketplace o la tienda y se registra por el enlace
+        // GENERAL: sus datos van a ESE pedido. Antes nacía un pedido nuevo del
+        // registro, se cobraba ahí y el del marketplace se anulaba como
+        // duplicado (alasitas #520/#521): la venta dejaba de contar como del
+        // marketplace.
+        if ($abierto = $this->pedidoAbiertoDelCliente($data)) {
+            $linker = app(\App\Services\Tenant\OrderShipmentLinker::class);
+            unset($data['order_id']);
+            $shipment = $linker->ensure($abierto, $data);
+            ShippingAuditLog::log(ShippingAuditLog::ACTION_EDIT, $shipment->id, 'order_id', null, $abierto->id,
+                'El cliente se registró por el enlace general: se unió a su pedido #' . str_pad((string) $abierto->id, 6, '0', STR_PAD_LEFT)
+                . ' (' . (optional($abierto->channel)->name ?: 'tienda / marketplace') . ') en vez de crear otro');
+            $this->notifyClientRegistered($shipment);
+            $this->notifyStoreNewOrder($shipment);
+            $joined = $this->joinRaffleFromShipment($request, $shipment);
+
+            return redirect()->route('shipments.public.form')
+                ->with('shipment_code', $shipment->shipment_code)
+                ->with('shipment_type', $shipment->delivery_type)
+                ->with('joined_raffle', $joined)
+                ->with('success', 'Registramos los datos de entrega de tu pedido.');
+        }
+
         $shipment = ShippingRequest::create($data);
         $this->assignCode($shipment);
         $this->stampPriority($shipment);
@@ -4383,6 +4406,41 @@ class ShipmentController extends Controller
      *
      * @return string|null Nombre del sorteo elegido, o null.
      */
+    /**
+     * Pedido de tienda virtual o marketplace del mismo cliente (mismo DNI, o
+     * mismo celular si no dio DNI), abierto, de los últimos 3 días y todavía
+     * sin datos de envío. Null si no hay uno claro (más de uno = no se adivina).
+     */
+    private function pedidoAbiertoDelCliente(array $data): ?\App\Models\Tenant\Order
+    {
+        $dni = preg_replace('/\D/', '', (string) ($data['dni'] ?? ''));
+        $tel = substr(preg_replace('/\D/', '', (string) ($data['phone'] ?? '')), -9);
+        if ($dni === '' && strlen($tel) !== 9) {
+            return null;
+        }
+        try {
+            $linker = app(\App\Services\Tenant\OrderShipmentLinker::class);
+            $candidatos = \App\Models\Tenant\Order::query()
+                ->whereIn('status_order_id', [1, 2, 3])
+                ->where('created_at', '>=', now()->subDays(3))
+                ->whereHas('channel', fn ($q) => $q->whereIn('code', ['ECOM', 'MKP01']))
+                ->latest('id')->limit(50)->get()
+                ->filter(function ($o) use ($dni, $tel) {
+                    $c = is_array($o->customer) ? $o->customer : (array) json_decode(json_encode($o->customer), true);
+                    $doc = preg_replace('/\D/', '', (string) ($c['numero_documento'] ?? $c['numero'] ?? $c['number'] ?? ''));
+                    $cel = substr(preg_replace('/\D/', '', (string) ($c['telefono'] ?? $c['phone'] ?? '')), -9);
+
+                    return $dni !== '' ? $doc === $dni : $cel === $tel;
+                })
+                ->filter(fn ($o) => !$linker->current($o))
+                ->values();
+        } catch (\Throwable $e) {
+            return null;
+        }
+
+        return $candidatos->count() === 1 ? $candidatos->first() : null;
+    }
+
     private function joinRaffleFromShipment(Request $request, ShippingRequest $shipment): ?string
     {
         if (!$request->boolean('join_raffle')) {
