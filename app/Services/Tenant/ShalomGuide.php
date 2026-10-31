@@ -492,7 +492,7 @@ class ShalomGuide
     /** El PNG de Shalom trae media hoja en blanco debajo del ticket: se recorta. */
     private static function sinBlancoAbajo(string $png): string
     {
-        if (!function_exists('imagecreatefromstring') || !str_starts_with($png, "PNG")) {
+        if (!function_exists('imagecreatefromstring') || !str_starts_with($png, "\x89PNG")) {
             return $png;
         }
         try {
