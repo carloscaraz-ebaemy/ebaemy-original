@@ -133,9 +133,23 @@
                     <!-- Dar de alta cierra la fila de indicadores: es la unica
                          accion que CREA algo, y perdida entre los filtros
                          parecia uno mas de ellos. -->
-                    <button class="ord-new-btn" @click="manualOrderId = null; showManualDialog = true">
-                        <i class="fas fa-plus"></i> Nuevo pedido
-                    </button>
+                    <div class="ord-new-group">
+                        <!-- El enlace que se comparte a los clientes para que
+                             registren su pedido: estaba escondido en el menú de
+                             cada fila y es lo que más se copia en el día. -->
+                        <button
+                            v-if="shipping"
+                            type="button"
+                            class="ord-link-btn"
+                            title="Copia el enlace de registro para mandárselo al cliente por WhatsApp"
+                            @click="copyLink(origenTienda + '/R3GISTRO', 'Enlace de registro')"
+                        >
+                            <i class="fas fa-link"></i> Copiar enlace de registro
+                        </button>
+                        <button class="ord-new-btn" @click="manualOrderId = null; showManualDialog = true">
+                            <i class="fas fa-plus"></i> Nuevo pedido
+                        </button>
+                    </div>
                 </div>
                 <div v-if="countsError" class="ord-counts-error">
                     <i class="fas fa-exclamation-triangle"></i>
@@ -1452,8 +1466,8 @@
                                     <!-- Una sola entrada: el panel dice que corresponde
                                          emitir, que esta bloqueado y por que. -->
                                     <el-dropdown-item command="documents">
-                                        <i class="el-icon-folder-opened"></i>
-                                        Documentos
+                                        <i class="el-icon-document"></i>
+                                        Generar comprobante (nota de venta, boleta, factura)
                                     </el-dropdown-item>
 
                                     <!-- Lo que DESHACE algo, al final y separado de las
@@ -3287,6 +3301,20 @@
     padding-left: 18px;
     padding-right: 18px;
 }
+.ord-new-group { display: flex; flex-direction: column; gap: 6px; }
+.ord-new-group .ord-new-btn { flex: 1; }
+.ord-link-btn {
+    border: 1px solid #99f6e4;
+    border-radius: 6px;
+    background: #f0fdfa;
+    color: #0f766e;
+    font-weight: 600;
+    font-size: 12.5px;
+    padding: 6px 14px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.ord-link-btn:hover { background: #ccfbf1; }
 .ord-kpi {
     border: 1px solid #eef2f7;
     border-radius: 12px;
@@ -3663,6 +3691,8 @@
         padding-top: 10px;
         padding-bottom: 10px;
     }
+    .orders .ord-kpis .ord-new-group { grid-column: 1 / -1; flex-direction: row; }
+    .orders .ord-kpis .ord-new-group > * { flex: 1; }
     /* La cabecera es estrecha: los dos botones se reparten la linea. */
     .ord-head-actions {
         width: 100%;
@@ -4015,6 +4045,7 @@ export default {
                 { key: "por_despachar", label: "Por despachar" },
                 { key: "en_transito", label: "En tránsito" },
                 { key: "listos_recojo", label: "Listos para recojo" },
+                { key: "en_espera", label: "En espera / postergados" },
                 { key: "entregados", label: "Entregados" },
                 { key: "anulados", label: "Anulados" },
                 { key: "sin_envio", label: "Sin envío" },
@@ -4270,6 +4301,9 @@ export default {
         this.events();
     },
     computed: {
+        origenTienda() {
+            return window.location.origin;
+        },
         /**
          * Los chips que se quedan arriba: los de uso diario, mas el que este
          * activo aunque no lo sea.

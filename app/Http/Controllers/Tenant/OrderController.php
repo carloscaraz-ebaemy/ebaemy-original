@@ -927,6 +927,16 @@ class OrderController extends Controller
         $query->whereNotIn('orders.status_order_id', [4, 5, 6]);
     }
 
+    /** Fuera los que están en espera o postergados: no son trabajo de hoy. */
+    private function sinEspera($query)
+    {
+        if (ShippingRequest::moduleInstalled() && ShippingRequest::hasHoldColumns()) {
+            $query->whereDoesntHave('shipments', fn ($s) => $s->vigente()->whereNotNull('on_hold_since'));
+        }
+
+        return $query;
+    }
+
     /** En espera o postergados (el reloj de días hábiles está detenido). */
     private function soloEnEspera($query)
     {
@@ -988,17 +998,25 @@ class OrderController extends Controller
             case 'canceled':   // Cancelados / Devoluciones
                 $query->where('status_order_id', 5);
                 break;
-            case 'no_invoice': // Pedidos de marketplace SIN boleta
-                // Sin la tabla no hay pedidos de marketplace externo, y la
-                // respuesta correcta es "ninguno", no un error de SQL.
-                if (!MarketplaceOrder::moduleInstalled()) {
-                    $query->whereRaw('1 = 0');
-                    break;
+            case 'no_invoice':
+                // Falta emitir: pedido ya pagado (o enviado / entregado) sin
+                // nota de venta, boleta ni factura. Antes solo miraba los de
+                // marketplace externo (Saga) y en una tienda que vende por el
+                // registro de pedidos marcaba siempre 0.
+                $query->whereIn('status_order_id', [2, 3, 4, 6])
+                    ->whereNull('number_document')
+                    ->whereNull('document_external_id')
+                    ->whereDoesntHave('sale_note');
+                if (MarketplaceOrder::moduleInstalled()) {
+                    $query->where(fn ($w) => $w->whereDoesntHave('marketplaceOrder')
+                        ->orWhereHas('marketplaceOrder', fn ($q) => $q->whereNull('invoice_uploaded_at')->whereNull('document_id')));
                 }
-                $query->whereNull('number_document')
-                    ->whereHas('marketplaceOrder', function ($q) {
-                        $q->whereNull('invoice_uploaded_at')->whereNull('document_id');
-                    });
+                break;
+
+            case 'en_espera':
+                // En espera o con el despacho postergado (no corren los días).
+                $this->soloEnEspera($query);
+                $query->whereIn('status_order_id', [1, 2, 3]);
                 break;
 
             // ── Chips operativos unificados ───────────────────────────────
@@ -1012,6 +1030,7 @@ class OrderController extends Controller
                 // pedidos que ni siquiera tienen envío configurado: son
                 // trabajo pendiente, no pedidos "sin estado".
                 $query->whereIn('status_order_id', [2, 3]);
+                $this->sinEspera($query);
 
                 // Sin el modulo de Envios, "por preparar" es sencillamente todo
                 // pedido pagado: no hay estado logistico que lo descarte.
@@ -1029,23 +1048,31 @@ class OrderController extends Controller
                 }
                 break;
 
+            // Las etapas miran el ENVÍO, pero el pedido tiene que seguir abierto:
+            // un pedido anulado con el envío olvidado en «recibido» (#512, #515)
+            // seguía apareciendo en «Nuevos» y en las colas de trabajo.
             case 'por_imprimir':
                 // Requiere rótulo (el recojo en tienda no) y aún no se imprimió.
+                $query->whereIn('status_order_id', [1, 2, 3]);
+                $this->sinEspera($query);
                 $this->whereShipment($query, fn($s) => $s
                     ->whereNull('printed_at')
                     ->printableLabel());
                 break;
 
             case 'por_embalar':
+                $query->whereIn('status_order_id', [1, 2, 3]);
                 $this->whereShipment($query, fn($s) => $s->where('status', ShippingRequest::STATUS_IMPRESO));
                 break;
 
             case 'por_despachar':
+                $query->whereIn('status_order_id', [1, 2, 3]);
                 $this->whereShipment($query, fn($s) => $s->where('status', ShippingRequest::STATUS_EMBALANDO));
                 break;
 
             case 'en_transito':
                 // Lima: en camino · Provincia: despachado / en agencia / en ruta.
+                $query->where('status_order_id', '!=', 5);
                 $this->whereShipment($query, fn($s) => $s->whereIn('status', [
                     ShippingRequest::STATUS_EN_CAMINO,
                     ShippingRequest::STATUS_DESPACHADO,
@@ -1056,6 +1083,7 @@ class OrderController extends Controller
                 break;
 
             case 'listos_recojo':
+                $query->whereIn('status_order_id', [1, 2, 3]);
                 $this->whereShipment($query, fn($s) => $s
                     ->where('delivery_type', ShippingRequest::DELIVERY_TIENDA)
                     ->where('status', ShippingRequest::STATUS_LISTO_RECOJO));
@@ -1084,6 +1112,8 @@ class OrderController extends Controller
                 // La lista de estados es la MISMA que usa la pestaña «Nuevos»
                 // del panel de Envios (`ShipmentController`, grupo `confirmar`).
                 // Si alli cambia, cambia aqui.
+                $query->whereIn('status_order_id', [1, 2, 3]);
+                $this->sinEspera($query);
                 $this->whereShipment($query, fn($s) => $s
                     ->whereIn('status', [
                         ShippingRequest::STATUS_RECIBIDO,
@@ -1156,15 +1186,15 @@ class OrderController extends Controller
             'anulados'      => $enEstados([5]),
         ];
 
-        // 2. Todo lo que depende del envío vigente, en UNA pasada.
-        $counts += $this->shipmentStageCounts($base, $enEstados([2, 3]));
-
-        // 3. Los dos que no encajan en ninguna de las dos anteriores.
-        $counts['no_invoice'] = MarketplaceOrder::moduleInstalled()
-            ? (clone $base)->whereNull('number_document')
-                ->whereHas('marketplaceOrder', fn($q) => $q->whereNull('invoice_uploaded_at')->whereNull('document_id'))
-                ->count()
-            : 0;
+        // 2. Etapas, «Falta emitir» y «En espera»: cada uno con el MISMO filtro
+        // que aplica el chip. Con un agregado aparte los números se desviaban
+        // de la lista (contaba anulados con el envío abierto).
+        foreach (['nuevos', 'por_preparar', 'por_imprimir', 'por_embalar', 'por_despachar',
+                  'en_transito', 'listos_recojo', 'sin_envio', 'no_invoice', 'en_espera'] as $chip) {
+            $q = (clone $base)->reorder();
+            $this->applyOperationalChip($q, $request, $chip);
+            $counts[$chip] = $q->count();
+        }
 
         // Alias histórico: el Vue actual lee `delivered`.
         $counts['delivered'] = $counts['entregados'];
