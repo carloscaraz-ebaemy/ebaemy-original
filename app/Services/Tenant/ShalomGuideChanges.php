@@ -88,6 +88,15 @@ class ShalomGuideChanges
                 throw new RuntimeException('El paquete ya va a esa oficina.');
             }
             $data['destino'] = (int) $office->ter_id;
+            // Shalom solo lo toma solo con el envío pendiente; si el paquete ya
+            // salió hay que mandarlo, o responde 400 (pasó con la guía en camino).
+            // Es el documento con que se creó la guía: el del cliente, o el del
+            // autorizado si el cliente es empresa.
+            $esEmpresa = strlen(preg_replace('/\D/', '', (string) $s->dni)) === 11;
+            $doc = preg_replace('/\D/', '', (string) ($esEmpresa ? $s->pickup_person_dni : $s->dni));
+            if ($doc !== '') {
+                $data['destinatario'] = $doc;
+            }
             $local = ['destino' => (int) $office->ter_id];
         } else {
             $doc = preg_replace('/\D/', '', (string) ($params['destinatario'] ?? ''));

@@ -108,9 +108,13 @@
                         </div>
                     </template>
                     <div class="shg-field">
-                        <label>Celular que recibe el código <span class="shg-req">*</span></label>
+                        <label>Celular que recibirá el código <span class="shg-req">*</span></label>
                         <el-input v-model="f.telefono" maxlength="9" placeholder="9xxxxxxxx" style="max-width:200px"></el-input>
-                        <small class="shg-sub">Shalom envía un código por SMS para autorizar el cambio. Usa el celular registrado en tu cuenta de Shalom Pro.</small>
+                        <small class="shg-sub">
+                            Shalom manda ahí un código por SMS para autorizar el cambio. Puede ser el tuyo o el del cliente:
+                            quien lo reciba te lo dicta.
+                            <template v-if="sh.store_phone && f.telefono === sh.store_phone">Viene puesto el WhatsApp de pedidos de tu tienda.</template>
+                        </small>
                     </div>
                 </template>
 

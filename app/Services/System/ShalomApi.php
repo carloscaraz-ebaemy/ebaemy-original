@@ -309,7 +309,14 @@ class ShalomApi
             ->{$method}(rtrim(config('services.shalom.url') ?: 'https://api.shalom-api.lat', '/') . $path, $data);
 
         if ($res->failed()) {
-            $msg = $res->json('error') ?? $res->json('message') ?? substr($res->body(), 0, 200);
+            $msg = $res->json('error') ?? $res->json('message');
+            if ($msg === null) {
+                // A veces responde con una página HTML (error de Shalom Pro detrás
+                // del API): se guarda entera en el log y al usuario se le da el texto.
+                \Log::warning('Shalom API respondió sin JSON', ['path' => $path, 'status' => $res->status(), 'body' => substr($res->body(), 0, 3000)]);
+                $texto = trim(preg_replace('/\s+/', ' ', html_entity_decode(strip_tags(preg_replace('#<(script|style).*?</>#is', ' ', $res->body())))));
+                $msg = $texto !== '' ? mb_substr($texto, 0, 160) : 'respuesta vacía';
+            }
             throw new RuntimeException('Shalom API ' . $res->status() . ': ' . $msg, $res->status());
         }
 
