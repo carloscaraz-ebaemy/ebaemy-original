@@ -386,50 +386,99 @@
                 <div class="ok-btns">
                     <a href="{{ route('shipments.public.tracking', ['code' => $sent]) }}"><button type="button" class="btn">Ver el estado de mi envío</button></a>
                     @php
-                        // OJO: este armado es un duplicado del de
-                        // ShipmentController::waSummary(). Si tocas uno, toca el otro
-                        // (o unificalos): ya se desincronizaron una vez con el precio.
+                        // Lo que el cliente le manda a la tienda al terminar. Sirve a
+                        // los dos: la tienda busca por N° de pedido y ve todo junto, y
+                        // el cliente se queda en su chat con el estado de su pedido y
+                        // qué avisos le van a llegar (mismos hitos que el seguimiento).
                         $tiendaNombre = $company->title_web ?: ($company->trade_name ?: ($company->name ?: 'la tienda'));
                         $s = $sentShipment ?? null;
                         $L = [];
                         $L[] = "📦 *PEDIDO REGISTRADO* — {$tiendaNombre}";
-                        // El cliente pega este mensaje en el chat de la tienda: el
-                        // numero que la tienda puede buscar es el de PEDIDO.
-                        $L[] = $okRef ? "Pedido: *{$okRef}*" : "Código: *{$sent}*";
-                        if ($okRef) $L[] = "Seguimiento: {$sent}";
+                        $L[] = $okRef ? "Pedido: *#{$okRef}*" : "Código: *{$sent}*";
                         if ($s) {
+                            // ── Estado de hoy ──
                             $L[] = "";
-                            $L[] = "👤 Cliente: {$s->full_name}";
-                            if ($s->dni)   $L[] = "🪪 {$s->document_label}: {$s->dni}";
-                            if ($s->phone) $L[] = "📱 Celular: {$s->phone}";
+                            // En palabras del cliente: «Pendiente de remisión» es jerga del panel.
+                            $estadoCliente = [
+                                'recibido' => 'Registrado, lo estamos revisando',
+                                'confirmado' => 'Pago recibido, por preparar',
+                                'preparando' => 'Preparando tu pedido', 'impreso' => 'Preparando tu pedido', 'embalando' => 'Empacado',
+                                'listo_recojo' => 'Listo para recoger',
+                                'asignado_motorizado' => 'Por salir con el motorizado', 'en_camino' => 'En camino',
+                                'despachado' => 'Enviado', 'en_agencia' => 'Entregado a la agencia', 'en_ruta' => 'En camino',
+                                'entregado' => 'Entregado', 'anulado' => 'Anulado',
+                            ][$s->status] ?? 'Registrado';
+                            if (!$s->payment_confirmed && in_array($s->status, ['recibido', 'confirmado'], true)) {
+                                $estadoCliente = 'Registrado, lo estamos revisando';
+                            }
+                            $L[] = "📍 *Estado:* {$estadoCliente}";
+                            $L[] = $s->payment_confirmed
+                                ? "✅ Pago confirmado"
+                                : "⏳ Pago por confirmar: envía tu comprobante en este chat";
+
+                            // ── Quién recibe ──
+                            $L[] = "";
+                            $L[] = "👤 {$s->full_name}" . ($s->dni ? " · {$s->document_label} {$s->dni}" : '');
+                            if ($s->phone) $L[] = "📱 {$s->phone}";
+                            if (trim((string) $s->pickup_person_name) !== '') {
+                                $L[] = "🙋 " . ($s->is_domicilio ? 'Recibe' : 'Recoge') . ": {$s->pickup_person_name}"
+                                    . ($s->pickup_person_dni ? " · DNI {$s->pickup_person_dni}" : '');
+                            }
+
+                            // ── Cómo llega ──
                             $L[] = "";
                             if ($s->is_pickup) {
                                 $L[] = "🏬 *Recojo en tienda*";
-                                if ($storeAddress) $L[] = "📍 Dirección de la tienda: {$storeAddress}";
-                                if ($s->reference) $L[] = "🕒 Piensa pasar: {$s->reference}";
+                                if ($storeAddress) $L[] = "📍 {$storeAddress}";
+                                if ($s->reference) $L[] = "🕒 Piensas pasar: {$s->reference}";
                             } elseif ($s->is_domicilio) {
                                 $L[] = "🏍️ *Entrega a domicilio*";
-                                if ($s->formatted_address || $s->shipping_destination) $L[] = "📍 Dirección: " . ($s->formatted_address ?: $s->shipping_destination);
-                                if ($s->reference)      $L[] = "📌 Referencia: {$s->reference}";
-                                if ($s->maps_link)      $L[] = "🗺️ Ubicación: {$s->maps_link}";
-                                if ($p = $s->priceLabel('GRATIS')) $L[] = "💵 Costo aprox. de envío: {$p}";
+                                if ($s->formatted_address || $s->shipping_destination) $L[] = "📍 " . ($s->formatted_address ?: $s->shipping_destination);
+                                if ($s->reference) $L[] = "📌 Ref.: {$s->reference}";
+                                if ($s->maps_link) $L[] = "🗺️ {$s->maps_link}";
+                                if ($p = $s->priceLabel('GRATIS')) $L[] = "💵 Envío: {$p}";
                             } else {
-                                $L[] = "📦 *Envío por agencia*";
-                                if ($s->destination_city)     $L[] = "🏙️ Destino: {$s->destination_city}";
-                                if ($s->shipping_agency)      $L[] = "🏢 Agencia: {$s->shipping_agency}";
-                                if ($s->shipping_destination) $L[] = "📍 Dirección: {$s->shipping_destination}";
-                                if ($s->reference)            $L[] = "📌 Referencia: {$s->reference}";
-                                if ($p = $s->priceLabel('🎁 GRATIS')) $L[] = "💵 Servicio tienda→agencia: {$p}";
+                                $esShalom = strcasecmp((string) $s->shipping_agency, 'Shalom') === 0;
+                                $L[] = "🚚 *Envío por " . ($s->shipping_agency ?: 'agencia') . "*"
+                                    . ($esShalom && !empty($s->shalom_air) ? ' · ✈️ aéreo' : '');
+                                if ($s->agency_office_name) {
+                                    $L[] = "🏢 Recoges en: *{$s->agency_office_name}*"
+                                        . ($s->destination_city && strcasecmp($s->destination_city, $s->agency_office_name) !== 0 ? " ({$s->destination_city})" : '');
+                                    if ($s->agency_office_address) $L[] = "📍 {$s->agency_office_address}";
+                                } else {
+                                    if ($s->destination_city) $L[] = "🏙️ Destino: {$s->destination_city}";
+                                    if ($s->reference)        $L[] = "📌 Oficina: {$s->reference}" . ($esShalom ? ' (por confirmar)' : '');
+                                }
+                                if ($s->shipping_destination) $L[] = "🏠 Reparto a: {$s->shipping_destination}";
+                                if (!empty($sentArrival['date'])) $L[] = "📅 Llegada aprox.: {$sentArrival['date']}";
+                                if ($p = $s->priceLabel('🎁 GRATIS')) $L[] = "💵 Llevarlo a la agencia: {$p}";
+                                if ($esShalom) $L[] = "💳 El flete de Shalom se paga al recoger, con tu DNI";
                             }
-                            if ($s->package_content) $L[] = "📦 Contenido: {$s->package_content}";
-                            if ($s->notes)           $L[] = "📝 Nota: {$s->notes}";
+
+                            $lleva = $s->labelContentLines();
+                            if ($lleva) $L[] = "🛍️ Lleva: " . implode(' · ', array_slice($lleva, 0, 6)) . (count($lleva) > 6 ? ' y ' . (count($lleva) - 6) . ' más' : '');
+                            if ($s->notes) $L[] = "📝 Nota: {$s->notes}";
+
+                            // ── Qué sigue ──
+                            $L[] = "";
+                            $L[] = "🔔 *Te avisamos por WhatsApp:*";
+                            if (!$s->payment_confirmed) $L[] = "1️⃣ Cuando confirmemos tu pago";
+                            if ($s->is_pickup) {
+                                $L[] = ($s->payment_confirmed ? '1️⃣' : '2️⃣') . " Cuando esté listo para recoger";
+                            } elseif ($s->is_domicilio) {
+                                $L[] = ($s->payment_confirmed ? '1️⃣' : '2️⃣') . " Cuando el motorizado salga hacia ti";
+                            } else {
+                                $n = $s->payment_confirmed ? 1 : 2;
+                                $L[] = "{$n}️⃣ Cuando salga, con tu número de guía";
+                                $L[] = ($n + 1) . "️⃣ Cuando llegue a la oficina" . (strcasecmp((string) $s->shipping_agency, 'Shalom') === 0 ? ', con tu clave de recojo' : '');
+                            }
                         }
                         $L[] = "";
-                        $L[] = "🔎 Seguimiento: " . route('shipments.public.tracking', ['code' => $sent]);
+                        $L[] = "🔎 Sigue tu pedido aquí: " . route('shipments.public.tracking', ['code' => $sent]);
                         $waText = rawurlencode(implode("\n", $L));
                         $waHref = !empty($ordersWa) ? "https://wa.me/{$ordersWa}?text={$waText}" : "https://wa.me/?text={$waText}";
                     @endphp
-                    <a href="{{ $waHref }}" target="_blank"><button type="button" class="btn btn-wa">Enviar mis datos a la tienda por WhatsApp</button></a>
+                    <a href="{{ $waHref }}" target="_blank"><button type="button" class="btn btn-wa">Confirmar mi pedido por WhatsApp</button></a>
                     @if(empty($order))
                         <a href="{{ route('shipments.public.form') }}"><button type="button" class="btn btn-ghost">Registrar otro envío</button></a>
                     @endif
