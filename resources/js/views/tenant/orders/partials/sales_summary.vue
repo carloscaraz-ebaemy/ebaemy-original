@@ -6,7 +6,7 @@
         top="6vh"
         custom-class="vs-dialog"
         @close="$emit('update:showDialog', false)"
-        @open="cargar"
+        @open="periodo = periodoInicial; cargar()"
     >
         <!-- Periodo: lo de todos los días a un toque; el rango, para lo demás. -->
         <div class="vs-periodos" role="radiogroup" aria-label="Periodo">
@@ -98,7 +98,10 @@ const masDias = (iso, n) => {
 };
 
 export default {
-    props: { showDialog: { type: Boolean, default: false } },
+    props: {
+        showDialog: { type: Boolean, default: false },
+        periodoInicial: { type: String, default: "hoy" },
+    },
     data() {
         return {
             periodos: [
@@ -113,7 +116,7 @@ export default {
                 { k: "marketplace", l: "Marketplace", color: "#7c3aed" },
                 { k: "registro", l: "Registro de pedidos", color: "#059669" },
             ],
-            periodo: "hoy",
+            periodo: this.periodoInicial,
             rango: null,
             datos: null,
             cargando: false,
@@ -146,7 +149,7 @@ export default {
             this.cargando = true;
             this.$http
                 .get("/orders/ventas", { params: { desde, hasta } })
-                .then(r => { this.datos = r.data; })
+                .then(r => { this.datos = r.data; this.$emit("cargado", r.data); })
                 .catch(() => { this.$message.error("No se pudieron cargar las ventas."); })
                 .then(() => { this.cargando = false; });
         },

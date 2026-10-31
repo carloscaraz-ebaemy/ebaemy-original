@@ -33,9 +33,6 @@
                  cargaba con siete controles. Lo que no se usa en cada consulta
                  —ajustes de la tienda y la descarga— sube aqui. -->
             <div class="right-wrapper pull-right ord-head-actions">
-                <button class="ord-head-btn" title="Cuánto se cobra por día: tienda, marketplace y registro" @click="showVentas = true">
-                    <i class="fas fa-chart-line"></i> Ventas
-                </button>
                 <!-- Las cuatro pantallas de apoyo del envio. Estaban
                      repartidas entre tres entradas del menu lateral y este
                      boton; ahora entran todas por aqui, que es desde donde se
@@ -116,12 +113,23 @@
                         <div class="ord-kpi-label">Entregados</div>
                         <div class="ord-kpi-val">{{ chipCounts.delivered || 0 }}</div>
                     </div>
-                    <div class="ord-kpi ord-kpi-rev">
-                        <div class="ord-kpi-label">Vendido del mes</div>
-                        <div class="ord-kpi-val">
-                            S/ {{ formatMoney(stats.revenueMonth) }}
+                    <!-- Lo COBRADO del mes (tienda + marketplace + registro), no
+                         la suma de totales: los pedidos del registro nacen en
+                         S/ 0 y el KPI marcaba casi nada. Abre el resumen. -->
+                    <button
+                        type="button"
+                        class="ord-kpi ord-kpi-rev ord-kpi-btn"
+                        title="Ver ventas: hoy, ayer, 7 días, mes o rango, por tienda, marketplace y registro"
+                        @click="showVentas = true"
+                    >
+                        <div class="ord-kpi-label">
+                            Vendido del mes
+                            <i class="fas fa-chart-line ord-kpi-ico"></i>
                         </div>
-                    </div>
+                        <div class="ord-kpi-val">
+                            S/ {{ formatMoney(ventasMes !== null ? ventasMes : stats.revenueMonth) }}
+                        </div>
+                    </button>
                     <!-- Dar de alta cierra la fila de indicadores: es la unica
                          accion que CREA algo, y perdida entre los filtros
                          parecia uno mas de ellos. -->
@@ -1531,7 +1539,7 @@
         ></store-shipping-settings>
 
         <!-- Guía de Shalom creada por API (plan con instancias). -->
-        <sales-summary :showDialog.sync="showVentas"></sales-summary>
+        <sales-summary :showDialog.sync="showVentas" periodo-inicial="mes" @cargado="alCargarVentas"></sales-summary>
         <shalom-guide
             :showDialog.sync="showShalomDialog"
             :orderId="shalomOrderId"
@@ -3306,6 +3314,9 @@
 .ord-kpi-rev .ord-kpi-val {
     color: #4f46e5;
 }
+.ord-kpi-btn { text-align: left; font: inherit; cursor: pointer; transition: border-color .15s, box-shadow .15s; }
+.ord-kpi-btn:hover { border-color: #c7d2fe; box-shadow: 0 2px 8px rgba(79, 70, 229, 0.12); }
+.ord-kpi-ico { margin-left: 6px; color: #4f46e5; font-size: 12px; }
 /* Barra de acciones masivas */
 .ord-bulkbar {
     display: flex;
@@ -4087,6 +4098,7 @@ export default {
             // Claves de recojo que el operador destapó (por pedido).
             clavesVisibles: {},
             showVentas: false,
+            ventasMes: null,
             shalomShipmentId: null,
             shalomInfo: null,
             shalomBultos: 1,
@@ -4204,6 +4216,7 @@ export default {
         };
     },
     mounted() {
+        this.cargarVentasMes();
         // Al <body>: dentro de `.table-responsive` el overflow la recortaria.
         // Es el mismo motivo por el que Envios la cuelga alli y por el que
         // el-dialog trae `append-to-body`.
@@ -5848,6 +5861,22 @@ export default {
          * (va a la bitácora) y recuerda anularla en pro.shalom.pe: el API de
          * Shalom no permite anularla.
          */
+        /** Lo cobrado del mes para el KPI «Vendido del mes». */
+        cargarVentasMes() {
+            const d = new Date();
+            const hoy = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+            this.$http
+                .get("/orders/ventas", { params: { desde: hoy.slice(0, 8) + "01", hasta: hoy } })
+                .then(r => { this.ventasMes = r.data ? r.data.total : null; })
+                .catch(() => {});
+        },
+        alCargarVentas(datos) {
+            const hoy = new Date();
+            if (datos && datos.desde && datos.desde.slice(8) === "01" && datos.desde.slice(0, 7) === datos.hasta.slice(0, 7)
+                && Number(datos.hasta.slice(0, 4)) === hoy.getFullYear() && Number(datos.hasta.slice(5, 7)) === hoy.getMonth() + 1) {
+                this.ventasMes = datos.total;
+            }
+        },
         claveShalom(row) {
             const sh = row.shipment && row.shipment.shalom;
             return sh && sh.has_guide && sh.clave ? sh.clave : null;
