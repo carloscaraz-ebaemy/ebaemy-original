@@ -83,9 +83,15 @@
                     <div v-if="modo === 'destino'" class="shg-field">
                         <label>Oficina de Shalom <span class="shg-req">*</span></label>
                         <el-select v-model="f.destino" filterable remote :remote-method="buscarOficinas" :loading="buscando"
+                                   popper-class="shg-of-pop"
                                    placeholder="Escribe la ciudad o el nombre de la oficina" style="width:100%">
+                            <!-- Con la dirección completa: por el nombre (una calle) no se sabe cuál es. -->
                             <el-option v-for="o in oficinas" :key="o.id" :value="o.id" :label="o.name + ' — ' + o.place">
-                                <div class="shg-o"><b>{{ o.name }}</b><small>{{ o.place }}</small></div>
+                                <div class="shg-o">
+                                    <b>{{ o.name }}</b>
+                                    <small class="shg-o__p">{{ o.place }}</small>
+                                    <small v-if="o.address" class="shg-o__a">{{ o.address }}</small>
+                                </div>
                             </el-option>
                         </el-select>
                         <small v-if="oficinaElegida" class="shg-sub">{{ oficinaElegida.address }}</small>
@@ -456,6 +462,16 @@ export default {
 .shg-foot { font-size: 12.5px; color: #64748b; margin: 10px 0 4px; }
 .shg-danger { border: none; background: none; color: #b91c1c; font-size: 13px; padding: 6px 0; cursor: pointer; text-decoration: underline; }
 .shg-back { display: inline-block; font-size: 13px; color: #475569; cursor: pointer; margin-bottom: 8px; }
-.shg-o b { display: block; font-size: 13.5px; line-height: 1.3; }
-.shg-o small { color: #64748b; }
+.shg-o { padding: 7px 0; line-height: 1.35; white-space: normal; }
+.shg-o b { display: block; font-size: 13.5px; color: #0f172a; }
+.shg-o small { display: block; }
+.shg-o__p { font-size: 12px; font-weight: 600; color: #475569; }
+.shg-o__a { font-size: 12px; color: #64748b; margin-top: 1px; }
+</style>
+
+<style>
+/* La lista de oficinas va al <body>: el alto fijo de 34px de Element cortaba la dirección. */
+.shg-of-pop .el-select-dropdown__item { height: auto; white-space: normal; border-bottom: 1px solid #f1f5f9; }
+.shg-of-pop .el-select-dropdown__wrap { max-height: 360px; }
+.shg-of-pop { max-width: 460px; }
 </style>
