@@ -5939,7 +5939,7 @@ export default {
                 { confirmButtonText: "Anular envío", cancelButtonText: "Cancelar" }
             )
                 .then(({ value }) =>
-                    this.$http.post(`/orders/${row.id}/envio/anular`, { reason: value || null })
+                    this.$http.post(`/orders/${row.id}/envio/anular`, { reason: value || null, conservar_pedido: true })
                 )
                 .then(r => this.trasAccionDeEnvio(r, false, row.id))
                 .catch(e => this.trasAccionDeEnvio(e, true));

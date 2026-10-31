@@ -2590,7 +2590,11 @@ class ShipmentController extends Controller
             $batchId
         );
 
-        $pedido = $this->anularPedidoSinEnvio($shipment, (string) $request->input('reason'));
+        // Desde Pedidos el operador ya eligió «Solo el envío» (el pedido sigue,
+        // p. ej. para rehacerlo por agencia): ahí no se toca el pedido.
+        $pedido = $request->boolean('conservar_pedido')
+            ? null
+            : $this->anularPedidoSinEnvio($shipment, (string) $request->input('reason'));
 
         return back()->with('success', "Envío {$shipment->shipment_code} anulado"
             . ($pedido ? " y su pedido #{$pedido} también" : '') . '. Sigue en el historial y puede restaurarse.');
@@ -2664,6 +2668,10 @@ class ShipmentController extends Controller
     {
         $order = $shipment->order_id ? \App\Models\Tenant\Order::find($shipment->order_id) : null;
         if (!$order || !in_array((int) $order->status_order_id, [1, 2, 3], true)) {
+            return null;
+        }
+        // Saga y demás canales externos: su estado lo manda el portal.
+        if (\App\Services\Tenant\OrderOrigin::esExterno($order)) {
             return null;
         }
         $otro = ShippingRequest::where('order_id', $order->id)->where('id', '!=', $shipment->id)
