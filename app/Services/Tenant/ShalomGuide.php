@@ -203,10 +203,9 @@ class ShalomGuide
         }
 
         [$nombres, $paterno, $materno] = $this->names($fullName, $dni);
-        // Prioridad: la del diálogo, la clave fija de la tienda, o una nueva.
-        $clave = preg_match('/^\d{4}$/', (string) $clave) ? $clave
-            : (preg_match('/^\d{4}$/', (string) ($st->shalom_default_clave ?? '')) ? $st->shalom_default_clave
-            : str_pad((string) random_int(0, 9999), 4, '0', STR_PAD_LEFT));
+        // Prioridad: la del diálogo o la clave del día (fija / alterna / del día).
+        $delDialogo = preg_match('/^\d{4}$/', (string) $clave) === 1;
+        $clave = $delDialogo ? $clave : self::claveDelDia($st);
 
         // Aéreo: destino «0» + ter_id y declaración jurada obligatoria.
         $aereo = !empty($s->shalom_air);
@@ -220,8 +219,7 @@ class ShalomGuide
 
         $sinRespuesta = 'La guía pudo crearse igual. Vuelve a intentar en ' . self::ESPERA_MIN
             . ' minutos: antes de crear otra, la buscaremos en tu cuenta de Shalom.';
-        try {
-            $r = $this->api->registerGuide($st->shalom_instance_id, $extra + [
+        $registrar = fn (string $c) => $this->api->registerGuide($st->shalom_instance_id, $extra + [
             'origen'    => (int) $st->shalom_origin_id,
             'destino'   => $aereo ? '0' . (int) $s->agency_office_id : (int) $s->agency_office_id,
             'documento' => $dni,
@@ -231,8 +229,20 @@ class ShalomGuide
             'phone'     => (int) $phone,
             'content'   => $content,
             'cantidad'  => max(1, (int) ($s->package_count ?: 1)),
-            'clave'     => $clave,
+            'clave'     => $c,
             ]);
+        try {
+            try {
+                $r = $registrar($clave);
+            } catch (RuntimeException $e) {
+                // «No puedes usar la clave del día anterior»: no se creó nada;
+                // se reintenta una vez con la otra clave del día.
+                if (!self::esClaveDeAyer($e->getMessage()) || !($otra = self::claveDelDia($st, [$clave]))) {
+                    throw $e;
+                }
+                $clave = $otra;
+                $r = $registrar($clave);
+            }
         } catch (\Illuminate\Http\Client\ConnectionException $e) {
             // Tiempo agotado o sin conexión: no se sabe si se creó. La marca se queda.
             throw new RuntimeException('Shalom no respondió a tiempo. ' . $sinRespuesta);
@@ -379,6 +389,62 @@ class ShalomGuide
             unset($ce['create_attempt_at']);
             $s->forceFill(['carrier_events' => $ce])->saveQuietly();
         }
+    }
+
+    /**
+     * La clave de recojo de hoy. Shalom no acepta la que se usó AYER en una
+     * guía nueva (las de días anteriores sí): se usa la fija si ayer no se
+     * usó; si no, la alterna; si tampoco, la que ya llevan las guías de hoy
+     * o una nueva. Así todas las guías del día comparten una sola clave.
+     * Sin clave fija configurada: una por guía, como siempre.
+     *
+     * @param string[] $evitar además de las de ayer (la que acaba de rechazar)
+     */
+    public static function claveDelDia(ShippingSetting $st, array $evitar = []): ?string
+    {
+        $ok = fn ($c) => preg_match('/^\d{4}$/', (string) $c) === 1;
+        $fija = $ok($st->shalom_default_clave ?? null) ? $st->shalom_default_clave : null;
+        $alt = $ok($st->shalom_alt_clave ?? null) ? $st->shalom_alt_clave : null;
+        $ayer = array_merge(self::clavesDelDia(now()->subDay()->toDateString()), $evitar);
+
+        if (!$fija && !$evitar) {
+            return str_pad((string) random_int(0, 9999), 4, '0', STR_PAD_LEFT);
+        }
+        foreach ([$fija, $alt] as $c) {
+            if ($c && !in_array($c, $ayer, true)) {
+                return $c;
+            }
+        }
+        foreach (array_count_values(self::clavesDelDia(now()->toDateString())) as $c => $n) {
+            if (!in_array((string) $c, $ayer, true)) {
+                return (string) $c;
+            }
+        }
+        do {
+            $c = str_pad((string) random_int(0, 9999), 4, '0', STR_PAD_LEFT);
+        } while (in_array($c, $ayer, true));
+
+        return $c;
+    }
+
+    /** Claves de las guías creadas ese día (Y-m-d). */
+    public static function clavesDelDia(string $fecha): array
+    {
+        try {
+            return ShippingRequest::whereNotNull('tracking_number')
+                ->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(carrier_events, '$.created_at')) LIKE ?", [$fecha . '%'])
+                ->get(['id', 'carrier_events'])
+                ->map(fn ($s) => (string) (($s->carrier_events ?? [])['clave'] ?? ''))
+                ->filter(fn ($c) => preg_match('/^\d{4}$/', $c))
+                ->values()->all();
+        } catch (\Throwable $e) {
+            return [];
+        }
+    }
+
+    public static function esClaveDeAyer(string $msg): bool
+    {
+        return (bool) preg_match('/clave.*(d[ií]a anterior|ayer)/iu', $msg);
     }
 
     /** DNI de quien recoge en Shalom: el del cliente, o el autorizado si el cliente es empresa (RUC). */

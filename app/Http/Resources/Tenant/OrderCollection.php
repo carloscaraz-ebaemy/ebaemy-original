@@ -778,7 +778,7 @@ class OrderCollection extends ResourceCollection
             try {
                 $st = \App\Models\Tenant\ShippingSetting::current();
                 $pk = \App\Services\Tenant\ShalomPackage::normalize($st->shalom_package ?? null);
-                $tienda = ['plan' => \App\Services\System\ShalomPlan::allowsInstances(), 'ready' => !empty($st->shalom_instance_id) && !empty($st->shalom_origin_id), 'clave_fija' => $st->shalom_default_clave ?? null,
+                $tienda = ['plan' => \App\Services\System\ShalomPlan::allowsInstances(), 'ready' => !empty($st->shalom_instance_id) && !empty($st->shalom_origin_id), 'clave_fija' => !empty($st->shalom_default_clave) ? \App\Services\Tenant\ShalomGuide::claveDelDia($st) : null,
                            'phone' => ($ph = substr(preg_replace('/\D/', '', (string) ($st->orders_wa ?? '')), -9)) && strlen($ph) === 9 ? $ph : null,
                            'content' => $pk && $pk['type'] === 'size' ? $pk['size'] : ($pk ? 'PAQUETE L' : null)];
             } catch (\Throwable $e) {

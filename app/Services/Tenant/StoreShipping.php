@@ -213,7 +213,7 @@ class StoreShipping
      *
      * @return array{saved:bool, connected:bool, message:string}
      */
-    public function saveShalomAccount(?string $user, ?string $password, ?string $clave = null, bool $soloClave = false): array
+    public function saveShalomAccount(?string $user, ?string $password, ?string $clave = null, bool $soloClave = false, ?string $alterna = null): array
     {
         $st = $this->settings();
         $schema = \Illuminate\Support\Facades\Schema::connection('tenant');
@@ -225,12 +225,21 @@ class StoreShipping
         if ($schema->hasColumn('shipping_settings', 'shalom_default_clave')) {
             $st->shalom_default_clave = preg_match('/^\d{4}$/', (string) $clave) ? $clave : null;
         }
+        if ($schema->hasColumn('shipping_settings', 'shalom_alt_clave')) {
+            $alt = preg_match('/^\d{4}$/', (string) $alterna) ? $alterna : null;
+            if ($alt && $alt === $st->shalom_default_clave) {
+                return ['saved' => false, 'connected' => !empty($st->shalom_instance_id), 'message' => 'La clave alterna tiene que ser distinta de la fija.'];
+            }
+            $st->shalom_alt_clave = $st->shalom_default_clave ? $alt : null;
+        }
         if ($soloClave) {
             $st->save();
 
-            return ['saved' => true, 'connected' => !empty($st->shalom_instance_id), 'message' => $st->shalom_default_clave
-                ? "Clave de recojo {$st->shalom_default_clave} guardada para todas las guías."
-                : 'Sin clave fija: cada guía tendrá su propia clave.'];
+            return ['saved' => true, 'connected' => !empty($st->shalom_instance_id), 'message' => !$st->shalom_default_clave
+                ? 'Sin clave fija: cada guía tendrá su propia clave.'
+                : ($st->shalom_alt_clave ?? null
+                    ? "Claves guardadas: {$st->shalom_default_clave} y {$st->shalom_alt_clave} se turnan, una por día."
+                    : "Clave {$st->shalom_default_clave} guardada. El día después de usarla, el sistema pondrá otra sola.")];
         }
 
         $st->shalom_pro_user = $user ?: null;
@@ -335,6 +344,9 @@ class StoreShipping
                 'connected_at' => optional($st->shalom_instance_connected_at)->format('d/m/Y H:i'),
                 'plan_allows'  => \App\Services\System\ShalomPlan::allowsInstances(),
                 'clave'        => $st->shalom_default_clave,
+                'clave_alterna'=> $st->shalom_alt_clave ?? null,
+                // La que llevarán las guías que se creen hoy.
+                'clave_hoy'    => $st->shalom_default_clave ? \App\Services\Tenant\ShalomGuide::claveDelDia($st) : null,
             ],
         ];
     }

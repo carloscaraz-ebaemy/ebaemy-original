@@ -43,6 +43,7 @@ class ShippingSetting extends Model
         'shalom_pro_password',
         // Clave de recojo única para todas las guías (vacía = una por paquete).
         'shalom_default_clave',
+        'shalom_alt_clave',
         // ¿La tienda ofrece envío aéreo por Shalom en su formulario?
         'shalom_air_enabled',
         // Paquete típico para estimar el flete (ver ShalomPackage).

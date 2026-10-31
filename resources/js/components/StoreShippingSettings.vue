@@ -173,11 +173,17 @@
                     <div class="ss__row" style="margin-top:12px">
                         <span>Clave de recojo</span>
                         <el-input v-model="proClave" size="small" maxlength="4" placeholder="Ej. 1234" style="width:110px"></el-input>
-                        <el-button size="small" plain :loading="guardandoClave" @click="guardarClave">Guardar clave</el-button>
+                    </div>
+                    <div class="ss__row" style="margin-top:8px">
+                        <span>Clave alterna</span>
+                        <el-input v-model="proClaveAlt" size="small" maxlength="4" placeholder="Ej. 5678" style="width:110px" :disabled="!proClave"></el-input>
+                        <el-button size="small" plain :loading="guardandoClave" @click="guardarClave">Guardar claves</el-button>
                     </div>
                     <p class="ss__hint" style="margin:4px 0 0;font-size:12px">
-                        Opcional. Si usas la misma clave para todos tus paquetes, ponla aquí y se usará en todas
-                        las guías. Vacía: cada guía tiene su propia clave. El cliente la recibe por WhatsApp.
+                        Opcional. Shalom no acepta en una guía nueva la clave que usaste ayer: por eso las dos claves se
+                        turnan solas, una por día, y todas las guías del día llevan la misma. Sin alterna, el sistema
+                        pone otra el día que haga falta. El cliente recibe su clave por WhatsApp.
+                        <b v-if="pro && pro.clave_hoy">Clave de hoy: {{ pro.clave_hoy }}.</b>
                     </p>
                 </section>
 
@@ -247,7 +253,7 @@ export default {
     data() {
         return { loading: false, saving: false, f: null, catalog: [], preview: { lines: [], notes: [] }, timer: null, oficinas: [], buscando: false,
             pkgTipo: '', pkgTam: 'PAQUETE L', pkgL: null, pkgA: null, pkgH: null, pkgKg: null,
-            pkgTamanos: [{ v: 'SOBRE', l: 'Sobre' }, { v: 'PAQUETE XXS', l: 'XXS' }, { v: 'PAQUETE XS', l: 'XS' }, { v: 'PAQUETE S', l: 'S' }, { v: 'PAQUETE M', l: 'M' }, { v: 'PAQUETE L', l: 'L' }], pro: null, proUser: '', proPass: '', guardandoPro: false, proClave: '', guardandoClave: false };
+            pkgTamanos: [{ v: 'SOBRE', l: 'Sobre' }, { v: 'PAQUETE XXS', l: 'XXS' }, { v: 'PAQUETE XS', l: 'XS' }, { v: 'PAQUETE S', l: 'S' }, { v: 'PAQUETE M', l: 'M' }, { v: 'PAQUETE L', l: 'L' }], pro: null, proUser: '', proPass: '', guardandoPro: false, proClave: '', proClaveAlt: '', guardandoClave: false };
     },
     computed: {
         usaShalom() {
@@ -293,6 +299,7 @@ export default {
                     this.proUser = (this.pro && this.pro.user) || '';
                     this.proPass = '';
                     this.proClave = (this.pro && this.pro.clave) || '';
+                    this.proClaveAlt = (this.pro && this.pro.clave_alterna) || '';
                 })
                 .catch(() => { this.$message.error('No se pudo cargar la configuración de envíos'); this.close(); })
                 .then(() => { this.loading = false; });
@@ -308,9 +315,12 @@ export default {
         },
         guardarClave() {
             const c = (this.proClave || '').trim();
+            const a = (this.proClaveAlt || '').trim();
             if (c && !/^\d{4}$/.test(c)) return this.$message.warning('La clave de recojo son 4 dígitos.');
+            if (a && !/^\d{4}$/.test(a)) return this.$message.warning('La clave alterna son 4 dígitos.');
+            if (a && a === c) return this.$message.warning('La clave alterna tiene que ser distinta de la fija.');
             this.guardandoClave = true;
-            this.$http.post('/store-shipping/shalom-account', { only_clave: true, clave: c || null })
+            this.$http.post('/store-shipping/shalom-account', { only_clave: true, clave: c || null, clave_alterna: a || null })
                 .then(r => {
                     const d = r.data || {};
                     this.pro = d.shalom_pro || this.pro;
@@ -320,7 +330,7 @@ export default {
                 .then(() => { this.guardandoClave = false; });
         },
         enviarPro(datos) {
-            datos = Object.assign({ clave: (this.proClave || '').trim() || null }, datos);
+            datos = Object.assign({ clave: (this.proClave || '').trim() || null, clave_alterna: (this.proClaveAlt || '').trim() || null }, datos);
             this.guardandoPro = true;
             this.$http.post('/store-shipping/shalom-account', datos)
                 .then(r => {
