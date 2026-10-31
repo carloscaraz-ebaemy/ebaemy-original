@@ -485,8 +485,41 @@ class ShalomGuide
             throw new RuntimeException('El envío todavía no tiene guía de Shalom.');
         }
 
-        return $this->cached($s, 'ticket', fn () => $this->api->voucher($st->shalom_instance_id,
-            $ose ? ['ose_id' => $ose] : ['orderNumber' => $s->tracking_number, 'orderCode' => $s->tracking_code], 'png'), 'png');
+        return $this->cached($s, 'ticket', fn () => self::sinBlancoAbajo($this->api->voucher($st->shalom_instance_id,
+            $ose ? ['ose_id' => $ose] : ['orderNumber' => $s->tracking_number, 'orderCode' => $s->tracking_code], 'png')), 'png');
+    }
+
+    /** El PNG de Shalom trae media hoja en blanco debajo del ticket: se recorta. */
+    private static function sinBlancoAbajo(string $png): string
+    {
+        if (!function_exists('imagecreatefromstring') || !str_starts_with($png, "PNG")) {
+            return $png;
+        }
+        try {
+            $im = imagecreatefromstring($png);
+            $w = imagesx($im); $h = imagesy($im);
+            $ultima = $h - 1;
+            for ($y = $h - 1; $y > 0; $y -= 2) {
+                for ($x = 0; $x < $w; $x += 6) {
+                    $c = imagecolorat($im, $x, $y);
+                    if ((($c >> 16) & 255) < 235 || (($c >> 8) & 255) < 235 || ($c & 255) < 235) {
+                        $ultima = $y;
+                        break 2;
+                    }
+                }
+            }
+            $alto = min($h, $ultima + 40);
+            if ($alto >= $h - 10) {
+                return $png;
+            }
+            $out = imagecrop($im, ['x' => 0, 'y' => 0, 'width' => $w, 'height' => $alto]);
+            ob_start();
+            imagepng($out, null, 6);
+
+            return ob_get_clean() ?: $png;
+        } catch (\Throwable $e) {
+            return $png;
+        }
     }
 
     /** Rótulo oficial de Shalom (PDF). */
