@@ -1292,8 +1292,10 @@
                                 trigger="click"
                                 @command="runAction($event, row)"
                             >
-                                <el-button size="mini" class="ord-actions-btn">
-                                    <i class="fas fa-ellipsis-v"></i>
+                                <!-- Ícono dibujado aquí: el tema «black» oculta .fa-ellipsis-v
+                                     en todo el sistema y el botón quedaba vacío. -->
+                                <el-button size="mini" class="ord-actions-btn" title="Acciones" aria-label="Acciones del pedido">
+                                    <svg class="ord-dots" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="5" r="2.2"/><circle cx="12" cy="12" r="2.2"/><circle cx="12" cy="19" r="2.2"/></svg>
                                 </el-button>
                                 <!-- El menu va por GRUPOS (Pedido, Envio, Rotulo y guia,
                                      Cobros y documentos) y lo que deshace algo queda al
@@ -1812,6 +1814,7 @@
 .ord-actions-btn {
     padding: 5px 9px;
 }
+.ord-actions-btn .ord-dots { display: block; color: #475569; }
 /* Menu de la fila por grupos. El desplegable de Element cuelga del <body>:
    por eso estas reglas van sin ancestro de la tabla. */
 .ord-menu .ord-menu-h {
@@ -3560,7 +3563,7 @@
 
    Productos sigue accesible desde el menu (el popover) y Docs desde el
    panel de documentos, asi que no se pierde el acceso, solo la columna. */
-@media (min-width: 768px) and (max-width: 1199px) {
+@media (min-width: 992px) and (max-width: 1199px) {
     .orders th.ord-c-docs,
     .orders td[data-label="Docs"],
     .orders th.ord-c-cli,
@@ -3598,7 +3601,9 @@
    Las etiquetas `data-label` se ocultan: en esta disposicion el
    contenido ya se explica solo y repetir «Cobro:» delante del importe
    solo gasta linea. */
-@media (max-width: 767px) {
+/* Tarjetas hasta 991px: en una tableta vertical (768) el menú lateral deja
+   ~480px y la tabla de escritorio se cortaba. */
+@media (max-width: 991px) {
     /* ── Movil: caben trece chips, dos barras de filtros, el semaforo y los
        indicadores ANTES del primer pedido. En una pantalla de 640px eso son
        varias pasadas de dedo para llegar a lo unico que se venia a ver.
@@ -3818,6 +3823,16 @@
         padding: 0;
         text-align: left;
     }
+    /* El relleno de escritorio (9px arriba y abajo) le ganaba a la regla de
+       arriba y se colaba en las 7 celdas: ~120px de aire por tarjeta. */
+    .orders table tbody tr > td { padding-top: 0 !important; padding-bottom: 0 !important; }
+    .orders table tbody tr { row-gap: 0; padding: 10px 12px 8px; }
+    /* Sin documentos, el guion no merece su renglón. */
+    .orders td[data-label="Docs"] .ord-doc-nada { display: none; }
+    .orders .ord-pk { margin-top: 3px; }
+    /* Celular y clave de recojo en la misma línea. */
+    .orders .ord-o-tel { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 6px; }
+    .orders .ord-o-tel .ord-o-clave { margin-left: 0; }
     /* El contenido se explica solo en esta disposicion. */
     .orders table tbody td::before {
         content: none;
@@ -3827,10 +3842,10 @@
     .orders td[data-label="Pedido"]    { grid-area: pedido; min-width: 0; }
     .orders td[data-label="Cliente"]   { grid-area: cli; min-width: 0; }
     .orders td[data-label="Cobro"]     { grid-area: cobro; text-align: right; }
-    .orders td[data-label="Estado"]    { grid-area: est; margin-top: 7px; }
-    .orders td[data-label="Envío"]     { grid-area: shp; margin-top: 5px; }
-    .orders td[data-label="Docs"]      { grid-area: doc; margin-top: 8px; }
-    .orders td[data-label="Acciones"] { grid-area: act; margin-top: 8px; text-align: right; }
+    .orders td[data-label="Estado"]    { grid-area: est; margin-top: 8px; }
+    .orders td[data-label="Envío"]     { grid-area: shp; margin-top: 6px; }
+    .orders td[data-label="Docs"]      { grid-area: doc; margin-top: 6px; align-self: center; }
+    .orders td[data-label="Acciones"] { grid-area: act; margin-top: 6px; text-align: right; align-self: center; }
 
     /* En la tarjeta el envio se lee en una sola linea: modalidad, destino y
        estado seguidos. En columna gastaria tres renglones para tres datos

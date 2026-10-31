@@ -1037,7 +1037,7 @@ html.dark {
 }
 
 // ── MOBILE (max 768px) ──────────────────────────────────────
-@media (max-width: 768px) {
+@media (max-width: 767px) { // 767: el tema muestra el menú lateral desde 768
   // KPIs grid
   .kpi-grid {
     grid-template-columns: repeat(2, 1fr) !important;
