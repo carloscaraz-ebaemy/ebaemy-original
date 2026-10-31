@@ -144,7 +144,10 @@
         unknownWrap: document.getElementById('{{ $p }}sh_unknown_wrap'),
         err: document.getElementById('{{ $p }}sh_err'),
         manual: document.getElementById('{{ $p }}office_manual'),
-        district: '', scope: '', offices: [], loading: false, origin: null
+        district: '', scope: '', offices: [], loading: false, origin: null,
+        // Oficinas de otros distritos de la provincia: van en SH.offices (con
+        // `other`) para poder elegirlas, pero se muestran al desplegar.
+        verOtras: false, filtro: ''
     };
 
     function shEsShalom() { return txt('{{ $p }}shipping_agency') === 'Shalom'; }
@@ -196,7 +199,17 @@
             : (SH.offices.length === 1 ? '1 oficina en tu distrito' : SH.offices.length + ' oficinas en tu distrito');
 
         var sel = SH.id ? SH.id.value : '';
-        SH.list.innerHTML = SH.offices.map(function (o, i) {
+        var propias = SH.offices.filter(function (o) { return !o.other; });
+        var otras = SH.offices.filter(function (o) { return o.other; });
+        var elegidaOtra = otras.some(function (o) { return String(o.id) === sel; });
+        var abiertas = SH.verOtras || elegidaOtra || (SH.unknown && SH.unknown.checked) || SH.filtro;
+        if (propias.length && otras.length) {
+            SH.scopeEl.textContent = (propias.length === 1 ? '1 oficina en tu distrito' : propias.length + ' oficinas en tu distrito')
+                + ' · ' + otras.length + ' más en tu provincia';
+        }
+        var f = shNorm(SH.filtro);
+        var pinta = function (o, i) {
+            if (f && shNorm(o.name + ' ' + (o.district || '') + ' ' + (o.address || '')).indexOf(f) === -1) return '';
             var km = (SH.origin && o.lat != null && o.lng != null) ? shKm(SH.origin, o) : null;
             // Ya ordenadas por GPS, la primera con coordenadas es la más cercana.
             var best = i === 0 && km !== null;
@@ -206,10 +219,41 @@
                 + (o.hours ? '<span>🕒 ' + shEsc(o.hours) + '</span>' : '')
                 + (best ? '<i class="sh-best">Más cercana a ti</i>' : '')
                 + (km !== null ? '<i>a ' + (km < 10 ? km.toFixed(1) : Math.round(km)) + ' km</i>' : '')
-                + (SH.scope === 'province' && o.district ? '<i>' + shEsc(o.district) + '</i>' : '')
+                + ((SH.scope === 'province' || o.other) && o.district ? '<i>' + shEsc(o.district) + '</i>' : '')
                 + (o.home_delivery ? '<i>Hace reparto a domicilio</i>' : '')
                 + '</button>';
-        }).join('');
+        };
+        var html = (SH.offices.length > 6
+                ? '<input type="search" class="sh-find" placeholder="Busca tu oficina: nombre, zona o calle" value="' + shEsc(SH.filtro) + '" aria-label="Buscar oficina de Shalom">'
+                : '')
+            + propias.map(pinta).join('');
+        if (otras.length) {
+            html += abiertas
+                ? '<p class="sh-sub">Otras oficinas de tu provincia</p>' + otras.map(function (o) { return pinta(o, -1); }).join('')
+                : '<button type="button" class="sh-more">¿No está la tuya? Ver las ' + otras.length + ' oficinas de otros distritos</button>';
+        }
+        if (f && html.indexOf('sh-opt') === -1) html += '<p class="sh-empty">Ninguna oficina coincide con «' + shEsc(SH.filtro) + '».</p>';
+        SH.list.innerHTML = html;
+        var fi = SH.list.querySelector('.sh-find');
+        if (fi && SH._foco) { fi.focus(); fi.setSelectionRange(fi.value.length, fi.value.length); }
+    }
+    function shNorm(s) {
+        return String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+    }
+    // Lo que escribió a mano coincide con una oficina de la lista: se le ofrece.
+    function shSugerir() {
+        var box = document.getElementById('{{ $p }}sh_sug');
+        var inp = document.getElementById('{{ $p }}reference_ag');
+        if (!box || !inp) return;
+        var t = shNorm(inp.value);
+        var hit = t.length >= 4 && SH.offices.filter(function (o) {
+            var n = shNorm(o.name);
+            return n.indexOf(t) !== -1 || (n.length >= 5 && t.indexOf(n) !== -1);
+        })[0];
+        if (!hit || !(SH.unknown && SH.unknown.checked)) { box.hidden = true; return; }
+        box.innerHTML = '¿Es la oficina <b>' + shEsc(hit.name) + '</b>' + (hit.district ? ' (' + shEsc(hit.district) + ')' : '')
+            + '? <button type="button" class="sh-sug-b" data-id="' + hit.id + '">Elegir esta</button>';
+        box.hidden = false;
     }
 
     function shRefrescar() {
@@ -234,8 +278,9 @@
             .then(function (r) {
                 if (SH.district !== d) return; // cambió de distrito mientras cargaba
                 SH.loading = false;
-                SH.offices = (r && r.offices) || [];
+                SH.offices = ((r && r.offices) || []).concat((r && r.others) || []);
                 SH.scope = (r && r.scope) || 'none';
+                SH.verOtras = false; SH.filtro = '';
                 if (SH.origin) shOrdenar();
                 // Una oficina de otro distrito no sirve: se suelta.
                 if (SH.id && SH.id.value && !shElegida()) SH.id.value = '';
@@ -380,6 +425,7 @@
     }
 
     if (SH.list) SH.list.addEventListener('click', function (ev) {
+        if (ev.target.closest('.sh-more')) { SH.verOtras = true; shPintar(); return; }
         var b = ev.target.closest('.sh-opt');
         if (!b) return;
         SH.id.value = b.getAttribute('data-id');
@@ -390,12 +436,32 @@
         shPintar();
         SH.id.dispatchEvent(new Event('change', { bubbles: true }));
     });
+    if (SH.list) SH.list.addEventListener('input', function (ev) {
+        if (!ev.target.classList.contains('sh-find')) return;
+        SH.filtro = ev.target.value; SH._foco = true; shPintar(); SH._foco = false;
+    });
     if (SH.unknown) SH.unknown.addEventListener('change', function () {
         if (SH.unknown.checked && SH.id) { SH.id.value = ''; shSinCotizacion(); }
         if (SH.err) SH.err.hidden = true;
         SH.list.classList.remove('is-bad');
         shPintar();
+        shSugerir();
     });
+    (function () {
+        var inp = document.getElementById('{{ $p }}reference_ag');
+        var box = document.getElementById('{{ $p }}sh_sug');
+        if (inp) inp.addEventListener('input', shSugerir);
+        if (box) box.addEventListener('click', function (ev) {
+            var b = ev.target.closest('.sh-sug-b');
+            if (!b) return;
+            SH.id.value = b.getAttribute('data-id');
+            if (SH.unknown) SH.unknown.checked = false;
+            box.hidden = true;
+            setTimeout(shCotizar, 0);
+            shPintar();
+            SH.id.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+    })();
     if (SH.near) SH.near.addEventListener('click', function () {
         SH.near.disabled = true; SH.near.textContent = 'Ubicándote…';
         navigator.geolocation.getCurrentPosition(function (pos) {

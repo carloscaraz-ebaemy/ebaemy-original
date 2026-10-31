@@ -311,6 +311,11 @@
                             .sh-mode__opt[aria-checked="true"]{border-color:var(--accent);background:var(--accent-soft);box-shadow:0 0 0 1px var(--accent)}
                             .sh-quote{display:flex;gap:8px;align-items:flex-start;margin:10px 0 2px;padding:10px 12px;border-radius:var(--r-sm);background:var(--ok-soft);color:var(--ok);font-size:13.5px;font-weight:600}
                             .sh-empty{font-size:14px;color:var(--ink-2);margin:4px 0;padding:12px 14px;background:#f3efe9;border-radius:var(--r)}
+                            .sh-find{width:100%;box-sizing:border-box;border:1.5px solid var(--line);border-radius:var(--r);padding:11px 14px;font:inherit;font-size:15px;background:var(--surface);color:var(--ink)}
+                            .sh-more{display:block;width:100%;text-align:center;border:1.5px dashed var(--accent-line);background:transparent;border-radius:var(--r);padding:12px 14px;cursor:pointer;font:inherit;font-weight:650;color:var(--accent)}
+                            .sh-sub{margin:10px 0 2px;font-size:13px;font-weight:650;color:var(--ink-2)}
+                            .sh-sug{display:block;margin-top:8px;padding:10px 12px;border-radius:var(--r-sm);background:var(--accent-soft);color:var(--ink);font-size:14px}
+                            .sh-sug-b{margin-left:6px;border:0;background:var(--accent);color:#fff;border-radius:999px;padding:5px 12px;font:inherit;font-size:13px;font-weight:650;cursor:pointer}
                         </style>
                         <div id="{{ $p }}sh_box" class="sh-box" hidden>
                             <label class="req">¿En qué oficina de Shalom recogerás?</label>
@@ -343,6 +348,7 @@
                             <label id="{{ $p }}office_label">Oficina donde recogerás <span style="color:#94a3b8;font-weight:400;">(opcional)</span></label>
                             <input type="text" name="reference" id="{{ $p }}reference_ag" value="{{ old('reference') }}" maxlength="255" placeholder="Ej. Terminal Terrestre, Av. Aviación 123…">
                             <small class="hint" id="{{ $p }}office_hint">Si ya sabes en qué local vas a recoger, escríbelo. Si no, déjalo en blanco: la agencia te lo indicará.</small>
+                            <div class="sh-sug" id="{{ $p }}sh_sug" hidden></div>
                         </div>
                         <small class="hint" id="{{ $p }}dest_err" hidden style="color:#dc2626;"></small>
 

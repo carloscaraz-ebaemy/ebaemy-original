@@ -124,19 +124,30 @@ class ShalomAgencyCatalog
             return ['scope' => 'none', 'offices' => []];
         }
 
-        $key = 'shalom_offices:' . Cache::get(self::CACHE_VERSION, 0) . ':' . $ubigeo;
+        $key = 'shalom_offices2:' . Cache::get(self::CACHE_VERSION, 0) . ':' . $ubigeo;
 
         return Cache::remember($key, now()->addHours(3), function () use ($ubigeo) {
             $offices = ShalomAgency::selectable()->where('ubigeo', $ubigeo)->orderBy('name')->get();
             $scope = 'district';
+            // Las del resto de la provincia, aparte: quien elige «Arequipa»
+            // (Cercado) y recoge en Ciudad Municipal (Cerro Colorado) no la
+            // veía y marcaba «No encuentro mi oficina».
+            $others = collect();
 
             if ($offices->isEmpty()) {
                 $offices = ShalomAgency::selectable()->where('ubigeo', 'like', substr($ubigeo, 0, 4) . '%')
-                    ->orderBy('name')->get();
+                    ->orderBy('zone')->orderBy('name')->get();
                 $scope = $offices->isEmpty() ? 'none' : 'province';
+            } else {
+                $others = ShalomAgency::selectable()->where('ubigeo', 'like', substr($ubigeo, 0, 4) . '%')
+                    ->where('ubigeo', '!=', $ubigeo)->orderBy('zone')->orderBy('name')->get();
             }
 
-            return ['scope' => $scope, 'offices' => $offices->map(fn (ShalomAgency $a) => $this->present($a))->all()];
+            return [
+                'scope'   => $scope,
+                'offices' => $offices->map(fn (ShalomAgency $a) => $this->present($a))->all(),
+                'others'  => $others->map(fn (ShalomAgency $a) => $this->present($a) + ['other' => true])->all(),
+            ];
         });
     }
 
