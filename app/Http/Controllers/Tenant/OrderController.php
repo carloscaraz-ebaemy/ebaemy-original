@@ -534,16 +534,10 @@ class OrderController extends Controller
             $query->orderByRaw("EXISTS (SELECT 1 FROM shipping_requests sr WHERE sr.order_id = orders.id"
                 . " AND sr.carrier_status = 'destino' AND sr.carrier_events LIKE '%pending_destino%') DESC");
         }
-        // En espera / postergados: DESPUÉS de los que hay que atender y ANTES
-        // de los ya atendidos (enviado 4, anulado 5, entregado 6). Mezclados
-        // tapaban lo que sí se despacha; al fondo de todo no se veían nunca.
-        static $hold = null;
-        $hold ??= ShippingRequest::hasHoldColumns();
-        if ($hold && $porDefecto) {
-            $query->orderByRaw("CASE WHEN orders.status_order_id IN (4, 5, 6) THEN 2"
-                . " WHEN EXISTS (SELECT 1 FROM shipping_requests sh WHERE sh.order_id = orders.id"
-                . " AND sh.on_hold_since IS NOT NULL AND sh.cancelled_at IS NULL) THEN 1 ELSE 0 END ASC");
-        }
+        // Nada más se reordena: mandar los atendidos (enviados, entregados) al
+        // final escondía los pedidos pagados del mes detrás de cientos de filas.
+        // Los que están en espera se quedan en su fecha con su etiqueta, y se
+        // ven juntos con el filtro «En espera».
     }
 
     private function applyOrderSort($query, Request $request): void
