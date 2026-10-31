@@ -4681,7 +4681,15 @@ class ShipmentController extends Controller
         $rules = [
             'delivery_type'        => 'nullable|in:' . implode(',', array_keys(ShippingRequest::DELIVERY_TYPES)),
             'full_name'            => 'required|string|max:160',
-            'dni'                  => 'nullable|string|max:20',
+            // DNI 8 dígitos o RUC 11. CE y pasaporte tienen otros formatos. Un
+            // DNI de 7 (el 0 inicial perdido) pasaba y salía así en la guía.
+            'dni'                  => ['nullable', 'string', 'max:20', function ($attr, $value, $fail) use ($request) {
+                $tipo = $this->strParam($request, 'document_type') ?: 'dni';
+                $n = preg_replace('/\D+/', '', (string) $value);
+                if (in_array($tipo, ['dni', 'ruc'], true) && $n !== '' && strlen($n) !== 8 && strlen($n) !== 11) {
+                    $fail('El DNI tiene 8 dígitos (el RUC, 11). Si empieza en 0, escríbelo también.');
+                }
+            }],
             'document_type'        => 'nullable|in:dni,ruc,ce,pasaporte',
             'pickup_person_name'   => ($esEmpresa ? 'required' : 'nullable') . '|string|max:160',
             'pickup_person_dni'    => ($esEmpresa ? 'required' : 'nullable') . '|string|min:8|max:20',

@@ -794,6 +794,16 @@
             problemas.push({ msg: 'Revisa tu número de celular', el: phone });
         } else limpiar(phone);
 
+        // El documento es opcional, pero si es DNI/RUC tiene que estar entero:
+        // uno de 7 dígitos pasaba sin aviso y salía así en el rótulo y en la
+        // guía (se come el 0 inicial al copiarlo).
+        var doc = document.getElementById('{{ $p }}dni');
+        var ddig = doc ? (doc.value || '').replace(/\D+/g, '') : '';
+        if (doc && docType() === 'dni' && ddig.length && ddig.length !== 8 && ddig.length !== 11) {
+            if (!silencioso) marcar(doc, 'El DNI tiene 8 dígitos (el RUC, 11). Si empieza en 0, escríbelo también.');
+            problemas.push({ msg: 'Revisa tu número de DNI', el: doc });
+        } else if (doc) limpiar(doc);
+
         // Empresa: sin la persona que recoge, la agencia no entrega el paquete.
         if (esRuc()) {
             var pn = document.getElementById('{{ $p }}pickup_name');
