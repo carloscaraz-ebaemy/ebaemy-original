@@ -3524,6 +3524,9 @@ class ShipmentController extends Controller
         // `document.items`. Se arma un documento minimo con esa forma, que es
         // lo mismo que hace generate() para las notas de venta.
         $document = [
+            // Marca para el formulario: precargar cliente, dirección,
+            // transportista y productos aunque no haya documento de origen.
+            'from_shipment' => true,
             'customer_id'  => $persona->id ?? null,
             'customer'     => $persona ? $persona->toArray() : null,
             'observations' => trim('Envio ' . $shipment->shipment_code

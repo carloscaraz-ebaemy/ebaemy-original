@@ -1064,8 +1064,23 @@ export default {
             }
         });
 
-        if (this.parentId) {
+        // Guía precargada: desde una nota de venta (parentId) o desde un envío
+        // de Pedidos, que manda el cliente, la dirección, el transportista y
+        // los productos SIN documento de origen. Antes solo se miraba
+        // parentId y la guía de Pedidos se abría en blanco.
+        // OJO: solo con la marca `from_shipment`. Otras pantallas (guía desde
+        // factura o cotización) también mandan un `document` con cliente y
+        // sin parentId; precargarlo metería su número y serie en la guía.
+        const precargada = !!this.parentId || !!(this.document && this.document.from_shipment);
+        if (precargada) {
             this.form = Object.assign({}, this.form, this.document);
+            delete this.form.from_shipment;   // marca interna: no viaja al guardar
+            // Un envío no trae establecimiento ni serie: los del usuario.
+            if (!this.form.establishment_id && this.establishments.length > 0) {
+                this.form.establishment_id = (this.config.establishment && this.config.establishment.id)
+                    ? this.config.establishment.id
+                    : _.head(this.establishments).id;
+            }
             this.calculatePackagesFromItems();
             await this.reloadDataCustomers(this.form.customer_id);
             await this.getDeliveryAddresses(this.form.customer_id);
@@ -1075,11 +1090,6 @@ export default {
                 this.form.delivery_address_id = this.shippingAddressId;
             } else if (this.delivery_addresses.length > 0) {
                 this.form.delivery_address_id = _.head(this.delivery_addresses).id;
-            }
-
-            // ── Pre-seleccionar transportista desde la NV ─────────────────────
-            if (this.dispatcherId) {
-                this.form.dispatcher_id = parseInt(this.dispatcherId);
             }
 
             // ── Pre-llenar datos del destinatario en observaciones ────────────
@@ -1096,8 +1106,16 @@ export default {
             }
 
             await this.changeEstablishment()
+            if (!this.form.series) this.changeSeries();
             if (this.parentTable !== 'dispatches') {
                 this.setDefaults();
+            }
+
+            // ── Transportista del pedido (la agencia, p. ej. Shalom) ──────────
+            // DESPUÉS de setDefaults(): antes iba antes y el transportista
+            // «por defecto» lo pisaba, así que la guía salía con otra agencia.
+            if (this.dispatcherId) {
+                this.form.dispatcher_id = parseInt(this.dispatcherId);
             }
         } else {
             this.searchRemoteCustomers('')
