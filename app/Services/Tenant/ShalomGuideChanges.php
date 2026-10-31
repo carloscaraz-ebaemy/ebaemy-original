@@ -183,7 +183,7 @@ class ShalomGuideChanges
             // cuando llega a la oficina de destino. Su texto no lo dejaba claro.
             // Se ofrece pedir el aviso de llegada (requestWhenArrives): la
             // solicitud la hace el usuario, no se guarda sola.
-            if ($tipo === 'cambio_destino' && stripos($e->getMessage(), 'no se encuentra en destino') !== false) {
+            if ($tipo === 'cambio_destino' && preg_match('/no se encuentra en (el )?destino/iu', $e->getMessage())) {
                 return ['wait' => true, 'message' => 'Shalom deja cambiar la oficina cuando el paquete llegue a '
                     . ($s->agency_office_name ?: 'su destino actual') . '. Ahora va en camino.'];
             }
