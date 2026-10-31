@@ -1003,14 +1003,25 @@ class OrderController extends Controller
                 // nota de venta, boleta ni factura. Antes solo miraba los de
                 // marketplace externo (Saga) y en una tienda que vende por el
                 // registro de pedidos marcaba siempre 0.
-                // Y que tenga productos: sin líneas no hay de qué emitir (la nota
-                // de venta sale de los productos). Los del registro sin
-                // productos —guía enviada, todo completo— inflaban esto a 455.
+                // Y que sea una venta: con productos, o cobrada aunque los
+                // productos estén escritos a mano en el envío (217 pedidos del
+                // registro en alasitas, S/ 47,966 cobrados sin comprobante).
+                // Los que no tienen ni productos ni cobro no son venta todavía.
                 $query->whereIn('status_order_id', [2, 3, 4, 6])
                     ->whereNull('number_document')
                     ->whereNull('document_external_id')
-                    ->whereRaw("JSON_LENGTH(COALESCE(orders.items, '[]')) > 0")
-                    ->whereDoesntHave('sale_note');
+                    ->whereDoesntHave('sale_note')
+                    ->where(function ($w) {
+                        $w->whereRaw("JSON_LENGTH(COALESCE(orders.items, '[]')) > 0");
+                        if (\Illuminate\Support\Facades\Schema::connection('tenant')->hasTable('order_payments')) {
+                            $w->orWhereExists(fn ($p) => $p->from('order_payments')->whereColumn('order_payments.order_id', 'orders.id'));
+                        }
+                        if (ShippingRequest::moduleInstalled()) {
+                            $w->orWhereExists(fn ($p) => $p->from('shipping_requests as srp')
+                                ->join('shipping_payments as spp', 'spp.shipment_id', '=', 'srp.id')
+                                ->whereColumn('srp.order_id', 'orders.id'));
+                        }
+                    });
                 if (MarketplaceOrder::moduleInstalled()) {
                     $query->where(fn ($w) => $w->whereDoesntHave('marketplaceOrder')
                         ->orWhereHas('marketplaceOrder', fn ($q) => $q->whereNull('invoice_uploaded_at')->whereNull('document_id')));
