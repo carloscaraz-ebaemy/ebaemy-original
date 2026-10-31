@@ -48,6 +48,55 @@ class OrderShipmentActionController extends Controller
             app(ShipmentController::class)->cancel($request, $envio), false, true);
     }
 
+    /**
+     * Postergar después de anular el envío: el paquete ya había salido, se
+     * anuló su envío (el pedido siguió vivo) y el cliente lo quiere más
+     * adelante. Se reabre ESE envío —con sus datos y sus pagos, que viven en
+     * él— desde cero (recibido, sin rótulo ni guía) y en espera, hasta nuevo
+     * aviso. La guía anterior queda en la bitácora.
+     */
+    public function postergar(Request $request, Order $order)
+    {
+        // Como restaurar: el envío anulado es justo lo que se reabre; solo
+        // lo impide el PEDIDO anulado.
+        if ($motivo = $order->motivoBloqueoLogistico()) {
+            return response()->json(['success' => false, 'message' => $motivo], 422);
+        }
+        if (app(OrderShipmentLinker::class)->current($order)) {
+            return response()->json(['success' => false, 'message' => 'El pedido ya tiene un envío vigente: usa «Postergar despacho» en ese envío.'], 422);
+        }
+        $envio = ShippingRequest::where('order_id', $order->id)->where('status', ShippingRequest::STATUS_ANULADO)->latest('id')->first();
+        if (!$envio) {
+            return response()->json(['success' => false, 'message' => 'Este pedido no tiene un envío anulado que postergar.'], 422);
+        }
+        if (!ShippingRequest::hasHoldColumns()) {
+            return response()->json(['success' => false, 'message' => 'Esta tienda todavía no tiene activada la espera de pedidos.'], 422);
+        }
+        $motivo = trim((string) $request->input('motivo', ''));
+        $guiaAntes = trim(($envio->shipping_agency ? $envio->shipping_agency . ' ' : '') . ($envio->tracking_number ?: ''));
+        $user = auth()->user();
+
+        $envio->forceFill(array_filter([
+            'status'               => ShippingRequest::STATUS_RECIBIDO,
+            'cancelled_at'         => null, 'cancelled_by' => null, 'cancelled_by_name' => null,
+            'status_before_cancel' => null,
+            'restored_at'          => now(), 'restored_by' => $user?->id, 'restored_by_name' => $user?->name,
+            'restore_reason'       => 'Postergado hasta nuevo aviso' . ($motivo !== '' ? ': ' . $motivo : ''),
+            'printed_at'           => null, 'print_count' => 0, 'print_batch_id' => null,
+            'tracking_number'      => null, 'tracking_code' => null,
+            'carrier_status'       => null, 'carrier_events' => null, 'carrier_checked_at' => null,
+            'sent_at'              => null, 'ready_at' => null, 'picked_up_at' => null,
+            'on_hold_since'        => now(),
+        ], fn ($v, $k) => \Illuminate\Support\Facades\Schema::connection('tenant')->hasColumn('shipping_requests', $k), ARRAY_FILTER_USE_BOTH))->save();
+
+        \App\Models\Tenant\ShippingAuditLog::log(\App\Models\Tenant\ShippingAuditLog::ACTION_RESTORE, $envio->id, 'status',
+            ShippingRequest::STATUS_ANULADO, ShippingRequest::STATUS_RECIBIDO,
+            'Postergado hasta nuevo aviso' . ($motivo !== '' ? ': ' . $motivo : '')
+            . ($guiaAntes !== '' ? ' (envío anterior: ' . $guiaAntes . ')' : ''));
+
+        return response()->json(['success' => true, 'message' => 'Pedido postergado: queda en espera, sin rótulo ni guía, hasta que lo reanudes.']);
+    }
+
     public function restaurar(Request $request, Order $order)
     {
         // Restaurar es el único que trabaja sobre un envío ANULADO, así que no

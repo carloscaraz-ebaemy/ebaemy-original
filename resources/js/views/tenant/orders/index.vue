@@ -1367,6 +1367,25 @@
                                         <i class="el-icon-time"></i>
                                         Acumular productos (en espera)
                                     </el-dropdown-item>
+                                    <!-- Ya salió (despachado / en agencia / en camino): no se
+                                         posterga; se anula el envío y el pedido sigue. -->
+                                    <el-dropdown-item
+                                        v-if="row.shipment && yaSalio(row) && !esAnulado(row) && !esEntregado(row)
+                                              && row.shipment.status !== 'entregado' && !esExterno(row)"
+                                        command="cancelShipmentKeep"
+                                    >
+                                        <i class="el-icon-close"></i>
+                                        Anular envío (el pedido sigue)
+                                    </el-dropdown-item>
+                                    <!-- Envío anulado y pedido vivo: postergar = reabrir ese
+                                         envío en espera hasta nuevo aviso. -->
+                                    <el-dropdown-item
+                                        v-if="!row.shipment && row.shipment_cancelled && !esAnulado(row) && !esEntregado(row) && !esExterno(row)"
+                                        command="postponeAfterCancel"
+                                    >
+                                        <i class="el-icon-time"></i>
+                                        Postergar (hasta nuevo aviso)
+                                    </el-dropdown-item>
                                     <!-- Ya rotulado y pagado, pero se despacha más adelante:
                                          se posterga y el reloj se detiene igual. -->
                                     <el-dropdown-item
@@ -4666,6 +4685,8 @@ export default {
                 holdOn: () => this.cambiarEspera(row, true),
                 holdOff: () => this.cambiarEspera(row, false),
                 holdPostpone: () => this.postergarDespacho(row),
+                cancelShipmentKeep: () => this.anularEnvio(row),
+                postponeAfterCancel: () => this.postergarTrasAnular(row),
                 trackingLink: () => this.copyLink(
                     window.location.origin + "/envio/seguimiento?code=" + encodeURIComponent(row.shipment.code),
                     "Enlace de seguimiento"
@@ -6452,6 +6473,23 @@ export default {
                 }
             )
                 .then(({ value }) => this.$http.post(`/orders/${row.id}/envio/espera`, { hold: true, postergar: true, motivo: value || null }))
+                .then(r => this.trasAccionDeEnvio(r, false, row.id))
+                .catch(e => { if (e !== "cancel") this.trasAccionDeEnvio(e, true); });
+        },
+
+        postergarTrasAnular(row) {
+            this.$prompt(
+                "El envío anulado se reabre en espera, sin rótulo ni guía, con los datos y pagos del cliente. "
+                    + "Cuando toque enviarlo, usa «Reanudar despacho».",
+                "Postergar (hasta nuevo aviso)",
+                {
+                    confirmButtonText: "Postergar",
+                    cancelButtonText: "Cancelar",
+                    inputPlaceholder: "Motivo (opcional). Ej.: el cliente lo quiere para diciembre",
+                    inputValidator: v => !v || v.length <= 200 || "Máximo 200 caracteres.",
+                }
+            )
+                .then(({ value }) => this.$http.post(`/orders/${row.id}/envio/postergar`, { motivo: value || null }))
                 .then(r => this.trasAccionDeEnvio(r, false, row.id))
                 .catch(e => { if (e !== "cancel") this.trasAccionDeEnvio(e, true); });
         },

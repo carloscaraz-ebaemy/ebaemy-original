@@ -529,6 +529,9 @@ if ($hostname) {
                  ->whereNumber('order')->name('orders.shipment.cancel');
             Route::post('orders/{order}/envio/restaurar', [\App\Http\Controllers\Tenant\OrderShipmentActionController::class, 'restaurar'])
                  ->whereNumber('order')->name('orders.shipment.restore');
+            // Tras anular el envío de un paquete que ya salió: reabrirlo en espera.
+            Route::post('orders/{order}/envio/postergar', [\App\Http\Controllers\Tenant\OrderShipmentActionController::class, 'postergar'])
+                 ->whereNumber('order')->name('orders.shipment.postpone');
             Route::post('orders/{order}/envio/guia', [\App\Http\Controllers\Tenant\OrderShipmentActionController::class, 'guia'])
                  ->whereNumber('order')->name('orders.shipment.guide');
 
