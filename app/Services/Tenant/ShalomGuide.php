@@ -502,6 +502,9 @@ class ShalomGuide
             for ($y = $h - 1; $y > 0; $y -= 2) {
                 for ($x = 0; $x < $w; $x += 6) {
                     $c = imagecolorat($im, $x, $y);
+                    if ((($c >> 24) & 127) > 100) {
+                        continue;   // transparente = vacío
+                    }
                     if ((($c >> 16) & 255) < 235 || (($c >> 8) & 255) < 235 || ($c & 255) < 235) {
                         $ultima = $y;
                         break 2;
