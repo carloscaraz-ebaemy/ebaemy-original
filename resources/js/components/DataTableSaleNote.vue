@@ -13,7 +13,7 @@
                         {{ isVisible ? "Ocultar filtros" : "Mostrar filtros" }}
                     </el-button>
                 </div>                
-                <div class="row" v-if="applyFilter && isVisible">
+                <div class="row" v-if="applyFilter && isVisible" @keyup.enter="buscarYa">
                     <div class="col-12 pb-3">Filtrar por:</div>
                     <div class="col-lg-2 col-md-4 col-sm-12 pb-2">
                         <div class="d-flex">
@@ -33,8 +33,8 @@
                             </el-date-picker>
                         </template>
                         <template v-else>
-                            <el-input placeholder="Nombre del cliente"
-                                v-model="search.value"
+                            <el-input placeholder="Nombre o documento del cliente"
+                                v-model="search.value" clearable
                                 style="width: 100%;">
                             </el-input>
                         </template>
@@ -71,7 +71,7 @@
                         </div>
                     </div>
                     <div class="col-lg-1 col-md-2 form-group">
-                        <el-button class="w-100" type="primary" @click="getRequestData">
+                        <el-button class="w-100" type="primary" @click="buscarYa">
                             <i class="fa fa-search"></i>
                         </el-button>
                     </div>
@@ -153,9 +153,24 @@
                 recordItem: null,
                 showLeftShadow: false,
                 showRightShadow: false,
+                listo: false,
+                esperaFiltro: null,
             }
         },
         computed: {
+        },
+        watch: {
+            // Filtra solo al escribir o elegir: antes solo filtraba con la lupa
+            // y, sin volver a la página 1, un filtro desde la página 2 se veía
+            // vacío («no está filtrando nada»).
+            search: {
+                deep: true,
+                handler() {
+                    if (!this.listo) return;
+                    clearTimeout(this.esperaFiltro);
+                    this.esperaFiltro = setTimeout(this.buscarYa, 400);
+                },
+            },
         },
         created() {
             this.$eventHub.$on('reloadData', () => {
@@ -178,6 +193,7 @@
 
             await this.getRecords()
             await this.getTotals()
+            this.listo = true
 
             this.$nextTick(() => {
                 const el = this.$refs.scrollContainer;
@@ -233,6 +249,12 @@
                 await this.getRecords()
                 await this.getTotals()
 
+            },
+            async buscarYa() {
+                clearTimeout(this.esperaFiltro)
+                this.pagination.current_page = 1
+                await this.getRecords()
+                await this.getTotals()
             },
             async getRequestData()
             {
