@@ -15,7 +15,10 @@ use Illuminate\Console\Command;
  */
 class ShalomSyncTracking extends Command
 {
-    protected $signature = 'shalom:sync-tracking';
+    // --registradas: solo las que Shalom aún no recibió. Es cuando la agencia
+    // pesa el paquete y fija el precio real (535: cotizado S/ 8, cobró S/ 24);
+    // con la pasada de cada 2 h el panel mostraba la cotización hasta 2 h.
+    protected $signature = 'shalom:sync-tracking {--registradas}';
 
     protected $description = 'Consulta en Shalom el estado de las guías en camino';
 
@@ -32,8 +35,10 @@ class ShalomSyncTracking extends Command
                 // que se creó el envío. Las menos consultadas, primero.
                 $guias = ShippingRequest::where('shipping_agency', 'Shalom')
                     ->whereNotNull('tracking_number')->whereNotNull('tracking_code')
-                    ->where(fn ($q) => $q->whereNull('carrier_status')->orWhere('carrier_status', '!=', 'entregado'))
-                    ->whereRaw('COALESCE(sent_at, created_at) >= ?', [now()->subDays(30)])
+                    ->where(fn ($q) => $this->option('registradas')
+                        ? $q->whereNull('carrier_status')->orWhere('carrier_status', 'registrado')
+                        : $q->whereNull('carrier_status')->orWhere('carrier_status', '!=', 'entregado'))
+                    ->whereRaw('COALESCE(sent_at, created_at) >= ?', [now()->subDays($this->option('registradas') ? 7 : 30)])
                     ->orderByRaw('carrier_checked_at IS NOT NULL, carrier_checked_at')
                     ->limit(300)->get();
                 foreach ($guias as $s) {

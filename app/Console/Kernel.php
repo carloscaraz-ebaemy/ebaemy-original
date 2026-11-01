@@ -110,6 +110,12 @@ class Kernel extends ConsoleKernel
                  ->cron('41 */2 * * *')
                  ->withoutOverlapping()
                  ->appendOutputTo(storage_path('logs/shalom_tracking.log'));
+        // Las que aún no entregamos a Shalom, más seguido: al recibirlas pesan
+        // y fijan el precio real del envío.
+        $schedule->command('shalom:sync-tracking --registradas')
+                 ->cron('26,56 * * * *')
+                 ->withoutOverlapping()
+                 ->appendOutputTo(storage_path('logs/shalom_tracking.log'));
 
         // Detecta divergencias de inventario (dry-run, solo reporta — no corrige)
         // Para corregir manualmente: php artisan stock:reconcile --fix
