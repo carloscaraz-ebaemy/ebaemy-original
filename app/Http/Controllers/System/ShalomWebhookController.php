@@ -133,6 +133,17 @@ class ShalomWebhookController extends Controller
 
         $s->forceFill(['carrier_status' => $estado, 'carrier_events' => $ce, 'carrier_checked_at' => now()])->saveQuietly();
 
+        // El aviso no trae el precio. Al recibir el paquete Shalom lo pesa y
+        // fija el real (535: cotizado S/ 8, cobró S/ 24): se pide ya, para que
+        // el registro no siga con la cotización hasta la próxima pasada.
+        if ($estado !== 'registrado' && empty($ce['price_confirmed'])) {
+            try {
+                app(ShalomTracking::class)->refresh($s);
+            } catch (\Throwable $e) {
+                Log::warning('[shalom-webhook] precio ' . $s->id . ': ' . $e->getMessage());
+            }
+        }
+
         if ($estado === 'destino') {
             ShalomTracking::notifyArrived($s, $fqdn);   // una sola vez, y nunca a un envío anulado
         }
