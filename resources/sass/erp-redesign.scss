@@ -1209,3 +1209,129 @@ html.dark {
 .d-mobile-block { @media (min-width: 769px) { display: none !important; } }
 .d-tablet-none { @media (max-width: 1199px) { display: none !important; } }
 
+
+// ── MENÚ LATERAL: orden final ────────────────────────────────
+// Tres hojas se pisan con !important: el tema base, «sidebar-white» (que
+// llevan TODOS los tenants, ver app.blade.php) y este rediseño. «sidebar-white»
+// ganaba por especificidad (`html.fixed.sidebar-white:not(.dark) .sidebar-left a`)
+// y dejaba: texto oscuro sobre el padre activo navy, el contador rojo sobre
+// rojo, el «Crear» de la fila activa en blanco y el de las demás en negro.
+// Anclado al id del menú para ganar siempre sin subir más el !important.
+#sidebar-left {
+  // Padre abierto: navy con texto, icono y flecha en blanco.
+  .nav-main > li.nav-active > a,
+  .nav-main > li.nav-active > a > span,
+  .nav-main > li.nav-active > a::after,
+  .nav-main > li.nav-active > a svg {
+    color: #fff !important;
+  }
+
+  // Nombres largos («Comprobantes pendientes») chocaban con la flecha, que va
+  // pegada al borde.
+  // `.nav` de Bootstrap es flex en fila: cada <li> medía lo que su texto y el
+  // largo empujaba su fila fuera del menú (y su flecha con ella).
+  .nav-main > li {
+    width: calc(100% - 16px) !important;
+    min-width: 0 !important;
+  }
+  .nav-main > li.nav-parent > a {
+    padding-right: 36px !important;
+  }
+  .nav-main > li > a > span {
+    flex: 1 1 0;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  // Sub-menú colgado del padre con UNA guía continua. Antes cada <li> pintaba
+  // su trozo (::after) y la línea se cortaba en cada etiqueta de grupo.
+  .nav-main .nav-children {
+    margin: 4px 0 8px 21px !important;
+    padding: 0 0 0 8px !important;
+    border-left: 1px solid var(--sb-bd) !important;
+    background: transparent !important;
+  }
+  .nav-main .nav-children li::after,
+  .nav-main .nav-children li::before {
+    display: none !important;
+    content: none !important;
+  }
+
+  // Sub-ítems: mismo tamaño activos o no (antes el activo pasaba a píldora
+  // con otro relleno y «saltaba» de sitio).
+  .nav-main .nav-children li > a {
+    margin: 1px 6px 1px 0 !important;
+    padding: 7px 10px !important;
+    border-radius: 6px !important;
+    color: var(--sb-t) !important;
+    background: transparent !important;
+    font-weight: 500 !important;
+  }
+  .nav-main .nav-children li > a:hover {
+    background: var(--sb-hover) !important;
+    color: var(--sb-acc) !important;
+  }
+  .nav-main .nav-children li.nav-active > a {
+    background: rgba(99, 102, 241, .12) !important;
+    background: color-mix(in srgb, var(--sb-acc) 12%, transparent) !important;
+    color: var(--sb-acc) !important;
+    font-weight: 600 !important;
+    box-shadow: inset 3px 0 0 var(--sb-acc) !important;
+    border-radius: 6px !important;
+    padding: 7px 10px !important;
+    svg, i { color: var(--sb-acc) !important; }
+  }
+
+  // Etiquetas de grupo (TIENDA, GESTIÓN, WHATSAPP…) alineadas con el texto de
+  // los ítems, no metidas hacia dentro.
+  .sb-group-label {
+    padding: 14px 10px 4px !important;
+    font-size: 10.5px !important;
+    letter-spacing: .08em !important;
+    color: #94a3b8 !important;
+  }
+  .nav-children > .sb-group-label:first-child {
+    padding-top: 4px !important;
+  }
+
+  // Contadores: número blanco y a la derecha.
+  .nav-children li > a .badge {
+    margin-left: auto !important;
+    color: #fff !important;
+    font-size: 10.5px !important;
+    padding: 2px 7px !important;
+    line-height: 1.4 !important;
+  }
+  .badge.bg-danger  { background: #dc2626 !important; }
+  .badge.bg-success { background: #16a34a !important; }
+
+  // «Crear» (Ventas, Compras…): el mismo botón en cualquier fila.
+  .nav-main .nav-children li.nav-item-with-action > a {
+    padding-right: 64px !important;
+  }
+  // En móvil el botón va al lado de la fila (sidebar.blade.php), no encima.
+  .nav-main-mobile .nav-children li.nav-item-with-action > a {
+    padding-right: 10px !important;
+  }
+  .nav-main .nav-children li.nav-item-with-action > .nav-action {
+    right: 12px !important;
+    background: #fff !important;
+    color: var(--sb-acc) !important;
+    border: 1px solid rgba(99, 102, 241, .35) !important;
+    border: 1px solid color-mix(in srgb, var(--sb-acc) 35%, transparent) !important;
+    border-radius: 999px !important;
+    padding: 1px 9px !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    line-height: 1.5 !important;
+    box-shadow: none !important;
+
+    &:hover {
+      background: var(--sb-acc) !important;
+      border-color: var(--sb-acc) !important;
+      color: #fff !important;
+    }
+  }
+}
