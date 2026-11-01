@@ -216,6 +216,12 @@ class ShalomTracking
                 number_format($cot, 2), number_format((float) $ce['price_shalom'], 2),
                 'Shalom ajustó el precio al recibir el paquete' . (!empty($ce['shalom_content']) ? ' (' . $ce['shalom_content'] . ')' : '') . '.');
         }
+        // Precio confirmado: el registro pasa a decir lo que cobró Shalom en
+        // todas partes. La cotización queda solo como historia (y en la bitácora).
+        if (!empty($ce['price_confirmed']) && $cot !== null && abs($cot - (float) $ce['price_shalom']) >= 0.01) {
+            $ce['price_quoted_original'] = $ce['price_quoted_original'] ?? $cot;
+            $ce['price_quoted'] = (float) $ce['price_shalom'];
+        }
 
         return $ce;
     }
@@ -251,12 +257,16 @@ class ShalomTracking
             return null;
         }
         $conf = !empty($ce['price_confirmed']) && $sh !== null;
+        // La diferencia se mide contra la cotización original, no contra el
+        // registro ya actualizado.
+        $orig = isset($ce['price_quoted_original']) && is_numeric($ce['price_quoted_original'])
+            ? (float) $ce['price_quoted_original'] : $cot;
 
         return [
             'quoted'         => $cot,
             'shalom'         => $sh,
             'confirmed'      => $conf,
-            'diff'           => $conf && $cot !== null ? round($sh - $cot, 2) : null,
+            'diff'           => $conf && $orig !== null ? round($sh - $orig, 2) : null,
             'pay_on_pickup'  => stripos((string) ($ce['pay_type'] ?? ''), 'contra') !== false,
             'content_quoted' => isset($ce['content']) ? self::tamano((string) $ce['content']) : null,
             'content_shalom' => !empty($ce['shalom_content']) ? self::tamano((string) $ce['shalom_content']) : null,
