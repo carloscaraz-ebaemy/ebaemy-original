@@ -151,7 +151,7 @@
         <h2>¿Tienes una tienda?</h2>
         <p>Publica tus productos en ebaemy gratis y llega a compradores de todo el Perú.</p>
     </div>
-    <a href="{{ route('seller.landing') }}">Vender en ebaemy</a>
+    <a href="{{ route('seller.register') }}">Vender en ebaemy</a>
 </section>
 
 @endsection

@@ -870,7 +870,7 @@
         <div class="mp-footer-col">
             <h4>Vender</h4>
             <ul>
-                <li><a href="{{ route('seller.landing') }}">Vender en ebaemy</a></li>
+                <li><a href="{{ route('seller.register') }}">Vender en ebaemy</a></li>
                 <li><a href="{{ route('seller.register') }}">Crear solicitud</a></li>
                 <li><a href="{{ url('/guest-register') }}">Registro rápido</a></li>
             </ul>
