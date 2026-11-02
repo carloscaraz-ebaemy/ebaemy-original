@@ -121,7 +121,11 @@ class OrderToSaleNoteService
                         'codigo_tipo_documento_identidad' => '6',
                     ])
                     : $customerData;
-                $saleNote->customer = $this->customerSnapshot($saleNote->customer ?: [], $person);
+                // El modelo devuelve el cliente como objeto: se vuelve a array.
+                $saleNote->customer = $this->customerSnapshot(
+                    json_decode(json_encode($saleNote->customer ?: []), true) ?: [],
+                    $person
+                );
                 $saleNote->currency_type_id = 'PEN';
                 $saleNote->exchange_rate_sale = 1;
                 $saleNote->total = $order->total;
