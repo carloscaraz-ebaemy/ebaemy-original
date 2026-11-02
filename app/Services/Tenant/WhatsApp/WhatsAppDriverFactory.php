@@ -8,6 +8,7 @@ use App\Services\Tenant\WhatsApp\Contracts\WhatsAppDriverInterface;
 use App\Services\Tenant\WhatsApp\Drivers\MetaCloudDriver;
 use App\Services\Tenant\WhatsApp\Drivers\NoneDriver;
 use App\Services\Tenant\WhatsApp\Drivers\QrApiDriver;
+use App\Services\Tenant\WhatsApp\Drivers\EvolutionDriver;
 
 /**
  * Factory que elige el driver de WhatsApp activo según la configuración
@@ -48,7 +49,15 @@ class WhatsAppDriverFactory
             }
         }
 
-        // 2. QR API primero (compatibilidad con config actual del sistema)
+        // 2. El WhatsApp de la tienda conectado por QR (Evolution, como el
+        //    Pro 9). Antes que qr_api: ese apunta al gateway viejo de
+        //    devaemy.com, muerto desde 2026-08, y tapaba a cualquier otro.
+        $evolution = new EvolutionDriver();
+        if ($evolution->isConfigured()) {
+            return $evolution;
+        }
+
+        // 3. QR API (compatibilidad con config actual del sistema)
         $qrApi = new QrApiDriver();
         if ($qrApi->isConfigured()) {
             return $qrApi;
@@ -72,6 +81,7 @@ class WhatsAppDriverFactory
         return match ($name) {
             'meta_cloud' => new MetaCloudDriver(),
             'qr_api'     => new QrApiDriver(),
+            'evolution'  => new EvolutionDriver(),
             'none'       => new NoneDriver(),
             default      => new NoneDriver(),
         };
@@ -97,6 +107,12 @@ class WhatsAppDriverFactory
                 'label'      => 'QR API (WhatsApp-Web)',
                 'configured' => (new QrApiDriver())->isConfigured(),
                 'description'=> 'Gateway tipo WhatsApp-Web. Gratis pero no oficial.',
+            ],
+            [
+                'name'       => 'evolution',
+                'label'      => 'WhatsApp de la tienda (QR)',
+                'configured' => (new EvolutionDriver())->isConfigured(),
+                'description'=> 'Tu propio número, conectado escaneando un QR. Gratis pero no oficial: para avisos y comprobantes, no campañas masivas.',
             ],
             [
                 'name'       => 'none',

@@ -237,7 +237,7 @@ class WhatsAppSettingsController extends Controller
     public function update(Request $request)
     {
         $validated = $request->validate([
-            'whatsapp_driver'          => 'nullable|in:meta_cloud,qr_api,none',
+            'whatsapp_driver'          => 'nullable|in:meta_cloud,qr_api,evolution,none',
             'whatsapp_api_token'       => 'nullable|string|max:500',
             'whatsapp_phone_id'        => 'nullable|string|max:50',
             'whatsapp_vendor_number'   => 'nullable|string|max:30',

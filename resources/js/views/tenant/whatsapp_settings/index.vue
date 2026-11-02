@@ -42,6 +42,9 @@
       </div>
     </div>
 
+    <!-- WhatsApp de la tienda por QR (como el Pro 9) -->
+    <conexion-qr @conectado="load"></conexion-qr>
+
     <!-- Selector de driver -->
     <div class="wa-section">
       <h3>Proveedor de WhatsApp</h3>
@@ -229,8 +232,11 @@
 </template>
 
 <script>
+import ConexionQr from './partials/conexion_qr.vue';
+
 export default {
   name: 'WhatsAppSettings',
+  components: { ConexionQr },
   data() {
     return {
       loading: false,
@@ -264,7 +270,7 @@ export default {
   },
   methods: {
     driverLabel(name) {
-      return { meta_cloud: 'Meta Cloud API', qr_api: 'QR API (WhatsApp-Web)', none: 'Deshabilitado' }[name] || name;
+      return { meta_cloud: 'Meta Cloud API', qr_api: 'QR API (WhatsApp-Web)', evolution: 'WhatsApp de la tienda (QR)', none: 'Deshabilitado' }[name] || name;
     },
     async load() {
       this.loading = true;

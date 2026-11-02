@@ -4,12 +4,13 @@
             <template slot="prepend">+51</template>
             <template slot="append">
                 <el-tooltip class="item"
-                    content="Requiere configuración de tokens en módulo de empresa"
+                    :content="motivo"
+                    :disabled="puede"
                     effect="dark"
                     placement="top-start">
                     <el-button
                         @click="sendQrChat"
-                        :disabled="button_disable"
+                        :disabled="!puede"
                         :loading="loading_submit">
                         Enviar <i class="fab fa-whatsapp"></i>
                     </el-button>
@@ -23,87 +24,63 @@
 </template>
 
 <script>
+/**
+ * Envía el comprobante en PDF por el WhatsApp de la tienda conectado por QR
+ * (Evolution, como el Pro 9): el servidor lo manda con /whatsapp/conexion/documento.
+ *
+ * Antes posteaba directo desde el navegador al gateway de devaemy.com, muerto
+ * desde 2026-08: el botón quedaba activo y nunca enviaba nada.
+ */
+// Una consulta de estado por página, aunque haya varios botones.
+let estadoPromesa = null;
 
-import {mapState} from "vuex/dist/vuex.mjs";
 export default {
     props: ['colClass','wsPhone','wsFile','wsDocument','wsMessage', 'wsData', 'wsConfig'],
     data() {
         return {
             form: {},
             errors: {},
-            button_disable: true,
+            estado: null,
             loading_submit: false,
-            resource: 'qrapi'
-            // text: 'Su comprobante de pago electrónico F001-4 ha sido generado correctamente',
         }
     },
-      computed: {
-        ...mapState([
-            'config',
-        ]),
-
-        wsUrl() {
-            if (this.wsConfig && this.wsConfig.qr_api_url_ws) {
-                return this.wsConfig.qr_api_url_ws;
-            }
-            return this.config.qr_api_url_ws;
+    computed: {
+        puede() {
+            return !!(this.estado && this.estado.connected);
         },
-        wsApiKey(){
-            if (this.wsConfig && this.wsConfig.qr_api_key_ws) {
-                return this.wsConfig.qr_api_key_ws;
-            }
-            return this.config.qr_api_key_ws;
+        motivo() {
+            if (!this.estado || !this.estado.available) return 'El envío por WhatsApp no está disponible.';
+            return 'Conecta el WhatsApp de la tienda en Tienda Virtual → WhatsApp → Configuración.';
+        },
+    },
+    mounted() {
+        if (!estadoPromesa) {
+            estadoPromesa = this.$http.get('/whatsapp/conexion').then(r => r.data).catch(() => null);
+            setTimeout(() => { estadoPromesa = null; }, 60000);
         }
-
+        estadoPromesa.then(e => { this.estado = e; });
     },
-    mounted(){
-        this.enableSend()
-    },
-
     methods: {
-        enableSend() {
-            if(this.config.qr_api_url_ws != '' && this.config.qr_api_key_ws != '') {
-                this.button_disable = false
-            }
-        },
         async sendQrChat() {
-            this.loading_submit = true
-            if (this.wsPhone == '') {
+            if (!this.wsPhone) {
                 return this.$message.error('El número es obligatorio')
             }
-
-            const {extension_only, filename_only} = this.wsData;
-            this.convertFileToBase64(this.wsFile)
-                .then(file_encode64 => {
-                    
-                    this.setForm(file_encode64, `${filename_only}.${extension_only}`)
-                    return this.$http
-                        .post(`${this.wsUrl}\\api\\message\\send\\pdf`, this.form, {
-                            headers: {
-                                "Authorization" : `Bearer ${this.wsApiKey}`
-                            }
-                        })
-                        .then(response => {
-                            if(response.status == 200) {
-                                return this.$message.success('Documento enviado con exito')
-                            }
-                        })
-                        .catch(error => {
-                            return this.$message.error('No se puede enviar')
-                        })
-                        .finally(() => {
-                            this.loading_submit = false
-                        });
-                })
-
-        },
-        setForm(base64file, full_filename) {
-            this.form = {
-                file: base64file,
-                number: `51${this.wsPhone}`,
-                message: this.wsMessage,
-                filename: full_filename 
+            this.loading_submit = true
+            const {extension_only, filename_only} = this.wsData || {};
+            const base64 = await this.convertFileToBase64(this.wsFile);
+            if (!base64) {
+                this.loading_submit = false;
+                return this.$message.error('No se pudo leer el PDF del comprobante.');
             }
+            this.$http.post('/whatsapp/conexion/documento', {
+                file: base64,
+                number: `51${String(this.wsPhone).replace(/\D/g, '').slice(-9)}`,
+                message: this.wsMessage,
+                filename: `${filename_only || 'comprobante'}.${extension_only || 'pdf'}`,
+            })
+                .then(r => this.$message.success((r.data && r.data.message) || 'Documento enviado con éxito'))
+                .catch(e => this.$message.error((e.response && e.response.data && e.response.data.message) || 'No se pudo enviar'))
+                .finally(() => { this.loading_submit = false; });
         },
         async convertFileToBase64(url) {
             try {
@@ -112,7 +89,7 @@ export default {
                 return await this.blobToBase64(blob);
             } catch (error) {
                 console.error(error);
-                return this.$message.error('Error al convertir el archivo a base64:')
+                return null;
             }
         },
         blobToBase64(blob) {
@@ -125,8 +102,6 @@ export default {
                 reader.readAsDataURL(blob);
             });
         },
-
     }
 }
-
 </script>

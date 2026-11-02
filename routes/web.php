@@ -634,7 +634,15 @@ if ($hostname) {
             });
             Route::middleware('permission:whatsapp.config')->group(function () {
                 Route::put('whatsapp/settings', 'Tenant\WhatsAppSettingsController@update');
+                // WhatsApp de la tienda por QR (Evolution, como el Pro 9).
+                Route::post('whatsapp/conexion/conectar', 'Tenant\WhatsAppConnectionController@conectar');
+                Route::get('whatsapp/conexion/qr', 'Tenant\WhatsAppConnectionController@qr');
+                Route::post('whatsapp/conexion/desconectar', 'Tenant\WhatsAppConnectionController@desconectar');
             });
+            // Estado y envío de comprobantes: los usa el botón «Enviar» de
+            // nota de venta / boleta / factura, que ve cualquiera que emite.
+            Route::get('whatsapp/conexion', 'Tenant\WhatsAppConnectionController@estado');
+            Route::post('whatsapp/conexion/documento', 'Tenant\WhatsAppConnectionController@enviarDocumento');
             Route::middleware('permission:whatsapp.send_test')->group(function () {
                 Route::post('whatsapp/settings/test', 'Tenant\WhatsAppSettingsController@test');
             });
