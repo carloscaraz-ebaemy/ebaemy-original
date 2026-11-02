@@ -78,20 +78,26 @@
              Solo cuando ya hay productos. Sin productos, el welcome card de
              abajo es suficiente y este banner sería confuso ("publicados"
              cuando aún no hay nada). -->
-        <div class="ie-info-banner" v-if="itemsCount !== 0">
-            <div class="ie-info-banner__icon">📚</div>
-            <div class="ie-info-banner__text">
-                <div class="ie-info-banner__title">Productos de tu catálogo publicados en la tienda</div>
-                <div class="ie-info-banner__hint">
-                    No se duplican: viven en el catálogo maestro. Precio, stock y datos de facturación se sincronizan automáticamente.
-                </div>
-            </div>
-            <button type="button" class="btn btn-sm ie-info-banner__news" @click="$refs.tour && $refs.tour.start()">
-                ✨ ¿Qué hay de nuevo?
-            </button>
-            <a href="/items" class="btn btn-sm btn-outline-success ie-info-banner__cta">
-                Ver catálogo completo →
-            </a>
+        <div class="ie-strip" v-if="itemsCount !== 0">
+            <span class="ie-strip__lead"
+                  title="No se duplican: viven en el catálogo maestro. Precio, stock y datos de facturación se sincronizan solos.">
+                <i class="fa fa-sync-alt"></i> Sincronizados con tu catálogo
+            </span>
+            <template v-if="mpStats.published > 0">
+                <a href="/items_ecommerce?published_mp=1" class="ie-strip__stat ie-strip__stat--mp"
+                   title="Ver solo los publicados en ebaemy.com/marketplace">
+                    <b>{{ mpStats.published }}</b> en Marketplace
+                </a>
+                <span class="ie-strip__stat"><b>{{ mpStats.views }}</b> vistas</span>
+                <span class="ie-strip__stat"><b>{{ mpStats.clicks }}</b> clics</span>
+                <span class="ie-strip__stat"><b>{{ mpStats.leads_30d }}</b> pedidos (30 días)</span>
+            </template>
+            <span class="ie-strip__actions">
+                <button type="button" class="ie-strip__link ie-info-banner__news" @click="$refs.tour && $refs.tour.start()">
+                    ✨ Novedades
+                </button>
+                <a href="/items" class="ie-strip__link">Catálogo completo →</a>
+            </span>
         </div>
 
         <!-- Guía de novedades: sale una vez por usuario (se guarda en su
@@ -183,26 +189,6 @@
             </div>
         </div>
 
-        <!-- ── Marketplace stats (solo si tenant tiene listings publicados) ── -->
-        <div v-if="mpStats.published > 0" class="mp-stats-card">
-            <div class="mp-stats-head">
-                <span class="mp-stats-title">🌐 Tus productos en <strong>ebaemy.com/marketplace</strong></span>
-                <a href="/items_ecommerce?published_mp=1" class="mp-stats-link">Ver todos</a>
-            </div>
-            <div class="mp-stats-grid">
-                <div class="mp-stat"><div class="mp-stat__n">{{ mpStats.published }}</div><div class="mp-stat__l">Publicados</div></div>
-                <div class="mp-stat"><div class="mp-stat__n">{{ mpStats.views }}</div><div class="mp-stat__l">Vistas totales</div></div>
-                <div class="mp-stat"><div class="mp-stat__n">{{ mpStats.clicks }}</div><div class="mp-stat__l">Clicks a tienda</div></div>
-                <div class="mp-stat mp-stat--hl"><div class="mp-stat__n">{{ mpStats.leads_30d }}</div><div class="mp-stat__l">Pedidos 30d</div></div>
-            </div>
-            <div v-if="mpStats.top && mpStats.top.length" class="mp-stats-top">
-                <span class="mp-stats-top__label">Más vistos:</span>
-                <span v-for="(t, i) in mpStats.top" :key="i" class="mp-stats-top__item">
-                    {{ t.title }} <small>({{ t.view_count }} vistas)</small>
-                </span>
-            </div>
-        </div>
-
         <!-- Tabla principal: oculta cuando itemsCount===0 (mostramos el
              welcome card en su lugar). Apenas haya >=1 producto, esto
              aparece y el welcome card desaparece. -->
@@ -211,7 +197,7 @@
         <h3 class="my-0">Listado de productos Tienda Virtual</h3>
       </div> -->
             <div class="card-body">
-                <data-table :resource="resource" :ecommerce="ecommerce" :sort-field="sortField" :sort-direction="sortDirection" :showChannelFilter="true" @sort-change="handleSortChange">
+                <data-table :resource="resource" :ecommerce="ecommerce" :sort-field="sortField" :sort-direction="sortDirection" :showChannelFilter="true" toolbar @sort-change="handleSortChange">
                     <tr slot="heading" width="100%" slot-scope="{ sort }">
                         <!-- <th>#</th> -->
                         <th>Cód. Interno</th>
@@ -236,7 +222,7 @@
                         </th>
                         <th class="text-center">Tags</th>
 
-                        <th class="text-center">Visible en Tienda</th>
+                        <th class="text-center">En tienda</th>
                         <th class="text-center" style="min-width:90px">
                             Marketplace
                             <el-tooltip content="Publicar este producto en ebaemy.com/marketplace" placement="top">
@@ -1430,6 +1416,30 @@ export default {
 .ie-welcome-card__tip strong { color: #1e293b; }
 
 /* ── Header del page (h2 + breadcrumb + buttons) ── */
+/* Franja informativa: una línea en lugar de banner + tarjeta de cifras. */
+.ie-strip {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 6px 18px;
+    padding: 9px 14px; margin: 0 0 12px; font-size: 13px; color: #475569;
+    background: #fff; border: 1px solid #e2e8f0; border-radius: 10px;
+}
+.ie-strip__lead { color: #64748b; cursor: help; }
+.ie-strip__lead i { color: #10b981; margin-right: 4px; font-size: 12px; }
+.ie-strip__stat b { color: #0f172a; font-weight: 700; font-size: 14px; margin-right: 2px; }
+.ie-strip__stat--mp, .ie-strip__stat--mp:hover { color: #6d28d9; text-decoration: none; }
+.ie-strip__stat--mp b { color: #6d28d9; }
+.ie-strip__actions { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+.ie-strip__link {
+    font-size: 12.5px; padding: 4px 10px; border-radius: 6px; border: 1px solid #e2e8f0;
+    background: #fff; color: #334155; text-decoration: none; cursor: pointer; white-space: nowrap;
+}
+.ie-strip__link:hover { background: #f1f5f9; color: #0f172a; text-decoration: none; }
+@media (max-width: 767px) {
+    .ie-strip { gap: 6px 14px; padding: 10px 12px; }
+    .ie-strip__lead { flex: 1 1 100%; }
+    .ie-strip__actions { margin-left: 0; flex: 1 1 100%; }
+    .ie-strip__link { flex: 1 1 0; text-align: center; }
+}
+
 /* Barra de acciones: grupos con borde compartido, misma altura; «Nuevo»
    es la única acción de color. */
 .items_ecommerce .page-header .ie-toolbar {

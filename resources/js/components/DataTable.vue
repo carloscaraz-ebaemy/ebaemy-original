@@ -1,6 +1,49 @@
 <template>
     <div v-loading="loading_submit">
         <div class="row ">
+            <!-- Barra única (prop `toolbar`): buscador grande, estado y qué
+                 listar a la vista, sin «Mostrar filtros». Hoy la usa la
+                 Tienda virtual; el resto de pantallas sigue con la de abajo. -->
+            <div v-if="toolbar" class="col-12">
+                <div class="dt-tb">
+                    <div class="dt-tb__search">
+                        <el-date-picker
+                            v-if="['date_of_issue','date_of_due','date_of_payment','delivery_date'].includes(search.column)"
+                            v-model="search.value" type="date" placeholder="Buscar por fecha"
+                            value-format="yyyy-MM-dd" style="width:100%" @change="getRecords"
+                        ></el-date-picker>
+                        <el-input v-else v-model="search.value" :placeholder="searchPlaceholder"
+                                  prefix-icon="el-icon-search" clearable @input="getRecords">
+                            <el-select v-if="Object.keys(columns).length > 1" slot="append" v-model="search.column"
+                                       class="dt-tb__col" @change="changeClearInput">
+                                <el-option v-for="(label, key) in columns" :key="key" :value="key" :label="label"></el-option>
+                            </el-select>
+                        </el-input>
+                    </div>
+                    <div v-if="showChannelFilter" class="dt-tb__field">
+                        <span class="dt-tb__label">Estado</span>
+                        <el-select v-model="search.channel_filter" class="dt-tb__select" @change="handleChannelFilterChange">
+                            <el-option label="Todos" value="all"></el-option>
+                            <el-option-group v-for="g in channelOptions" :key="g.label" :label="g.label">
+                                <el-option v-for="o in g.options" :key="o.value" :label="o.label" :value="o.value">
+                                    <span class="dt-dot" :style="{ background: o.color }"></span>{{ o.label }}
+                                </el-option>
+                            </el-option-group>
+                        </el-select>
+                    </div>
+                    <div v-if="fromRestaurant || fromEcommerce" class="dt-tb__field">
+                        <span class="dt-tb__label">Mostrar</span>
+                        <el-select v-model="search.list_value" class="dt-tb__select dt-tb__select--sm" @change="handleListValueChange">
+                            <el-option v-for="(label, key) in list_columns" :key="key" :value="key" :label="label"></el-option>
+                        </el-select>
+                    </div>
+                    <el-tooltip v-if="fromRestaurant || fromEcommerce" placement="top"
+                                content="Hace visibles en la tienda todos los productos con código interno. Aplica al canal actual.">
+                        <el-button class="dt-tb__btn" icon="el-icon-view" @click="methodVisibleAllProduct">Hacer visibles todos</el-button>
+                    </el-tooltip>
+                </div>
+            </div>
+            <template v-else>
             <div class="filter-container"
             :class="{
               'col-md-12 col-lg-12 col-xl-12': !fromEcommerce && !fromRestaurant,
@@ -188,6 +231,7 @@
                     </div>
                 </div>
             </div>
+            </template>
             <div class="col-md-12 position-relative">
                 <div class="scroll-shadow shadow-left" v-show="showLeftShadow"></div>
                 <div class="scroll-shadow shadow-right" v-show="showRightShadow"></div>
@@ -244,6 +288,30 @@
 }
 .btn-show-filter.shift {
     display: block !important;
+}
+
+/* ── Barra compacta (prop toolbar) ── */
+.dt-tb { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 12px; }
+.dt-tb__search { flex: 1 1 320px; min-width: 0; }
+.dt-tb .el-input__inner { height: 40px; line-height: 40px; font-size: 14px; border-radius: 8px; }
+.dt-tb .el-input__icon { line-height: 40px; }
+.dt-tb__search .el-input-group__append { background: #f8fafc; border-radius: 0 8px 8px 0; padding: 0 12px; }
+.dt-tb__search .el-input-group--append > .el-input__inner { border-radius: 8px 0 0 8px; }
+.dt-tb__col { width: 150px; }
+.dt-tb__col .el-input__inner { font-size: 13px; color: #475569; }
+.dt-tb__field { display: flex; align-items: center; gap: 8px; }
+.dt-tb__label { font-size: 13px; font-weight: 500; color: #475569; white-space: nowrap; }
+.dt-tb__select { width: 220px; }
+.dt-tb__select--sm { width: 130px; }
+.dt-tb__btn.el-button { height: 40px; border-radius: 8px; font-size: 13px; padding: 0 14px; }
+.dt-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 8px; vertical-align: 1px; }
+@media (max-width: 767px) {
+    .dt-tb__search { flex-basis: 100%; }
+    .dt-tb__field { flex: 1 1 calc(50% - 5px); min-width: 0; flex-direction: column; align-items: stretch; gap: 3px; }
+    .dt-tb__label { font-size: 12px; }
+    .dt-tb__select, .dt-tb__select--sm { width: 100%; }
+    .dt-tb__col { width: 110px; }
+    .dt-tb > .dt-tb__btn { flex: 1 1 100%; }
 }
 
 /* Barra de filtros: controles alineados a la base, ritmo y acabado consistentes. */
@@ -354,6 +422,11 @@ export default {
             default: false,
             required: false
         },
+        // Barra de filtros compacta y siempre visible (ver plantilla).
+        toolbar: {
+            type: Boolean,
+            default: false,
+        },
         // Filtros propios de la pantalla que usa la tabla (facetas de negocio,
         // rangos…). Se serializan junto al resto de parámetros, así que el padre
         // los declara y no tiene que manipular el estado interno de este
@@ -399,6 +472,34 @@ export default {
         };
     },
     computed: {
+        searchPlaceholder() {
+            const col = this.columns && this.columns[this.search.column];
+            return 'Buscar por ' + String(col || 'nombre').toLowerCase() + '…';
+        },
+        // Opciones del filtro «Estado» de la barra compacta: un punto de color
+        // en vez de emojis, agrupadas por tema.
+        channelOptions() {
+            return [
+                { label: 'Dónde se vende', options: [
+                    { value: 'in_store', label: 'En tienda', color: '#10b981' },
+                    { value: 'in_marketplace', label: 'En Marketplace', color: '#8b5cf6' },
+                    { value: 'pending_mp', label: 'Marketplace: pendiente', color: '#f59e0b' },
+                    { value: 'paused_mp', label: 'Marketplace: pausado', color: '#94a3b8' },
+                    { value: 'rejected_mp', label: 'Marketplace: rechazado', color: '#ef4444' },
+                    { value: 'unpublished', label: 'Sin publicar', color: '#cbd5e1' },
+                ] },
+                { label: 'Saga Falabella', options: [
+                    { value: 'in_saga', label: 'En Saga', color: '#10b981' },
+                    { value: 'saga_pending', label: 'Saga: pendiente', color: '#f59e0b' },
+                    { value: 'saga_error', label: 'Saga: con error', color: '#ef4444' },
+                ] },
+                { label: 'Stock y precio', options: [
+                    { value: 'with_stock', label: 'Con stock', color: '#10b981' },
+                    { value: 'no_stock', label: 'Sin stock', color: '#ef4444' },
+                    { value: 'on_offer', label: 'Con oferta vigente', color: '#e11d48' },
+                ] },
+            ];
+        },
         // Descarta los filtros vacíos: mandar `price_min=` haría que el backend
         // viera el parámetro presente y filtrara por cadena vacía.
         cleanExtraFilters() {
