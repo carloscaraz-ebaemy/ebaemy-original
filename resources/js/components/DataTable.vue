@@ -6,19 +6,20 @@
                  Tienda virtual; el resto de pantallas sigue con la de abajo. -->
             <div v-if="toolbar" class="col-12">
                 <div class="dt-tb">
+                    <!-- «Buscar en» y el texto van juntos pero son dos controles:
+                         meter el select dentro del input lo desbordaba en móvil. -->
                     <div class="dt-tb__search">
+                        <el-select v-if="Object.keys(columns).length > 1" v-model="search.column"
+                                   class="dt-tb__col" @change="changeClearInput">
+                            <el-option v-for="(label, key) in columns" :key="key" :value="key" :label="cleanLabel(label)"></el-option>
+                        </el-select>
                         <el-date-picker
                             v-if="['date_of_issue','date_of_due','date_of_payment','delivery_date'].includes(search.column)"
                             v-model="search.value" type="date" placeholder="Buscar por fecha"
-                            value-format="yyyy-MM-dd" style="width:100%" @change="getRecords"
+                            value-format="yyyy-MM-dd" class="dt-tb__q" @change="getRecords"
                         ></el-date-picker>
-                        <el-input v-else v-model="search.value" :placeholder="searchPlaceholder"
-                                  prefix-icon="el-icon-search" clearable @input="getRecords">
-                            <el-select v-if="Object.keys(columns).length > 1" slot="append" v-model="search.column"
-                                       class="dt-tb__col" @change="changeClearInput">
-                                <el-option v-for="(label, key) in columns" :key="key" :value="key" :label="label"></el-option>
-                            </el-select>
-                        </el-input>
+                        <el-input v-else v-model="search.value" placeholder="Buscar…" class="dt-tb__q"
+                                  prefix-icon="el-icon-search" clearable @input="getRecords"></el-input>
                     </div>
                     <div v-if="showChannelFilter" class="dt-tb__field">
                         <span class="dt-tb__label">Estado</span>
@@ -292,25 +293,26 @@
 
 /* ── Barra compacta (prop toolbar) ── */
 .dt-tb { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 12px; }
-.dt-tb__search { flex: 1 1 320px; min-width: 0; }
-.dt-tb .el-input__inner { height: 40px; line-height: 40px; font-size: 14px; border-radius: 8px; }
-.dt-tb .el-input__icon { line-height: 40px; }
-.dt-tb__search .el-input-group__append { background: #f8fafc; border-radius: 0 8px 8px 0; padding: 0 12px; }
-.dt-tb__search .el-input-group--append > .el-input__inner { border-radius: 8px 0 0 8px; }
-.dt-tb__col { width: 150px; }
-.dt-tb__col .el-input__inner { font-size: 13px; color: #475569; }
+/* El tema deja algunos inputs en 32px: todos a 40px, como el botón. */
+.dt-tb .el-input .el-input__inner { height: 40px; line-height: 40px; font-size: 14px; border-radius: 8px; }
+.dt-tb .el-input .el-input__icon { line-height: 40px; }
+.dt-tb__search { flex: 1 1 360px; min-width: 0; display: flex; }
+.dt-tb__search .dt-tb__col { flex: 0 0 170px; }
+.dt-tb__search .dt-tb__col .el-input__inner { border-radius: 8px 0 0 8px; background: #f8fafc; font-size: 13px; color: #475569; }
+.dt-tb__search .dt-tb__q { flex: 1 1 auto; min-width: 0; width: auto; }
+.dt-tb__search .dt-tb__col + .dt-tb__q .el-input__inner { border-radius: 0 8px 8px 0; margin-left: -1px; }
 .dt-tb__field { display: flex; align-items: center; gap: 8px; }
 .dt-tb__label { font-size: 13px; font-weight: 500; color: #475569; white-space: nowrap; }
 .dt-tb__select { width: 220px; }
 .dt-tb__select--sm { width: 130px; }
-.dt-tb__btn.el-button { height: 40px; border-radius: 8px; font-size: 13px; padding: 0 14px; }
+.dt-tb__btn.el-button { height: 40px; border-radius: 8px; font-size: 13px; padding: 0 14px; border: 1px solid #cbd5e1 !important; color: #334155; }
 .dt-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 8px; vertical-align: 1px; }
 @media (max-width: 767px) {
     .dt-tb__search { flex-basis: 100%; }
     .dt-tb__field { flex: 1 1 calc(50% - 5px); min-width: 0; flex-direction: column; align-items: stretch; gap: 3px; }
     .dt-tb__label { font-size: 12px; }
     .dt-tb__select, .dt-tb__select--sm { width: 100%; }
-    .dt-tb__col { width: 110px; }
+    .dt-tb__search .dt-tb__col { flex-basis: 120px; }
     .dt-tb > .dt-tb__btn { flex: 1 1 100%; }
 }
 
@@ -472,10 +474,6 @@ export default {
         };
     },
     computed: {
-        searchPlaceholder() {
-            const col = this.columns && this.columns[this.search.column];
-            return 'Buscar por ' + String(col || 'nombre').toLowerCase() + '…';
-        },
         // Opciones del filtro «Estado» de la barra compacta: un punto de color
         // en vez de emojis, agrupadas por tema.
         channelOptions() {
@@ -603,6 +601,10 @@ export default {
         });
     },
     methods: {
+        // Algunas columnas traen un emoji delante («🔎 Todos los campos»).
+        cleanLabel(label) {
+            return String(label || '').replace(/^[^\p{L}\p{N}]+/u, '');
+        },
                 handleListValueChange() {
                         localStorage.setItem(this.getListValueStorageKey(), this.search.list_value);
                         this.getRecords();

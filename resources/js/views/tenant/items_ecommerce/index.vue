@@ -1419,7 +1419,7 @@ export default {
 /* Franja informativa: una línea en lugar de banner + tarjeta de cifras. */
 .ie-strip {
     display: flex; flex-wrap: wrap; align-items: center; gap: 6px 18px;
-    padding: 9px 14px; margin: 0 0 12px; font-size: 13px; color: #475569;
+    padding: 9px 14px; margin: 0 0 30px; font-size: 13px; color: #475569;
     background: #fff; border: 1px solid #e2e8f0; border-radius: 10px;
 }
 .ie-strip__lead { color: #64748b; cursor: help; }
@@ -1434,7 +1434,11 @@ export default {
 }
 .ie-strip__link:hover { background: #f1f5f9; color: #0f172a; text-decoration: none; }
 @media (max-width: 767px) {
-    .ie-strip { gap: 6px 14px; padding: 10px 12px; }
+    /* La tarjeta de la tabla sube 18px (margen negativo del tema) y tapaba
+       el borde de abajo de la franja. */
+    .ie-strip { gap: 6px 14px; padding: 10px 12px; margin-bottom: 30px; }
+    /* La cabecera viene con pe-0: sin esto los botones tocan el borde derecho. */
+    .items_ecommerce .page-header { padding-right: 16px !important; }
     .ie-strip__lead { flex: 1 1 100%; }
     .ie-strip__actions { margin-left: 0; flex: 1 1 100%; }
     .ie-strip__link { flex: 1 1 0; text-align: center; }
@@ -1507,7 +1511,8 @@ export default {
     /* En móvil: cada grupo ocupa su fila y reparte el ancho entre sus botones. */
     .items_ecommerce .page-header .ie-toolbar { width: 100%; justify-content: stretch; margin-top: 0; }
     .ie-tb-group { flex: 1 1 100%; }
-    .ie-tb-group > .ie-tb-btn { flex: 1 1 0; justify-content: center; padding: 0 8px; }
+    .ie-tb-group > .ie-tb-btn { flex: 1 1 auto; min-width: 0; justify-content: center; padding: 0 6px; gap: 5px; }
+    .ie-tb-group { min-width: 0; }
     .ie-tb-btn { height: 38px; }
     .ie-tb-btn--primary { flex: 1 1 100%; justify-content: center; }
 }
