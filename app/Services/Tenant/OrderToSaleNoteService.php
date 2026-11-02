@@ -121,6 +121,7 @@ class OrderToSaleNoteService
                         'codigo_tipo_documento_identidad' => '6',
                     ])
                     : $customerData;
+                $saleNote->customer = $this->customerSnapshot($saleNote->customer ?: [], $person);
                 $saleNote->currency_type_id = 'PEN';
                 $saleNote->exchange_rate_sale = 1;
                 $saleNote->total = $order->total;
@@ -185,7 +186,7 @@ class OrderToSaleNoteService
                         $saleNoteItem = new SaleNoteItem();
                         $saleNoteItem->sale_note_id = $saleNote->id;
                         $saleNoteItem->item_id = $itemId;
-                        $saleNoteItem->item = $orderItem;
+                        $saleNoteItem->item = $this->itemSnapshot($itemId, $orderItem);
                         $saleNoteItem->quantity = $qty;
                         $saleNoteItem->unit_value = $unitValue;
                         $saleNoteItem->unit_price = $unitPrice;
@@ -269,6 +270,59 @@ class OrderToSaleNoteService
      * Si no hay OrderPayments registrados (flujo legacy o pedido sin pago explícito),
      * crea un único SaleNotePayment con el total y método inferido por heurística.
      */
+    /**
+     * La línea del pedido completada con lo que el resto del sistema lee de
+     * `sale_note_items.item`: el kardex pregunta `is_set` y `lots`, el PDF
+     * `presentation`, `IdLoteSelected`, `model`… Las líneas armadas desde un
+     * envío (productos escritos a mano) solo traían id, nombre y precio, y la
+     * nota moría con «Undefined property: stdClass::$is_set» (pedido 539).
+     * Lo que ya trae el pedido manda; el catálogo solo rellena lo que falta.
+     */
+    protected function itemSnapshot($itemId, array $orderItem): array
+    {
+        $cat = \App\Models\Tenant\Item::find($itemId);
+
+        $base = [
+            'id'                => $itemId,
+            'item_id'           => $itemId,
+            'description'       => $cat->description ?? ($orderItem['name'] ?? ''),
+            'internal_id'       => $cat->internal_id ?? null,
+            'model'             => $cat->model ?? null,
+            'unit_type_id'      => ($cat->unit_type_id ?? null) ?: 'NIU',
+            'is_set'            => (bool) ($cat->is_set ?? false),
+            'presentation'      => null,
+            'lots'              => [],
+            'IdLoteSelected'    => null,
+            'lots_enabled'      => (bool) ($cat->lots_enabled ?? false),
+            'series_enabled'    => (bool) ($cat->series_enabled ?? false),
+            'has_igv'           => (bool) ($cat->has_igv ?? true),
+            'currency_type_id'  => $cat->currency_type_id ?? 'PEN',
+            'sale_affectation_igv_type_id' => $cat->sale_affectation_igv_type_id ?? '10',
+        ];
+
+        return array_merge($base, array_filter($orderItem, fn ($v) => $v !== null));
+    }
+
+    /**
+     * El cliente con las claves del resto de notas (`name`, `number`, …)
+     * además de las del pedido (`apellidos_y_nombres_o_razon_social`, `numero`).
+     * Sin `name`, el listado de notas de venta se caía entero
+     * (SaleNote::getCollectionData lee `$customer->name`).
+     */
+    protected function customerSnapshot(array $c, ?Person $person): array
+    {
+        $c['name'] = $c['name'] ?? $c['apellidos_y_nombres_o_razon_social'] ?? $c['nombre'] ?? ($person->name ?? '');
+        $c['number'] = $c['number'] ?? $c['numero'] ?? $c['numero_documento'] ?? ($person->number ?? '');
+        $c['identity_document_type_id'] = $c['identity_document_type_id']
+            ?? $c['codigo_tipo_documento_identidad']
+            ?? ($person->identity_document_type_id ?? (strlen((string) $c['number']) === 11 ? '6' : '1'));
+        $c['address'] = $c['address'] ?? $c['direccion'] ?? ($person->address ?? null);
+        $c['telephone'] = $c['telephone'] ?? $c['telefono'] ?? ($person->telephone ?? null);
+        $c['email'] = $c['email'] ?? $c['correo_electronico'] ?? ($person->email ?? null);
+
+        return $c;
+    }
+
     protected function copyPaymentsToSaleNote(Order $order, SaleNote $saleNote): void
     {
         $orderPayments = $order->payments()->get();

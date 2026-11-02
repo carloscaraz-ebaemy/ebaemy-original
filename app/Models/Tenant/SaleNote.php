@@ -918,8 +918,10 @@
                 'time_of_issue' => $this->time_of_issue,
                 'identifier' => $this->identifier,
                 'full_number' => $this->series . '-' . $this->number,
-                'customer_name' => $customer->name,
-                'customer_number' => $customer->number,
+                // Las notas generadas desde un pedido antes de 2026-11-02
+                // guardaban el cliente solo con las claves del pedido.
+                'customer_name' => $customer->name ?? $customer->apellidos_y_nombres_o_razon_social ?? '',
+                'customer_number' => $customer->number ?? $customer->numero ?? '',
                 'children_name' => $child_name,
                 'children_number' => $child_number,
                 'exchange_rate_sale' => $this->exchange_rate_sale,
