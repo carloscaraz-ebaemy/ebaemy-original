@@ -1872,6 +1872,7 @@ if ($hostname) {
 
         Route::get('sitemap-marketplace.xml',     'MarketplaceController@sitemap')->name('marketplace.sitemap');
         Route::get('robots.txt',                  'MarketplaceController@robots')->name('marketplace.robots');
+        Route::get('ads.txt',                     'MarketplaceController@adsTxt')->name('marketplace.ads_txt');
         Route::get('feeds/meta-catalog.xml',      'MarketplaceController@metaCatalog')->name('marketplace.feed.meta');
         Route::get('feeds/google-merchant.xml',   'MarketplaceController@metaCatalog')->name('marketplace.feed.google');
 

@@ -493,6 +493,12 @@ class MarketplaceAdminController extends Controller
             'marketplace_fb_domain_verification'   => 'nullable|string|max:300',
             'marketplace_google_site_verification' => 'nullable|string|max:300',
             'marketplace_tiktok_site_verification' => 'nullable|string|max:300',
+            // AdSense: el ID suelto (ca-pub-…) o el <script> entero que da Google.
+            'marketplace_adsense_client' => ['nullable', 'string', 'max:2000', function ($attr, $value, $fail) {
+                if (trim((string) $value) !== '' && !self::adsenseClient($value)) {
+                    $fail('No encuentro el ID de AdSense: debe contener ca-pub- seguido de números.');
+                }
+            }],
         ], [
             'marketplace_meta_pixel_id.regex'   => 'El ID del pixel de Meta son solo digitos.',
             'marketplace_tiktok_pixel_id.regex' => 'El ID del pixel de TikTok es alfanumerico, sin espacios.',
@@ -528,6 +534,10 @@ class MarketplaceAdminController extends Controller
         // se guarda solo el código, con caracteres seguros para el <head>.
         foreach (['marketplace_fb_domain_verification', 'marketplace_google_site_verification', 'marketplace_tiktok_site_verification'] as $campo) {
             $config->{$campo} = self::verificationCode($request->input($campo));
+        }
+
+        if (\Illuminate\Support\Facades\Schema::connection('system')->hasColumn('configurations', 'marketplace_adsense_client')) {
+            $config->marketplace_adsense_client = self::adsenseClient($request->input('marketplace_adsense_client'));
         }
 
         if ($request->hasFile('og_image')) {
@@ -896,6 +906,12 @@ class MarketplaceAdminController extends Controller
      * «<meta name="x" content="ABC" />» o «ABC» → «ABC». null si no queda un
      * código válido: solo caracteres que no pueden romper el <head>.
      */
+    /** «ca-pub-123…» a partir del ID suelto o del <script> que copia AdSense. */
+    public static function adsenseClient(?string $raw): ?string
+    {
+        return preg_match('/ca-pub-(\d{10,20})/', (string) $raw, $m) ? 'ca-pub-' . $m[1] : null;
+    }
+
     public static function verificationCode(?string $raw): ?string
     {
         $raw = trim((string) $raw);

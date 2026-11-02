@@ -99,6 +99,11 @@
     @if(!empty($mpCfg->marketplace_tiktok_site_verification))
     <meta name="tiktok-developers-site-verification" content="{{ $mpCfg->marketplace_tiktok_site_verification }}">
     @endif
+    {{-- Google AdSense (/admin/marketplace/seo). Solo se guarda el ID ca-pub-…,
+         el script se arma aquí: nada pegado se imprime tal cual en el <head>. --}}
+    @if(!empty($mpCfg->marketplace_adsense_client))
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client={{ $mpCfg->marketplace_adsense_client }}" crossorigin="anonymous"></script>
+    @endif
 
     {{-- PWA — instalable como app del marketplace (scope /marketplace).
          Usa manifest e íconos propios, NO colisiona con la PWA del

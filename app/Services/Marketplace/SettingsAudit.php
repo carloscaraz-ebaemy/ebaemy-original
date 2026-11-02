@@ -26,6 +26,7 @@ class SettingsAudit
         'marketplace_fb_domain_verification'   => ['Verificación de dominio (Meta)', false],
         'marketplace_google_site_verification' => ['Verificación de dominio (Google)', false],
         'marketplace_tiktok_site_verification' => ['Verificación de dominio (TikTok)', false],
+        'marketplace_adsense_client'           => ['Google AdSense', false],
     ];
 
     public static function available(): bool

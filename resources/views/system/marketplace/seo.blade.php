@@ -208,6 +208,23 @@
                                placeholder="G-XXXXXXXXXX">
                     </div>
 
+                    {{-- Google AdSense: se pega el script entero que da Google o
+                         solo el ID; se guarda únicamente ca-pub-… --}}
+                    <div class="mb-3">
+                        <label class="form-label">Google AdSense <small class="text-muted">(anuncios de Google en el marketplace)</small></label>
+                        <textarea name="marketplace_adsense_client" class="form-control" rows="2"
+                                  style="font-family:monospace;font-size:12px"
+                                  placeholder="Pega aquí el código que te da AdSense, o solo el ID ca-pub-XXXXXXXXXXXXXXXX">{{ old('marketplace_adsense_client', $config->marketplace_adsense_client ?? '') }}</textarea>
+                        @if(!empty($config->marketplace_adsense_client))
+                            <div class="small mt-1" style="color:#15803d">
+                                ✔ Activo en todas las páginas del marketplace ·
+                                <a href="{{ url('/ads.txt') }}" target="_blank" rel="noopener">ver ads.txt</a>
+                            </div>
+                        @else
+                            <small class="text-muted">Al guardar, el marketplace carga AdSense y se publica <code>/ads.txt</code>, que Google pide para aprobar el sitio. Vacíalo para quitarlo.</small>
+                        @endif
+                    </div>
+
                     <div class="mb-3">
                         <label class="form-label">Código de prueba de Meta <small class="text-muted">(test_event_code)</small></label>
                         <input type="text" name="marketplace_ads_test_code" class="form-control"

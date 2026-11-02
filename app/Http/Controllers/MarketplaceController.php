@@ -2409,6 +2409,21 @@ class MarketplaceController extends Controller
     }
 
     /**
+     * /ads.txt: AdSense exige esta línea en la raíz del dominio para pagar
+     * los anuncios. Sale del ID guardado en /admin/marketplace/seo.
+     */
+    public function adsTxt()
+    {
+        $client = optional(\App\Models\System\Configuration::firstCached())->marketplace_adsense_client;
+        if (!$client) {
+            abort(404);
+        }
+
+        return response('google.com, ' . substr($client, 3) . ", DIRECT, f08c47fec0942fa0\n", 200)
+            ->header('Content-Type', 'text/plain; charset=UTF-8');
+    }
+
+    /**
      * Feed RSS-XML compatible con Meta Catalog y Google Merchant Center.
      * Lista todos los marketplace_listings publicados con stock > 0.
      *
