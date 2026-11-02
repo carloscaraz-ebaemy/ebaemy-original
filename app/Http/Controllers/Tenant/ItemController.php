@@ -3084,8 +3084,9 @@ class ItemController extends Controller
 
     public function itemLast()
     {
+        // Sin productos (tienda nueva) daba «read property id on null».
         $record = Item::latest()->first();
-        return json_encode(['data' => $record->id]);
+        return json_encode(['data' => $record->id ?? null]);
     }
 
     public function tablesImport()
