@@ -295,6 +295,7 @@
                     <div class="ord-search">
                         <i class="el-icon-search"></i>
                         <input
+                            ref="buscador"
                             v-model="q"
                             type="search"
                             placeholder="Buscar por código, cliente, DNI, RUC, teléfono o guía…"
@@ -4316,6 +4317,12 @@ export default {
     },
     mounted() {
         this.cargarVentasMes();
+        // Entrar a Pedidos es casi siempre para buscar uno: el cursor ya en
+        // la búsqueda. Solo con ratón: en el celular abriría el teclado y
+        // taparía media pantalla cada vez que se entra.
+        if (window.matchMedia && window.matchMedia("(pointer: fine)").matches && this.$refs.buscador) {
+            this.$refs.buscador.focus({ preventScroll: true });
+        }
         // Al <body>: dentro de `.table-responsive` el overflow la recortaria.
         // Es el mismo motivo por el que Envios la cuelga alli y por el que
         // el-dialog trae `append-to-body`.
