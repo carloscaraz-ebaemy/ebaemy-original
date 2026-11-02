@@ -109,6 +109,9 @@ export default {
                 { k: "ayer", l: "Ayer" },
                 { k: "7", l: "7 días" },
                 { k: "mes", l: "Este mes" },
+                // Los primeros días del mes «Este mes» sale casi vacío y no
+                // había forma de ver el anterior sin armar el rango a mano.
+                { k: "mesPasado", l: "Mes pasado" },
                 { k: "rango", l: "Rango" },
             ],
             origenes: [
@@ -125,7 +128,7 @@ export default {
     },
     computed: {
         etiquetaPeriodo() {
-            return { hoy: "hoy", ayer: "ayer", 7: "en 7 días", mes: "este mes", rango: "en el rango" }[this.periodo];
+            return { hoy: "hoy", ayer: "ayer", 7: "en 7 días", mes: "este mes", mesPasado: "el mes pasado", rango: "en el rango" }[this.periodo];
         },
         maxDia() {
             return Math.max(1, ...((this.datos && this.datos.dias) || []).map(d => d.total));
@@ -141,6 +144,10 @@ export default {
             if (this.periodo === "ayer") return [masDias(hoy, -1), masDias(hoy, -1)];
             if (this.periodo === "7") return [masDias(hoy, -6), hoy];
             if (this.periodo === "mes") return [hoy.slice(0, 8) + "01", hoy];
+            if (this.periodo === "mesPasado") {
+                const fin = masDias(hoy.slice(0, 8) + "01", -1);
+                return [fin.slice(0, 8) + "01", fin];
+            }
             if (this.periodo === "rango" && this.rango) return this.rango;
             return [hoy, hoy];
         },
