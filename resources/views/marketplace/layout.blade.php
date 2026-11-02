@@ -102,6 +102,8 @@
     {{-- Google AdSense (/admin/marketplace/seo). Solo se guarda el ID ca-pub-…,
          el script se arma aquí: nada pegado se imprime tal cual en el <head>. --}}
     @if(!empty($mpCfg->marketplace_adsense_client))
+    {{-- Verificación del sitio en AdSense (la otra vía, además del script y ads.txt). --}}
+    <meta name="google-adsense-account" content="{{ $mpCfg->marketplace_adsense_client }}">
     <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client={{ $mpCfg->marketplace_adsense_client }}" crossorigin="anonymous"></script>
     @endif
 
