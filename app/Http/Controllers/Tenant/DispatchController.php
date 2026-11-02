@@ -333,33 +333,36 @@ class DispatchController extends Controller
             // Limitar a 100 caracteres (validación de SUNAT)
             $addressText = mb_substr($addressText, 0, 100);
 
-            // Buscar si ya existe esa dirección para el cliente
-            $dispatchAddress = \Modules\Dispatch\Models\DispatchAddress::where('person_id', $sale_note->customer_id)
-                ->where('address', $addressText)
-                ->first();
+            // OJO: va en `person_addresses`, la lista que muestra el formulario
+            // de la guía. Se creaba en `dispatch_addresses` y el campo quedaba
+            // con solo el número («Punto de llegada: 11»), igual que pasaba
+            // desde Pedidos (ver ShipmentDispatchPrefill::direccionEntrega).
+            $dir = \App\Models\Tenant\PersonAddress::where('person_id', $sale_note->customer_id)
+                ->where('address', $addressText)->where('has_consigned', false)->first();
 
-            if (!$dispatchAddress) {
-                // Reconstruir array [dept, prov, district] desde el ubigeo de 6 dígitos
-                $distId = $sale_note->shipping_district_id;
-                if ($distId && strlen($distId) >= 6) {
-                    $locationId = [
-                        substr($distId, 0, 2),
-                        substr($distId, 0, 4),
-                        $distId,
-                    ];
-                } else {
-                    // Sin ubigeo: usar Lima centro como fallback para no violar NOT NULL
-                    $locationId = ['15', '1501', '150101'];
-                }
-                $dispatchAddress = \Modules\Dispatch\Models\DispatchAddress::create([
-                    'person_id'   => $sale_note->customer_id,
-                    'address'     => $addressText,
-                    'is_active'   => true,
-                    'location_id' => $locationId,
-                ]);
+            if (!$dir) {
+                // Ubigeo de 6 dígitos → departamento, provincia, distrito.
+                // Sin ubigeo, Lima centro solo para no violar el NOT NULL; el
+                // operador lo corrige en el formulario.
+                $distId = (string) $sale_note->shipping_district_id;
+                [$dep, $prov, $dist] = strlen($distId) >= 6
+                    ? [substr($distId, 0, 2), substr($distId, 0, 4), $distId]
+                    : ['15', '1501', '150101'];
+
+                $dir = new \App\Models\Tenant\PersonAddress();
+                $dir->person_id = $sale_note->customer_id;
+                $dir->country_id = 'PE';
+                $dir->department_id = $dep;
+                $dir->province_id = $prov;
+                $dir->district_id = $dist;
+                $dir->address = $addressText;
+                $dir->main = 0;
+                $dir->establishment_code = '0000';
+                $dir->has_consigned = 0;
+                $dir->save();
             }
 
-            $shipping_address_id = $dispatchAddress->id;
+            $shipping_address_id = $dir->id;
         }
 
         $parentTable = 'sale_note';

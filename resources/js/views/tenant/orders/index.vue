@@ -1609,6 +1609,14 @@
             @saved="refrescarTrasEnvio"
         ></billing-type>
 
+        <!-- Novedades de Pedidos (2026-11): una vez por usuario, se guarda en su
+             cuenta. Ver components/FeatureTour.vue. -->
+        <feature-tour
+            tour-key="pedidos-nota-venta-2026-11"
+            :delay="2500"
+            :steps="tourSteps"
+        ></feature-tour>
+
         <!-- Nota de venta de un pedido con los productos escritos en el envío:
              se revisan líneas y precios antes de emitir. -->
         <nota-venta-revision
@@ -3968,6 +3976,7 @@ import PrintDialog from "./partials/print_dialog.vue";
 import StoreShippingSettings from "../../../components/StoreShippingSettings.vue";
 import BillingType from "./partials/billing_type.vue";
 import NotaVentaRevision from "./partials/nota_venta_revision.vue";
+import FeatureTour from "../../../components/FeatureTour.vue";
 import SaleNoteGenerate from "../sale_notes/partials/option_documents.vue";
 import DocumentsPanel from "./partials/documents_panel.vue";
 import OrderDrawer from "./partials/order_drawer.vue";
@@ -3999,6 +4008,7 @@ export default {
         StoreShippingSettings,
         BillingType,
         NotaVentaRevision,
+        FeatureTour,
         SaleNoteGenerate,
         DocumentsPanel,
         OrderDrawer,
@@ -4272,6 +4282,18 @@ export default {
             cpeSaleNoteId: null,
             showBillingDialog: false,
             showNvRevision: false,
+            tourSteps: [
+                {
+                    target: ".ord-kpi-warn",
+                    title: "Ahora también cuentan los pedidos del enlace",
+                    body: "Los pedidos que tus clientes registran por el enlace, con los productos escritos a mano, ya se pueden documentar. Si están cobrados y sin comprobante, aparecen aquí.",
+                },
+                {
+                    target: ".ord-doc-chips",
+                    title: "Nota de venta, boleta o factura",
+                    body: "Toca los documentos del pedido y elige «Emitir nota de venta». Verás los productos con su precio para revisarlos antes de emitir; el envío no se incluye. Desde la nota sale la boleta o la factura, como siempre.",
+                },
+            ],
             nvRevisionRow: null,
             billingOrderId: null,
             billingData: null,

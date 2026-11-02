@@ -410,6 +410,11 @@
                                     . ($esShalom && !empty($s->shalom_air) ? ' (aéreo)' : '')
                                     . ($oficina ? " · {$oficina}" : '');
                             }
+                            // Lo único que el cliente tiene que HACER: sin esto la
+                            // tienda le pide el voucher en otro mensaje.
+                            if (!$s->payment_confirmed) {
+                                $L[] = "⏳ Te envío aquí mi comprobante de pago";
+                            }
                         }
                         $L[] = "🔎 " . route('shipments.public.tracking', ['code' => $sent]);
                         $waText = rawurlencode(implode("\n", $L));
