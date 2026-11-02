@@ -33,27 +33,26 @@
                  propio CTA grande "Crear mi primer producto". Ocultamos estos
                  botones del header para no duplicar acciones y dejarle al
                  seller una sola decisión clara. -->
-            <div class="right-wrapper pull-right" v-if="itemsCount !== 0">
-                <template>
-                    <!-- Acceso rápido al dashboard analítico del marketplace.
-                         Solo se muestra cuando hay productos (sino no hay nada
-                         que medir). Iconos lucide-like estilo light. -->
-                    <button type="button" class="btn btn-sm btn-outline-secondary mt-2 me-2 ie-shipping-btn"
+            <div class="right-wrapper pull-right ie-toolbar" v-if="itemsCount !== 0">
+                <!-- Ajustes de la tienda: un solo grupo, mismo estilo. -->
+                <div class="ie-tb-group" role="group" aria-label="Ajustes de la tienda">
+                    <button type="button" class="ie-tb-btn ie-shipping-btn"
                             title="Costos y plazos de envío de tu tienda" @click="askShipping()">
-                        🚚 Envíos
+                        <i class="fa fa-truck"></i><span>Envíos</span>
                     </button>
-                    <button type="button" class="btn btn-sm btn-outline-secondary mt-2 me-2 ie-returns-btn"
+                    <button type="button" class="ie-tb-btn ie-returns-btn"
                             title="Tu política de cambios y devoluciones" @click="returnsDialogVisible = true">
-                        ↩️ Cambios
+                        <i class="fa fa-undo"></i><span>Cambios</span>
                     </button>
-                    <button type="button" class="btn btn-sm btn-outline-secondary mt-2 me-2 ie-ads-btn"
+                    <button type="button" class="ie-tb-btn ie-ads-btn"
                             title="Pide a ebaemy que anuncie tus productos en Facebook e Instagram" @click="adsDialogVisible = true">
-                        📣 Publicidad<span v-if="showAdsNewBadge" class="ie-new-pill">Nuevo</span>
+                        <i class="fa fa-bullhorn"></i><span>Publicidad</span><span v-if="showAdsNewBadge" class="ie-new-pill">Nuevo</span>
                     </button>
-                    <a href="/marketplace-dashboard"
-                       class="btn btn-sm btn-outline-info mt-2 me-2"
-                       title="Ver métricas del marketplace">
-                        <i class="fa fa-chart-line"></i> Dashboard marketplace
+                </div>
+                <!-- Marketplace: ver métricas y publicar todo. -->
+                <div class="ie-tb-group" role="group" aria-label="Marketplace">
+                    <a href="/marketplace-dashboard" class="ie-tb-btn" title="Ver métricas del marketplace">
+                        <i class="fa fa-chart-line"></i><span>Dashboard</span>
                     </a>
                     <el-tooltip
                         content="Publica todos los productos de tu tienda online en ebaemy.com/marketplace"
@@ -61,23 +60,18 @@
                     >
                         <button
                             type="button"
-                            class="btn btn-sm mt-2 me-2 ie-publish-all"
-                            style="background:#8b5cf6;border:1px solid #7c3aed;color:#fff"
+                            class="ie-tb-btn ie-tb-btn--mp ie-publish-all"
                             :disabled="publishingAll"
                             @click.prevent="publishAllToMarketplace()"
                         >
                             <i class="fa" :class="publishingAll ? 'fa-spinner fa-spin' : 'fa-globe'"></i>
-                            {{ publishingAll ? 'Publicando…' : 'Publicar todos en Marketplace' }}
+                            <span>{{ publishingAll ? 'Publicando…' : 'Publicar todos' }}</span>
                         </button>
                     </el-tooltip>
-                    <button
-                        type="button"
-                        class="btn btn-custom btn-sm mt-2 me-2"
-                        @click.prevent="clickCreate()"
-                    >
-                        <i class="fa fa-plus-circle"></i> Nuevo
-                    </button>
-                </template>
+                </div>
+                <button type="button" class="ie-tb-btn ie-tb-btn--primary" @click.prevent="clickCreate()">
+                    <i class="fa fa-plus"></i><span>Nuevo</span>
+                </button>
             </div>
         </div>
         <!-- ── Banner unificación catálogo (Opción A) ──
@@ -1436,7 +1430,33 @@ export default {
 .ie-welcome-card__tip strong { color: #1e293b; }
 
 /* ── Header del page (h2 + breadcrumb + buttons) ── */
-.items_ecommerce .page-header .right-wrapper { display: flex; flex-wrap: wrap; gap: 4px; }
+/* Barra de acciones: grupos con borde compartido, misma altura; «Nuevo»
+   es la única acción de color. */
+.items_ecommerce .page-header .ie-toolbar {
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end;
+    gap: 8px; margin-top: 8px;
+}
+.ie-tb-group { display: inline-flex; }
+.ie-tb-btn {
+    display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px;
+    font-size: 13px; font-weight: 500; line-height: 1; white-space: nowrap;
+    color: #334155; background: #fff; border: 1px solid #cbd5e1; border-radius: 6px;
+    cursor: pointer; text-decoration: none; transition: background .15s, color .15s;
+}
+.ie-tb-btn i { font-size: 12px; color: #64748b; width: 13px; text-align: center; }
+.ie-tb-btn:hover { background: #f1f5f9; color: #0f172a; text-decoration: none; }
+.ie-tb-btn:focus-visible { outline: 2px solid #6366f1; outline-offset: 1px; position: relative; z-index: 1; }
+.ie-tb-btn:disabled { opacity: .6; cursor: wait; }
+.ie-tb-group > .ie-tb-btn { border-radius: 0; }
+.ie-tb-group > .ie-tb-btn + .ie-tb-btn { margin-left: -1px; }
+.ie-tb-group > .ie-tb-btn:first-child { border-radius: 6px 0 0 6px; }
+.ie-tb-group > .ie-tb-btn:last-child { border-radius: 0 6px 6px 0; }
+.ie-tb-btn--mp i { color: #7c3aed; }
+.ie-tb-btn--mp { color: #6d28d9; }
+.ie-tb-btn--mp:hover { background: #f5f3ff; color: #5b21b6; }
+.ie-tb-btn--primary { color: #fff; background: #4f46e5; border-color: #4f46e5; font-weight: 600; }
+.ie-tb-btn--primary i { color: #fff; }
+.ie-tb-btn--primary:hover { background: #4338ca; border-color: #4338ca; color: #fff; }
 
 /* ── Responsive ── */
 @media (max-width: 767px) {
@@ -1474,13 +1494,11 @@ export default {
     }
     /* Header buttons stack vertical en mobile */
     .items_ecommerce .page-header { display: flex; flex-direction: column; align-items: stretch; gap: 8px; }
-    .items_ecommerce .page-header .right-wrapper {
-        width: 100%;
-        flex-direction: column;
-        gap: 6px;
-    }
-    .items_ecommerce .page-header .right-wrapper > * { width: 100%; }
-    .items_ecommerce .page-header .right-wrapper .btn { width: 100%; margin: 0 !important; }
-    .items_ecommerce .page-header .right-wrapper span { width: 100%; display: block; }
+    /* En móvil: cada grupo ocupa su fila y reparte el ancho entre sus botones. */
+    .items_ecommerce .page-header .ie-toolbar { width: 100%; justify-content: stretch; margin-top: 0; }
+    .ie-tb-group { flex: 1 1 100%; }
+    .ie-tb-group > .ie-tb-btn { flex: 1 1 0; justify-content: center; padding: 0 8px; }
+    .ie-tb-btn { height: 38px; }
+    .ie-tb-btn--primary { flex: 1 1 100%; justify-content: center; }
 }
 </style>
