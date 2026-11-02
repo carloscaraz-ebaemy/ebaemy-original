@@ -1381,6 +1381,41 @@ class OrderController extends Controller
             });
         }
 
+        // «Fecha de pago»: `orders.paid_at` solo lo tienen los pedidos cobrados
+        // por la tienda. Los del enlace de registro se cobran en el envío y no
+        // lo llevan: filtrar solo por la columna dejaba 2 de los ~100 pedidos
+        // cobrados en octubre en alasitas. Cuenta cualquier pago válido del
+        // periodo, del pedido o de su envío (los mismos libros que la columna
+        // Cobro y el resumen de ventas).
+        if ($type === 'paid') {
+            $desde = $from ? $from . ' 00:00:00' : '1970-01-01 00:00:00';
+            $hasta = $to ? $to . ' 23:59:59' : '2999-12-31 23:59:59';
+
+            return $query->where(function ($w) use ($desde, $hasta, $from, $to) {
+                if ($this->orderHasColumn('paid_at')) {
+                    $w->where(function ($c) use ($from, $to) {
+                        if ($from) $c->whereDate('orders.paid_at', '>=', $from);
+                        if ($to)   $c->whereDate('orders.paid_at', '<=', $to);
+                    });
+                }
+                if (\Illuminate\Support\Facades\Schema::connection('tenant')->hasTable('order_payments')) {
+                    $w->orWhereExists(fn ($e) => $e->selectRaw('1')->from('order_payments as op')
+                        ->whereColumn('op.order_id', 'orders.id')
+                        ->whereRaw(\App\Services\Tenant\PaymentVerification::sqlSoloValidos('op', 'order_payments'))
+                        ->whereBetween(DB::raw('COALESCE(op.date_of_payment, op.created_at)'), [$desde, $hasta]));
+                }
+                if (ShippingRequest::moduleInstalled()
+                    && \Illuminate\Support\Facades\Schema::connection('tenant')->hasTable('shipping_payments')) {
+                    $w->orWhereExists(fn ($e) => $e->selectRaw('1')->from('shipping_payments as sp')
+                        ->join('shipping_requests as sr', 'sr.id', '=', 'sp.shipment_id')
+                        ->whereColumn('sr.order_id', 'orders.id')
+                        ->whereNull('sr.cancelled_at')
+                        ->whereRaw(\App\Services\Tenant\PaymentVerification::sqlSoloValidos('sp', 'shipping_payments'))
+                        ->whereBetween(DB::raw('COALESCE(sp.paid_at, sp.created_at)'), [$desde, $hasta]));
+                }
+            });
+        }
+
         // Las fechas comerciales llegaron en una migración posterior al código.
         // Entre el deploy y `tenancy:migrate` —o si la migración falla en un
         // tenant— la columna no existe, y filtrar por ella devolvía un 1054 que

@@ -3,11 +3,13 @@
          <feature-tour ref="tour" tour-key="pantalla-novedad-2026-10" :steps="[...]" />
          Cada paso: { target: 'selector css', title, body }. Los pasos cuyo
          elemento no está en pantalla se saltan. Sale una sola vez por usuario
-         (se guarda en su cuenta: /feature-tours/{key}); `start()` lo reabre. -->
-    <div v-if="active && step" class="ft" role="dialog" aria-modal="true" :aria-label="step.title">
-        <div class="ft__shade" @click="finish('completed')"></div>
+         (se guarda en su cuenta: /feature-tours/{key}); `start()` lo reabre.
+         NO bloquea la pantalla: el fondo deja pasar los clics y cualquier clic
+         fuera del globo lo cierra. Antes tapaba todo hasta pulsar «Entendido»
+         y los filtros de Pedidos parecían rotos (2026-11-02). -->
+    <div v-if="active && step" class="ft" role="dialog" aria-modal="false" :aria-label="step.title">
         <div class="ft__hole" :style="holeStyle"></div>
-        <div class="ft__pop" :class="'ft__pop--' + placement" :style="popStyle">
+        <div ref="pop" class="ft__pop" :class="'ft__pop--' + placement" :style="popStyle">
             <div class="ft__badge">Nuevo</div>
             <h4 class="ft__title">{{ step.title }}</h4>
             <p class="ft__body">{{ step.body }}</p>
@@ -78,12 +80,16 @@ export default {
         window.addEventListener('resize', this.measure);
         window.addEventListener('scroll', this.measure, true);
         window.addEventListener('keydown', this.onKey);
+        document.addEventListener('mousedown', this.onOutside, true);
+        document.addEventListener('touchstart', this.onOutside, true);
         if (this.autoStart) this.checkAndStart();
     },
     beforeDestroy() {
         window.removeEventListener('resize', this.measure);
         window.removeEventListener('scroll', this.measure, true);
         window.removeEventListener('keydown', this.onKey);
+        document.removeEventListener('mousedown', this.onOutside, true);
+        document.removeEventListener('touchstart', this.onOutside, true);
         if (window.__ebTourActive === this._uid) window.__ebTourActive = null;
     },
     methods: {
@@ -136,9 +142,19 @@ export default {
             if (this.index < this.steps_.length - 1) this.go(this.index + 1);
             else this.finish('completed');
         },
+        // Clic fuera del globo: se cierra y el clic sigue su camino (el
+        // filtro, el botón o la fila que se quería tocar responde igual).
+        onOutside(e) {
+            if (!this.active) return;
+            if (this.$refs.pop && this.$refs.pop.contains(e.target)) return;
+            this.finish('completed');
+        },
         onKey(e) {
             if (!this.active) return;
-            if (e.key === 'Escape') this.finish('completed');
+            if (e.key === 'Escape') return this.finish('completed');
+            // Escribiendo en un campo (la búsqueda): las teclas son suyas.
+            const t = e.target && e.target.tagName;
+            if (t === 'INPUT' || t === 'TEXTAREA' || t === 'SELECT' || (e.target && e.target.isContentEditable)) return;
             if (e.key === 'ArrowRight' || e.key === 'Enter') this.next();
             if (e.key === 'ArrowLeft' && this.index > 0) this.go(this.index - 1);
         },
@@ -154,15 +170,16 @@ export default {
 </script>
 
 <style scoped>
-.ft { position: fixed; inset: 0; z-index: 3000; }
-.ft__shade { position: absolute; inset: 0; }
-/* El «agujero»: una sombra gigante oscurece todo menos el elemento. */
+/* Sin capa que atrape clics: solo el globo los recibe. */
+.ft { position: fixed; inset: 0; z-index: 3000; pointer-events: none; }
+/* El «agujero»: una sombra suave atenúa el resto sin bloquearlo. */
 .ft__hole {
     position: fixed; border-radius: 8px; pointer-events: none;
-    box-shadow: 0 0 0 9999px rgba(15, 23, 42, .58), 0 0 0 3px #818cf8;
+    box-shadow: 0 0 0 9999px rgba(15, 23, 42, .28), 0 0 0 3px #818cf8;
     transition: top .2s, left .2s, width .2s, height .2s;
 }
 .ft__pop {
+    pointer-events: auto;
     position: fixed; background: #fff; border-radius: 10px; padding: 14px 16px 12px;
     box-shadow: 0 12px 32px rgba(15, 23, 42, .28); color: #1e293b;
 }

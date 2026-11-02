@@ -302,6 +302,7 @@
                             @keyup.enter="applySearch"
                             @search="applySearch"
                         />
+                        <span v-if="buscando" class="ord-search-wait">Buscando…</span>
                         <button v-if="q" class="ord-search-x" title="Limpiar" @click="q = ''; applySearch()">
                             <i class="el-icon-close"></i>
                         </button>
@@ -405,6 +406,11 @@
                      escondido es la forma mas facil de que alguien crea que
                      faltan pedidos; aqui se ve y se quita de un clic. -->
                 <div v-if="filtrosActivos.length" class="ord-fchips">
+                    <!-- Cuántos salen con estos filtros: sin el número, una
+                         lista corta parece rota y no filtrada. -->
+                    <span v-if="totalFiltrado !== null" class="ord-fchips-n">
+                        <b>{{ totalFiltrado }}</b> {{ totalFiltrado === 1 ? "pedido" : "pedidos" }}
+                    </span>
                     <span
                         v-for="f in filtrosActivos"
                         :key="f.key"
@@ -3109,6 +3115,20 @@
 .ord-search-x:hover {
     color: #475569;
 }
+.ord-search-wait {
+    font-size: 11.5px;
+    color: #94a3b8;
+    white-space: nowrap;
+    padding: 0 4px;
+}
+.ord-fchips-n {
+    font-size: 12.5px;
+    color: #475569;
+    margin-right: 2px;
+}
+.ord-fchips-n b {
+    color: #0f172a;
+}
 .ord-search-go {
     border: 0;
     border-radius: 6px;
@@ -4283,6 +4303,9 @@ export default {
             cpeSaleNoteId: null,
             showBillingDialog: false,
             showNvRevision: false,
+            // Total de la consulta filtrada (lo da la paginación de la tabla).
+            totalFiltrado: null,
+            buscando: false,
             tourSteps: [
                 {
                     target: ".ord-kpi-warn",
@@ -4374,6 +4397,17 @@ export default {
         this.loadStats();
         this.loadSourceCounts();
         this.events();
+    },
+    watch: {
+        // Busca mientras se escribe (nombre, DNI, dirección, guía…): esperar
+        // al Enter o al botón hacía parecer que la búsqueda no filtraba. Se
+        // espera a que deje de teclear para no lanzar una consulta por letra.
+        q(v) {
+            clearTimeout(this.buscarTimer);
+            if (v === this.ultimaBusqueda) return;   // ya aplicada (limpiar filtros, Enter)
+            this.buscando = true;
+            this.buscarTimer = setTimeout(() => this.applySearch(), 450);
+        },
     },
     computed: {
         origenTienda() {
@@ -4574,7 +4608,15 @@ export default {
                 chips.push({ key: "channelFilter", label: canal ? canal.name : "Un canal" });
             }
 
-            if (this.dateRange) chips.push({ key: "dateRange", label: et(this.rangeOptions, this.dateRange) });
+            // Con la fecha del pedido también se dice: «Mes pasado» por fecha
+            // del pedido y por fecha de pago dan listas muy distintas.
+            if (this.dateRange) chips.push({
+                key: "dateRange",
+                label: (this.dateRange === "custom" && (this.invoiceDateRange || []).length
+                    ? this.invoiceDateRange.map(d => d.split("-").reverse().join("/")).join(" a ")
+                    : et(this.rangeOptions, this.dateRange))
+                    + (this.dateType === "order" ? " · fecha del pedido" : ""),
+            });
             if (this.dateType !== "order") chips.push({ key: "dateType", label: et(this.dateTypeOptions, this.dateType) });
             if (this.deliveryTypeFilter) chips.push({ key: "deliveryTypeFilter", label: et(this.deliveryTypeOptions, this.deliveryTypeFilter) });
             if (this.agingFilter) chips.push({ key: "agingFilter", label: et(this.agingOptions, this.agingFilter) });
@@ -4606,6 +4648,9 @@ export default {
     methods: {
         onRecordsChanged(records) {
             this.currentRecords = records || [];
+            const pag = this.$refs.ordersTable && this.$refs.ordersTable.pagination;
+            this.totalFiltrado = pag && pag.total !== undefined ? Number(pag.total) : null;
+            this.buscando = false;
             this.selectedIds = []; // limpia selección al cambiar de página/filtro
 
             // Cualquier recarga que NO venga de guardar algo apaga el
@@ -6663,6 +6708,7 @@ export default {
 
         /** Vuelca los filtros actuales en la tabla y recarga todo. */
         pushFilters() {
+            this.ultimaBusqueda = this.q;
             const dt = this.$refs.ordersTable;
             if (!dt) return;
 
@@ -6985,6 +7031,7 @@ export default {
 
         /** Buscar. Vuelve siempre a la pagina 1: buscar en la 4 no tiene sentido. */
         applySearch() {
+            clearTimeout(this.buscarTimer);
             this.pushFilters();
         },
         applyOrderSource() {
