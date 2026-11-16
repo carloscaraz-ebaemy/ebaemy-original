@@ -598,7 +598,8 @@ class OrderCollection extends ResourceCollection
             // Shalom sin oficina y sin despachar: el panel ofrece «Pedir
             // oficina al cliente» (enlace /pedido/{uuid}/oficina) en vez de
             // que el supervisor la elija por él.
-            'needs_office'     => $s->shipping_agency === 'Shalom'
+            'needs_office'     => (int) $row->status_order_id !== 5
+                && $s->shipping_agency === 'Shalom'
                 && \App\Models\Tenant\ShippingRequest::hasAgencyOffice()
                 && empty($s->agency_office_id)
                 && !empty($s->district_id)
