@@ -30,12 +30,19 @@ class CustomerHistoryService
 {
     public const VOID = ['09', '11', '13'];
 
+    /** Periodo [desde, hasta] por fecha de emisión; null = todo el historial. */
+    private ?array $range = null;
+
     /**
-     * @param int|null $limit filas por sección (null = todas). Los totales
-     *                        del resumen siempre cubren TODO el historial.
+     * @param int|null    $limit filas por sección (null = todas). Los totales
+     *                           del resumen cubren TODO el periodo.
+     * @param string|null $from  Y-m-d, inclusive
+     * @param string|null $to    Y-m-d, inclusive
      */
-    public function build(Person $person, ?int $limit = 30): array
+    public function build(Person $person, ?int $limit = 30, ?string $from = null, ?string $to = null): array
     {
+        $this->range = ($from || $to) ? [$from ?: '1900-01-01', $to ?: '2999-12-31'] : null;
+
         $documents  = $this->documents($person, $limit);
         $saleNotes  = $this->saleNotes($person, $limit);
         $quotations = $this->quotations($person, $limit);
@@ -45,8 +52,8 @@ class CustomerHistoryService
         $payable    = $this->payable($person);
 
         $lastPurchase = collect([
-            $person->documents_where_customer()->whereNotIn('state_type_id', self::VOID)->max('date_of_issue'),
-            $person->sale_notes_where_customer()->whereNotIn('state_type_id', self::VOID)->max('date_of_issue'),
+            $this->inRange($person->documents_where_customer(), 'date_of_issue')->whereNotIn('state_type_id', self::VOID)->max('date_of_issue'),
+            $this->inRange($person->sale_notes_where_customer(), 'date_of_issue')->whereNotIn('state_type_id', self::VOID)->max('date_of_issue'),
         ])->filter()->max();
 
         return [
@@ -78,12 +85,14 @@ class CustomerHistoryService
                 'payable_paid'     => $payable['paid'],
                 'payable_pending'  => $payable['pending'],
                 'payable_count'    => $payable['pending_count'],
-                'doc_count'        => $person->documents_where_customer()->count(),
-                'sn_count'         => $person->sale_notes_where_customer()->count(),
-                'quotations_count' => Quotation::where('customer_id', $person->id)->count(),
-                'purchases_count'  => Purchase::where('supplier_id', $person->id)->count(),
+                'doc_count'        => $this->inRange($person->documents_where_customer(), 'date_of_issue')->count(),
+                'sn_count'         => $this->inRange($person->sale_notes_where_customer(), 'date_of_issue')->count(),
+                'quotations_count' => $this->inRange(Quotation::where('customer_id', $person->id), 'date_of_issue')->count(),
+                'purchases_count'  => $this->inRange(Purchase::where('supplier_id', $person->id), 'date_of_issue')->count(),
                 'last_purchase'    => $lastPurchase ? substr($lastPurchase, 0, 10) : null,
             ],
+            'period'       => $this->range ? ['from' => $from, 'to' => $to] : null,
+            'top_products' => $this->topProducts($person, $limit ? 15 : 50),
             'documents'  => $documents,
             'sale_notes' => $saleNotes,
             'quotations' => $quotations,
@@ -102,7 +111,8 @@ class CustomerHistoryService
             ->select('documents.id', 'documents.series', 'documents.number', 'documents.date_of_issue',
                 'invoices.date_of_due', 'documents.total', 'documents.state_type_id',
                 'documents.document_type_id', 'documents.currency_type_id',
-                'documents.sale_note_id', 'documents.quotation_id')
+                'documents.sale_note_id', 'documents.quotation_id', 'documents.external_id')
+            ->tap(fn ($q) => $this->inRange($q, 'documents.date_of_issue'))
             ->with(['items', 'payments'])
             ->latest('documents.date_of_issue')->latest('documents.id')
             ->when($limit, fn ($q) => $q->limit($limit))
@@ -118,6 +128,7 @@ class CustomerHistoryService
             return [
                 'id'          => $d->id,
                 'label'       => "{$d->series}-{$d->number}",
+                'pdf'         => "/print/document/{$d->external_id}/a4",
                 'type'        => $this->documentTypeName($d->document_type_id),
                 'date'        => $this->day($d->date_of_issue),
                 'date_of_due' => $this->day($d->date_of_due),
@@ -139,7 +150,8 @@ class CustomerHistoryService
     {
         $rows = $person->sale_notes_where_customer()
             ->select('id', 'series', 'number', 'date_of_issue', 'total', 'state_type_id',
-                'currency_type_id', 'quotation_id', 'document_id')
+                'currency_type_id', 'quotation_id', 'document_id', 'external_id')
+            ->tap(fn ($q) => $this->inRange($q, 'date_of_issue'))
             ->with(['items', 'payments'])
             ->latest('date_of_issue')->latest('id')
             ->when($limit, fn ($q) => $q->limit($limit))
@@ -162,6 +174,7 @@ class CustomerHistoryService
             return [
                 'id'          => $sn->id,
                 'label'       => "{$sn->series}-{$sn->number}",
+                'pdf'         => "/sale-notes/print/{$sn->external_id}/a4",
                 'date'        => $this->day($sn->date_of_issue),
                 'total'       => (float) $sn->total,
                 'paid'        => $paid,
@@ -186,7 +199,8 @@ class CustomerHistoryService
     {
         $rows = Quotation::where('customer_id', $person->id)
             ->select('id', 'prefix', 'date_of_issue', 'date_of_due', 'total', 'state_type_id',
-                'currency_type_id', 'changed')
+                'currency_type_id', 'changed', 'external_id')
+            ->tap(fn ($q) => $this->inRange($q, 'date_of_issue'))
             ->with('items')
             ->latest('date_of_issue')->latest('id')
             ->when($limit, fn ($q) => $q->limit($limit))
@@ -207,6 +221,7 @@ class CustomerHistoryService
             return [
                 'id'          => $q->id,
                 'label'       => "{$q->prefix}-{$q->id}",
+                'pdf'         => "/quotations/print/{$q->external_id}/a4",
                 'date'        => $this->day($q->date_of_issue),
                 'date_of_due' => $this->day($q->date_of_due),
                 'total'       => (float) $q->total,
@@ -225,7 +240,8 @@ class CustomerHistoryService
     {
         return Purchase::where('supplier_id', $person->id)
             ->select('id', 'series', 'number', 'date_of_issue', 'date_of_due', 'total',
-                'state_type_id', 'currency_type_id', 'document_type_id')
+                'state_type_id', 'currency_type_id', 'document_type_id', 'external_id')
+            ->tap(fn ($q) => $this->inRange($q, 'date_of_issue'))
             ->with(['items', 'payments'])
             ->latest('date_of_issue')->latest('id')
             ->when($limit, fn ($q) => $q->limit($limit))
@@ -236,6 +252,7 @@ class CustomerHistoryService
                 return [
                     'id'          => $p->id,
                     'label'       => "{$p->series}-{$p->number}",
+                    'pdf'         => "/purchases/print/{$p->external_id}/a4",
                     'date'        => $this->day($p->date_of_issue),
                     'date_of_due' => $this->day($p->date_of_due),
                     'total'       => (float) $p->total,
@@ -305,7 +322,7 @@ class CustomerHistoryService
             SELECT d.total,
                    (SELECT COALESCE(SUM(p.payment),0) FROM document_payments p WHERE p.document_id = d.id) AS paid,
                    d.state_type_id IN ($void) AS void
-            FROM documents d WHERE d.customer_id = ? AND d.document_type_id IN ('01','03')", [$id]);
+            FROM documents d WHERE d.customer_id = ? AND d.document_type_id IN ('01','03')" . $this->rangeSql('d'), $this->rangeBindings([$id]));
 
         $notes = DB::connection('tenant')->select("
             SELECT s.total,
@@ -314,7 +331,7 @@ class CustomerHistoryService
                    EXISTS (SELECT 1 FROM documents d
                            WHERE (d.sale_note_id = s.id OR d.id = s.document_id)
                              AND d.state_type_id NOT IN ($void)) AS converted
-            FROM sale_notes s WHERE s.customer_id = ?", [$id]);
+            FROM sale_notes s WHERE s.customer_id = ?" . $this->rangeSql('s'), $this->rangeBindings([$id]));
 
         $rows = collect($docs)->concat(collect($notes)->reject(fn ($n) => $n->converted));
 
@@ -330,7 +347,7 @@ class CustomerHistoryService
             SELECT c.total,
                    (SELECT COALESCE(SUM(p.payment),0) FROM purchase_payments p WHERE p.purchase_id = c.id) AS paid,
                    c.state_type_id IN ($void) AS void
-            FROM purchases c WHERE c.supplier_id = ?", [(int) $person->id]);
+            FROM purchases c WHERE c.supplier_id = ?" . $this->rangeSql('c'), $this->rangeBindings([(int) $person->id]));
 
         return $this->totals(collect($rows));
     }
@@ -352,7 +369,71 @@ class CustomerHistoryService
         ];
     }
 
+    /**
+     * Productos que más compra el cliente en el periodo: solo ventas vigentes
+     * (facturas/boletas válidas y notas no anuladas ni convertidas, para no
+     * contar dos veces lo que pasó de nota a comprobante).
+     */
+    private function topProducts(Person $person, int $limit): Collection
+    {
+        $void = "'" . implode("','", self::VOID) . "'";
+        $id = (int) $person->id;
+
+        $code = fn ($t) => "JSON_UNQUOTE(JSON_EXTRACT($t.item, '$.internal_id'))";
+        $desc = fn ($t) => "JSON_UNQUOTE(JSON_EXTRACT($t.item, '$.description'))";
+
+        $sql = "
+            SELECT x.item_id, MAX(x.code) AS code, MAX(x.description) AS description,
+                   SUM(x.quantity) AS quantity, SUM(x.total) AS total,
+                   COUNT(DISTINCT x.sale) AS sales, MAX(x.date_of_issue) AS last_date
+            FROM (
+                SELECT i.item_id, {$code('i')} AS code, {$desc('i')} AS description,
+                       i.quantity, i.total, CONCAT('d', d.id) AS sale, d.date_of_issue
+                FROM document_items i JOIN documents d ON d.id = i.document_id
+                WHERE d.customer_id = ? AND d.document_type_id IN ('01','03')
+                  AND d.state_type_id NOT IN ($void)" . $this->rangeSql('d') . "
+                UNION ALL
+                SELECT i.item_id, {$code('i')}, {$desc('i')},
+                       i.quantity, i.total, CONCAT('s', s.id), s.date_of_issue
+                FROM sale_note_items i JOIN sale_notes s ON s.id = i.sale_note_id
+                WHERE s.customer_id = ? AND s.state_type_id NOT IN ($void)
+                  AND NOT EXISTS (SELECT 1 FROM documents d2
+                                  WHERE (d2.sale_note_id = s.id OR d2.id = s.document_id)
+                                    AND d2.state_type_id NOT IN ($void))" . $this->rangeSql('s') . "
+            ) x
+            GROUP BY x.item_id
+            ORDER BY total DESC
+            LIMIT " . (int) $limit;
+
+        $bindings = array_merge($this->rangeBindings([$id]), $this->rangeBindings([$id]));
+
+        return collect(DB::connection('tenant')->select($sql, $bindings))->map(fn ($r) => [
+            'code'        => $r->code,
+            'description' => $r->description,
+            'quantity'    => (float) $r->quantity,
+            'total'       => round((float) $r->total, 2),
+            'sales'       => (int) $r->sales,
+            'last_date'   => $this->day($r->last_date),
+        ]);
+    }
+
     // ── Ayudantes ───────────────────────────────────────────────────
+
+    /** Aplica el periodo (si hay) a una consulta Eloquent. */
+    private function inRange($query, string $column)
+    {
+        return $this->range ? $query->whereBetween($column, $this->range) : $query;
+    }
+
+    private function rangeSql(string $alias): string
+    {
+        return $this->range ? " AND $alias.date_of_issue BETWEEN ? AND ?" : '';
+    }
+
+    private function rangeBindings(array $bindings): array
+    {
+        return $this->range ? array_merge($bindings, $this->range) : $bindings;
+    }
 
     /** [pagado, saldo]. Anulada o convertida no deja saldo propio. */
     private function balance($doc, bool $converted): array

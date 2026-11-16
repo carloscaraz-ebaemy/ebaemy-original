@@ -56,6 +56,25 @@
                     </div>
                 </div>
 
+                <!-- Periodo: filtra ventas, totales, productos y el PDF. -->
+                <div class="c360-period">
+                    <span class="c360-period__label"><i class="el-icon-date"></i> Periodo</span>
+                    <el-date-picker
+                        v-model="period"
+                        type="daterange"
+                        size="small"
+                        unlink-panels
+                        range-separator="al"
+                        start-placeholder="Desde"
+                        end-placeholder="Hasta"
+                        value-format="yyyy-MM-dd"
+                        format="dd/MM/yyyy"
+                        :picker-options="periodOptions"
+                        @change="load"
+                    />
+                    <span class="text-muted c360-period__hint">{{ period ? 'Mostrando solo ese periodo' : 'Todo el historial' }}</span>
+                </div>
+
                 <!-- KPIs -->
                 <div class="customer-360-kpis">
                     <div class="kpi-card kpi-blue">
@@ -112,7 +131,11 @@
                             <el-table-column type="expand">
                                 <template slot-scope="s"><history-detail :row="s.row" /></template>
                             </el-table-column>
-                            <el-table-column prop="label" label="Nota"  min-width="95" />
+                            <el-table-column label="Nota" min-width="95">
+                                <template slot-scope="s">
+                                    <a href="#" class="c360-doc" title="Ver PDF" @click.prevent.stop="openPdf(s.row)"><i class="el-icon-document"></i> {{ s.row.label }}</a>
+                                </template>
+                            </el-table-column>
                             <el-table-column prop="date"  label="Fecha" min-width="90" />
                             <el-table-column label="Cotización → Comprobante" min-width="150">
                                 <template slot-scope="s">
@@ -148,7 +171,11 @@
                             <el-table-column type="expand">
                                 <template slot-scope="s"><history-detail :row="s.row" /></template>
                             </el-table-column>
-                            <el-table-column prop="label" label="Comprobante" min-width="105" />
+                            <el-table-column label="Comprobante" min-width="105">
+                                <template slot-scope="s">
+                                    <a href="#" class="c360-doc" title="Ver PDF" @click.prevent.stop="openPdf(s.row)"><i class="el-icon-document"></i> {{ s.row.label }}</a>
+                                </template>
+                            </el-table-column>
                             <el-table-column prop="type"  label="Tipo"  min-width="70" />
                             <el-table-column label="Viene de" min-width="110">
                                 <template slot-scope="s">
@@ -182,7 +209,11 @@
                             <el-table-column type="expand">
                                 <template slot-scope="s"><history-detail :row="s.row" /></template>
                             </el-table-column>
-                            <el-table-column prop="label" label="Cotización" min-width="95" />
+                            <el-table-column label="Cotización" min-width="95">
+                                <template slot-scope="s">
+                                    <a href="#" class="c360-doc" title="Ver PDF" @click.prevent.stop="openPdf(s.row)"><i class="el-icon-document"></i> {{ s.row.label }}</a>
+                                </template>
+                            </el-table-column>
                             <el-table-column prop="date"  label="Fecha" min-width="90" />
                             <el-table-column label="Total" min-width="85" align="right">
                                 <template slot-scope="s"><strong>{{ formatAmount(s.row.total) }}</strong></template>
@@ -207,7 +238,11 @@
                             <el-table-column type="expand">
                                 <template slot-scope="s"><history-detail :row="s.row" /></template>
                             </el-table-column>
-                            <el-table-column prop="label" label="Compra" min-width="105" />
+                            <el-table-column label="Compra" min-width="105">
+                                <template slot-scope="s">
+                                    <a href="#" class="c360-doc" title="Ver PDF" @click.prevent.stop="openPdf(s.row)"><i class="el-icon-document"></i> {{ s.row.label }}</a>
+                                </template>
+                            </el-table-column>
                             <el-table-column prop="date"  label="Fecha"  min-width="90" />
                             <el-table-column label="Total" min-width="85" align="right">
                                 <template slot-scope="s"><strong>{{ formatAmount(s.row.total) }}</strong></template>
@@ -270,6 +305,25 @@
                         </el-table>
                     </el-tab-pane>
 
+                    <el-tab-pane :label="`Productos más comprados (${(data.top_products || []).length})`" name="products">
+                        <el-table :data="data.top_products || []" size="mini" stripe style="width:100%">
+                            <el-table-column label="Código" min-width="100">
+                                <template slot-scope="s"><strong>{{ s.row.code || '—' }}</strong></template>
+                            </el-table-column>
+                            <el-table-column prop="description" label="Producto" min-width="200" />
+                            <el-table-column label="Cantidad" min-width="80" align="right">
+                                <template slot-scope="s">{{ s.row.quantity }}</template>
+                            </el-table-column>
+                            <el-table-column label="Monto" min-width="90" align="right">
+                                <template slot-scope="s"><strong>{{ formatAmount(s.row.total) }}</strong></template>
+                            </el-table-column>
+                            <el-table-column prop="sales" label="Ventas" min-width="65" align="center" />
+                            <el-table-column prop="last_date" label="Última vez" min-width="95" />
+                        </el-table>
+                        <div v-if="!(data.top_products || []).length" class="text-center text-muted py-3">Sin ventas vigentes en el periodo.</div>
+                        <p class="c360-note">Solo ventas vigentes: sin anuladas y sin contar dos veces una nota convertida en comprobante.</p>
+                    </el-tab-pane>
+
                     <el-tab-pane label="Registro y cambios" name="activity">
                         <ul class="c360-timeline">
                             <li v-for="(a, i) in data.activity || []" :key="i">
@@ -305,6 +359,15 @@
 <script>
 import HistoryDetail from './history360_detail.vue'
 
+// [primer día, último día] del mes actual + offset (0 = este mes, -1 = anterior).
+function monthRange(offset) {
+    const now = new Date()
+    return [
+        new Date(now.getFullYear(), now.getMonth() + offset, 1),
+        new Date(now.getFullYear(), now.getMonth() + offset + 1, 0),
+    ]
+}
+
 const FIELD_LABELS = {
     name: 'Nombre', trade_name: 'Nombre comercial', number: 'N° de documento',
     identity_document_type_id: 'Tipo de documento', email: 'Correo', telephone: 'Teléfono',
@@ -326,15 +389,31 @@ export default {
             data:      null,
             activeTab: 'sale_notes',
             openWin:   null,   // id del sorteo ganado cuya ficha está desplegada
+            period:    null,   // [desde, hasta] en Y-m-d, o null = todo
+            periodOptions: {
+                shortcuts: [
+                    { text: 'Este mes', onClick: (p) => p.$emit('pick', monthRange(0)) },
+                    { text: 'Mes anterior', onClick: (p) => p.$emit('pick', monthRange(-1)) },
+                    { text: 'Últimos 3 meses', onClick: (p) => p.$emit('pick', [monthRange(-2)[0], monthRange(0)[1]]) },
+                    { text: 'Este año', onClick: (p) => p.$emit('pick', [new Date(new Date().getFullYear(), 0, 1), new Date()]) },
+                ],
+            },
         }
+    },
+    computed: {
+        periodQuery() {
+            return this.period ? `?from=${this.period[0]}&to=${this.period[1]}` : ''
+        },
     },
     methods: {
         async load() {
             if (!this.personId) return
             this.loading = true
             try {
-                const { data } = await this.$http.get(`/persons/${this.personId}/history`)
+                const { data } = await this.$http.get(`/persons/${this.personId}/history${this.periodQuery}`)
                 this.data = data
+                // Al cambiar de periodo se queda en la pestaña elegida.
+                if (this.period) return
                 // Abre la primera pestaña que tenga contenido.
                 this.activeTab = data.sale_notes.length ? 'sale_notes'
                     : data.documents.length ? 'documents'
@@ -350,6 +429,7 @@ export default {
             this.data      = null
             this.activeTab = 'sale_notes'
             this.openWin   = null
+            this.period    = null
             this.$emit('update:showDialog', false)
         },
         formatAmount(v) {
@@ -376,7 +456,10 @@ export default {
             return { create: 'Registro del cliente', update: 'Cambio de datos', delete: 'Eliminado' }[action] || action
         },
         printPdf() {
-            window.open(`/persons/${this.personId}/history/pdf`, '_blank')
+            window.open(`/persons/${this.personId}/history/pdf${this.periodQuery}`, '_blank')
+        },
+        openPdf(row) {
+            if (row.pdf) window.open(row.pdf, '_blank')
         },
         fieldLabel(field) {
             return FIELD_LABELS[field] || field
@@ -505,6 +588,11 @@ export default {
 .c360-timeline__changes del { color: #b91c1c; }
 .c360-timeline__changes ins { color: #15803d; text-decoration: none; }
 .c360-link { font-size: 12px; color: #4f46e5; }
+.c360-doc { font-weight: 600; color: #4f46e5; white-space: nowrap; }
+.c360-doc:hover { text-decoration: underline; }
+.c360-period { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; }
+.c360-period__label { font-size: 13px; font-weight: 600; color: #334155; }
+.c360-period__hint { font-size: 12px; }
 .c360-link-tag { margin: 1px 2px; }
 .c360-note { font-size: 11px; color: #94a3b8; margin-top: 8px; }
 

@@ -445,11 +445,12 @@ class PersonController extends Controller
      * Vista 360° del cliente — historial unificado de compras, documentos y órdenes.
      * GET /persons/{id}/history
      */
-    public function history($id)
+    public function history(Request $request, $id)
     {
         $person = Person::findOrFail($id);
+        [$from, $to] = $this->historyPeriod($request);
 
-        $data = app(\App\Services\Tenant\CustomerHistoryService::class)->build($person, 30);
+        $data = app(\App\Services\Tenant\CustomerHistoryService::class)->build($person, 30, $from, $to);
 
         // Pedidos ecommerce / marketplace (Order tiene person_id directo).
         // `orders` NO tiene date_of_issue / number / currency_type_id: la fecha
@@ -549,16 +550,25 @@ class PersonController extends Controller
      * Reporte PDF del historial completo del cliente (todas sus operaciones).
      * GET /persons/{id}/history/pdf
      */
-    public function historyPdf($id)
+    public function historyPdf(Request $request, $id)
     {
         $person  = Person::findOrFail($id);
         $service = app(\App\Services\Tenant\CustomerHistoryService::class);
         $pdf     = app(\App\Services\Tenant\CustomerHistoryPdfService::class);
+        [$from, $to] = $this->historyPeriod($request);
 
-        return response($pdf->render($service->build($person, null)), 200, [
+        return response($pdf->render($service->build($person, null, $from, $to)), 200, [
             'Content-Type'        => 'application/pdf',
             'Content-Disposition' => 'inline; filename="' . $pdf->filename($person) . '"',
         ]);
+    }
+
+    /** Periodo opcional del historial: ?from=Y-m-d&to=Y-m-d (fechas válidas o null). */
+    private function historyPeriod(Request $request): array
+    {
+        $date = fn ($v) => is_string($v) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $v) ? $v : null;
+
+        return [$date($request->query('from')), $date($request->query('to'))];
     }
 
     public function searchData($type, Request $request)

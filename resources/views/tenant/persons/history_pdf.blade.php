@@ -67,7 +67,12 @@
         </td>
         <td class="r">
             <h1>Historial del cliente</h1>
-            <span class="muted">Impreso el {{ $printed }}</span>
+            <span class="muted">Impreso el {{ $printed }}</span><br>
+            @if($h['period'])
+                <strong>Periodo: {{ $h['period']['from'] ?: 'inicio' }} al {{ $h['period']['to'] ?: 'hoy' }}</strong>
+            @else
+                <strong>Periodo: todo el historial</strong>
+            @endif
         </td>
     </tr>
 </table>
@@ -173,6 +178,26 @@
         </tr>
     </table>
     <p class="muted" style="font-size: 7.5pt;">El detalle de productos de cada venta anulada está en su sección, más abajo.</p>
+@endif
+
+<h2>Productos más comprados</h2>
+@if(count($h['top_products']) === 0)
+    <p class="muted">Sin ventas vigentes en el periodo.</p>
+@else
+    <table class="grid">
+        <tr><th>Código</th><th>Producto</th><th class="r">Cantidad</th><th class="r">Monto</th><th class="r">Ventas</th><th>Última vez</th></tr>
+        @foreach($h['top_products'] as $tp)
+            <tr>
+                <td><strong>{{ $tp['code'] ?: '—' }}</strong></td>
+                <td>{{ $tp['description'] }}</td>
+                <td class="r">{{ rtrim(rtrim(number_format($tp['quantity'], 2, '.', ''), '0'), '.') }}</td>
+                <td class="r">{{ $money($tp['total']) }}</td>
+                <td class="r">{{ $tp['sales'] }}</td>
+                <td>{{ $tp['last_date'] }}</td>
+            </tr>
+        @endforeach
+    </table>
+    <p class="muted" style="font-size: 7.5pt;">Solo ventas vigentes: sin anuladas y sin contar dos veces una nota convertida en comprobante.</p>
 @endif
 
 @php
