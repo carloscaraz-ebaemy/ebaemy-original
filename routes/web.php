@@ -1077,6 +1077,7 @@ if ($hostname) {
                 Route::get('accumulated-points/{id}', 'Tenant\PersonController@getAccumulatedPoints');
                 Route::get('search-data/{type}', 'Tenant\PersonController@searchData');
                 Route::get('/{person}/history', 'Tenant\PersonController@history')->name('tenant.persons.history');
+                Route::get('/{person}/history/pdf', 'Tenant\PersonController@historyPdf')->name('tenant.persons.history.pdf');
 
             });
 

@@ -449,38 +449,7 @@ class PersonController extends Controller
     {
         $person = Person::findOrFail($id);
 
-        // `documents` no tiene date_of_due: el vencimiento vive en `invoices`
-        // (solo facturas/boletas), de ahí el leftJoin.
-        $documents = $person->documents_where_customer()
-            ->leftJoin('invoices', 'invoices.document_id', '=', 'documents.id')
-            ->select('documents.id','documents.series','documents.number','documents.date_of_issue','invoices.date_of_due','documents.total','documents.state_type_id','documents.document_type_id','documents.currency_type_id')
-            ->latest('documents.date_of_issue')
-            ->limit(30)
-            ->get()
-            ->map(fn($d) => [
-                'id'           => $d->id,
-                'label'        => "{$d->series}-{$d->number}",
-                'date'         => $d->date_of_issue,
-                'date_of_due'  => $d->date_of_due,
-                'total'        => $d->total,
-                'state'        => $d->state_type_id,
-                'type'         => $d->document_type_id,
-                'currency'     => $d->currency_type_id,
-            ]);
-
-        $saleNotes = $person->sale_notes_where_customer()
-            ->select('id','series','number','date_of_issue','total','state_type_id','currency_type_id')
-            ->latest('date_of_issue')
-            ->limit(30)
-            ->get()
-            ->map(fn($sn) => [
-                'id'       => $sn->id,
-                'label'    => "{$sn->series}-{$sn->number}",
-                'date'     => $sn->date_of_issue,
-                'total'    => $sn->total,
-                'state'    => $sn->state_type_id,
-                'currency' => $sn->currency_type_id,
-            ]);
+        $data = app(\App\Services\Tenant\CustomerHistoryService::class)->build($person, 30);
 
         // Pedidos ecommerce / marketplace (Order tiene person_id directo).
         // `orders` NO tiene date_of_issue / number / currency_type_id: la fecha
@@ -515,25 +484,17 @@ class PersonController extends Controller
                 'date'         => optional($r->created_at)->format('Y-m-d'),
             ]);
 
-        // Mora — documentos con date_of_due vencido y no anulados.
-        // El balance real (total - pagos) requeriría join con document_payments;
-        // para el card del header usamos el monto comprometido (simplificación
-        // intencional — la tabla detalle muestra cada documento para drill-down).
-        $today = now()->toDateString();
-        $overdueDocs = $person->documents_where_customer()
-            ->join('invoices', 'invoices.document_id', '=', 'documents.id')
-            ->where('invoices.date_of_due', '<', $today)
-            ->where('documents.state_type_id', '!=', '11')
-            ->select('documents.id','documents.series','documents.number','invoices.date_of_due','documents.total','documents.currency_type_id')
-            ->get()
-            ->map(fn($d) => [
-                'id'          => $d->id,
-                'label'       => "{$d->series}-{$d->number}",
-                'date_of_due' => $d->date_of_due,
-                'total'       => $d->total,
-                'currency'    => $d->currency_type_id,
-                'days_late'   => $d->date_of_due ? \Carbon\Carbon::parse($d->date_of_due)->diffInDays(now()) : null,
-            ]);
+        // Mora — facturas/boletas con saldo y vencimiento pasado.
+        $overdueDocs = $data['documents']
+            ->filter(fn ($d) => $d['pending'] > 0 && $d['date_of_due'] && $d['date_of_due'] < now()->toDateString())
+            ->map(fn ($d) => [
+                'id'          => $d['id'],
+                'label'       => $d['label'],
+                'date_of_due' => $d['date_of_due'],
+                'total'       => $d['pending'],
+                'currency'    => $d['currency'],
+                'days_late'   => \Carbon\Carbon::parse($d['date_of_due'])->diffInDays(now()),
+            ])->values();
 
         // Sorteos ganados — alimenta la insignia 🏆 de la ficha del cliente.
         // Se busca por person_id y, como respaldo, por documento (los
@@ -568,42 +529,35 @@ class PersonController extends Controller
             // El módulo de Sorteos puede no estar instalado en este tenant.
         }
 
-        $docTotal   = $person->documents_where_customer()->sum('total');
-        $snTotal    = $person->sale_notes_where_customer()->sum('total');
-        $docCount   = $person->documents_where_customer()->count();
-        $snCount    = $person->sale_notes_where_customer()->count();
-        $lastPurchase = $person->documents_where_customer()
-                            ->max('date_of_issue')
-                            ?? $person->sale_notes_where_customer()->max('date_of_issue');
+        $data['summary'] += [
+            'orders_count'   => $orders->count(),
+            'returns_count'  => $returns->count(),
+            'overdue_count'  => $overdueDocs->count(),
+            'overdue_amount' => round($overdueDocs->sum('total'), 2),
+            'raffle_wins'    => $raffleWins->count(),
+        ];
 
-        return response()->json([
-            'person' => [
-                'id'           => $person->id,
-                'name'         => $person->name,
-                'number'       => $person->number,
-                'email'        => $person->email,
-                'telephone'    => $person->telephone,
-                'address'      => $person->address,
-            ],
-            'summary' => [
-                'total_lifetime'    => round($docTotal + $snTotal, 2),
-                'total_documents'   => round($docTotal, 2),
-                'total_sale_notes'  => round($snTotal, 2),
-                'doc_count'         => $docCount,
-                'sn_count'          => $snCount,
-                'last_purchase'     => $lastPurchase,
-                'orders_count'      => $orders->count(),
-                'returns_count'     => $returns->count(),
-                'overdue_count'     => $overdueDocs->count(),
-                'overdue_amount'    => round($overdueDocs->sum('total'), 2),
-                'raffle_wins'       => $raffleWins->count(),
-            ],
-            'documents'    => $documents,
-            'sale_notes'   => $saleNotes,
+        return response()->json($data + [
             'orders'       => $orders,
             'returns'      => $returns,
             'overdue_docs' => $overdueDocs,
             'raffle_wins'  => $raffleWins,
+        ]);
+    }
+
+    /**
+     * Reporte PDF del historial completo del cliente (todas sus operaciones).
+     * GET /persons/{id}/history/pdf
+     */
+    public function historyPdf($id)
+    {
+        $person  = Person::findOrFail($id);
+        $service = app(\App\Services\Tenant\CustomerHistoryService::class);
+        $pdf     = app(\App\Services\Tenant\CustomerHistoryPdfService::class);
+
+        return response($pdf->render($service->build($person, null)), 200, [
+            'Content-Type'        => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="' . $pdf->filename($person) . '"',
         ]);
     }
 

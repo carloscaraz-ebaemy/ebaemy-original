@@ -44,6 +44,10 @@ class AppServiceProvider extends ServiceProvider
 		// escribe aquí. Solo audita campos de permiso/estado, no cada update.
 		\App\Models\Tenant\User::observe(\App\Observers\UserSecurityObserver::class);
 
+		// Alta y cambios de datos de clientes/proveedores en `audit_logs`;
+		// los muestra la Vista 360° del cliente.
+		\App\Models\Tenant\Person::observe(\App\Observers\PersonAuditObserver::class);
+
 		// Macro DB::replica() — devuelve la conexión de solo-lectura (réplica)
 		// si TENANT_REPLICA_HOST está configurado, o la primaria como fallback.
 		// Uso: DB::replica()->table('documents')->where(...)->get();
