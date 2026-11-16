@@ -2941,6 +2941,10 @@ class OrderController extends Controller
             // guardado lo mandaba vacio encima del bueno.
             'pickup_person_name'   => $envio->pickup_person_name,
             'pickup_person_dni'    => $envio->pickup_person_dni,
+            // Tipo de documento: sin él, editar el pedido de un cliente con
+            // carné de extranjería o pasaporte lo reabría como DNI, y el
+            // guardado del envío se rechazaba («El DNI tiene 8 dígitos»).
+            'document_type'        => $envio->document_type,
             // Lo demás que guarda el enlace del cliente: sin esto, editar un
             // pedido a domicilio o con oficina de Shalom lo reabría como si
             // fuera por agencia y sin oficina, y el guardado lo pisaba.

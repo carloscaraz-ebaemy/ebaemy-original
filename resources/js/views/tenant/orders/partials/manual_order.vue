@@ -1206,6 +1206,11 @@ export default {
                     this.form.phone = (c.phone || "").replace(/\D+/g, "");
                     this.form.email = c.email || "";
                     this.documento = (c.document_number || "").replace(/\D+/g, "");
+                    // El tipo sale del envío: con «DNI» por defecto, un carné
+                    // de extranjería (9 dígitos) se rechazaba al guardar.
+                    // «ruc» cae en «DNI / RUC», que es la misma opción.
+                    const tipoEnvio = ((d.shipping || {}).document_type || "").toLowerCase();
+                    this.docType = this.tiposDoc.some(t => t.v === tipoEnvio) ? tipoEnvio : "dni";
                     // Comprobante ya elegido (y la empresa, si se factura a otra).
                     this.comprobante = d.billing_document_type_id || null;
                     this.comprobanteTocado = !!d.billing_document_type_id;
