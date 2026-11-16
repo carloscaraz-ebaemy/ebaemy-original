@@ -70,6 +70,16 @@
                         <div class="kpi-value">S/ {{ formatAmount(data.summary.total_pending) }}</div>
                         <div class="kpi-label">Pendiente de pago<template v-if="data.summary.pending_count"> ({{ data.summary.pending_count }})</template></div>
                     </div>
+                    <template v-if="data.summary.annulled_paid > 0">
+                        <div class="kpi-card kpi-green">
+                            <div class="kpi-value">S/ {{ formatAmount(data.summary.annulled_paid) }}</div>
+                            <div class="kpi-label">Cobrado en anuladas (a favor)</div>
+                        </div>
+                        <div class="kpi-card" :class="data.summary.net_pending > 0 ? 'kpi-red' : 'kpi-green'">
+                            <div class="kpi-value">S/ {{ formatAmount(Math.abs(data.summary.net_pending)) }}</div>
+                            <div class="kpi-label">{{ data.summary.net_pending >= 0 ? 'Saldo neto por cobrar' : 'Saldo a favor del cliente' }}</div>
+                        </div>
+                    </template>
                     <div class="kpi-card kpi-red" v-if="data.summary.payable_pending > 0">
                         <div class="kpi-value">S/ {{ formatAmount(data.summary.payable_pending) }}</div>
                         <div class="kpi-label">Por pagar (es proveedor)</div>
@@ -91,6 +101,9 @@
                         <div class="kpi-label">Última compra</div>
                     </div>
                 </div>
+
+                <el-alert v-if="data.summary.annulled_paid > 0" type="warning" :closable="false" show-icon class="mt-2"
+                    :title="`Hay S/ ${formatAmount(data.summary.annulled_paid)} cobrados en ventas que luego se anularon. Si no se devolvieron, están a favor del cliente y se descuentan de lo que debe.`" />
 
                 <!-- Pestañas. Cada venta se despliega (flecha) para ver productos y pagos. -->
                 <el-tabs v-model="activeTab" class="mt-3">

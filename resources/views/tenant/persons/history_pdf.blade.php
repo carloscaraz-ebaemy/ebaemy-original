@@ -3,6 +3,8 @@
     $p = $h['person'];
     $s = $h['summary'];
     $receivables = collect($h['documents'])->concat($h['sale_notes'])->filter(fn ($x) => $x['pending'] > 0);
+    $annulled = collect($h['sale_notes'])->concat($h['documents'])
+        ->filter(fn ($x) => in_array($x['state'], ['09', '11', '13']))->values();
     $fieldLabels = [
         'name' => 'Nombre', 'trade_name' => 'Nombre comercial', 'number' => 'N° de documento',
         'identity_document_type_id' => 'Tipo de documento', 'email' => 'Correo', 'telephone' => 'Teléfono',
@@ -84,19 +86,38 @@
         <td><div class="v">S/ {{ $money($s['total_lifetime']) }}</div><div class="l">Total comprado</div></td>
         <td><div class="v green">S/ {{ $money($s['total_paid']) }}</div><div class="l">Pagado</div></td>
         <td><div class="v red">S/ {{ $money($s['total_pending']) }}</div><div class="l">Por cobrar ({{ $s['pending_count'] }})</div></td>
-        <td><div class="v">{{ $s['doc_count'] + $s['sn_count'] }}</div><div class="l">Ventas</div></td>
         <td><div class="v">{{ $s['annulled_count'] }}</div><div class="l">Anuladas</div></td>
         <td><div class="v">{{ $s['quotations_count'] }}</div><div class="l">Cotizaciones</div></td>
         <td><div class="v">{{ $s['last_purchase'] ?: '—' }}</div><div class="l">Última compra</div></td>
     </tr>
 </table>
+
+<h2>Estado de cuenta</h2>
+<table class="grid">
+    <tr><td>Ventas vigentes (sin anuladas)</td><td class="r">S/ {{ $money($s['total_lifetime']) }}</td></tr>
+    <tr><td>Pagado en ventas vigentes</td><td class="r green">− S/ {{ $money($s['total_paid']) }}</td></tr>
+    <tr><td><strong>Por cobrar</strong> ({{ $s['pending_count'] }} documento(s))</td><td class="r red"><strong>S/ {{ $money($s['total_pending']) }}</strong></td></tr>
+    @if($s['annulled_paid'] > 0)
+        <tr><td>Cobrado en ventas anuladas (dinero recibido, a favor del cliente)</td><td class="r green">− S/ {{ $money($s['annulled_paid']) }}</td></tr>
+        <tr>
+            <td><strong>{{ $s['net_pending'] >= 0 ? 'Saldo neto por cobrar' : 'Saldo a favor del cliente' }}</strong></td>
+            <td class="r {{ $s['net_pending'] >= 0 ? 'red' : 'green' }}"><strong>S/ {{ $money(abs($s['net_pending'])) }}</strong></td>
+        </tr>
+    @endif
+</table>
+@if($s['annulled_paid'] > 0)
+    <p class="red" style="font-size: 8pt;">
+        Atención: hay S/ {{ $money($s['annulled_paid']) }} cobrados en ventas que luego se anularon.
+        Si ese dinero no se devolvió, está a favor del cliente y se descuenta de lo que debe.
+    </p>
+@endif
 @if($s['purchases_count'] > 0)
     <p>Además es proveedor: {{ $s['purchases_count'] }} compra(s) por S/ {{ $money($s['payable_total']) }};
         <strong class="red">por pagar S/ {{ $money($s['payable_pending']) }}</strong>.</p>
 @endif
 <p class="muted" style="font-size: 7.5pt;">
     Una nota de venta convertida en boleta o factura se cuenta una sola vez, en el comprobante.
-    Lo anulado o rechazado por SUNAT no suma como venta ni como deuda.
+    Lo anulado o rechazado por SUNAT no suma como venta ni como deuda; lo que se cobró en ello se muestra aparte.
 </p>
 
 <h2>Cuentas por cobrar</h2>
@@ -120,6 +141,38 @@
             <td class="r red"><strong>{{ $money($receivables->sum('pending')) }}</strong></td>
         </tr>
     </table>
+@endif
+
+<h2>Ventas anuladas ({{ $annulled->count() }})</h2>
+@if($annulled->isEmpty())
+    <p class="muted">El cliente no tiene ventas anuladas.</p>
+@else
+    <table class="grid">
+        <tr><th>Documento</th><th>Fecha</th><th>Estado</th><th class="r">Total</th><th class="r">Cobrado</th><th>Pagos recibidos</th></tr>
+        @foreach($annulled as $r)
+            <tr>
+                <td><strong>{{ $r['label'] }}</strong></td>
+                <td>{{ $r['date'] }}</td>
+                <td>{{ $r['state_label'] }}</td>
+                <td class="r">{{ $money($r['total']) }}</td>
+                <td class="r {{ $r['paid'] > 0 ? 'green' : '' }}"><strong>{{ $money($r['paid']) }}</strong></td>
+                <td>
+                    @forelse($r['payments'] as $pay)
+                        {{ $pay['date'] }} · {{ $pay['method'] }}{{ $pay['reference'] ? ' · Op. ' . $pay['reference'] : '' }} · S/ {{ $money($pay['amount']) }}<br>
+                    @empty
+                        <span class="muted">Sin pagos</span>
+                    @endforelse
+                </td>
+            </tr>
+        @endforeach
+        <tr>
+            <td colspan="3" class="r"><strong>Totales</strong></td>
+            <td class="r">{{ $money($annulled->sum('total')) }}</td>
+            <td class="r green"><strong>{{ $money($annulled->sum('paid')) }}</strong></td>
+            <td></td>
+        </tr>
+    </table>
+    <p class="muted" style="font-size: 7.5pt;">El detalle de productos de cada venta anulada está en su sección, más abajo.</p>
 @endif
 
 @php

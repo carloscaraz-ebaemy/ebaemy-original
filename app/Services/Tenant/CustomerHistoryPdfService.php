@@ -50,6 +50,9 @@ class CustomerHistoryPdfService
             'margin_left'   => 10,
             'margin_right'  => 10,
             'tempDir'       => $tmp,
+            // Sin esto mPDF achica la letra de una venta para no partirla
+            // entre páginas, y unas ventas salen más pequeñas que otras.
+            'shrink_tables_to_fit' => 1,
         ]);
 
         $pdf->SetTitle('Historial de ' . $history['person']['name']);

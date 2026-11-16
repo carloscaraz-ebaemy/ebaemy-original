@@ -68,6 +68,12 @@ class CustomerHistoryService
                 'total_pending'    => $receivable['pending'],
                 'pending_count'    => $receivable['pending_count'],
                 'annulled_count'   => $receivable['annulled_count'],
+                'annulled_total'   => $receivable['annulled_total'],
+                // Cobrado en ventas anuladas: el dinero entró y la venta no
+                // existe. Queda a favor del cliente (o por devolver) y se
+                // descuenta del saldo neto para que el resumen cuadre.
+                'annulled_paid'    => $receivable['annulled_paid'],
+                'net_pending'      => round($receivable['pending'] - $receivable['annulled_paid'], 2),
                 'payable_total'    => $payable['total'],
                 'payable_paid'     => $payable['paid'],
                 'payable_pending'  => $payable['pending'],
@@ -332,6 +338,7 @@ class CustomerHistoryService
     private function totals(Collection $rows): array
     {
         $valid = $rows->reject(fn ($r) => $r->void);
+        $void  = $rows->filter(fn ($r) => $r->void);
         $pendings = $valid->map(fn ($r) => max(0, round((float) $r->total - (float) $r->paid, 2)));
 
         return [
@@ -339,7 +346,9 @@ class CustomerHistoryService
             'paid'           => round($valid->sum(fn ($r) => (float) $r->paid), 2),
             'pending'        => round($pendings->sum(), 2),
             'pending_count'  => $pendings->filter(fn ($p) => $p > 0)->count(),
-            'annulled_count' => $rows->count() - $valid->count(),
+            'annulled_count' => $void->count(),
+            'annulled_total' => round($void->sum(fn ($r) => (float) $r->total), 2),
+            'annulled_paid'  => round($void->sum(fn ($r) => (float) $r->paid), 2),
         ];
     }
 
