@@ -449,9 +449,12 @@ class PersonController extends Controller
     {
         $person = Person::findOrFail($id);
 
+        // `documents` no tiene date_of_due: el vencimiento vive en `invoices`
+        // (solo facturas/boletas), de ahí el leftJoin.
         $documents = $person->documents_where_customer()
-            ->select('id','series','number','date_of_issue','date_of_due','total','state_type_id','document_type_id','currency_type_id')
-            ->latest('date_of_issue')
+            ->leftJoin('invoices', 'invoices.document_id', '=', 'documents.id')
+            ->select('documents.id','documents.series','documents.number','documents.date_of_issue','invoices.date_of_due','documents.total','documents.state_type_id','documents.document_type_id','documents.currency_type_id')
+            ->latest('documents.date_of_issue')
             ->limit(30)
             ->get()
             ->map(fn($d) => [
@@ -518,9 +521,10 @@ class PersonController extends Controller
         // intencional — la tabla detalle muestra cada documento para drill-down).
         $today = now()->toDateString();
         $overdueDocs = $person->documents_where_customer()
-            ->where('date_of_due', '<', $today)
-            ->where('state_type_id', '!=', '11')
-            ->select('id','series','number','date_of_due','total','currency_type_id')
+            ->join('invoices', 'invoices.document_id', '=', 'documents.id')
+            ->where('invoices.date_of_due', '<', $today)
+            ->where('documents.state_type_id', '!=', '11')
+            ->select('documents.id','documents.series','documents.number','invoices.date_of_due','documents.total','documents.currency_type_id')
             ->get()
             ->map(fn($d) => [
                 'id'          => $d->id,
@@ -528,7 +532,7 @@ class PersonController extends Controller
                 'date_of_due' => $d->date_of_due,
                 'total'       => $d->total,
                 'currency'    => $d->currency_type_id,
-                'days_late'   => optional($d->date_of_due)->diffInDays(now()),
+                'days_late'   => $d->date_of_due ? \Carbon\Carbon::parse($d->date_of_due)->diffInDays(now()) : null,
             ]);
 
         // Sorteos ganados — alimenta la insignia 🏆 de la ficha del cliente.
