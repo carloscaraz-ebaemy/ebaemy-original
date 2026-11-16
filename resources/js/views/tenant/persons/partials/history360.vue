@@ -24,6 +24,9 @@
                         <span v-if="data.person.created_at"><i class="fas fa-user-plus"></i> Cliente desde {{ data.person.created_at }}</span>
                         <span v-if="data.person.email"><i class="fas fa-envelope"></i> {{ data.person.email }}</span>
                         <span v-if="data.person.telephone"><i class="fas fa-phone"></i> {{ data.person.telephone }}</span>
+                        <span v-for="d in (data.destinations || []).slice(0, 2)" :key="d.label">
+                            <i class="fas fa-truck"></i> {{ d.label }}<template v-if="d.count > 1"> ({{ d.count }})</template>
+                        </span>
                     </div>
                 </div>
 
@@ -261,21 +264,78 @@
                         </el-table>
                     </el-tab-pane>
 
-                    <el-tab-pane :label="`Pedidos online (${(data.orders || []).length})`" name="orders" v-if="(data.orders || []).length > 0">
-                        <el-table :data="data.orders" size="mini" stripe style="width:100%">
-                            <el-table-column prop="number"   label="N°"      min-width="120" />
-                            <el-table-column prop="date"     label="Fecha"   min-width="100" />
-                            <el-table-column prop="total"    label="Total"   min-width="100" align="right">
+                    <el-tab-pane :label="`Pedidos (${(data.orders || []).length})`" name="orders" v-if="(data.orders || []).length > 0">
+                        <el-table :data="data.orders" size="mini" stripe style="width:100%" :row-class-name="cancelledRow">
+                            <el-table-column type="expand">
+                                <template slot-scope="s"><history-detail :row="s.row" /></template>
+                            </el-table-column>
+                            <el-table-column prop="number" label="Pedido" min-width="80" />
+                            <el-table-column prop="date"   label="Fecha"  min-width="90" />
+                            <el-table-column prop="channel" label="Canal" min-width="110" />
+                            <el-table-column label="Estado" min-width="110" align="center">
                                 <template slot-scope="s">
-                                    <strong>{{ formatAmount(s.row.total) }}</strong>
+                                    <el-tag :type="s.row.cancelled ? 'info' : 'primary'" size="mini">{{ s.row.status }}</el-tag>
                                 </template>
                             </el-table-column>
-                            <el-table-column prop="status_id" label="Estado" min-width="80" align="center">
+                            <el-table-column label="Total" min-width="95" align="right">
                                 <template slot-scope="s">
-                                    <el-tag size="mini">{{ s.row.status_id }}</el-tag>
+                                    <strong>{{ formatAmount(s.row.total) }}</strong>
+                                    <div v-if="s.row.shipping_extra > 0" class="c360-sub">incl. envío {{ formatAmount(s.row.shipping_extra) }}</div>
+                                </template>
+                            </el-table-column>
+                            <el-table-column label="Pagado" min-width="85" align="right">
+                                <template slot-scope="s"><span class="text-success">{{ formatAmount(s.row.paid) }}</span></template>
+                            </el-table-column>
+                            <el-table-column label="Saldo" min-width="80" align="right">
+                                <template slot-scope="s">
+                                    <strong v-if="s.row.pending > 0" class="text-danger">{{ formatAmount(s.row.pending) }}</strong>
+                                    <span v-else class="text-muted">0.00</span>
+                                </template>
+                            </el-table-column>
+                            <el-table-column label="Cobro" min-width="105" align="center">
+                                <template slot-scope="s">
+                                    <el-tag :type="orderPayTag(s.row)" size="mini">{{ s.row.pay_state }}</el-tag>
+                                </template>
+                            </el-table-column>
+                            <el-table-column label="Envío / Venta" min-width="150">
+                                <template slot-scope="s">
+                                    <div v-if="s.row.shipment" class="c360-link">{{ s.row.shipment }}</div>
+                                    <div v-if="s.row.document" class="c360-link">→ {{ s.row.document }}</div>
+                                    <span v-if="!s.row.shipment && !s.row.document" class="text-muted">—</span>
                                 </template>
                             </el-table-column>
                         </el-table>
+                        <p class="c360-note">
+                            Un pedido que ya generó su nota de venta o comprobante se cuenta una sola vez, en esa venta.
+                        </p>
+                    </el-tab-pane>
+
+                    <el-tab-pane :label="`Envíos y destinos (${(data.shipments || []).length})`" name="shipments" v-if="(data.shipments || []).length > 0">
+                        <div class="c360-destinations" v-if="(data.destinations || []).length">
+                            <strong>Destinos:</strong>
+                            <el-tag v-for="d in data.destinations" :key="d.label" size="small" type="info" class="c360-link-tag">
+                                <i class="el-icon-location-outline"></i> {{ d.label }}<template v-if="d.count > 1"> ({{ d.count }})</template>
+                            </el-tag>
+                        </div>
+                        <div v-for="e in data.shipments" :key="e.code" class="c360-ship" :class="{ 'is-cancelled': e.cancelled }">
+                            <div class="c360-ship__head">
+                                <strong>{{ e.code }}</strong>
+                                <span class="text-muted">{{ e.date }}</span>
+                                <el-tag size="mini" :type="e.delivery_short === 'Lima' ? 'warning' : (e.delivery_short === 'Recojo' ? 'info' : 'primary')">{{ e.delivery_type }}</el-tag>
+                                <el-tag size="mini" :type="e.cancelled ? 'info' : (e.status === 'Entregado' ? 'success' : '')">{{ e.status }}</el-tag>
+                            </div>
+                            <div class="c360-ship__grid">
+                                <div><span>Destino</span>{{ e.place || '—' }}</div>
+                                <div v-if="e.address"><span>Dirección</span>{{ e.address }}</div>
+                                <div v-if="e.agency"><span>Agencia</span>{{ e.agency }}</div>
+                                <div v-if="e.office"><span>Oficina</span>{{ e.office }}</div>
+                                <div><span>Destinatario</span>{{ e.recipient || '—' }}<template v-if="e.recipient_doc"> · {{ e.recipient_doc }}</template></div>
+                                <div v-if="e.phone"><span>Teléfono</span>{{ e.phone }}</div>
+                                <div v-if="e.pickup_person"><span>Recoge</span>{{ e.pickup_person }}</div>
+                                <div v-if="e.tracking"><span>Guía / tracking</span><strong>{{ e.tracking }}</strong></div>
+                                <div v-if="e.amount"><span>Monto del encargo</span>S/ {{ formatAmount(e.amount) }}</div>
+                            </div>
+                        </div>
                     </el-tab-pane>
 
                     <el-tab-pane :label="`Mora (${(data.overdue_docs || []).length})`" name="overdue" v-if="(data.overdue_docs || []).length > 0">
@@ -417,6 +477,7 @@ export default {
                 // Abre la primera pestaña que tenga contenido.
                 this.activeTab = data.sale_notes.length ? 'sale_notes'
                     : data.documents.length ? 'documents'
+                    : (data.orders || []).length ? 'orders'
                     : (data.quotations || []).length ? 'quotations'
                     : 'activity'
             } catch(e) {
@@ -448,6 +509,12 @@ export default {
             if (this.isAnnulled(row)) return 'info'
             if (row.converted || row.pending <= 0) return 'success'
             return row.paid > 0 ? 'warning' : 'danger'
+        },
+        cancelledRow({ row }) {
+            return row.cancelled ? 'c360-annulled' : ''
+        },
+        orderPayTag(row) {
+            return { 'Anulado': 'info', 'Pagado': 'success', 'Pago parcial': 'warning', 'Pago pendiente': 'danger' }[row.pay_state] || 'info'
         },
         annulledRow({ row }) {
             return this.isAnnulled(row) ? 'c360-annulled' : ''
@@ -589,6 +656,13 @@ export default {
 .c360-timeline__changes ins { color: #15803d; text-decoration: none; }
 .c360-link { font-size: 12px; color: #4f46e5; }
 .c360-doc { font-weight: 600; color: #4f46e5; white-space: nowrap; }
+.c360-sub { font-size: 10px; color: #64748b; }
+.c360-destinations { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-bottom: 10px; font-size: 13px; }
+.c360-ship { border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 10px; margin-bottom: 8px; }
+.c360-ship.is-cancelled { opacity: .55; }
+.c360-ship__head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 6px; font-size: 13px; }
+.c360-ship__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 4px 14px; font-size: 12px; }
+.c360-ship__grid span { display: block; font-size: 10px; text-transform: uppercase; color: #94a3b8; }
 .c360-doc:hover { text-decoration: underline; }
 .c360-period { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; }
 .c360-period__label { font-size: 13px; font-weight: 600; color: #334155; }

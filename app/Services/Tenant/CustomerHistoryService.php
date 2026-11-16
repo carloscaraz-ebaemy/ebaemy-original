@@ -7,7 +7,9 @@ use App\Models\Tenant\Document;
 use App\Models\Tenant\Person;
 use App\Models\Tenant\Purchase;
 use App\Models\Tenant\Quotation;
+use App\Models\Tenant\Order;
 use App\Models\Tenant\SaleNote;
+use App\Models\Tenant\ShippingRequest;
 use App\Models\Tenant\User;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -48,12 +50,17 @@ class CustomerHistoryService
         $quotations = $this->quotations($person, $limit);
         $purchases  = $this->purchases($person, $limit);
 
-        $receivable = $this->receivable($person);
+        $orders     = $this->orders($person, $limit);
+        $shipments  = $this->shipments($person, $limit);
+
+        $allOrders  = $limit ? $this->orders($person, null) : $orders;
+        $receivable = $this->withOrders($this->receivable($person), $allOrders);
         $payable    = $this->payable($person);
 
         $lastPurchase = collect([
             $this->inRange($person->documents_where_customer(), 'date_of_issue')->whereNotIn('state_type_id', self::VOID)->max('date_of_issue'),
             $this->inRange($person->sale_notes_where_customer(), 'date_of_issue')->whereNotIn('state_type_id', self::VOID)->max('date_of_issue'),
+            $allOrders->where('cancelled', false)->max('date'),
         ])->filter()->max();
 
         return [
@@ -92,11 +99,25 @@ class CustomerHistoryService
                 'last_purchase'    => $lastPurchase ? substr($lastPurchase, 0, 10) : null,
             ],
             'period'       => $this->range ? ['from' => $from, 'to' => $to] : null,
-            'top_products' => $this->topProducts($person, $limit ? 15 : 50),
+            'top_products' => $this->topProducts($person, $limit ? 15 : 50, $allOrders),
+            'orders_summary' => [
+                'count'     => $orders->count(),
+                'total'     => round($orders->where('cancelled', false)->sum('total'), 2),
+                'paid'      => round($orders->where('cancelled', false)->sum('paid'), 2),
+                'pending'   => round($orders->where('cancelled', false)->sum('pending'), 2),
+                'cancelled' => $orders->where('cancelled', true)->count(),
+            ],
+            // A dónde se le envía: «Provincia — LA LIBERTAD / TRUJILLO» y cuántas veces.
+            'destinations' => $shipments->where('cancelled', false)
+                ->groupBy(fn ($e) => $e['delivery_short'] . ' — ' . ($e['place'] ?: 'sin ubicación'))
+                ->map(fn ($g, $k) => ['label' => $k, 'count' => $g->count()])
+                ->values(),
             'documents'  => $documents,
             'sale_notes' => $saleNotes,
             'quotations' => $quotations,
             'purchases'  => $purchases,
+            'orders'     => $orders,
+            'shipments'  => $shipments,
             'activity'   => $this->activity($person),
         ];
     }
@@ -310,6 +331,161 @@ class CustomerHistoryService
         return $activity->values();
     }
 
+    /**
+     * Pedidos online / por canal. Estado con nombre, total a cobrar y lo
+     * cobrado con la misma regla que el panel de Pedidos
+     * (OrderCollection::paymentState): pagos válidos del pedido + pagos del
+     * envío VIGENTE; si el total vale 0, se cobra el importe del encargo.
+     */
+    private function orders(Person $person, ?int $limit): Collection
+    {
+        $hasShipping = ShippingRequest::moduleInstalled();
+
+        $rows = Order::where('person_id', $person->id)
+            ->with(array_values(array_filter(['status_order', 'channel', $hasShipping ? 'activeShipment' : null])))
+            ->withSum(['payments as paid_total' => fn ($q) => PaymentVerification::soloValidos($q, 'order_payments')], 'payment')
+            ->tap(fn ($q) => $this->inRange($q, 'orders.created_at'))
+            ->latest('id')
+            ->when($limit, fn ($q) => $q->limit($limit))
+            ->get();
+
+        // Nota de venta o comprobante generado desde el pedido (por external_id).
+        $ext = $rows->pluck('document_external_id')->filter()->unique();
+        $linked = $ext->isEmpty() ? collect() : SaleNote::whereIn('external_id', $ext)
+            ->get(['external_id', 'series', 'number', 'state_type_id'])
+            ->concat(Document::whereIn('external_id', $ext)->get(['external_id', 'series', 'number', 'state_type_id']))
+            ->keyBy('external_id');
+
+        return $rows->map(function ($o) use ($linked) {
+            $envio = $o->relationLoaded('activeShipment') ? $o->activeShipment : null;
+            $doc = $o->document_external_id ? $linked->get($o->document_external_id) : null;
+            $docValid = $doc && !in_array($doc->state_type_id, self::VOID);
+            $cancelled = (int) $o->status_order_id === 5 || $o->cancelled_at !== null;
+
+            // A cobrar: el total del pedido o, si el encargo carga más (le suma
+            // el costo de envío), lo del encargo. Con solo el pedido salía
+            // «total 550, pagado 570» en un envío que cobraba 550 + 20.
+            $orderTotal = (float) $o->total;
+            $envioTotal = $envio && $envio->has_amount ? (float) $envio->amount_to_collect : 0.0;
+            $total = max($orderTotal, $envioTotal);
+            $paid = round((float) ($o->paid_total ?? 0) + ($envio ? (float) $envio->paid_total : 0.0), 2);
+            $pending = $cancelled ? 0 : max(0, round($total - $paid, 2));
+
+            $payState = match (true) {
+                $cancelled             => 'Anulado',
+                $total <= 0            => 'Sin monto',
+                $paid <= 0             => 'Pago pendiente',
+                $paid + 0.009 < $total => 'Pago parcial',
+                default                => 'Pagado',
+            };
+
+            $items = is_array($o->items) ? $o->items : (json_decode($o->items ?? '[]', true) ?: []);
+
+            return [
+                'id'        => $o->id,
+                'number'    => $o->number_document ?: ('#' . $o->id),
+                'date'      => optional($o->created_at)->format('Y-m-d'),
+                'channel'   => optional($o->channel)->name,
+                'status'    => optional($o->status_order)->description ?? (string) $o->status_order_id,
+                'cancelled' => $cancelled,
+                'total'     => round($total, 2),
+                'paid'      => $paid,
+                'pending'   => $pending,
+                'pay_state' => $payState,
+                // Solo si el pedido tiene productos: con total 0 es un encargo
+                // de envío y todo su importe es el encargo, no un recargo.
+                'shipping_extra' => $orderTotal > 0 ? round(max(0, $envioTotal - $orderTotal), 2) : 0,
+                'shipment'  => $envio ? $envio->shipment_code : null,
+                'document'  => $doc ? "{$doc->series}-{$doc->number}" : null,
+                // Suma en el resumen solo si no generó una nota/comprobante
+                // vigente: si la generó, esa venta ya se cuenta allí.
+                'counted'   => !$cancelled && !$docValid,
+                'items'     => collect($items)->map(fn ($i) => [
+                    'code'        => $i['internal_id'] ?? null,
+                    'description' => $i['description'] ?? null,
+                    'quantity'    => (float) ($i['quantity'] ?? 0),
+                    'unit_price'  => (float) ($i['sale_unit_price'] ?? $i['unit_price'] ?? 0),
+                    'total'       => (float) ($i['subtotal'] ?? (($i['quantity'] ?? 0) * ($i['unit_price'] ?? 0))),
+                ])->values(),
+            ];
+        })->values();
+    }
+
+    /**
+     * Envíos del cliente: los de sus pedidos y los registrados con su
+     * documento (hay encargos sin pedido enlazado). Destino, agencia, oficina,
+     * guía y estado.
+     */
+    private function shipments(Person $person, ?int $limit): Collection
+    {
+        if (!ShippingRequest::moduleInstalled()) {
+            return collect();
+        }
+
+        $doc = ltrim((string) $person->number, '0');
+
+        $rows = ShippingRequest::query()
+            ->where(function ($q) use ($person, $doc) {
+                $q->whereIn('order_id', Order::where('person_id', $person->id)->select('id'));
+                if (strlen($doc) >= 6) {
+                    $q->orWhereRaw("TRIM(LEADING '0' FROM dni) = ?", [$doc]);
+                }
+            })
+            ->tap(fn ($q) => $this->inRange($q, 'shipping_requests.created_at'))
+            ->latest('id')
+            ->when($limit, fn ($q) => $q->limit($limit))
+            ->get();
+
+        $db    = DB::connection('tenant');
+        $deps  = $db->table('departments')->whereIn('id', $rows->pluck('department_id')->filter())->pluck('description', 'id');
+        $provs = $db->table('provinces')->whereIn('id', $rows->pluck('province_id')->filter())->pluck('description', 'id');
+        $dists = $db->table('districts')->whereIn('id', $rows->pluck('district_id')->filter())->pluck('description', 'id');
+
+        return $rows->map(function ($e) use ($deps, $provs, $dists) {
+            $place = collect([$deps[$e->department_id] ?? null, $provs[$e->province_id] ?? null, $dists[$e->district_id] ?? null])
+                ->filter()->unique()->implode(' / ');
+            $office = trim(($e->agency_office_name ?? '') . ($e->agency_office_address ? ' — ' . $e->agency_office_address : ''));
+
+            return [
+                'code'           => $e->shipment_code,
+                'date'           => optional($e->created_at)->format('Y-m-d'),
+                'delivery_type'  => $e->delivery_type_label,
+                'delivery_short' => ShippingRequest::DELIVERY_SHORT[$e->delivery_type] ?? 'Provincia',
+                'place'          => $place ?: $e->destination_city,
+                'city'           => $e->destination_city,
+                'address'        => $e->formatted_address ?: $e->shipping_destination,
+                'agency'         => $e->shipping_agency,
+                'office'         => $office !== '' ? $office : null,
+                'recipient'      => $e->full_name,
+                'recipient_doc'  => $e->dni,
+                'phone'          => $e->phone,
+                'pickup_person'  => $e->pickup_person_name,
+                'tracking'       => $e->tracking_number ?: $e->tracking_code,
+                'status'         => ShippingRequest::STATUSES[$e->status] ?? $e->status,
+                'cancelled'      => $e->status === ShippingRequest::STATUS_ANULADO || $e->cancelled_at !== null,
+                'amount'         => (float) $e->amount_due,
+                'paid'           => (float) $e->paid_total,
+            ];
+        })->values();
+    }
+
+    /** Suma al resumen los pedidos que no se convirtieron en nota/comprobante. */
+    private function withOrders(array $r, Collection $orders): array
+    {
+        $counted = $orders->where('counted', true);
+        $cancelledPaid = $orders->where('cancelled', true)->sum('paid');
+
+        $r['total']          = round($r['total'] + $counted->sum('total'), 2);
+        $r['paid']           = round($r['paid'] + $counted->sum('paid'), 2);
+        $r['pending']        = round($r['pending'] + $counted->sum('pending'), 2);
+        $r['pending_count'] += $counted->where('pending', '>', 0)->count();
+        $r['annulled_count'] += $orders->where('cancelled', true)->count();
+        $r['annulled_total'] = round($r['annulled_total'] + $orders->where('cancelled', true)->sum('total'), 2);
+        $r['annulled_paid']  = round($r['annulled_paid'] + $cancelledPaid, 2);
+
+        return $r;
+    }
+
     // ── Totales sobre TODO el historial (no solo las filas listadas) ──
 
     /** Cuentas por cobrar: facturas/boletas + notas no convertidas. */
@@ -374,7 +550,7 @@ class CustomerHistoryService
      * (facturas/boletas válidas y notas no anuladas ni convertidas, para no
      * contar dos veces lo que pasó de nota a comprobante).
      */
-    private function topProducts(Person $person, int $limit): Collection
+    private function topProducts(Person $person, int $limit, Collection $orders): Collection
     {
         $void = "'" . implode("','", self::VOID) . "'";
         $id = (int) $person->id;
@@ -401,13 +577,11 @@ class CustomerHistoryService
                                   WHERE (d2.sale_note_id = s.id OR d2.id = s.document_id)
                                     AND d2.state_type_id NOT IN ($void))" . $this->rangeSql('s') . "
             ) x
-            GROUP BY x.item_id
-            ORDER BY total DESC
-            LIMIT " . (int) $limit;
+            GROUP BY x.item_id";
 
         $bindings = array_merge($this->rangeBindings([$id]), $this->rangeBindings([$id]));
 
-        return collect(DB::connection('tenant')->select($sql, $bindings))->map(fn ($r) => [
+        $rows = collect(DB::connection('tenant')->select($sql, $bindings))->map(fn ($r) => [
             'code'        => $r->code,
             'description' => $r->description,
             'quantity'    => (float) $r->quantity,
@@ -415,6 +589,28 @@ class CustomerHistoryService
             'sales'       => (int) $r->sales,
             'last_date'   => $this->day($r->last_date),
         ]);
+
+        // Más lo comprado por pedidos que no pasaron a nota/comprobante.
+        foreach ($orders->where('counted', true) as $o) {
+            foreach ($o['items'] as $i) {
+                $rows->push([
+                    'code' => $i['code'], 'description' => $i['description'],
+                    'quantity' => $i['quantity'], 'total' => $i['total'],
+                    'sales' => 1, 'last_date' => $o['date'],
+                ]);
+            }
+        }
+
+        return $rows->groupBy(fn ($r) => $r['code'] ?: $r['description'])
+            ->map(fn ($g) => [
+                'code'        => $g->first()['code'],
+                'description' => $g->first()['description'],
+                'quantity'    => $g->sum('quantity'),
+                'total'       => round($g->sum('total'), 2),
+                'sales'       => $g->sum('sales'),
+                'last_date'   => $g->max('last_date'),
+            ])
+            ->sortByDesc('total')->take($limit)->values();
     }
 
     // ── Ayudantes ───────────────────────────────────────────────────

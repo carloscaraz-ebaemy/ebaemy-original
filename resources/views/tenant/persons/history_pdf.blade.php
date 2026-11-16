@@ -2,7 +2,9 @@
     $money = fn ($v) => number_format((float) $v, 2, '.', ',');
     $p = $h['person'];
     $s = $h['summary'];
-    $receivables = collect($h['documents'])->concat($h['sale_notes'])->filter(fn ($x) => $x['pending'] > 0);
+    $receivables = collect($h['documents'])->concat($h['sale_notes'])
+        ->concat(collect($h['orders'])->where('counted', true)->map(fn ($o) => $o + ['label' => 'Pedido ' . $o['number']]))
+        ->filter(fn ($x) => $x['pending'] > 0);
     $annulled = collect($h['sale_notes'])->concat($h['documents'])
         ->filter(fn ($x) => in_array($x['state'], ['09', '11', '13']))->values();
     $fieldLabels = [
@@ -268,6 +270,76 @@
         </table>
     @endforeach
 @endforeach
+
+@if(count($h['orders']))
+    <h2>Pedidos ({{ count($h['orders']) }})</h2>
+    @foreach($h['orders'] as $o)
+        <table class="sale">
+            <tr class="sale-head">
+                <td><strong class="{{ $o['cancelled'] ? 'void' : '' }}">Pedido {{ $o['number'] }}</strong> · {{ $o['date'] }}
+                    <span class="muted">· {{ $o['channel'] }} · {{ $o['status'] }}</span></td>
+                <td class="r">Total <strong>{{ $money($o['total']) }}</strong>
+                    @if($o['shipping_extra'] > 0)
+                        <span class="muted">(incl. envío {{ $money($o['shipping_extra']) }})</span>
+                    @endif
+                    · Pagado <span class="green">{{ $money($o['paid']) }}</span>
+                    · Saldo <span class="red">{{ $money($o['pending']) }}</span>
+                    · <span class="tag {{ $o['cancelled'] ? 'void' : ($o['pending'] > 0 ? 'red' : 'green') }}">{{ $o['pay_state'] }}</span></td>
+            </tr>
+            @if($o['shipment'] || $o['document'])
+                <tr class="sale-sub"><td colspan="2" class="muted">
+                    @if($o['shipment'])
+                        Envío {{ $o['shipment'] }}.
+                    @endif
+                    @if($o['document'])
+                        Generó la venta {{ $o['document'] }} (se cuenta allí).
+                    @endif
+                </td></tr>
+            @endif
+            @if(count($o['items']))
+                <tr><td colspan="2">
+                    <table class="sale-sub">
+                        <tr><th>Código</th><th>Cant.</th><th>Producto</th><th class="r">P. unit.</th><th class="r">Importe</th></tr>
+                        @foreach($o['items'] as $it)
+                            <tr>
+                                <td style="width: 15%;"><strong>{{ $it['code'] ?: '—' }}</strong></td>
+                                <td style="width: 8%;">{{ rtrim(rtrim(number_format($it['quantity'], 2, '.', ''), '0'), '.') }}</td>
+                                <td>{{ $it['description'] }}</td>
+                                <td class="r" style="width: 13%;">{{ $money($it['unit_price']) }}</td>
+                                <td class="r" style="width: 13%;">{{ $money($it['total']) }}</td>
+                            </tr>
+                        @endforeach
+                    </table>
+                </td></tr>
+            @endif
+        </table>
+    @endforeach
+@endif
+
+@if(count($h['shipments']))
+    <h2>Envíos y destinos ({{ count($h['shipments']) }})</h2>
+    @if(count($h['destinations']))
+        <p><strong>Destinos:</strong>
+            @foreach($h['destinations'] as $d)
+                {{ $d['label'] }}{{ $d['count'] > 1 ? ' (' . $d['count'] . ')' : '' }}{{ $loop->last ? '' : ' · ' }}
+            @endforeach
+        </p>
+    @endif
+    <table class="grid">
+        <tr><th>Envío</th><th>Tipo</th><th>Destino</th><th>Agencia / oficina</th><th>Destinatario</th><th>Guía</th><th>Estado</th></tr>
+        @foreach($h['shipments'] as $e)
+            <tr class="{{ $e['cancelled'] ? 'void' : '' }}">
+                <td><strong>{{ $e['code'] }}</strong><br><span class="muted">{{ $e['date'] }}</span></td>
+                <td>{{ $e['delivery_short'] }}</td>
+                <td>{{ $e['place'] ?: '—' }}@if($e['address'])<br><span class="muted">{{ $e['address'] }}</span>@endif</td>
+                <td>{{ $e['agency'] ?: '—' }}@if($e['office'])<br><span class="muted">{{ $e['office'] }}</span>@endif</td>
+                <td>{{ $e['recipient'] ?: '—' }}<br><span class="muted">{{ $e['recipient_doc'] }} {{ $e['phone'] ? '· ' . $e['phone'] : '' }}</span></td>
+                <td>{{ $e['tracking'] ?: '—' }}</td>
+                <td>{{ $e['status'] }}</td>
+            </tr>
+        @endforeach
+    </table>
+@endif
 
 <h2>Cotizaciones ({{ count($h['quotations']) }})</h2>
 @if(count($h['quotations']) === 0)

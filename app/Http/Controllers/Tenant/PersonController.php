@@ -452,23 +452,6 @@ class PersonController extends Controller
 
         $data = app(\App\Services\Tenant\CustomerHistoryService::class)->build($person, 30, $from, $to);
 
-        // Pedidos ecommerce / marketplace (Order tiene person_id directo).
-        // `orders` NO tiene date_of_issue / number / currency_type_id: la fecha
-        // es created_at y el correlativo es external_id / number_document.
-        $orders = \App\Models\Tenant\Order::where('person_id', $person->id)
-            ->latest('created_at')
-            ->limit(30)
-            ->get(['id','external_id','number_document','created_at','total','status_order_id','channel_id'])
-            ->map(fn($o) => [
-                'id'         => $o->id,
-                'number'     => $o->number_document ?: $o->external_id,
-                'date'       => optional($o->created_at)->format('Y-m-d'),
-                'total'      => $o->total,
-                'status_id'  => $o->status_order_id,
-                'channel_id' => $o->channel_id,
-                'currency'   => 'PEN',
-            ]);
-
         // Devoluciones logísticas — vinculadas al cliente vía SaleNote
         $returns = \App\Models\Tenant\LogisticReturn::whereHas('saleNote',
                 fn($q) => $q->where('customer_id', $person->id)
@@ -531,7 +514,7 @@ class PersonController extends Controller
         }
 
         $data['summary'] += [
-            'orders_count'   => $orders->count(),
+            'orders_count'   => $data['orders_summary']['count'],
             'returns_count'  => $returns->count(),
             'overdue_count'  => $overdueDocs->count(),
             'overdue_amount' => round($overdueDocs->sum('total'), 2),
@@ -539,7 +522,6 @@ class PersonController extends Controller
         ];
 
         return response()->json($data + [
-            'orders'       => $orders,
             'returns'      => $returns,
             'overdue_docs' => $overdueDocs,
             'raffle_wins'  => $raffleWins,
