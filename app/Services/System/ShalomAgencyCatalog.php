@@ -111,37 +111,53 @@ class ShalomAgencyCatalog
     }
 
     /**
-     * Oficinas para un distrito. Si el distrito no tiene ninguna (solo 278
-     * distritos tienen), las de su provincia.
+     * Oficinas para un distrito: las del distrito; si no hay (solo 278
+     * distritos tienen), las de su provincia; si tampoco (79 de 196
+     * provincias), las de su departamento. Los 25 departamentos tienen al
+     * menos una, así que el cliente SIEMPRE tiene dónde elegir y nunca hace
+     * falta escribir la oficina a mano: la guía de Shalom necesita el ter_id.
      *
-     * @return array{scope:string, offices:array}
-     *   scope: 'district' | 'province' | 'none'
+     * `others` son el resto del departamento (primero su provincia) para el
+     * «¿No está la tuya?».
+     *
+     * @return array{scope:string, offices:array, others:array}
+     *   scope: 'district' | 'province' | 'department' | 'none'
      */
     public function forDistrict(string $ubigeo): array
     {
         $ubigeo = preg_replace('/\D/', '', $ubigeo);
         if (strlen($ubigeo) !== 6) {
-            return ['scope' => 'none', 'offices' => []];
+            return ['scope' => 'none', 'offices' => [], 'others' => []];
         }
 
-        $key = 'shalom_offices2:' . Cache::get(self::CACHE_VERSION, 0) . ':' . $ubigeo;
+        $key = 'shalom_offices3:' . Cache::get(self::CACHE_VERSION, 0) . ':' . $ubigeo;
 
         return Cache::remember($key, now()->addHours(3), function () use ($ubigeo) {
-            $offices = ShalomAgency::selectable()->where('ubigeo', $ubigeo)->orderBy('name')->get();
-            $scope = 'district';
-            // Las del resto de la provincia, aparte: quien elige «Arequipa»
-            // (Cercado) y recoge en Ciudad Municipal (Cerro Colorado) no la
-            // veía y marcaba «No encuentro mi oficina».
-            $others = collect();
+            $prov = substr($ubigeo, 0, 4);
+            $dep  = substr($ubigeo, 0, 2);
 
-            if ($offices->isEmpty()) {
-                $offices = ShalomAgency::selectable()->where('ubigeo', 'like', substr($ubigeo, 0, 4) . '%')
-                    ->orderBy('zone')->orderBy('name')->get();
-                $scope = $offices->isEmpty() ? 'none' : 'province';
+            // Todo el departamento de una vez; de ahí sale cada nivel. La
+            // misma provincia va primero en «otras».
+            $all = ShalomAgency::selectable()->where('ubigeo', 'like', $dep . '%')
+                ->orderBy('zone')->orderBy('name')->get()
+                ->sortBy(fn (ShalomAgency $a) => str_starts_with((string) $a->ubigeo, $prov) ? 0 : 1)
+                ->values();
+
+            $district = $all->where('ubigeo', $ubigeo)->values();
+            $province = $all->filter(fn ($a) => str_starts_with((string) $a->ubigeo, $prov))->values();
+
+            if ($district->isNotEmpty()) {
+                [$scope, $offices] = ['district', $district];
+            } elseif ($province->isNotEmpty()) {
+                [$scope, $offices] = ['province', $province];
+            } elseif ($all->isNotEmpty()) {
+                [$scope, $offices] = ['department', $all];
             } else {
-                $others = ShalomAgency::selectable()->where('ubigeo', 'like', substr($ubigeo, 0, 4) . '%')
-                    ->where('ubigeo', '!=', $ubigeo)->orderBy('zone')->orderBy('name')->get();
+                [$scope, $offices] = ['none', collect()];
             }
+
+            $ids = $offices->pluck('ter_id')->all();
+            $others = $all->reject(fn ($a) => in_array($a->ter_id, $ids, true))->values();
 
             return [
                 'scope'   => $scope,

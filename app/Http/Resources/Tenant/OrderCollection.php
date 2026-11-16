@@ -595,6 +595,15 @@ class OrderCollection extends ResourceCollection
             // la unica forma de que el operador se entere ANTES y no cuando el
             // paquete ya esta en la agencia sin saber a que oficina va.
             'missing_data'     => $s->missingLabelData(),
+            // Shalom sin oficina y sin despachar: el panel ofrece «Pedir
+            // oficina al cliente» (enlace /pedido/{uuid}/oficina) en vez de
+            // que el supervisor la elija por él.
+            'needs_office'     => $s->shipping_agency === 'Shalom'
+                && \App\Models\Tenant\ShippingRequest::hasAgencyOffice()
+                && empty($s->agency_office_id)
+                && !empty($s->district_id)
+                && !in_array($s->status, \App\Models\Tenant\ShippingRequest::LABEL_LOCKED_STATUSES, true),
+            'phone'            => $s->phone,
             'sent_at'          => optional($s->sent_at)->format('Y-m-d H:i:s'),
             'picked_up_at'     => optional($s->picked_up_at)->format('Y-m-d H:i:s'),
             'priority'         => (int) $s->priority,

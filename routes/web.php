@@ -147,6 +147,15 @@ if ($hostname) {
         Route::post('pedido/{external_id}/datos-envio', [\App\Http\Controllers\Tenant\ShipmentController::class, 'publicOrderStore'])
              ->where('external_id', '[A-Za-z0-9\-]{36}')
              ->name('shipments.public.order_store')->middleware('throttle:20,1');
+        // Solo la oficina de Shalom, para el envío que llegó sin ella: el panel
+        // le manda este enlace al cliente en vez de elegirla el supervisor.
+        // Mismo token (UUID del pedido); 404 si ya se despachó o no es Shalom.
+        Route::get('pedido/{external_id}/oficina', [\App\Http\Controllers\Tenant\ShipmentController::class, 'publicOfficeForm'])
+             ->where('external_id', '[A-Za-z0-9\-]{36}')
+             ->name('shipments.public.office_form')->middleware('throttle:60,1');
+        Route::post('pedido/{external_id}/oficina', [\App\Http\Controllers\Tenant\ShipmentController::class, 'publicOfficeStore'])
+             ->where('external_id', '[A-Za-z0-9\-]{36}')
+             ->name('shipments.public.office_store')->middleware('throttle:20,1');
 
         // Seguimiento público de envíos: el cliente consulta por su código ENV.
         Route::get('envio/seguimiento', [\App\Http\Controllers\Tenant\ShipmentController::class, 'publicTracking'])

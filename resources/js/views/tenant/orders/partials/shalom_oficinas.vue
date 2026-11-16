@@ -28,7 +28,7 @@
                 <span v-if="o.hours">🕒 {{ o.hours }}</span>
                 <i v-if="origen && i === 0 && km(o) !== null" class="sho-best">Más cercana</i>
                 <i v-if="km(o) !== null">a {{ km(o) < 10 ? km(o).toFixed(1) : Math.round(km(o)) }} km</i>
-                <i v-if="scope === 'province' && o.district">{{ o.district }}</i>
+                <i v-if="scope !== 'district' && o.district">{{ o.district }}</i>
                 <i v-if="o.home_delivery">Reparto a domicilio</i>
             </button>
         </div>
@@ -60,6 +60,7 @@ export default {
     computed: {
         alcance() {
             if (!this.oficinas.length) return "";
+            if (this.scope === "department") return "Su provincia no tiene oficina de Shalom: estas son las de su departamento.";
             if (this.scope === "province") return "Su distrito no tiene oficina de Shalom: estas son las de su provincia.";
             return this.oficinas.length === 1 ? "1 oficina en su distrito" : this.oficinas.length + " oficinas en su distrito";
         },

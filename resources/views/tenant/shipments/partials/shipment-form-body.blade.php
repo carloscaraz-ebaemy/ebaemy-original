@@ -337,11 +337,7 @@
                             </div>
                             <input type="hidden" name="shalom_air" id="{{ $p }}shalom_air" value="{{ old('shalom_air') ? 1 : 0 }}">
                             <div class="sh-quote" id="{{ $p }}sh_quote" hidden></div>
-                            <label class="chk chk-inline" id="{{ $p }}sh_unknown_wrap">
-                                <input type="checkbox" name="agency_office_unknown" value="1" id="{{ $p }}sh_unknown" {{ old('agency_office_unknown') ? 'checked' : '' }}>
-                                <span>No encuentro mi oficina en la lista</span>
-                            </label>
-                            <small class="hint" id="{{ $p }}sh_err" hidden style="color:#dc2626;">Toca la oficina donde recogerás tu paquete, o marca «No encuentro mi oficina».</small>
+                            <small class="hint" id="{{ $p }}sh_err" hidden style="color:#dc2626;">Toca la oficina donde recogerás tu paquete. Si no ves la tuya, usa el buscador o «Ver más oficinas».</small>
                         </div>
 
                         <div id="{{ $p }}office_manual">

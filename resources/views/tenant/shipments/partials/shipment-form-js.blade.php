@@ -131,8 +131,10 @@
     // Con Shalom el cliente toca su oficina en una lista en vez de escribirla.
     // La lista sale de NUESTRA copia del catálogo (envio/agencias-shalom), no
     // del API de Shalom. Si su distrito no tiene oficina se muestran las de
-    // la provincia; si no hay ninguna, o no encuentra la suya, vuelve el
-    // texto libre de siempre.
+    // la provincia, y si tampoco, las del departamento (los 25 tienen). La
+    // oficina es OBLIGATORIA: la guia de Shalom necesita su ter_id y, si el
+    // cliente no la elige, la tiene que elegir el supervisor. El texto libre
+    // solo vuelve si el catalogo no responde.
     var SH = {
         url: '{{ url("envio/agencias-shalom") }}',
         box: document.getElementById('{{ $p }}sh_box'),
@@ -175,37 +177,40 @@
     // ¿Falta elegir? Solo cuando ya sabemos que hay oficinas para su zona.
     function shFalta() {
         return shEsShalom() && SH.district === shDistrito() && SH.offices.length > 0
-            && !(SH.id && SH.id.value) && !(SH.unknown && SH.unknown.checked);
+            && !(SH.id && SH.id.value);
     }
 
     function shPintar() {
         if (!SH.box) return;
         var hay = SH.offices.length > 0;
-        if (SH.unknownWrap) SH.unknownWrap.hidden = !hay;
+        if (SH.unknownWrap) SH.unknownWrap.hidden = true;
         if (SH.near) SH.near.hidden = !(hay && SH.offices.length > 1 && navigator.geolocation);
-        // Texto libre: si no hay lista, o si dijo que no encuentra la suya.
-        if (SH.manual) SH.manual.hidden = hay && !(SH.unknown && SH.unknown.checked);
+        // Texto libre: solo si no hay lista (el catalogo no respondio).
+        if (SH.manual) SH.manual.hidden = hay;
 
         if (SH.loading) { SH.list.innerHTML = '<p class="sh-empty">Buscando oficinas de Shalom…</p>'; SH.scopeEl.textContent = ''; return; }
         if (!shDistrito()) { SH.list.innerHTML = '<p class="sh-empty">Primero elige arriba tu ciudad o distrito y te mostramos las oficinas.</p>'; SH.scopeEl.textContent = ''; return; }
         if (!hay) {
-            SH.list.innerHTML = '<p class="sh-empty">No tenemos oficinas de Shalom registradas para tu zona. Escribe abajo en cuál recogerás, o déjalo en blanco y Shalom te avisará.</p>';
+            SH.list.innerHTML = '<p class="sh-empty">No pudimos cargar las oficinas de Shalom. Escribe abajo en cuál recogerás; la tienda la confirmará contigo.</p>';
             SH.scopeEl.textContent = '';
             return;
         }
 
-        SH.scopeEl.textContent = SH.scope === 'province'
+        var propiasN = SH.offices.filter(function (o) { return !o.other; }).length;
+        SH.scopeEl.textContent = SH.scope === 'department'
+            ? 'Tu provincia no tiene oficina de Shalom; estas son las de tu departamento. Elige la más cercana.'
+            : SH.scope === 'province'
             ? 'Tu distrito no tiene oficina de Shalom; estas son las de tu provincia.'
-            : (SH.offices.length === 1 ? '1 oficina en tu distrito' : SH.offices.length + ' oficinas en tu distrito');
+            : (propiasN === 1 ? '1 oficina en tu distrito' : propiasN + ' oficinas en tu distrito');
 
         var sel = SH.id ? SH.id.value : '';
         var propias = SH.offices.filter(function (o) { return !o.other; });
         var otras = SH.offices.filter(function (o) { return o.other; });
         var elegidaOtra = otras.some(function (o) { return String(o.id) === sel; });
-        var abiertas = SH.verOtras || elegidaOtra || (SH.unknown && SH.unknown.checked) || SH.filtro;
-        if (propias.length && otras.length) {
+        var abiertas = SH.verOtras || elegidaOtra || SH.filtro;
+        if (SH.scope === 'district' && otras.length) {
             SH.scopeEl.textContent = (propias.length === 1 ? '1 oficina en tu distrito' : propias.length + ' oficinas en tu distrito')
-                + ' · ' + otras.length + ' más en tu provincia';
+                + ' · ' + otras.length + ' más en tu provincia y departamento';
         }
         var f = shNorm(SH.filtro);
         var pinta = function (o, i) {
@@ -219,7 +224,7 @@
                 + (o.hours ? '<span>🕒 ' + shEsc(o.hours) + '</span>' : '')
                 + (best ? '<i class="sh-best">Más cercana a ti</i>' : '')
                 + (km !== null ? '<i>a ' + (km < 10 ? km.toFixed(1) : Math.round(km)) + ' km</i>' : '')
-                + ((SH.scope === 'province' || o.other) && o.district ? '<i>' + shEsc(o.district) + '</i>' : '')
+                + ((SH.scope !== 'district' || o.other) && o.district ? '<i>' + shEsc(o.district) + '</i>' : '')
                 + (o.home_delivery ? '<i>Hace reparto a domicilio</i>' : '')
                 + '</button>';
         };
@@ -229,8 +234,8 @@
             + propias.map(pinta).join('');
         if (otras.length) {
             html += abiertas
-                ? '<p class="sh-sub">Otras oficinas de tu provincia</p>' + otras.map(function (o) { return pinta(o, -1); }).join('')
-                : '<button type="button" class="sh-more">¿No está la tuya? Ver las ' + otras.length + ' oficinas de otros distritos</button>';
+                ? '<p class="sh-sub">Otras oficinas de tu provincia y departamento</p>' + otras.map(function (o) { return pinta(o, -1); }).join('')
+                : '<button type="button" class="sh-more">¿No está la tuya? Ver ' + otras.length + ' oficinas más de tu provincia y departamento</button>';
         }
         if (f && html.indexOf('sh-opt') === -1) html += '<p class="sh-empty">Ninguna oficina coincide con «' + shEsc(SH.filtro) + '».</p>';
         SH.list.innerHTML = html;

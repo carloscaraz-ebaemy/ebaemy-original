@@ -4156,6 +4156,95 @@ class ShipmentController extends Controller
      * Un pedido cancelado no admite datos de entrega: dejar que el cliente los
      * complete le haría creer que su compra sigue viva.
      */
+    /**
+     * Página mínima donde el cliente SOLO elige su oficina de Shalom.
+     *
+     * GET /pedido/{external_id}/oficina
+     *
+     * Para los envíos que llegaron sin oficina: en vez de que el supervisor
+     * la elija por el cliente, el panel le manda este enlace. Mismo token que
+     * datos-envio (el UUID del pedido). Lo ya despachado no se toca.
+     */
+    public function publicOfficeForm(string $externalId)
+    {
+        [$order, $shipment] = $this->resolveOfficeShipment($externalId);
+
+        $catalog = app(ShalomAgencyCatalog::class)->forDistrict((string) $shipment->district_id);
+        $company = Company::first();
+
+        try {
+            $storeColor = \App\Models\Tenant\ConfigurationEcommerce::first()->color_ecommerce ?? null;
+        } catch (\Throwable $e) {
+            $storeColor = null;
+        }
+
+        return view('tenant.shipments.public_office', [
+            'storeName' => optional($company)->title_web ?: (optional($company)->trade_name ?: (optional($company)->name ?: 'la tienda')),
+            'brand'     => \App\Services\Tenant\StoreBrandColor::palette($storeColor),
+            'order'     => $order,
+            'shipment'  => $shipment,
+            'scope'     => $catalog['scope'],
+            'offices'   => array_merge($catalog['offices'], $catalog['others'] ?? []),
+            'saved'     => session('office_saved'),
+        ]);
+    }
+
+    /** POST /pedido/{external_id}/oficina */
+    public function publicOfficeStore(Request $request, string $externalId): RedirectResponse
+    {
+        [, $shipment] = $this->resolveOfficeShipment($externalId);
+
+        $request->validate(['agency_office_id' => 'required|integer|min:1'], [
+            'agency_office_id.required' => 'Toca la oficina donde recogerás tu paquete.',
+        ]);
+
+        // Misma regla que el formulario completo: oficina vigente y del
+        // departamento del envío; nombre y dirección salen del catálogo.
+        $data = $this->applyAgencyOffice($request, [
+            'shipping_agency'  => 'Shalom',
+            'district_id'      => $shipment->district_id,
+            'agency_office_id' => (int) $request->input('agency_office_id'),
+            'shalom_air'       => (bool) ($shipment->shalom_air ?? false),
+        ], true);
+
+        if (empty($data['agency_office_id'])) {
+            return back()->withErrors(['agency_office_id' => 'Esa oficina ya no está disponible. Elige otra de la lista.']);
+        }
+
+        $antes = $shipment->agency_office_name ?: ($shipment->reference ?: null);
+        $shipment->fill(array_intersect_key($data, array_flip([
+            'agency_office_id', 'agency_office_name', 'agency_office_address', 'shalom_air', 'reference',
+        ])))->save();
+
+        ShippingAuditLog::log(
+            ShippingAuditLog::ACTION_EDIT,
+            $shipment->id,
+            'agency_office_id',
+            $antes,
+            $shipment->agency_office_name,
+            'Oficina de Shalom elegida por el cliente desde su enlace'
+        );
+
+        return back()->with('office_saved', $shipment->agency_office_name);
+    }
+
+    /**
+     * Pedido + envío vigente para el enlace de oficina. 404 si no aplica:
+     * sin envío, no es Shalom, ya despachado/anulado o sin destino.
+     */
+    private function resolveOfficeShipment(string $externalId): array
+    {
+        $order = $this->resolvePublicOrder($externalId);
+        $shipment = app(\App\Services\Tenant\OrderShipmentLinker::class)->current($order);
+
+        abort_if(!$shipment || !ShippingRequest::hasAgencyOffice()
+            || $shipment->shipping_agency !== 'Shalom'
+            || empty($shipment->district_id)
+            || in_array($shipment->status, ShippingRequest::LABEL_LOCKED_STATUSES, true), 404);
+
+        return [$order, $shipment];
+    }
+
     private function resolvePublicOrder(string $externalId): \App\Models\Tenant\Order
     {
         abort_unless(ShippingRequest::moduleInstalled(), 404);
@@ -4898,9 +4987,11 @@ class ShipmentController extends Controller
      * catálogo para que nadie pueda inventar una oficina. `reference` sigue
      * llevando el nombre: el rótulo y los listados la leen desde siempre.
      *
-     * En el formulario público la oficina es obligatoria con Shalom, salvo
-     * que el cliente marque «No encuentro mi oficina» o que no haya oficinas
-     * guardadas para su zona (entonces vale el texto libre de siempre).
+     * En el formulario público la oficina es OBLIGATORIA con Shalom: la guía
+     * del API necesita el ter_id y, si el cliente no la elige, la tenía que
+     * elegir el supervisor. Ya no hay «No encuentro mi oficina»: la lista
+     * baja hasta el departamento y los 25 tienen oficinas. Solo si el
+     * catálogo no responde vale el texto libre (el panel lo marca después).
      */
     private function applyAgencyOffice(Request $request, array $data, bool $public): array
     {
@@ -4918,21 +5009,21 @@ class ShipmentController extends Controller
         if (($data['shipping_agency'] ?? null) === 'Shalom') {
             try {
                 if ($officeId) {
-                    // Vigente y de la zona elegida: un formulario viejo o
-                    // manipulado no puede dejar una oficina cerrada o de
-                    // otra provincia.
+                    // Vigente y del departamento elegido (la lista ofrece
+                    // hasta ese nivel): un formulario viejo o manipulado no
+                    // puede dejar una oficina cerrada o de otro departamento.
                     $office = ShalomAgency::selectable()->find((int) $officeId);
                     if ($office && !empty($data['district_id']) && $office->ubigeo
-                        && substr($office->ubigeo, 0, 4) !== substr((string) $data['district_id'], 0, 4)) {
+                        && substr($office->ubigeo, 0, 2) !== substr((string) $data['district_id'], 0, 2)) {
                         $office = null;
                     }
                 }
 
-                if (!$office && $public && !$request->boolean('agency_office_unknown')
+                if (!$office && $public
                     && !empty($data['district_id'])
                     && app(ShalomAgencyCatalog::class)->forDistrict($data['district_id'])['scope'] !== 'none') {
                     throw \Illuminate\Validation\ValidationException::withMessages([
-                        'agency_office_id' => 'Elige la oficina de Shalom donde recogerás tu paquete, o marca «No encuentro mi oficina».',
+                        'agency_office_id' => 'Elige en la lista la oficina de Shalom donde recogerás tu paquete.',
                     ]);
                 }
             } catch (\Illuminate\Validation\ValidationException $e) {

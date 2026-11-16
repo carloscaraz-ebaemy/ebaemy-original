@@ -1095,6 +1095,17 @@
                                         :title="'Faltan datos para rotular: ' + row.shipment.missing_data.join(', ')"
                                     ></i>
                                 </div>
+                                <!-- Shalom sin oficina: la elige el CLIENTE desde
+                                     un enlace, no el supervisor por él. -->
+                                <button
+                                    v-if="row.shipment.needs_office && row.external_id"
+                                    type="button"
+                                    class="ord-ask-office"
+                                    title="Envía al cliente un enlace para que elija su oficina de Shalom"
+                                    @click.stop="pedirOficina(row)"
+                                >
+                                    <i class="fab fa-whatsapp"></i> Pedir oficina al cliente
+                                </button>
                                 <div
                                     v-if="destinoEnvio(row)"
                                     class="ord-st-dest"
@@ -2756,6 +2767,21 @@
     font-size: 11px;
     flex: 0 0 auto;
 }
+.ord-ask-office {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 3px;
+    padding: 2px 8px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #15803d;
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    border-radius: 999px;
+    cursor: pointer;
+}
+.ord-ask-office:hover { background: #dcfce7; }
 
 /* ── Prioridad y vencidos ────────────────────────────────────────── */
 .ord-overdue {
@@ -6599,6 +6625,23 @@ export default {
                 .then(({ value }) => this.$http.post(`/orders/${row.id}/envio/postergar`, { motivo: value || null }))
                 .then(r => this.trasAccionDeEnvio(r, false, row.id))
                 .catch(e => { if (e !== "cancel") this.trasAccionDeEnvio(e, true); });
+        },
+
+        // Envío por Shalom que llegó sin oficina: en vez de elegirla el
+        // supervisor, se le manda al cliente un enlace donde solo la toca.
+        // Con teléfono abre WhatsApp con el mensaje listo; sin él, copia.
+        pedirOficina(row) {
+            const s = row.shipment || {};
+            const url = window.location.origin + "/pedido/" + row.external_id + "/oficina";
+            const texto = "Hola, para enviar tu pedido " + (s.code || "") + " por Shalom necesitamos "
+                + "que elijas la oficina donde lo recogerás. Tócala aquí: " + url;
+            let tel = String(s.phone || "").replace(/\D/g, "");
+            if (tel.length === 9) tel = "51" + tel;
+            if (tel.length >= 11) {
+                window.open("https://wa.me/" + tel + "?text=" + encodeURIComponent(texto), "_blank");
+                return;
+            }
+            return this.copyLink(url, "Enlace para elegir oficina");
         },
 
         copyShippingLink(row) {
