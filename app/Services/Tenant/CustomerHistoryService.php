@@ -360,7 +360,8 @@ class CustomerHistoryService
     private function items($items): Collection
     {
         return $items->map(fn ($i) => [
-            'description' => data_get($i->item, 'description') ?: $i->name_product_pdf,
+            'code'        => data_get($i->item, 'internal_id'),
+            'description' =>data_get($i->item, 'description') ?: $i->name_product_pdf,
             'quantity'    => (float) $i->quantity,
             'unit_price'  => (float) $i->unit_price,
             'total'       => (float) $i->total,

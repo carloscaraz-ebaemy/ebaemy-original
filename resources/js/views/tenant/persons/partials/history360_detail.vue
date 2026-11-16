@@ -4,13 +4,14 @@
         <div class="c360-detail__title">Productos</div>
         <table class="c360-detail__table">
             <tr v-for="(it, i) in row.items" :key="'i' + i">
+                <td class="c360-code">{{ it.code || '—' }}</td>
                 <td class="c360-qty">{{ it.quantity }}</td>
                 <td>{{ it.description }}</td>
                 <td class="c360-num">{{ money(it.unit_price) }}</td>
                 <td class="c360-num"><strong>{{ money(it.total) }}</strong></td>
             </tr>
             <tr v-if="!row.items || !row.items.length">
-                <td colspan="4" class="text-muted">Sin productos.</td>
+                <td colspan="5" class="text-muted">Sin productos.</td>
             </tr>
         </table>
 
@@ -54,6 +55,7 @@ export default {
 }
 .c360-detail__table { width: 100%; font-size: 12px; border-collapse: collapse; }
 .c360-detail__table td { padding: 3px 6px; border-bottom: 1px solid #f1f5f9; vertical-align: top; }
+.c360-code { width: 110px; font-weight: 700; white-space: nowrap; color: #334155; }
 .c360-qty { width: 48px; text-align: right; color: #475569; }
 .c360-date { width: 90px; white-space: nowrap; }
 .c360-num { text-align: right; white-space: nowrap; width: 90px; }

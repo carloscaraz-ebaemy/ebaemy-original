@@ -160,9 +160,10 @@
             @endif
             <tr><td colspan="2">
                 <table class="sale-sub">
-                    <tr><th>Cant.</th><th>Producto</th><th class="r">P. unit.</th><th class="r">Importe</th></tr>
+                    <tr><th>Código</th><th>Cant.</th><th>Producto</th><th class="r">P. unit.</th><th class="r">Importe</th></tr>
                     @foreach($sale['items'] as $it)
                         <tr>
+                            <td style="width: 15%;"><strong>{{ $it['code'] ?: '—' }}</strong></td>
                             <td style="width: 8%;">{{ rtrim(rtrim(number_format($it['quantity'], 2, '.', ''), '0'), '.') }}</td>
                             <td>{{ $it['description'] }}</td>
                             <td class="r" style="width: 13%;">{{ $money($it['unit_price']) }}</td>
@@ -212,9 +213,10 @@
         </tr>
         <tr><td colspan="2">
             <table class="sale-sub">
-                <tr><th>Cant.</th><th>Producto</th><th class="r">P. unit.</th><th class="r">Importe</th></tr>
+                <tr><th>Código</th><th>Cant.</th><th>Producto</th><th class="r">P. unit.</th><th class="r">Importe</th></tr>
                 @foreach($q['items'] as $it)
                     <tr>
+                        <td style="width: 15%;"><strong>{{ $it['code'] ?: '—' }}</strong></td>
                         <td style="width: 8%;">{{ rtrim(rtrim(number_format($it['quantity'], 2, '.', ''), '0'), '.') }}</td>
                         <td>{{ $it['description'] }}</td>
                         <td class="r" style="width: 13%;">{{ $money($it['unit_price']) }}</td>
