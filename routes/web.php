@@ -1911,6 +1911,10 @@ if ($hostname) {
              ->middleware('throttle:30,1')->name('marketplace.checkout');
         Route::post('marketplace/checkout',        'MarketplaceCheckoutController@store')
              ->middleware('throttle:6,1')->name('marketplace.checkout.store');
+        // «¿Cómo lo recibes?»: modalidades, costo, plazo y oficinas Shalom de las
+        // tiendas del carrito de ESTA sesión hacia el distrito elegido. Solo lectura.
+        Route::get('marketplace/checkout/quote',   'MarketplaceCheckoutController@quote')
+             ->middleware('throttle:60,1')->name('marketplace.checkout.quote');
         // Newsletter público del marketplace — captura de leads opt-in.
         // Crea/actualiza una MarketingContact con consent_marketing=true.
         // Throttle 10/min por IP para evitar abuso.

@@ -172,12 +172,29 @@ class MarketplaceMultiOrderDispatcher
             }
 
             $externalId = (string) Str::uuid();
-            $deliveryAddr = trim(implode(', ', array_filter([
-                $order->delivery_address,
-                $order->delivery_district,
-                $order->delivery_province,
-                $order->delivery_department,
-            ])));
+
+            // Lo que el comprador ELIGIÓ para esta tienda (recojo, delivery Lima
+            // o agencia a provincia), guardado al comprar. Pedidos anteriores al
+            // selector no lo tienen: `mode` null y todo sigue como antes.
+            $ship = MarketplaceCheckoutShipping::describe($order, $sub);
+            $shipCost = $sub->shipping_cost !== null ? round((float) $sub->shipping_cost, 2) : 0.0;
+            $placeFull = implode(', ', array_unique(array_filter([$ship['city'], $ship['province'], $ship['department']])));
+
+            if ($ship['mode'] === MarketplaceCheckoutShipping::MODE_PICKUP) {
+                $deliveryAddr = 'Recojo en tienda';
+            } elseif ($ship['mode'] === MarketplaceCheckoutShipping::MODE_AGENCY) {
+                $deliveryAddr = ($ship['office']
+                        ? 'Agencia Shalom ' . $ship['office'] . ($ship['office_address'] ? ' (' . $ship['office_address'] . ')' : '')
+                        : 'Envío por agencia')
+                    . ($placeFull ? ' — ' . $placeFull : '');
+            } else {
+                $deliveryAddr = trim(implode(', ', array_filter([
+                    $ship['mode'] ? $ship['address'] : $order->delivery_address,
+                    $order->delivery_district,
+                    $order->delivery_province,
+                    $order->delivery_department,
+                ])));
+            }
 
             // El pago lo cobra la central (MercadoPago) antes de despachar; en
             // el modo legacy sin pasarela el pedido llega por cobrar.
@@ -209,7 +226,10 @@ class MarketplaceMultiOrderDispatcher
                 // descuento ya se calculó en TenantMarketplaceOrder.discount_amount.
                 // Aquí lo propagamos al Order del tenant para que su contabilidad,
                 // métricas y comprobante reflejen el descuento real.
-                'total'             => round(max(0, $orderSubtotal - (float) ($sub->discount_amount ?? 0)), 2),
+                // El envío elegido va aparte en `shipping_cost` y suma al total,
+                // igual que el pedido de la tienda online (EcommerceController).
+                'total'             => round(max(0, $orderSubtotal - (float) ($sub->discount_amount ?? 0)) + $shipCost, 2),
+                'shipping_cost'     => $shipCost,
                 'subtotal'          => $orderSubtotal,
                 'total_discount'    => round((float) ($sub->discount_amount ?? 0), 2),
                 'reference_payment' => 'marketplace',
@@ -219,7 +239,8 @@ class MarketplaceMultiOrderDispatcher
                 'channel_id'        => $channel->id,
                 'warehouse_id'      => $channel->warehouse_id,
                 'seller_id'         => null,
-                'marketplace_notes' => "Marketplace pedido {$order->order_number} — " . ($order->delivery_notes ?? '-'),
+                'marketplace_notes' => "Marketplace pedido {$order->order_number} — " . ($order->delivery_notes ?? '-')
+                                       . ($ship['label'] ? ' | ' . $ship['label'] : ''),
                 'external_order_ref'=> $order->order_number,
             ];
 
@@ -228,15 +249,30 @@ class MarketplaceMultiOrderDispatcher
 
             // Destino que el comprador dio en el checkout central -> envio
             // vigente del pedido hijo (best-effort: nunca tumba el despacho).
+            // Con modalidad elegida: el ubigeo de 6 cifras y la modalidad viajan
+            // explícitos (antes se deducían de los NOMBRES y un distrito que no
+            // casaba dejaba un delivery de Lima como «agencia»). En recojo y en
+            // agencia no hay dirección de calle que registrar.
+            $mode = $ship['mode'];
             app(\App\Services\Tenant\OrderShipmentLinker::class)->ensureFromCheckout($tenantOrder, [
-                'department' => $order->delivery_department,
-                'province'   => $order->delivery_province,
-                'district'   => $order->delivery_district,
-                'address'    => $order->delivery_address,
-                'reference'  => $order->delivery_notes,
-                'name'       => $order->customer_name,
-                'phone'      => $order->customer_phone,
-                'document'   => $order->customer_doc_number,
+                'pickup'        => $mode === MarketplaceCheckoutShipping::MODE_PICKUP,
+                'mode'          => $mode,
+                'ubigeo'        => $order->delivery_ubigeo,
+                'department'    => $order->delivery_department,
+                'province'      => $order->delivery_province,
+                'district'      => $order->delivery_district,
+                'address'       => in_array($mode, [MarketplaceCheckoutShipping::MODE_PICKUP, MarketplaceCheckoutShipping::MODE_AGENCY], true)
+                                    ? null : $order->delivery_address,
+                'reference'     => $order->delivery_notes,
+                'name'          => $order->customer_name,
+                'phone'         => $order->customer_phone,
+                'document'      => $order->customer_doc_number,
+                'document_type' => $order->customer_doc_type,
+                'agency_office' => $sub->agency_office_id ? [
+                    'id'      => (int) $sub->agency_office_id,
+                    'name'    => $sub->agency_office_name,
+                    'address' => $sub->agency_office_address,
+                ] : null,
             ]);
 
             // Si se usó cupón, incrementar used_count en el tenant. PromotionEngine
@@ -286,7 +322,7 @@ class MarketplaceMultiOrderDispatcher
             // pueden esperar porque usan UsesSystemConnection (tabla system).
 
             $this->notifyTenant($client, $order, $sub, $items, $orderSubtotal);
-            $this->notifyTenantWhatsApp($client, $order, $items, $orderSubtotal);
+            $this->notifyTenantWhatsApp($client, $order, $items, $orderSubtotal, $sub);
 
             // Volver a sistema central
             $tenancy->tenant(null);
@@ -456,7 +492,8 @@ class MarketplaceMultiOrderDispatcher
         Client $client,
         MarketplaceOrder $order,
         Collection $items,
-        float $subtotal
+        float $subtotal,
+        ?TenantMarketplaceOrder $sub = null
     ): void {
         // 1) Intentar con clients.phone_ws (flujo seller_applications nuevo).
         $phone = preg_replace('/\D+/', '', (string) ($client->phone_ws ?? ''));
@@ -494,7 +531,28 @@ class MarketplaceMultiOrderDispatcher
             $msg .= "👤 Cliente: *{$order->customer_name}*\n";
             $msg .= "📱 " . $order->customer_phone . "\n";
             if ($order->customer_email) $msg .= "✉️ {$order->customer_email}\n";
-            if ($order->delivery_address) {
+            // Destino completo: modalidad, ciudad, provincia, departamento,
+            // oficina y costo, para que la tienda sepa cómo y a dónde enviar
+            // sin tener que preguntarlo.
+            $d = MarketplaceCheckoutShipping::describe($order, $sub);
+            if ($d['mode_label']) {
+                $msg .= "\n🚚 *" . $d['mode_label'] . "*\n";
+                if ($d['mode'] === MarketplaceCheckoutShipping::MODE_PICKUP) {
+                    $msg .= "🏬 Lo recoge el cliente en tu tienda\n";
+                } else {
+                    $lugar = array_unique(array_filter([$d['city'], $d['province'], $d['department']]));
+                    if ($lugar) $msg .= "📍 " . implode(', ', $lugar) . "\n";
+                    if ($d['address']) $msg .= "🏠 " . mb_substr($d['address'], 0, 120) . "\n";
+                    if ($d['office']) {
+                        $msg .= "🏢 Agencia Shalom: " . $d['office']
+                              . ($d['office_address'] ? ' (' . mb_substr($d['office_address'], 0, 80) . ')' : '') . "\n";
+                    }
+                }
+                $msg .= "💵 Envío: " . $d['cost'] . ($d['eta'] ? ' · ' . $d['eta'] : '') . "\n";
+                if (!$d['has_policy'] && $d['mode'] !== MarketplaceCheckoutShipping::MODE_PICKUP) {
+                    $msg .= "⚠️ No tienes política de envío: confirma el costo al cliente.\n";
+                }
+            } elseif ($order->delivery_address) {
                 $addr = $order->delivery_address;
                 if ($order->delivery_district) $addr .= ' — ' . $order->delivery_district;
                 $msg .= "📍 " . mb_substr($addr, 0, 120) . "\n";

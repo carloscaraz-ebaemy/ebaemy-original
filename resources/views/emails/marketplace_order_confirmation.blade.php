@@ -92,6 +92,14 @@
                                         <td align="right" style="padding:6px 0 0;font-weight:700;color:#0c6b65">S/ {{ number_format(max(0, $subtotal - $storeDiscount), 2) }}</td>
                                     </tr>
                                 </table>
+                                @if(!empty($sub->shipping_mode))
+                                    <div style="margin-top:8px;padding:8px 10px;background:#f0fdfa;border-radius:6px;font-size:12.5px;color:#115e59;line-height:1.45">
+                                        🚚 {{ $sub->shipping_label }}
+                                        @if($sub->shipping_mode !== 'pickup' && !$sub->shipping_has_policy)
+                                            <br><span style="color:#b45309">El costo de envío te lo confirma la tienda por WhatsApp.</span>
+                                        @endif
+                                    </div>
+                                @endif
                             </td></tr>
                         </table>
                     @endforeach
@@ -109,8 +117,14 @@
                                 <td align="right" style="color:#16a34a;font-weight:600">-S/ {{ number_format($order->discount_total, 2) }}</td>
                             </tr>
                         @endif
-                        <tr><td style="padding:10px 0;font-weight:700;font-size:18px">Total</td>
-                            <td align="right" style="padding:10px 0;font-weight:800;font-size:22px;color:#0c6b65">S/ {{ number_format($order->total, 2) }}</td>
+                        @if($order->shipping_total !== null)
+                            <tr>
+                                <td style="padding:4px 0">Envío</td>
+                                <td align="right">{{ \App\Services\System\MarketplaceCheckoutShipping::costText((float) $order->shipping_total, (bool) $order->shipping_pending) }}</td>
+                            </tr>
+                        @endif
+                        <tr><td style="padding:10px 0;font-weight:700;font-size:18px">Total{{ $order->shipping_total !== null ? ' estimado' : '' }}</td>
+                            <td align="right" style="padding:10px 0;font-weight:800;font-size:22px;color:#0c6b65">S/ {{ number_format((float) $order->total + (float) ($order->shipping_total ?? 0), 2) }}</td>
                         </tr>
                     </table>
                 </td></tr>
@@ -125,8 +139,20 @@
                 {{-- Datos de entrega --}}
                 <tr><td style="padding:18px 28px">
                     <div style="background:#fef3c7;border-radius:8px;padding:14px 16px;font-size:13px;color:#92400e">
-                        <strong>📦 Dirección de entrega</strong><br>
-                        {{ $order->delivery_address }}@if($order->delivery_district), {{ $order->delivery_district }}@endif
+                        @php
+                            $anyShip = $subOrders->contains(fn ($s) => !empty($s->shipping_mode));
+                            $allPickup = $anyShip && $subOrders->every(fn ($s) => $s->shipping_mode === 'pickup');
+                            $dest = \App\Services\System\MarketplaceCheckoutShipping::describe($order, null);
+                            $noAddr = $dest['address'] === null;
+                        @endphp
+                        @if($allPickup)
+                            <strong>🏬 Recojo en tienda</strong><br>
+                            Recoges tu pedido en {{ $subOrders->count() > 1 ? 'cada tienda' : 'la tienda' }}; te avisan por WhatsApp cuando esté listo.
+                        @else
+                            <strong>📦 Entrega</strong><br>
+                            {{ collect([$dest['city'], $dest['province'], $dest['department']])->filter()->unique()->implode(', ') }}<br>
+                            @unless($noAddr){{ $order->delivery_address }}<br>@endunless
+                        @endif
                         @if($order->delivery_notes)<br><em style="opacity:.85">Notas: {{ $order->delivery_notes }}</em>@endif
                     </div>
                 </td></tr>
