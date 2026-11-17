@@ -478,6 +478,7 @@ class EcommerceController extends Controller
                     'display_name'     => $v->display_name,
                     'sale_unit_price'  => $price,
                     'stock'            => $available,
+                    'sku'              => $v->sku ?: null,
                     'is_active'        => (bool) $v->is_active,
                     'is_primary'       => (bool) $v->is_primary,
                     'image'            => $v->image,
@@ -534,16 +535,26 @@ class EcommerceController extends Controller
         } catch (\Exception $e) {}
 
         // Stock: para bundles calcular desde componentes
+        // Disponible = stock_physical - stock_committed, que es lo que valida la
+        // venta (la columna legacy `item_warehouse.stock` no la lee). Solo
+        // lectura para mostrar; aqui no se escribe stock.
+        $availableOf = fn($warehouses) => $warehouses->sum(
+            fn($w) => max(0, (float) $w->stock_physical - (float) $w->stock_committed)
+        );
         $totalStock = $row->warehouses->count() > 0
-            ? $row->warehouses->sum('stock')
+            ? $availableOf($row->warehouses)
             : $row->stock;
+        if ($row->has_variants) {
+            // El padre es un derivado: manda la suma de variantes ACTIVAS.
+            $totalStock = collect($itemVariants)->where('is_active', true)->sum('stock');
+        }
         if ($row->is_set) {
             $row->load('sets.individual_item.warehouses');
             $componentStocks = [];
             foreach ($row->sets as $setItem) {
                 if ($setItem->individual_item && $setItem->quantity > 0) {
                     $compStock = $setItem->individual_item->warehouses
-                        ? $setItem->individual_item->warehouses->sum('stock')
+                        ? $availableOf($setItem->individual_item->warehouses)
                         : 0;
                     $componentStocks[] = (int) floor($compStock / $setItem->quantity);
                 }
@@ -598,6 +609,8 @@ class EcommerceController extends Controller
             'id'                          => $row->id,
             'slug'                        => $row->slug,
             'internal_id'                 => $row->internal_id,
+            // Nombre de la marca (o null): la ficha y el JSON-LD la usan.
+            'brand'                       => $row->brand?->name ?: null,
             'unit_type_id'                => $row->unit_type_id,
             'description'                 => $description,
             'category'                    => $row->category,

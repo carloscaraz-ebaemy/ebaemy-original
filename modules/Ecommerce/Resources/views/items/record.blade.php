@@ -105,10 +105,13 @@
         @endif
         @endforeach
     ],
+    {{-- Marca real del producto; sin marca se omite (antes se ponia el nombre de la tienda). --}}
+    @if(!empty($record->brand))
     "brand": {
         "@type": "Brand",
-        "name": "{{ addslashes($company->trade_name ?? $company->name ?? 'Tienda') }}"
+        "name": "{{ addslashes($record->brand) }}"
     },
+    @endif
     @if($record->category)
     "category": "{{ addslashes($record->category->name) }}",
     @endif
@@ -265,6 +268,9 @@
                 @endif
 
                 <h1 class="product-title" itemprop="name">{{ $record->description }}</h1>
+                @if(!empty($record->brand))
+                <p class="ec-product-brand" style="margin:0 0 6px;font-size:13px;color:#6b7280">Marca: <strong>{{ $record->brand }}</strong></p>
+                @endif
 
                 {{-- Rating y reviews (estilo Falabella) --}}
                 <div class="ec-product-rating" id="ec-product-rating">
@@ -539,7 +545,12 @@
                             if(reqEl) reqEl.style.display='none';
                             // Cambiar imagen solo si la variante tiene foto propia
                             // Y el seller NO marcó "usar imagen del producto en todas las variantes".
+                            // Si no la tiene (o se usa la del padre), VUELVE a la principal del
+                            // producto: antes la ficha se quedaba con la foto de la variante anterior.
                             if(found.image && !useParentImage) swapMainImage('/storage/uploads/items/'+found.image);
+                            else swapMainImage(parentImageUrl);
+                            // Codigo: el SKU de la variante, o el del producto si no tiene.
+                            setProductCode(found.sku || parentCode);
                         } else {
                             window._ecSelectedVariant = null;
                             if(resEl) resEl.style.display='none';
@@ -581,6 +592,15 @@
                     }
 
                     // ── Stock UI ─────────────────────────────────────────────────────
+                    var parentImageUrl = @json($mainImagePath);
+                    var parentCode     = @json($record->internal_id ?? null);
+                    function setProductCode(code){
+                        var el = document.getElementById('ec-product-code-val');
+                        if(!el) return;
+                        el.textContent = code || '';
+                        var wrap = document.getElementById('ec-product-code');
+                        if(wrap) wrap.style.display = code ? '' : 'none';
+                    }
                     function updateStockUI(stock){
                         var s = Math.floor(stock || 0);
                         // Número
@@ -894,6 +914,7 @@
 
                 {{-- Selector de cantidad --}}
                 @if($record->stock > 0)
+                {{-- max = disponible total; con variantes lo reajusta updateStockUI() al elegir una --}}
                 <div class="mb-3">
                     <label style="font-size:12px; font-weight:700; color:var(--subtitle-color); display:block; margin-bottom:6px;">
                         CANTIDAD
@@ -911,9 +932,10 @@
                 {{-- Acciones --}}
                 @php
                     // ── Stock efectivo (considera variantes) ───────────────────────────
+                    // Solo variantes ACTIVAS: una inactiva no se puede comprar.
                     $effectiveStock = $record->stock;
                     if ($record->has_variants && !empty($record->item_variants)) {
-                        $effectiveStock = collect($record->item_variants)->sum('stock');
+                        $effectiveStock = collect($record->item_variants)->where('is_active', true)->sum('stock');
                     }
                     $isAvailable = $effectiveStock > 0;
 
@@ -1010,10 +1032,10 @@
 
                 {{-- Código de producto (estilo Falabella) --}}
                 <div class="ec-product-codes">
-                    @if($record->internal_id)
-                    <span class="ec-product-code">
+                    @if($record->internal_id || $record->has_variants)
+                    <span class="ec-product-code" id="ec-product-code" @if(!$record->internal_id) style="display:none" @endif>
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
-                        Código: {{ $record->internal_id }}
+                        Código: <span id="ec-product-code-val">{{ $record->internal_id }}</span>
                     </span>
                     @endif
                 </div>
