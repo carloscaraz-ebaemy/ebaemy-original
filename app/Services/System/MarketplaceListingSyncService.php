@@ -353,9 +353,12 @@ class MarketplaceListingSyncService
             'search_text'       => self::normalizeForSearch(
                 (string) ($item->description ?: $item->name ?: '') . ' '
                 . (string) $brandName . ' ' . (string) $categoryName . ' '
-                . (($item->name && $item->name !== $item->description) ? $item->name . ' ' : '')
+                . $this->officialCategoryTerms($item->marketplace_category_id ?? null) . ' '
                 . ($variantInfo['has_variants'] ? $this->variantSearchTerms($item) . ' ' : '')
-                . $this->officialCategoryTerms($item->marketplace_category_id ?? null)
+                // El índice se corta a 500 caracteres: lo corto y decisivo
+                // va antes. Y hay tiendas que usan `name` para la descripción
+                // larga, que solo mete ruido: se toma solo si es un nombre.
+                . (($item->name && $item->name !== $item->description && mb_strlen($item->name) <= 120) ? $item->name : '')
             ),
 
             // Precio "principal" mostrado en cards. Para items con variantes
