@@ -505,6 +505,29 @@
                                 </details>
                             </div>
 
+                            <!-- La tienda muestra «Especificaciones técnicas» pero ningún
+                                 formulario dejaba escribirlas. -->
+                            <div class="col-md-12">
+                                <details class="ie-collapse mt-2" :open="specsOpen" @toggle="specsOpen = $event.target.open">
+                                    <summary class="ie-collapse__summary">
+                                        <span class="ie-collapse__chev">▼</span>
+                                        <strong>Especificaciones técnicas</strong>
+                                        <span class="ie-collapse__hint">(medidas, material, compatibilidad…)</span>
+                                        <span v-if="form.technical_specifications" class="ie-collapse__badge">✓ con texto</span>
+                                    </summary>
+                                    <div :class="{'has-danger': errors.technical_specifications}" class="form-group mt-2">
+                                        <vue-ckeditor
+                                            v-if="specsOpen"
+                                            v-model="form.technical_specifications"
+                                            :editors="editors"
+                                            type="classic"></vue-ckeditor>
+                                        <small v-if="errors.technical_specifications"
+                                               class="form-control-feedback"
+                                               v-text="errors.technical_specifications[0]"></small>
+                                    </div>
+                                </details>
+                            </div>
+
                             <!-- <div class="col-md-3 center-el-checkbox">
                                 <div class="form-group">
                                     <el-checkbox v-model="has_percentage_perception"
@@ -904,6 +927,43 @@
                                                 <small v-else style="font-size:11px;color:#9ca3af">
                                                     Necesaria para que tu producto aparezca en marketplace · usada también para tu catálogo interno.
                                                 </small>
+                                            </div>
+                                        </div>
+
+                                        <!-- Marca: antes solo se podía poner en Productos (ERP) y
+                                             la mayoría de fichas del marketplace salían sin ella. -->
+                                        <div class="col-md-6">
+                                            <div :class="{'has-danger': errors.brand_id}" class="form-group">
+                                                <label class="control-label">
+                                                    Marca
+                                                    <small style="font-weight:normal;color:#6b7280;margin-left:4px">(se muestra en la ficha y ayuda a encontrar el producto)</small>
+                                                </label>
+                                                <el-select v-model="form.brand_id"
+                                                           clearable
+                                                           filterable
+                                                           placeholder="Escribe la marca; Enter para crearla"
+                                                           style="width:100%"
+                                                           :filter-method="filterBrands"
+                                                           @visible-change="onBrandDropdownChange"
+                                                           @keydown.enter.native.prevent="createBrandFromSearch">
+                                                    <el-option v-for="option in filteredBrands"
+                                                               :key="option.id"
+                                                               :label="option.name"
+                                                               :value="option.id"></el-option>
+                                                    <template slot="empty">
+                                                        <p class="el-select-dropdown__empty">
+                                                            {{ brandSearchQuery ? 'No existe esa marca' : 'Sin marcas todavía. Escribe el nombre y presiona Enter' }}
+                                                        </p>
+                                                        <div v-if="brandSearchQuery"
+                                                             class="el-select-dropdown__item new-option"
+                                                             @click.stop="createBrandFromSearch">
+                                                            <span>Crear marca "{{ brandSearchQuery }}"</span>
+                                                        </div>
+                                                    </template>
+                                                </el-select>
+                                                <small v-if="errors.brand_id"
+                                                       class="form-control-feedback"
+                                                       v-text="errors.brand_id[0]"></small>
                                             </div>
                                         </div>
 
@@ -2042,6 +2102,10 @@ export default {
             // cerrando el editor al primer carácter. Ahora el usuario lo
             // controla y loadRecord lo ajusta una sola vez al inicio.
             mpDescOpen: true,
+            specsOpen: false,
+            brands: [],
+            filteredBrands: [],
+            brandSearchQuery: '',
             // Toggle del bloque "Datos contables y etiquetas".
             contableOpen: false,
             // Toggle del bloque Variantes — controlado por el usuario via
@@ -2345,6 +2409,8 @@ export default {
                 this.categories = response.data.categories
                 this.tags = response.data.tags
                 this.attribute_types = response.data.attribute_types
+                this.brands = response.data.brands || []
+                this.filteredBrands = this.brands
 
                 this.form.sale_affectation_igv_type_id = (this.affectation_igv_types.length > 0) ? this.affectation_igv_types[0].id : null
                 this.form.purchase_affectation_igv_type_id = (this.affectation_igv_types.length > 0) ? this.affectation_igv_types[0].id : null
@@ -2397,6 +2463,40 @@ export default {
                 .catch(error => {
 
                 })
+        },
+        filterBrands(query) {
+            this.brandSearchQuery = query
+            const q = (query || '').toLowerCase()
+            this.filteredBrands = q
+                ? this.brands.filter(b => (b.name || '').toLowerCase().includes(q))
+                : this.brands
+        },
+        onBrandDropdownChange(visible) {
+            if (!visible) this.brandSearchQuery = ''
+            this.filteredBrands = this.brands
+        },
+        createBrandFromSearch() {
+            const name = (this.brandSearchQuery || '').trim()
+            if (!name) return
+            // Si ya existe (distinta mayúscula), se elige en vez de duplicarla.
+            const existente = this.brands.find(b => (b.name || '').toLowerCase() === name.toLowerCase())
+            if (existente) {
+                this.form.brand_id = existente.id
+                this.brandSearchQuery = ''
+                return
+            }
+            this.$http.post(`/brands`, { name, add: false, id: null })
+                .then(response => {
+                    if (!response.data.success) {
+                        this.$message.error(response.data.message || 'No se pudo crear la marca')
+                        return
+                    }
+                    this.brands.push(response.data.data)
+                    this.filteredBrands = this.brands
+                    this.$nextTick(() => { this.form.brand_id = response.data.data.id })
+                    this.brandSearchQuery = ''
+                })
+                .catch(() => this.$message.error('Error al crear la marca'))
         },
         filterCategories(query) {
             this.categorySearchQuery = query
@@ -2556,6 +2656,7 @@ export default {
                 marketplace_category_id: null,
                 marketplace_category_path: [],
                 tags_id: [],
+                brand_id: null,
                 multi_images: [],
                 primary_gallery_id: null,
                 previous_primary_to_gallery: false,
@@ -3099,6 +3200,7 @@ export default {
         withImageFields(record) {
             this.primaryOriginalUrl = null
             this.galleryUploading = 0
+            this.specsOpen = !!(record && record.technical_specifications)
             return Object.assign({}, record, {
                 multi_images: [],
                 primary_gallery_id: null,
