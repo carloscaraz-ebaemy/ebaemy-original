@@ -3,6 +3,7 @@
 namespace App\Services\System;
 
 use App\Models\System\Client;
+use App\Models\System\MarketplaceCategory;
 use App\Models\System\MarketplaceListing;
 use App\Models\System\MarketplaceListingOption;
 use App\Models\System\MarketplaceListingOptionValue;
@@ -353,7 +354,8 @@ class MarketplaceListingSyncService
                 (string) ($item->description ?: $item->name ?: '') . ' '
                 . (string) $brandName . ' ' . (string) $categoryName . ' '
                 . (($item->name && $item->name !== $item->description) ? $item->name . ' ' : '')
-                . ($variantInfo['has_variants'] ? $this->variantSearchTerms($item) : '')
+                . ($variantInfo['has_variants'] ? $this->variantSearchTerms($item) . ' ' : '')
+                . $this->officialCategoryTerms($item->marketplace_category_id ?? null)
             ),
 
             // Precio "principal" mostrado en cards. Para items con variantes
@@ -399,11 +401,31 @@ class MarketplaceListingSyncService
         ];
     }
 
+    /** Nombres de categoría oficial ya resueltos en esta pasada, por id. */
+    private array $officialCategoryTermsCache = [];
+
     /**
-     * Si el item tiene variantes activas, devuelve has_variants=true con
-     * min/max/sum sobre item_variants. NULL en sale_unit_price de variante
-     * = hereda del padre (lógica del modelo ItemVariant).
+     * Nombre de la categoría OFICIAL del marketplace y el de su madre, para el
+     * índice de búsqueda. La categoría de la tienda no basta: alasitas tiene
+     * sus pinos navideños en «Navidad 2025» y titulados «🎄 Pino Americano»,
+     * así que buscar «árboles» no los encontraba aunque estaban bien
+     * clasificados en Navidad › Árboles de Navidad (2026-11-17).
      */
+    private function officialCategoryTerms($categoryId): string
+    {
+        if (!$categoryId) {
+            return '';
+        }
+
+        return $this->officialCategoryTermsCache[$categoryId] ??= (function () use ($categoryId) {
+            $nodo = MarketplaceCategory::query()->with('parent:id,name')->find($categoryId, ['id', 'name', 'parent_id']);
+            if (!$nodo) {
+                return '';
+            }
+            return trim($nodo->name . ' ' . ($nodo->parent->name ?? ''));
+        })();
+    }
+
     /**
      * Palabras de las variantes activas para el índice de búsqueda: sus
      * nombres («Rojo / M») sin repetir. Requiere estar conectado al tenant.
@@ -428,6 +450,11 @@ class MarketplaceListingSyncService
         )));
     }
 
+    /**
+     * Si el item tiene variantes activas, devuelve has_variants=true con
+     * min/max/sum sobre item_variants. NULL en sale_unit_price de variante
+     * = hereda del padre (lógica del modelo ItemVariant).
+     */
     private function resolveVariantInfo(object $item, int $fallbackStock): array
     {
         if (empty($item->has_variants)) {
