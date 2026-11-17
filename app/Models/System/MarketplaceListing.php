@@ -506,6 +506,22 @@ class MarketplaceListing extends Model
     }
 
     /**
+     * Video promocional publicado de este producto, o null. Público = aprobado
+     * por el SuperAdmin y con el extra de la tienda vigente (PromoVideo::publico).
+     */
+    public function promoVideo(): ?PromoVideo
+    {
+        if (!$this->client_id || !$this->remote_item_id) {
+            return null;
+        }
+
+        return PromoVideo::publico()
+            ->where('client_id', $this->client_id)
+            ->where('remote_item_id', $this->remote_item_id)
+            ->first();
+    }
+
+    /**
      * URL absoluta de la ficha pública del listing.
      */
     public function getPublicUrlAttribute(): string

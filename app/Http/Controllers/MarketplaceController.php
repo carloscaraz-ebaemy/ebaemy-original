@@ -2318,11 +2318,20 @@ class MarketplaceController extends Controller
         $listings = MarketplaceListing::hasPublicPage()
             ->orderByDesc('updated_at')
             ->limit(40000) // límite seguro, sitemap máx 50k
-            ->get(['slug', 'updated_at', 'image_url', 'title']);
+            ->get(['slug', 'updated_at', 'image_url', 'title', 'client_id', 'remote_item_id']);
+
+        // Videos promocionales publicados, por (tienda, producto): una sola
+        // consulta para todo el sitemap. Google pide miniatura, titulo,
+        // descripcion y el archivo o el reproductor.
+        $videos = \App\Models\System\PromoVideo::publico()
+            ->whereNotNull('thumbnail_url')
+            ->get()
+            ->keyBy(fn ($v) => $v->client_id . '-' . $v->remote_item_id);
 
         $xml  = '<?xml version="1.0" encoding="UTF-8"?>' . "\n";
         $xml .= '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" '
-              . 'xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">' . "\n";
+              . 'xmlns:image="http://www.google.com/schemas/sitemap-image/1.1" '
+              . 'xmlns:video="http://www.google.com/schemas/sitemap-video/1.1">' . "\n";
 
         // La portada y el directorio cambian cuando cambia el catalogo: su
         // lastmod es el del ultimo producto modificado, no la hora de la
@@ -2426,6 +2435,25 @@ class MarketplaceController extends Controller
                 $xml .= '    <image:loc>' . htmlspecialchars($l->image_url, ENT_XML1) . "</image:loc>\n";
                 $xml .= '    <image:title>' . htmlspecialchars($l->title, ENT_XML1) . "</image:title>\n";
                 $xml .= "  </image:image>\n";
+            }
+            $video = $videos->get($l->client_id . '-' . $l->remote_item_id);
+            if ($video && ($video->mp4_url || $video->playback_url)) {
+                $e = fn ($t) => htmlspecialchars((string) $t, ENT_XML1);
+                $xml .= "  <video:video>\n";
+                $xml .= '    <video:thumbnail_loc>' . $e($video->thumbnail_url) . "</video:thumbnail_loc>\n";
+                $xml .= '    <video:title>' . $e($video->title ?: $l->title) . "</video:title>\n";
+                $xml .= '    <video:description>' . $e($video->description ?: 'Video de ' . $l->title) . "</video:description>\n";
+                if ($video->mp4_url) {
+                    $xml .= '    <video:content_loc>' . $e($video->mp4_url) . "</video:content_loc>\n";
+                }
+                if ($video->playback_url) {
+                    $xml .= '    <video:player_loc>' . $e($video->playback_url) . "</video:player_loc>\n";
+                }
+                $xml .= '    <video:duration>' . (int) $video->duration_seconds . "</video:duration>\n";
+                if ($video->published_at) {
+                    $xml .= '    <video:publication_date>' . $video->published_at->toIso8601String() . "</video:publication_date>\n";
+                }
+                $xml .= "  </video:video>\n";
             }
             $xml .= "</url>\n";
         }

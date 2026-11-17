@@ -2316,6 +2316,12 @@ if ($hostname) {
             
             Route::get('information', 'System\ConfigurationController@InfoIndex')->name('system.information');
             Route::get('status/servidor', 'System\StatusController@server')->name('system.status.server');
+            // Videos promocionales: extra de pago por tienda + bandeja de aprobación.
+            Route::get('promo-videos', 'System\PromoVideoController@index')->name('system.promo_videos');
+            Route::post('promo-videos/defaults', 'System\PromoVideoController@saveDefaults')->name('system.promo_videos.defaults');
+            Route::post('promo-videos/tienda/{client}', 'System\PromoVideoController@saveClient')->name('system.promo_videos.client');
+            Route::post('promo-videos/tienda/{client}/pago', 'System\PromoVideoController@registerPayment')->name('system.promo_videos.payment');
+            Route::post('promo-videos/video/{video}', 'System\PromoVideoController@review')->name('system.promo_videos.review');
             Route::get('status/history', 'System\StatusController@history')->name('system.status');
             Route::get('status/memory', 'System\StatusController@memory')->name('system.status.memory');
             Route::get('status/cpu', 'System\StatusController@cpu')->name('system.status.cpu');

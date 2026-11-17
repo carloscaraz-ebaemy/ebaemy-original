@@ -173,6 +173,9 @@
     $adsCartPayload = \App\Services\Marketplace\AdsTracking::payload(
         'add_to_cart', $adsItem, (float) $listing->display_price
     );
+
+    // Video promocional aprobado (extra de pago de la tienda). null si no hay.
+    $promoVideo = $listing->promoVideo();
 @endphp
 
 @section('title', $seoTitle)
@@ -196,6 +199,21 @@
 <script type="application/ld+json">
 {!! json_encode($breadcrumb, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}
 </script>
+@if($promoVideo)
+{{-- Video del producto: VideoObject propio para que Google pueda mostrarlo
+     en resultados, y og:video para la vista previa al compartir. --}}
+<script type="application/ld+json">
+{!! json_encode(['@context' => 'https://schema.org'] + $promoVideo->schemaOrg($listing->title, $canonical), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG) !!}
+</script>
+@if($promoVideo->mp4_url)
+<meta property="og:video" content="{{ $promoVideo->mp4_url }}">
+<meta property="og:video:type" content="video/mp4">
+@if($promoVideo->width && $promoVideo->height)
+<meta property="og:video:width" content="{{ $promoVideo->width }}">
+<meta property="og:video:height" content="{{ $promoVideo->height }}">
+@endif
+@endif
+@endif
 @endpush
 
 @section('content')
@@ -266,6 +284,19 @@
             </div>
         @endif
     </div>
+
+    {{-- Video promocional. Va DEBAJO de la galería y con preload="none": la
+         foto sigue siendo el LCP de la ficha y el video no se descarga hasta
+         que el comprador lo reproduce. --}}
+    @if($promoVideo && $promoVideo->mp4_url)
+        <div class="mp-promo-video" style="margin:12px 0 4px">
+            <video controls playsinline preload="none"
+                   poster="{{ $promoVideo->thumbnail_url }}"
+                   src="{{ $promoVideo->mp4_url }}"
+                   aria-label="Video de {{ $listing->title }}"
+                   style="width:100%;max-height:520px;border-radius:12px;background:#0f172a;display:block"></video>
+        </div>
+    @endif
 
     {{-- Galería: thumbs clickeables + zoom hover. Vive FUERA del bloque de
          variantes (mp-options) porque los productos SIN variantes también

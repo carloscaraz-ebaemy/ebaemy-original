@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\System\Client;
+use App\Models\System\ClientAddon;
 use App\Models\System\Feature;
 use App\Models\System\Plan;
 use Hyn\Tenancy\Environment;
@@ -154,8 +155,24 @@ class FeatureGate
                 ->with(['plan.features'])
                 ->first();
 
-            if (!$client || !$client->plan) {
+            if (!$client) {
                 return null;
+            }
+
+            // Extras pagados aparte del plan (client_addons), vigentes hoy.
+            // Se suman a los features del plan con su cupo como límite; si
+            // el plan ya trae el mismo feature, manda el extra.
+            $addons = ClientAddon::query()->vigente()
+                ->where('client_id', $client->id)
+                ->get()
+                ->keyBy('addon_key')
+                ->map(fn ($a) => [
+                    'limit' => $a->quota,
+                    'meta'  => ['addon' => true, 'paid_until' => $a->paid_until?->toDateString()],
+                ]);
+
+            if (!$client->plan) {
+                return $addons->isNotEmpty() ? $addons : null;
             }
 
             $this->plan = $client->plan;
@@ -167,7 +184,8 @@ class FeatureGate
                 ->map(fn($f) => [
                     'limit' => $f->pivot->limit ?? null,
                     'meta'  => $f->pivot->meta  ?? null,
-                ]);
+                ])
+                ->merge($addons);
 
         } catch (\Throwable $e) {
             Log::warning('[FeatureGate] No se pudo resolver features del plan.', [
@@ -175,6 +193,15 @@ class FeatureGate
             ]);
             return null;
         }
+    }
+
+    /**
+     * Borra la caché de una tienda desde fuera de su contexto (SuperAdmin),
+     * para que activar o pagar un extra se note al momento y no a los 10 min.
+     */
+    public static function flushHostname(int $hostnameId): void
+    {
+        Cache::forget("feature_gate_{$hostnameId}");
     }
 
     private function cacheKey(): ?string
