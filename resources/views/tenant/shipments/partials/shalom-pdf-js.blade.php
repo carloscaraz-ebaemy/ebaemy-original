@@ -117,6 +117,49 @@ window.ShalomPdf = (function () {
         return lista(pg, fonts, items, x + m, yt - 4 * k, w - 2 * m, yt - 4 * k - (y + 3 * k), 11 * k, 7 * k, k, ': lista completa en otra hoja');
     }
 
+    /**
+     * Logo de la tienda en el recuadro «Pega tu logo aquí» del rótulo de
+     * Shalom. El API no acepta logo: el recuadro sale con la mascota de
+     * Shalom y había que pegar el logo a mano.
+     *
+     * Medidas sobre el rótulo oficial (595 × 366 pt, origen abajo-izquierda):
+     * el recuadro va de x 370 a 539 y de y 167 a 282. Se tapa su interior
+     * con el color de fondo (dejando ver las esquinas redondeadas) y se
+     * centra el logo. Solo si la hoja tiene esa proporción: si Shalom cambia
+     * el diseño, el rótulo sale tal cual en vez de tapar otra cosa.
+     */
+    async function estamparLogo(src, logo) {
+        if (!logo || !src.getPageCount()) return false;
+        var pg = src.getPage(0), W = pg.getWidth(), H = pg.getHeight();
+        if (Math.abs(W / H - 595 / 366) > 0.03) return false;
+        var img;
+        try {
+            img = logo.png ? await src.embedPng(logo.bytes.slice(0)) : await src.embedJpg(logo.bytes.slice(0));
+        } catch (e) { return false; }
+        var kx = W / 595, ky = H / 366;
+        var box = { x: 373 * kx, y: 170 * ky, w: 163 * kx, h: 111.5 * ky };
+        pg.drawRectangle({ x: box.x, y: box.y, width: box.w, height: box.h, color: window.PDFLib.rgb(0.957, 0.976, 0.988) });
+        var pad = 8 * kx, k = Math.min((box.w - 2 * pad) / img.width, (box.h - 2 * pad) / img.height);
+        var iw = img.width * k, ih = img.height * k;
+        pg.drawImage(img, { x: box.x + (box.w - iw) / 2, y: box.y + (box.h - ih) / 2, width: iw, height: ih });
+        return true;
+    }
+
+    // El logo se baja una vez por pantalla. PNG o JPG; otro formato no se usa.
+    var LOGO = {};
+    async function bajarLogo(url) {
+        if (!url) return null;
+        if (LOGO[url] !== undefined) return LOGO[url];
+        try {
+            var r = await fetch(url, { credentials: 'same-origin' });
+            var b = r.ok ? await r.arrayBuffer() : null;
+            var h = b ? new Uint8Array(b.slice(0, 4)) : [];
+            var png = h[0] === 0x89 && h[1] === 0x50, jpg = h[0] === 0xFF && h[1] === 0xD8;
+            LOGO[url] = (png || jpg) ? { bytes: b, png: png } : null;
+        } catch (e) { LOGO[url] = null; }
+        return LOGO[url];
+    }
+
     async function build(fuentes, formato, alAvanzar, opts) {
         opts = opts || {};
         var L = window.PDFLib;
@@ -152,9 +195,12 @@ window.ShalomPdf = (function () {
         // de cada envío) o una hoja de contenido completa (solo si la lista no
         // entró en la franja, o en la etiqueta 10 × 15, que gira el rótulo).
         var fonts = null, detalles = [];
+        var logo = await bajarLogo(opts.logo);
         for (var i = 0; i < fuentes.length; i++) {
             // Copia: pdf-lib puede dejar el ArrayBuffer inutilizable tras leerlo.
             var src = await L.PDFDocument.load(bufs[i].slice(0), { ignoreEncryption: true });
+            // Se guarda y se vuelve a abrir para que embedPdf copie lo dibujado.
+            if (await estamparLogo(src, logo)) src = await L.PDFDocument.load(await src.save());
             var pags = await out.embedPdf(src, src.getPageIndices());
             var f = fuentes[i];
             var conLista = !!(opts.detalle && f.contenido && f.contenido.length && pags.length);

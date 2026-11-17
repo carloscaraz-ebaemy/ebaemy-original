@@ -198,6 +198,16 @@
 <iframe id="printFrame" title="Impresión" style="position:absolute;width:0;height:0;border:0;visibility:hidden"></iframe>
 
 @if(count($fuentes))
+@php
+    // Logo de la tienda para el recuadro «Pega tu logo aquí» del rótulo de
+    // Shalom. Misma regla que el rótulo de ebaemy (partials/label-body).
+    $logoTienda = null;
+    $ebCompany = \App\Models\Tenant\Company::first();
+    if ($doc === 'rotulo' && $ebCompany && !empty($ebCompany->logo)
+        && \Illuminate\Support\Facades\Storage::disk('public')->exists('uploads/logos/' . $ebCompany->logo)) {
+        $logoTienda = asset('storage/uploads/logos/' . $ebCompany->logo);
+    }
+@endphp
 @include('tenant.shipments.partials.shalom-pdf-js')
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>
@@ -210,6 +220,7 @@
     // de la tienda con el N° de guía (solo en la impresión de un envío).
     var RESPALDO = {!! json_encode($respaldo ?? null) !!};
     var TOTAL = {{ (int) $total }};
+    var LOGO_TIENDA = {!! json_encode($logoTienda) !!};
     var stage = document.getElementById('stage'), btn = document.getElementById('imprimir'),
         dl = document.getElementById('descargar'), aviso = document.getElementById('aviso'),
         hojas = document.getElementById('hojas'), hecho = document.getElementById('hecho'),
@@ -277,7 +288,7 @@
         listo(false); decir(''); hojas.textContent = '…';
         stage.innerHTML = '<div class="skeleton" aria-hidden="true"></div>';
         var det = document.getElementById('detalle');
-        ShalomPdf.build(FUENTES, fmt, function (i, t) { if (t > 1) hecho.textContent = 'Bajando de Shalom ' + (i + 1) + ' de ' + t + '…'; }, { detalle: !!(det && det.checked) })
+        ShalomPdf.build(FUENTES, fmt, function (i, t) { if (t > 1) hecho.textContent = 'Bajando de Shalom ' + (i + 1) + ' de ' + t + '…'; }, { detalle: !!(det && det.checked), logo: LOGO_TIENDA })
             .then(function (url) {
                 if (n !== seq) return;
                 hecho.textContent = '';
