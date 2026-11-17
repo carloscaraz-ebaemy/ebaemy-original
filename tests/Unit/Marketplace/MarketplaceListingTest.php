@@ -120,34 +120,37 @@ class MarketplaceListingTest extends TestCase
         $this->assertStringContainsString('THEN 6', $sql);
         $this->assertStringContainsString("title LIKE '% polo%'", $sql);
         $this->assertStringContainsString('THEN 5', $sql);
-        // El texto indexado (descripcion + marca + categoria) va por debajo.
-        $this->assertStringContainsString("search_text LIKE 'polo%'", $sql);
-        $this->assertStringContainsString('THEN 4', $sql);
-        $this->assertStringContainsString("search_text LIKE '% polo%'", $sql);
-        $this->assertStringContainsString('THEN 3', $sql);
+        // El texto indexado (marca + categoria + variantes) va por debajo,
+        // y siempre al inicio de palabra.
+        $this->assertStringContainsString("search_text REGEXP '(^|[^[:alnum:]])polo' THEN 4", $sql);
         // Y el substring suelto (el caso "espolon") se queda en el suelo.
         $this->assertStringContainsString('ELSE 1 END', $sql);
     }
 
-    public function test_text_relevance_pone_el_titulo_por_encima_de_la_categoria()
-    {
-        $sql = MarketplaceListing::textRelevanceSql('zapatilla');
-
-        // Una palabra del TITULO (5) debe puntuar mas que una palabra del
-        // texto indexado (3), donde vive la categoria "calzado" — sinonimo.
-        $titulo = strpos($sql, "title LIKE '% zapatilla%'");
-        $texto  = strpos($sql, "search_text LIKE '% calzado%'");
-
-        $this->assertNotFalse($titulo);
-        $this->assertNotFalse($texto);
-        $this->assertLessThan($texto, $titulo, 'El titulo debe evaluarse antes que la categoria');
-    }
-
-    public function test_text_relevance_incluye_los_sinonimos_del_token()
+    public function test_text_relevance_pone_la_palabra_por_encima_de_sus_sinonimos()
     {
         $sql = MarketplaceListing::textRelevanceSql('polo');
 
-        $this->assertStringContainsString("search_text LIKE 'camiseta%'", $sql);
+        // Un sinonimo en el titulo (3) puntua menos que la palabra tecleada
+        // en cualquier sitio (4+): «camiseta» no empata con «polo».
+        $palabra  = strpos($sql, "search_text REGEXP '(^|[^[:alnum:]])polo' THEN 4");
+        $sinonimo = strpos($sql, "title LIKE 'camiseta%'");
+
+        $this->assertNotFalse($palabra);
+        $this->assertNotFalse($sinonimo);
+        $this->assertLessThan($sinonimo, $palabra);
+        $this->assertStringContainsString("search_text REGEXP '(^|[^[:alnum:]])camiseta' OR", $sql);
+    }
+
+    public function test_text_relevance_bonifica_la_palabra_entera()
+    {
+        $sql = MarketplaceListing::textRelevanceSql('cama');
+
+        // «Cama de madera» antes que «Cámara»: +2 si la palabra sale entera.
+        $this->assertStringContainsString(
+            "(CASE WHEN search_text REGEXP '(^|[^[:alnum:]])cama(s|es)?([^[:alnum:]]|$)'",
+            $sql
+        );
     }
 
     public function test_text_relevance_suma_un_termino_por_token()
@@ -155,10 +158,18 @@ class MarketplaceListingTest extends TestCase
         $uno = MarketplaceListing::textRelevanceSql('polo');
         $dos = MarketplaceListing::textRelevanceSql('polo rojo');
 
-        // Dos CASE por token: la bonificacion de exactitud + los tramos.
-        $this->assertSame(2, substr_count($uno, 'CASE WHEN'));
-        $this->assertSame(4, substr_count($dos, 'CASE WHEN'));
+        // Tres CASE por token: exactitud, palabra entera y los tramos.
+        $this->assertSame(3, substr_count($uno, '(CASE WHEN'));
+        $this->assertSame(6, substr_count($dos, '(CASE WHEN'));
         $this->assertStringContainsString(') + (', $dos);
+    }
+
+    public function test_search_tokens_descarta_las_palabras_de_relleno()
+    {
+        $this->assertSame(['zapatillas', 'niña'], MarketplaceListing::searchTokens('zapatillas para niña'));
+        $this->assertSame(['polo', 'rojo'], MarketplaceListing::searchTokens('polo,rojo'));
+        // Si todo es relleno, se busca tal cual en vez de no buscar nada.
+        $this->assertSame(['para', 'con'], MarketplaceListing::searchTokens('para con'));
     }
 
     public function test_text_relevance_bonifica_el_token_exacto_sobre_el_sinonimo()

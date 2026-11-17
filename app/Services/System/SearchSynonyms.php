@@ -12,6 +12,10 @@ namespace App\Services\System;
  */
 class SearchSynonyms
 {
+    // Un sinónimo solo entra si quien busca lo uno se llevaría lo otro. Se
+    // retiraron (2026-11-17) los que traían otra cosa: cafetera→«cafe» (el
+    // COLOR café), laptop→«pc» («12 pcs»), celular→«equipo», cama↔colchón,
+    // jean→pantalón, zapatilla→zapato/calzado y cargador→adaptador.
     protected static array $map = [
         'asiento'     => ['silla', 'sillon', 'butaca', 'taburete'],
         'silla'       => ['asiento', 'sillon', 'butaca', 'taburete'],
@@ -20,12 +24,12 @@ class SearchSynonyms
         'camiseta'    => ['polo', 'tshirt', 'remera'],
         'audifonos'   => ['auriculares', 'cascos', 'earphones', 'headset', 'audifono'],
         'auriculares' => ['audifonos', 'cascos', 'earphones', 'headset'],
-        'celular'     => ['telefono', 'smartphone', 'movil', 'equipo'],
+        'celular'     => ['telefono', 'smartphone', 'movil'],
         'telefono'    => ['celular', 'smartphone', 'movil'],
-        'laptop'      => ['notebook', 'portatil', 'computadora', 'pc'],
-        'computadora' => ['laptop', 'pc', 'notebook', 'ordenador'],
-        'zapatilla'   => ['zapatillas', 'tenis', 'sneaker', 'zapato', 'calzado'],
-        'zapatillas'  => ['zapatilla', 'tenis', 'sneaker', 'calzado'],
+        'laptop'      => ['notebook', 'portatil', 'computadora'],
+        'computadora' => ['laptop', 'notebook', 'ordenador'],
+        'zapatilla'   => ['zapatillas', 'tenis', 'sneaker'],
+        'zapatillas'  => ['zapatilla', 'tenis', 'sneaker'],
         'cartera'     => ['bolso', 'bolsa', 'monedero'],
         'bolso'       => ['cartera', 'bolsa', 'mochila'],
         'reloj'       => ['watch', 'smartwatch'],
@@ -35,17 +39,15 @@ class SearchSynonyms
         'mochila'     => ['morral', 'backpack', 'bolso'],
         'olla'        => ['cacerola', 'perol', 'caldero'],
         'licuadora'   => ['batidora'],
-        'cafetera'    => ['cafe', 'greca'],
+        'cafetera'    => ['greca'],
         'audifono'    => ['audifonos', 'auricular'],
-        'cargador'    => ['adaptador', 'charger'],
+        'cargador'    => ['charger'],
         'parlante'    => ['altavoz', 'speaker', 'bocina'],
         'casaca'      => ['chaqueta', 'campera', 'abrigo'],
         'chaqueta'    => ['casaca', 'campera', 'abrigo'],
         'pantalon'    => ['jean', 'pantalones'],
-        'jean'        => ['pantalon', 'pantalones'],
-        'cama'        => ['colchon', 'somier'],
-        'colchon'     => ['cama'],
-    ];
+        'jean'        => ['jeans'],
+            ];
 
     /** Tope de variantes que devuelve expand(), para no inflar el SQL. */
     private const MAX_VARIANTES = 12;
@@ -139,9 +141,16 @@ class SearchSynonyms
     {
         $largo = mb_strlen($palabra);
 
-        // «cojines» -> «cojin», «manteles» -> «mantel». Pedimos 6 para no
-        // destrozar palabras cortas donde «es» no es plural («mes», «tres»).
-        if ($largo >= 6 && str_ends_with($palabra, 'es')) {
+        // «lapices» -> «lapiz», «luces» -> «luz».
+        if ($largo >= 5 && preg_match('/[aeiou]ces$/u', $palabra)) {
+            return mb_substr($palabra, 0, -3) . 'z';
+        }
+
+        // «cojines» -> «cojin», «manteles» -> «mantel», «flores» -> «flor»:
+        // el plural en -es solo va tras vocal + consonante final. Si no, la
+        // «e» es de la palabra y solo sobra la «s»: «lentes» -> «lente» (no
+        // «lent», que casaba con «excelente») y «cables» -> «cable».
+        if ($largo >= 5 && preg_match('/[aeiou][lnrdjy]es$/u', $palabra)) {
             return mb_substr($palabra, 0, -2);
         }
 

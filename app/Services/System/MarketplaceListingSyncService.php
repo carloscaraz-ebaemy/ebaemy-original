@@ -345,9 +345,15 @@ class MarketplaceListingSyncService
             // Texto de búsqueda normalizado (sin acentos, minúsculas) para que el
             // buscador sea insensible a tildes/mayúsculas sin depender de la
             // colación de MySQL. Lo consume MarketplaceListing::scopeSearch.
+            //
+            // Lleva también el nombre corto si difiere del título y los nombres
+            // de las variantes (color, talla): sin ellos «polo rojo» no
+            // encontraba un «Polo básico» con variante Rojo.
             'search_text'       => self::normalizeForSearch(
                 (string) ($item->description ?: $item->name ?: '') . ' '
-                . (string) $brandName . ' ' . (string) $categoryName
+                . (string) $brandName . ' ' . (string) $categoryName . ' '
+                . (($item->name && $item->name !== $item->description) ? $item->name . ' ' : '')
+                . ($variantInfo['has_variants'] ? $this->variantSearchTerms($item) : '')
             ),
 
             // Precio "principal" mostrado en cards. Para items con variantes
@@ -398,6 +404,30 @@ class MarketplaceListingSyncService
      * min/max/sum sobre item_variants. NULL en sale_unit_price de variante
      * = hereda del padre (lógica del modelo ItemVariant).
      */
+    /**
+     * Palabras de las variantes activas para el índice de búsqueda: sus
+     * nombres («Rojo / M») sin repetir. Requiere estar conectado al tenant.
+     */
+    private function variantSearchTerms(object $item): string
+    {
+        try {
+            $nombres = DB::connection('tenant')->table('item_variants')
+                ->where('item_id', $item->id)
+                ->where('is_active', true)
+                ->whereNotNull('display_name')
+                ->pluck('display_name');
+        } catch (\Throwable $e) {
+            return '';
+        }
+
+        $palabras = preg_split('/[\s\/,\-]+/u', $nombres->implode(' '), -1, PREG_SPLIT_NO_EMPTY);
+
+        return implode(' ', array_unique(array_map(
+            fn ($p) => mb_strtolower($p, 'UTF-8'),
+            $palabras
+        )));
+    }
+
     private function resolveVariantInfo(object $item, int $fallbackStock): array
     {
         if (empty($item->has_variants)) {

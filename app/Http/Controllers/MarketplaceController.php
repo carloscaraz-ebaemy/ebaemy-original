@@ -213,7 +213,7 @@ class MarketplaceController extends Controller
         // de la variante is_primary, y color activo. Reusable por todas
         // las acciones que renderizan grids de cards.
         $this->decorateListingsWithVariantData($listings);
-        $this->explodeVariantsIntoCards($listings);
+        $this->explodeVariantsIntoCards($listings, $q);
         $this->decorateListingsWithAlsoIn($listings);
         $this->decorateListingsWithPersonalCoupon($listings);
 
@@ -963,6 +963,30 @@ class MarketplaceController extends Controller
     }
 
     /**
+     * Si alguna palabra del nombre de la variante («Rojo / M») empieza por
+     * alguna de las grafías buscadas. Al inicio de palabra, como el filtro.
+     *
+     * @param array<int,string> $grafias
+     */
+    private function variantMatchesSearch(?string $nombre, array $grafias): bool
+    {
+        $palabras = preg_split(
+            '/[^\p{L}\p{N}]+/u',
+            \App\Services\System\MarketplaceListingSyncService::normalizeForSearch((string) $nombre),
+            -1,
+            PREG_SPLIT_NO_EMPTY
+        );
+        foreach ($palabras as $p) {
+            foreach ($grafias as $g) {
+                if ($g !== '' && str_starts_with($p, $g)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
      * Expande cada producto CON variantes en UNA card por variante: la grilla
      * muestra cada color/talla individualmente (decisión de negocio). Reusa el
      * MISMO partial — clona el listing y sobreescribe imagen/precio/título/stock
@@ -971,8 +995,14 @@ class MarketplaceController extends Controller
      * Solo aplica a paginators (las rails de "recomendados/recién vistos" se
      * quedan con 1 card por producto). Llamar DESPUÉS de
      * decorateListingsWithVariantData en las 4 vistas de listado.
+     *
+     * Con búsqueda (`$q`): si alguna variante casa con lo buscado («polo
+     * rojo» → la variante Rojo) salen SOLO esas; si ninguna casa, como mucho
+     * 3, para que un producto con muchos colores no llene la página con lo
+     * que no se pidió. Antes salían siempre las 6 primeras por id y la roja
+     * podía ser la séptima.
      */
-    private function explodeVariantsIntoCards($listings): void
+    private function explodeVariantsIntoCards($listings, ?string $q = null): void
     {
         if (!$listings instanceof \Illuminate\Contracts\Pagination\Paginator) {
             return;
@@ -990,6 +1020,15 @@ class MarketplaceController extends Controller
             ->get()
             ->groupBy('listing_id');
 
+        // Grafías de cada palabra buscada (plural, erratas): las mismas que
+        // usa el filtro, para que la variante elegida cuadre con él.
+        $grafiasBuscadas = [];
+        foreach (MarketplaceListing::searchTokens($q) as $tok) {
+            foreach (\App\Services\System\SearchSynonyms::spellings($tok) as $g) {
+                $grafiasBuscadas[] = $g;
+            }
+        }
+
         $expanded = collect();
         foreach ($items as $l) {
             $variants = $variantsByListing->get($l->id);
@@ -998,7 +1037,12 @@ class MarketplaceController extends Controller
             $inStock = $variants ? $variants->filter(fn($v) => (int) $v->stock > 0) : collect();
 
             if (!empty($l->has_variants) && $variants && $variants->count() >= 2 && $inStock->isNotEmpty()) {
-                foreach ($inStock->take(6) as $v) {
+                $mostrar = $inStock->take(6);
+                if ($grafiasBuscadas) {
+                    $casan = $inStock->filter(fn ($v) => $this->variantMatchesSearch($v->display_name, $grafiasBuscadas));
+                    $mostrar = $casan->isNotEmpty() ? $casan->take(6) : $inStock->take(3);
+                }
+                foreach ($mostrar as $v) {
                     // Sin foto no hay card: ni la variante ni el padre tienen
                     // imagen -> la card saldria con el bloque "Sin imagen".
                     // El seller lo ve como alerta en su panel de productos.

@@ -26,6 +26,28 @@ class SearchSynonymsTest extends TestCase
     }
 
     /**
+     * La «e» de «lente» y «cable» es de la palabra: recortar «-es» daba
+     * «lent» y «cabl», que casaban con «excelente» o cualquier cosa.
+     */
+    public function test_solo_quita_es_cuando_el_plural_lo_lleva()
+    {
+        $this->assertSame('lente', SearchSynonyms::singular('lentes'));
+        $this->assertSame('cable', SearchSynonyms::singular('cables'));
+        $this->assertSame('llave', SearchSynonyms::singular('llaves'));
+        $this->assertSame('flor', SearchSynonyms::singular('flores'));
+        $this->assertSame('pantalon', SearchSynonyms::singular('pantalones'));
+        $this->assertSame('lapiz', SearchSynonyms::singular('lapices'));
+    }
+
+    public function test_no_trae_sinonimos_que_son_otra_cosa()
+    {
+        $this->assertNotContains('cafe', SearchSynonyms::expand('cafetera'));
+        $this->assertNotContains('pc', SearchSynonyms::expand('laptop'));
+        $this->assertNotContains('equipo', SearchSynonyms::expand('celular'));
+        $this->assertNotContains('colchon', SearchSynonyms::expand('cama'));
+    }
+
+    /**
      * En palabras cortas la terminación no es un plural, y recortarlas
      * generaría búsquedas de basura que casan con cualquier cosa.
      */

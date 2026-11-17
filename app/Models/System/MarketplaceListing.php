@@ -222,10 +222,22 @@ class MarketplaceListing extends Model
     }
 
     /**
-     * Tokeniza una query igual que scopeSearch: colapsa espacios y descarta
-     * palabras de 1 caracter (ruido), salvo que sea la unica. Compartido por
-     * scopeSearch y textRelevanceSql para que filtrar y ordenar usen SIEMPRE
-     * los mismos tokens.
+     * Palabras de relleno que NO se exigen en el producto. scopeSearch pide
+     * que aparezcan todas las palabras de la busqueda, asi que «zapatillas
+     * para nina» dejaba fuera «Zapatillas nina rosadas» solo porque el titulo
+     * no dice «para». Se comparan ya normalizadas (sin tildes, minusculas).
+     */
+    private const STOPWORDS = [
+        'a', 'al', 'con', 'de', 'del', 'e', 'el', 'en', 'la', 'las', 'lo', 'los',
+        'mas', 'mi', 'mis', 'muy', 'o', 'para', 'por', 'que', 'sin', 'su', 'sus',
+        'tu', 'tus', 'u', 'un', 'una', 'unas', 'unos', 'y',
+    ];
+
+    /**
+     * Tokeniza una query igual que scopeSearch: colapsa espacios, descarta
+     * palabras de 1 caracter y las de relleno (STOPWORDS), salvo que no quede
+     * ninguna. Compartido por scopeSearch y textRelevanceSql para que filtrar
+     * y ordenar usen SIEMPRE los mismos tokens.
      *
      * @return array<int,string>
      */
@@ -235,12 +247,61 @@ class MarketplaceListing extends Model
         $q = trim(preg_replace('/\s+/', ' ', $q));
         if ($q === '') return [];
 
+        // Comas y barras separan palabras igual que el espacio: «polo,rojo».
+        $palabras = preg_split('/[\s,;\/]+/u', $q, -1, PREG_SPLIT_NO_EMPTY);
+
         $tokens = array_values(array_filter(
-            explode(' ', $q),
+            $palabras,
             fn ($t) => mb_strlen($t) >= 2
         ));
 
-        return $tokens ?: [$q];
+        $utiles = array_values(array_filter(
+            $tokens,
+            fn ($t) => !in_array(
+                \App\Services\System\MarketplaceListingSyncService::normalizeForSearch($t),
+                self::STOPWORDS,
+                true
+            )
+        ));
+
+        return $utiles ?: ($tokens ?: [$q]);
+    }
+
+    /**
+     * Patron REGEXP que casa `$palabra` solo al INICIO de una palabra del
+     * texto indexado. Con `LIKE '%x%'` las variantes casaban a mitad de
+     * palabra: «olla» -> «oya» traia «jOYA», «silla» -> «cilla» traia
+     * «senCILLA» y «cama» traia «CAMAra». `$palabra` ya viene saneada por
+     * sanitizeSqlLiteral (letras, digitos, espacio, guion): nada que el
+     * motor de regex interprete.
+     */
+    protected static function wordStartRegex(string $palabra): string
+    {
+        return '(^|[^[:alnum:]])' . $palabra;
+    }
+
+    /**
+     * Si el termino tecleado puede casar tambien a mitad de palabra. Solo
+     * cuando lleva digitos («24» en «x24») o es largo (6+), donde casar
+     * dentro de otra palabra ya no es casualidad («zapato» en
+     * «portazapatos»). Las variantes generadas nunca: ver wordStartRegex.
+     */
+    protected static function allowsInnerMatch(string $normalizado): bool
+    {
+        return preg_match('/\d/', $normalizado) === 1 || mb_strlen($normalizado) >= 6;
+    }
+
+    /**
+     * Variantes saneadas y sin repetir, listas para interpolar.
+     *
+     * @param  array<int,string> $palabras
+     * @return array<int,string>
+     */
+    protected static function cleanVariants(array $palabras): array
+    {
+        return array_values(array_unique(array_filter(
+            array_map([static::class, 'sanitizeSqlLiteral'], $palabras)
+        )));
     }
 
     /**
@@ -256,20 +317,23 @@ class MarketplaceListing extends Model
      * plantilla de categoria "calzado" empataba con "malla para lavado de
      * ZAPATILLAS" y le ganaba por vistas):
      *
-     *   6 → el TITULO empieza por el token            ("Polo manga corta")
-     *   5 → una PALABRA del titulo empieza por el      ("Camiseta polo")
-     *   4 → el texto indexado empieza por el token
-     *   3 → una palabra del texto indexado empieza     (marca, categoria)
-     *   2 → casa en el titulo a mitad de palabra       tolerancia de respaldo
-     *   1 → solo casa a mitad de palabra en el resto   ("esPOLOn")
+     *   6 → el TITULO empieza por la palabra           ("Polo manga corta")
+     *   5 → una PALABRA del titulo empieza por ella     ("Camiseta polo")
+     *   4 → una palabra del texto indexado empieza      (marca, categoria, variantes)
+     *   3 → un SINONIMO en el titulo                    ("polo" -> "Camiseta")
+     *   2 → un sinonimo en el resto del texto
+     *   1 → solo casa a mitad de palabra                ("portaZAPATOS")
+     *
+     * «La palabra» incluye sus grafias (plural, erratas que suenan igual):
+     * es lo mismo que se tecleo. Los sinonimos de significado van POR DEBAJO
+     * de cualquier acierto de la palabra: antes puntuaban igual y lo que
+     * traian («cafe» al buscar cafetera) se mezclaba con lo buscado.
      *
      * El titulo se compara tal cual: la colacion utf8mb4_unicode_ci ya ignora
      * tildes y mayusculas. `search_text` lo normaliza el indexador.
      *
      * La puntuacion de los tokens se suma, asi una query de varias palabras
-     * premia al que acierta en todas. Los sinonimos de SearchSynonyms puntuan
-     * como el token original: si "polo" trajo "camiseta", esa camiseta merece
-     * la misma frontera de palabra.
+     * premia al que acierta en todas.
      *
      * Devuelve null si no hay query (el llamante omite el termino).
      *
@@ -286,40 +350,51 @@ class MarketplaceListing extends Model
 
         $terms = [];
         foreach (array_slice($tokens, 0, 5) as $tok) {
-            $variants = array_filter(array_map(
-                [static::class, 'sanitizeSqlLiteral'],
-                \App\Services\System\SearchSynonyms::expand($tok)
+            $grafias = static::cleanVariants(\App\Services\System\SearchSynonyms::spellings($tok));
+            $sinonimos = array_values(array_diff(
+                static::cleanVariants(\App\Services\System\SearchSynonyms::expand($tok)),
+                $grafias
             ));
             $plain = static::sanitizeSqlLiteral($tok);
-            if (empty($variants) && $plain === '') continue;
+            if (empty($grafias)) continue;
 
             $titleStart = [];
             $titleWord  = [];
-            $textStart  = [];
             $textWord   = [];
-            foreach ($variants as $v) {
+            foreach ($grafias as $v) {
                 $titleStart[] = "title LIKE '{$v}%'";
                 $titleWord[]  = "title LIKE '% {$v}%'";
-                $textStart[]  = "search_text LIKE '{$v}%'";
-                $textWord[]   = "search_text LIKE '% {$v}%'";
+                $textWord[]   = "search_text REGEXP '" . static::wordStartRegex($v) . "'";
             }
-            if (empty($textStart)) continue;
 
-            $titleHit = $plain !== '' ? "title LIKE '%{$plain}%'" : '1 = 0';
+            $synTitle = [];
+            $synText  = [];
+            foreach ($sinonimos as $v) {
+                $synTitle[] = "title LIKE '{$v}%' OR title LIKE '% {$v}%'";
+                $synText[]  = "search_text REGEXP '" . static::wordStartRegex($v) . "'";
+            }
 
             // Bonificacion de +1 cuando acierta la palabra EXACTA que se
-            // tecleo, no un sinonimo: buscando "zapatilla", una zapatilla
-            // debe ir antes que un zapato, aunque ambos casen en el titulo.
+            // tecleo, no una grafia alternativa: buscando "zapatilla", una
+            // zapatilla debe ir antes que una "sapatilla" mal escrita.
             if ($plain !== '') {
                 $terms[] = "(CASE WHEN title LIKE '{$plain}%' OR title LIKE '% {$plain}%' THEN 1 ELSE 0 END)";
             }
 
+            // +2 cuando la palabra sale ENTERA (o en plural), no como inicio
+            // de otra: buscando «cama», «Cama de madera» antes que «Cámara».
+            $enteras = array_map(
+                fn ($v) => "search_text REGEXP '" . static::wordStartRegex($v) . "(s|es)?([^[:alnum:]]|$)'",
+                $grafias
+            );
+            $terms[] = '(CASE WHEN ' . implode(' OR ', $enteras) . ' THEN 2 ELSE 0 END)';
+
             $terms[] = '(CASE'
                 . ' WHEN ' . implode(' OR ', $titleStart) . ' THEN 6'
                 . ' WHEN ' . implode(' OR ', $titleWord) . ' THEN 5'
-                . ' WHEN ' . implode(' OR ', $textStart) . ' THEN 4'
-                . ' WHEN ' . implode(' OR ', $textWord) . ' THEN 3'
-                . " WHEN {$titleHit} THEN 2"
+                . ' WHEN ' . implode(' OR ', $textWord) . ' THEN 4'
+                . ($synTitle ? ' WHEN ' . implode(' OR ', $synTitle) . ' THEN 3' : '')
+                . ($synText ? ' WHEN ' . implode(' OR ', $synText) . ' THEN 2' : '')
                 . ' ELSE 1 END)';
         }
 
@@ -355,19 +430,28 @@ class MarketplaceListing extends Model
 
         return $query->where(function ($w) use ($tokens) {
             foreach ($tokens as $tok) {
-                $like = '%' . $tok . '%';
-                // Token normalizado + sinónimos (asiento→silla, etc.), todos
-                // insensibles a tildes, contra el índice search_text.
-                $variants = \App\Services\System\SearchSynonyms::expand($tok);
-                $w->where(function ($sub) use ($like, $variants) {
+                // Token normalizado + grafias + sinónimos (asiento→silla,
+                // etc.), insensibles a tildes, contra el índice search_text.
+                // Todos al INICIO de palabra: ver wordStartRegex.
+                $variants = static::cleanVariants(\App\Services\System\SearchSynonyms::expand($tok));
+                $norm = static::sanitizeSqlLiteral(
+                    \App\Services\System\MarketplaceListingSyncService::normalizeForSearch($tok)
+                );
+                $w->where(function ($sub) use ($tok, $variants, $norm) {
                     foreach ($variants as $v) {
-                        $sub->orWhere('search_text', 'like', '%' . $v . '%');
+                        $sub->orWhereRaw('search_text REGEXP ?', [static::wordStartRegex($v)]);
                     }
-                    // Fallback: columnas originales + SKU/código interno.
-                    $sub->orWhere('title', 'like', $like)
-                        ->orWhere('category_name', 'like', $like)
-                        ->orWhere('brand_name', 'like', $like)
-                        ->orWhere('internal_id', 'like', $like);
+                    if ($norm !== '' && static::allowsInnerMatch($norm)) {
+                        $sub->orWhere('search_text', 'like', '%' . $norm . '%');
+                    }
+                    // Fallback: columnas originales (también al inicio de
+                    // palabra) + SKU/código interno, que sí casa a mitad.
+                    $sub->orWhere('title', 'like', $tok . '%')
+                        ->orWhere('title', 'like', '% ' . $tok . '%')
+                        ->orWhere('category_name', 'like', $tok . '%')
+                        ->orWhere('category_name', 'like', '% ' . $tok . '%')
+                        ->orWhere('brand_name', 'like', $tok . '%')
+                        ->orWhere('internal_id', 'like', '%' . $tok . '%');
                 });
             }
         });
