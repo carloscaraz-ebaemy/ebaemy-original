@@ -305,7 +305,10 @@ class ServerHealth
             return null;
         }
         $salida = [];
-        @exec('pgrep -fc ' . escapeshellarg($patron) . ' 2>/dev/null', $salida);
+        // «[q]ueue:work»: el corchete evita que pgrep se cuente a sí mismo (su
+        // propia línea de comando contiene el patrón literal, no lo casa).
+        $regex = '[' . $patron[0] . ']' . substr($patron, 1);
+        @exec('pgrep -fc ' . escapeshellarg($regex) . ' 2>/dev/null', $salida);
         return isset($salida[0]) ? (int) $salida[0] : null;
     }
 
