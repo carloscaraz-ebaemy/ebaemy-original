@@ -2596,3 +2596,81 @@ button { font-family: inherit; cursor: pointer; }
     border: 1px solid var(--mp-line-soft);
 }
 
+
+/* ═══════════════ Asistente de compras (partials/assistant) ═══════════════
+   Burbuja fija abajo a la derecha. En móvil sube por encima de la barra de
+   «Añadir al carrito» de la ficha y el panel ocupa casi toda la pantalla;
+   el input va a 16px para que iOS no haga zoom al enfocar. */
+.mp-ai { position: fixed; right: 16px; bottom: calc(88px + env(safe-area-inset-bottom)); z-index: 150; }
+@media (min-width: 900px) { .mp-ai { right: 24px; bottom: 24px; } }
+.mp-ai[hidden] { display: none; }
+.mp-ai__fab {
+    display: flex; align-items: center; gap: 8px;
+    min-height: 48px; padding: 0 16px; border: 0; border-radius: 999px;
+    background: var(--mp-primary); color: #fff; font: inherit; font-weight: 600; font-size: 14px;
+    box-shadow: 0 8px 24px -6px rgba(15, 23, 42, .35); cursor: pointer;
+}
+.mp-ai__fab:hover { background: var(--mp-primary-dark); }
+.mp-ai__fab:focus-visible { outline: 3px solid var(--mp-primary-light); outline-offset: 2px; }
+.mp-ai.is-open .mp-ai__fab-label { display: none; }
+@media (max-width: 480px) { .mp-ai__fab-label { display: none; } .mp-ai__fab { width: 52px; padding: 0; justify-content: center; } }
+.mp-ai__panel {
+    position: absolute; right: 0; bottom: 60px;
+    width: min(380px, calc(100vw - 32px)); height: min(560px, calc(100vh - 140px));
+    display: flex; flex-direction: column;
+    background: var(--mp-surface); color: var(--mp-ink);
+    border: 1px solid var(--mp-line); border-radius: var(--mp-radius-lg);
+    box-shadow: 0 20px 48px -12px rgba(15, 23, 42, .30); overflow: hidden;
+}
+.mp-ai__panel[hidden] { display: none; }
+.mp-ai__head { display: flex; align-items: center; gap: 4px; padding: 12px 12px 12px 16px; border-bottom: 1px solid var(--mp-line-soft); }
+.mp-ai__head div { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.mp-ai__head strong { font-size: 15px; }
+.mp-ai__head span { font-size: 12px; color: var(--mp-muted); }
+.mp-ai__icon { width: 40px; height: 40px; border: 0; background: none; border-radius: 10px; color: var(--mp-ink-soft); font-size: 16px; cursor: pointer; }
+.mp-ai__icon:hover { background: var(--mp-bg); }
+.mp-ai__log { flex: 1; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 10px; background: var(--mp-bg); }
+.mp-ai__msg { max-width: 88%; }
+.mp-ai__msg p { margin: 0; padding: 9px 12px; border-radius: 14px; font-size: 14px; line-height: 1.45; white-space: pre-line; overflow-wrap: anywhere; }
+.mp-ai__msg--user { align-self: flex-end; }
+.mp-ai__msg--user p { background: var(--mp-primary); color: #fff; border-bottom-right-radius: 4px; }
+.mp-ai__msg--assistant { align-self: flex-start; }
+.mp-ai__msg--assistant p { background: var(--mp-surface); border: 1px solid var(--mp-line); border-bottom-left-radius: 4px; }
+.mp-ai__msg--assistant a { color: var(--mp-primary-dark); }
+.mp-ai__msg.is-loading p { color: var(--mp-muted); font-style: italic; }
+.mp-ai__cards { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
+.mp-ai__card {
+    display: flex; align-items: center; gap: 10px; padding: 6px; min-height: 48px;
+    background: var(--mp-surface); border: 1px solid var(--mp-line); border-radius: 12px;
+    color: inherit; text-decoration: none;
+}
+.mp-ai__card:hover { border-color: var(--mp-primary); }
+.mp-ai__card img { width: 56px; height: 56px; object-fit: contain; border-radius: 8px; background: #fff; flex: none; }
+.mp-ai__card > span { display: flex; flex-direction: column; min-width: 0; }
+.mp-ai__card-title { font-size: 13px; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.mp-ai__card-price { font-size: 12.5px; font-weight: 700; color: var(--mp-ink); margin-top: 2px; }
+.mp-ai__chips { display: flex; gap: 6px; padding: 8px 12px 0; overflow-x: auto; }
+.mp-ai__chips[hidden] { display: none; }
+.mp-ai__chips button {
+    flex: none; min-height: 36px; padding: 0 12px; border: 1px solid var(--mp-line); border-radius: 999px;
+    background: var(--mp-surface); color: var(--mp-ink-soft); font: inherit; font-size: 13px; cursor: pointer;
+}
+.mp-ai__chips button:hover { border-color: var(--mp-primary); color: var(--mp-primary-dark); }
+.mp-ai__form { display: flex; gap: 8px; padding: 10px 12px; }
+.mp-ai__form input {
+    flex: 1; min-width: 0; min-height: 44px; padding: 0 14px;
+    border: 1px solid var(--mp-line); border-radius: 999px; font: inherit; font-size: 14px; color: var(--mp-ink); background: var(--mp-surface);
+}
+.mp-ai__form input:focus { outline: none; border-color: var(--mp-primary); box-shadow: 0 0 0 3px var(--mp-primary-soft); }
+.mp-ai__form button {
+    width: 44px; height: 44px; flex: none; border: 0; border-radius: 50%;
+    background: var(--mp-primary); color: #fff; font-size: 16px; cursor: pointer;
+}
+.mp-ai__form button:disabled { opacity: .5; cursor: wait; }
+.mp-ai__note { margin: 0; padding: 0 14px 10px; font-size: 11px; color: var(--mp-muted); }
+@media (max-width: 899px) {
+    .mp-ai__form input { font-size: 16px; }
+    .mp-ai.is-open { left: 8px; right: 8px; bottom: calc(8px + env(safe-area-inset-bottom)); }
+    .mp-ai.is-open .mp-ai__fab { display: none; }
+    .mp-ai__panel { position: static; width: 100%; height: min(78vh, calc(100vh - 24px)); }
+}

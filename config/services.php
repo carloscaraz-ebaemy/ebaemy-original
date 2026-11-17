@@ -107,4 +107,13 @@ return [
         'key' => env('SHALOM_API_KEY'),
     ],
 
+    // Asistente de compras del marketplace (chat con Claude). Apagado por
+    // defecto; requiere además el paquete anthropic-ai/sdk. Ver
+    // App\Services\Marketplace\ShoppingAssistant.
+    'anthropic' => [
+        'key'               => env('ANTHROPIC_API_KEY'),
+        'assistant_enabled' => (bool) env('MARKETPLACE_ASSISTANT_ENABLED', false),
+        'assistant_model'   => env('MARKETPLACE_ASSISTANT_MODEL', 'claude-haiku-5-5'),
+    ],
+
 ];

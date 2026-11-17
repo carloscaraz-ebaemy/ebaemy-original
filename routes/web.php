@@ -1797,6 +1797,12 @@ if ($hostname) {
         // alto porque el front-end dispara con cada keystroke (300ms debounce).
         Route::get('marketplace/api/search-suggest',    'MarketplaceController@searchSuggest')
              ->middleware('throttle:120,1')->name('marketplace.search.suggest');
+        // Asistente de compras (chat con Claude). Cada mensaje es una llamada
+        // de pago a la API: throttle bajo por IP. Ver Marketplace\AssistantController.
+        Route::get('marketplace/asistente/estado',      'Marketplace\AssistantController@status')
+             ->middleware('throttle:60,1')->name('marketplace.assistant.status');
+        Route::post('marketplace/asistente',            'Marketplace\AssistantController@message')
+             ->middleware('throttle:12,1')->name('marketplace.assistant.message');
         // Autocompletado DNI/RUC en el checkout → nombre/razón social + ubigeo.
         Route::get('marketplace/api/lookup-document',   'MarketplaceController@lookupDocument')
              ->middleware('throttle:30,1')->name('marketplace.lookup.document');

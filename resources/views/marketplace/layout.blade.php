@@ -1623,6 +1623,7 @@ window.mpCouponTenantIds = []; // hostname_ids donde el user tiene cupn
 </script>
 
 @unless($isEmbed)
+@include('marketplace.partials.assistant')
 <script>
 // PWA — registrar service worker del marketplace. Scope acotado a
 // /marketplace para no pisar el SW del ecommerce del tenant (/sw.js).
