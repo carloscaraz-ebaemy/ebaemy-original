@@ -17,7 +17,7 @@
                             :on-change="onChangeF"
                             :on-remove="handleRemove"
                             accept="image/jpeg,image/jpg,image/png,image/gif,image/webp,image/bmp,image/heic,image/heif"
-                            capture="environment"
+                            multiple
                             :before-upload="prepararImagen" >
                             <i class="el-icon-plus"></i>
                         </el-upload>
@@ -70,8 +70,10 @@
                         })
 
                 }else{
-                    let ind = this.source_images.findIndex( x => x.filename.includes(file.name))
-                    this.source_images.splice(ind, 1);
+                    // Por uid: tras comprimir o convertir HEIC el nombre cambia, y
+                    // con -1 el splice borraba la última foto en vez de esta.
+                    let ind = this.source_images.findIndex(x => x._uid === file.uid)
+                    if (ind !== -1) this.source_images.splice(ind, 1);
                 }
 
             },
@@ -110,6 +112,7 @@
                     if (thumb && !payload.url) {
                         payload.url = thumb
                     }
+                    payload._uid = file && file.uid
                     this.source_images.push(payload)
                 }else {
                     this.$message.error(response.message || 'Error al subir la imagen.')

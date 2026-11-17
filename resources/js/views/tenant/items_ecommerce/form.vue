@@ -784,18 +784,45 @@
                                                 <div v-for="(img, i) in allGalleryImages" :key="img._key || i"
                                                      class="ie-image-card__thumb"
                                                      :class="{ 'is-pending': img._pending }"
-                                                     @click="openImages"
-                                                     :title="(img._pending ? 'Pendiente de guardar · ' : '') + 'Click para gestionar'">
+                                                     :title="img._pending ? 'Pendiente de guardar' : ''">
                                                     <img :src="img.url" :alt="'Foto ' + (i + 1)">
+                                                    <button v-if="img._kind !== 'original'"
+                                                            type="button"
+                                                            class="ie-thumb-btn ie-thumb-btn--del"
+                                                            title="Quitar foto"
+                                                            @click.stop="removeGalleryImage(img)">×</button>
+                                                    <button type="button"
+                                                            class="ie-thumb-btn ie-thumb-btn--star"
+                                                            title="Usar como imagen principal"
+                                                            :disabled="uploadingImage"
+                                                            @click.stop="promoteToPrimary(img)">★ Principal</button>
                                                 </div>
-                                                <div class="ie-image-card__add" @click="openImages"
-                                                     :title="allGalleryImages.length ? 'Agregar más fotos' : 'Agregar fotos'">
-                                                    <i class="el-icon-plus"></i>
-                                                    <span>{{ allGalleryImages.length ? 'Más' : 'Agregar' }}</span>
+                                                <div v-for="n in galleryUploading" :key="'up_' + n"
+                                                     class="ie-image-card__thumb is-uploading">
+                                                    <i class="el-icon-loading"></i>
                                                 </div>
+                                                <!-- Selección múltiple directa: varias fotos de una vez,
+                                                     sin pasar por el diálogo. Sin `capture`: en Android
+                                                     abre la cámara y no deja elegir varias. -->
+                                                <el-upload :action="`/${resource}/upload`"
+                                                           :data="{'type': 'items', 'skip_preview': 1}"
+                                                           :headers="headers"
+                                                           multiple
+                                                           :show-file-list="false"
+                                                           :before-upload="beforeGalleryUpload"
+                                                           :on-success="onGallerySuccess"
+                                                           :on-error="onGalleryError"
+                                                           accept="image/jpeg,image/jpg,image/png,image/gif,image/webp,image/bmp,image/heic,image/heif"
+                                                           class="ie-image-card__add-upload">
+                                                    <div class="ie-image-card__add"
+                                                         :title="allGalleryImages.length ? 'Agregar más fotos' : 'Agregar fotos'">
+                                                        <i class="el-icon-plus"></i>
+                                                        <span>{{ allGalleryImages.length ? 'Más' : 'Agregar' }}</span>
+                                                    </div>
+                                                </el-upload>
                                             </div>
-                                            <small v-if="!allGalleryImages.length" class="ie-image-card__hint">
-                                                Click "+ Agregar" para subir fotos adicionales.
+                                            <small class="ie-image-card__hint">
+                                                Puedes elegir varias fotos a la vez. Con <strong>★ Principal</strong> eliges la que sale en el catálogo.
                                             </small>
                                         </div>
 
@@ -1673,6 +1700,46 @@
 }
 .ie-image-card__add i { font-size: 16px; color: #3b82f6; }
 
+.ie-image-card__thumb { position: relative; cursor: default; }
+.ie-image-card__thumb.is-uploading { color: #3b82f6; font-size: 20px; }
+.ie-image-card__add-upload { flex-shrink: 0; }
+.ie-image-card__add-upload .el-upload { display: block; }
+.ie-thumb-btn {
+    position: absolute;
+    border: 0;
+    cursor: pointer;
+    line-height: 1;
+    opacity: 0;
+    transition: opacity .12s;
+}
+.ie-thumb-btn--del {
+    top: 3px;
+    left: 3px;
+    width: 22px;
+    height: 22px;
+    border-radius: 999px;
+    background: rgba(17, 24, 39, .75);
+    color: #fff;
+    font-size: 15px;
+}
+.ie-thumb-btn--star {
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: 5px 0;
+    background: rgba(17, 24, 39, .75);
+    color: #fde68a;
+    font-size: 10.5px;
+    font-weight: 600;
+}
+.ie-thumb-btn--star:disabled { cursor: not-allowed; color: #9ca3af; }
+.ie-image-card__thumb:hover .ie-thumb-btn,
+.ie-thumb-btn:focus-visible { opacity: 1; }
+/* En pantallas táctiles no hay hover: los botones siempre a la vista. */
+@media (hover: none) {
+    .ie-thumb-btn { opacity: 1; }
+}
+
 /* Thumb pendiente de guardar (subido via upload-async pero el item aún no se guardó) */
 .ie-image-card__thumb.is-pending {
     border: 2px dashed #f59e0b;
@@ -1987,6 +2054,13 @@ export default {
             // loadRecord vía GET /items/images/{id} y se refresca cuando
             // el dialog cierra (saveImages).
             galleryImages: [],
+            // Fotos de la galería subiéndose ahora (miniaturas con spinner) y
+            // vistas previas locales por uid del archivo.
+            galleryUploading: 0,
+            galleryPreviews: {},
+            // URL de la principal guardada, para mostrarla en la galería si
+            // el vendedor elige otra con ★ Principal.
+            primaryOriginalUrl: null,
             // Ancho del viewport — alimenta los computed dialogWidth/dialogTop
             // para que el modal se ajuste a celular/tablet/desktop. Se actualiza
             // en el resize handler (mounted/beforeDestroy).
@@ -2085,18 +2159,34 @@ export default {
         // /items/images/{id}) + fotos recién subidas via upload-async
         // (form.multi_images) que todavía no se guardaron. Los pending
         // se marcan con _pending para mostrar el badge ⏳.
+        // _kind: 'persisted' (item_images), 'pending' (form.multi_images) u
+        // 'original' (la principal guardada que se bajó a la galería con
+        // ★ Principal; se puede volver a subir).
         allGalleryImages() {
-            const persisted = (this.galleryImages || []).map((img, i) => ({
-                url: img.url,
-                _key: 'p_' + (img.id || i),
-                _pending: false,
-            }))
+            const persisted = (this.galleryImages || [])
+                .filter(img => img.id !== this.form.primary_gallery_id)
+                .map((img, i) => ({
+                    url: img.url,
+                    id: img.id,
+                    _kind: 'persisted',
+                    _key: 'p_' + (img.id || i),
+                    _pending: false,
+                }))
+            const original = (this.form.previous_primary_to_gallery && this.primaryOriginalUrl)
+                ? [{ url: this.primaryOriginalUrl, _kind: 'original', _key: 'orig', _pending: true }]
+                : []
             const pending = (this.form.multi_images || []).map((img, i) => ({
-                url: img.image_url || img.temp_image || img.url,
-                _key: 'n_' + (img.filename || i),
+                url: img.url || img.image_url || img.temp_image,
+                _kind: 'pending',
+                _index: i,
+                _key: 'n_' + (img._uid || img.filename || i),
                 _pending: true,
             }))
-            return [...persisted, ...pending]
+            return [...persisted, ...original, ...pending]
+        },
+        hasPrimaryImage() {
+            const url = this.form.image_url
+            return !!url && !/imagen-no-disponible/.test(url)
         },
         hasPendingImages() {
             return (this.form.multi_images || []).length > 0
@@ -2467,6 +2557,8 @@ export default {
                 marketplace_category_path: [],
                 tags_id: [],
                 multi_images: [],
+                primary_gallery_id: null,
+                previous_primary_to_gallery: false,
                 attributes: [],
                 technical_specifications: ''
             }
@@ -2480,7 +2572,18 @@ export default {
          */
         async beforePrincipalUpload(file) {
             try {
-                return await this.prepararImagenPrincipal(file)
+                const lista = await this.prepararImagenPrincipal(file)
+                // `on-change` pintó el archivo ORIGINAL; si era HEIC (iPhone) el
+                // navegador no lo muestra y la foto se veía rota. Se repinta
+                // con el ya convertido a JPG.
+                if (lista && lista !== file && (lista.type || '').startsWith('image/')) {
+                    if (typeof this.form.image_url === 'string' && this.form.image_url.startsWith('blob:')
+                        && this.form.image_url !== this.imagenPrevia) {
+                        URL.revokeObjectURL(this.form.image_url)
+                    }
+                    this.form.image_url = URL.createObjectURL(lista)
+                }
+                return lista
             } catch (e) {
                 this.uploadingImage = false
                 if (this.imagenPrevia !== undefined) {
@@ -2521,14 +2624,26 @@ export default {
                 this._soltarImagenPrevia()
                 this.form.image = response.data.filename
                 this.form.temp_path = response.data.temp_path
+                this.form.primary_gallery_id = null
                 // Si el server no devolvió temp_image (skip_preview), el preview ya
                 // se mostró desde onFileChange con un blob URL local.
                 if (response.data.temp_image) {
                     this.form.image_url = response.data.temp_image
                 }
             } else {
+                // El servidor la rechazó: sin esto quedaba pintada como si se
+                // hubiera subido y al guardar el producto salía sin foto.
+                this._restaurarImagenPrevia()
                 this.$message.error(response.message || 'Error al subir la imagen.')
             }
+        },
+        _restaurarImagenPrevia() {
+            if (this.imagenPrevia === undefined) return
+            if (typeof this.form.image_url === 'string' && this.form.image_url.startsWith('blob:')) {
+                URL.revokeObjectURL(this.form.image_url)
+            }
+            this.form.image_url = this.imagenPrevia
+            this.imagenPrevia = undefined
         },
         // Maneja preview local instantáneo + estado de subida.
         // El preview se pinta en cuanto se selecciona el archivo (sin esperar al server),
@@ -2551,6 +2666,7 @@ export default {
         },
         onUploadError(err, file) {
             this.uploadingImage = false
+            this._restaurarImagenPrevia()
             console.error('[items_ecommerce] upload error:', err)
             this.$message.error('No se pudo subir "' + file.name + '". ' + (err.message || 'Intenta de nuevo.'))
         },
@@ -2585,7 +2701,7 @@ export default {
                     this.$http.get(`/${this.resource}/record/${this.recordId}`),
                 ]).then((results) => {
                     const response = results[1]
-                    this.form = response.data.data
+                    this.form = this.withImageFields(response.data.data)
                     if (!Array.isArray(this.form.marketplace_category_path)) {
                         this.form.marketplace_category_path = []
                     }
@@ -2646,7 +2762,7 @@ export default {
                     this.$http.get(`/${this.resource}/record/${this.recordId}`),
                 ]).then((results) => {
                     const response = results[1]
-                    this.form = response.data.data
+                    this.form = this.withImageFields(response.data.data)
                     if (!Array.isArray(this.form.marketplace_category_path)) {
                         this.form.marketplace_category_path = []
                     }
@@ -2978,8 +3094,112 @@ export default {
         openImages() {
             this.showDialogImages = true
         },
+        // Los campos de imagen no vienen en /record: sin declararlos aquí no
+        // serían reactivos y la galería no se repintaría.
+        withImageFields(record) {
+            this.primaryOriginalUrl = null
+            this.galleryUploading = 0
+            return Object.assign({}, record, {
+                multi_images: [],
+                primary_gallery_id: null,
+                previous_primary_to_gallery: false,
+            })
+        },
+        async beforeGalleryUpload(file) {
+            const lista = await this.prepararImagen(file)
+            // Vista previa del archivo YA preparado: el HEIC del iPhone llega
+            // convertido a JPG; el original no lo muestra el navegador.
+            const fuente = lista || file
+            if (fuente && (fuente.type || '').startsWith('image/') && !/hei[cf]/i.test(fuente.type)) {
+                this.$set(this.galleryPreviews, file.uid, URL.createObjectURL(fuente))
+            }
+            this.galleryUploading++
+            return lista
+        },
+        onGallerySuccess(response, file) {
+            this.galleryUploading = Math.max(0, this.galleryUploading - 1)
+            const preview = this.galleryPreviews[file.uid]
+            this.$delete(this.galleryPreviews, file.uid)
+            if (!response || !response.success) {
+                if (preview) URL.revokeObjectURL(preview)
+                this.$message.error('No se pudo subir "' + file.name + '". ' + ((response && response.message) || 'Intenta de nuevo.'))
+                return
+            }
+            const data = response.data || {}
+            this.form.multi_images.push({
+                filename: data.filename,
+                temp_path: data.temp_path,
+                url: preview || data.temp_image || data.image_url,
+                _uid: file.uid,
+            })
+            // Producto sin principal: la primera foto elegida pasa a serlo.
+            if (!this.hasPrimaryImage && !this.uploadingImage) {
+                this.promoteToPrimary(this.allGalleryImages[this.allGalleryImages.length - 1])
+            }
+        },
+        onGalleryError(err, file) {
+            this.galleryUploading = Math.max(0, this.galleryUploading - 1)
+            const preview = this.galleryPreviews[file.uid]
+            if (preview) URL.revokeObjectURL(preview)
+            this.$delete(this.galleryPreviews, file.uid)
+            this.$message.error('No se pudo subir "' + file.name + '". ' + ((err && err.message) || 'Intenta de nuevo.'))
+        },
+        /**
+         * ★ Principal: la foto elegida pasa a ser la principal y la que lo
+         * era baja a la galería. Todo queda pendiente hasta Guardar; el
+         * backend hace el cambio (primary_gallery_id / previous_primary_to_gallery).
+         */
+        promoteToPrimary(img) {
+            if (!img || this.uploadingImage) return
+            const f = this.form
+
+            // 1) La principal actual baja a la galería.
+            if (f.temp_path) {
+                f.multi_images.push({ filename: f.image, temp_path: f.temp_path, url: f.image_url })
+            } else if (f.primary_gallery_id) {
+                // Era una foto guardada de la galería: vuelve a verse en la tira.
+            } else if (this.hasPrimaryImage && !f.previous_primary_to_gallery) {
+                f.previous_primary_to_gallery = true
+                this.primaryOriginalUrl = f.image_url
+            }
+
+            // 2) La elegida sube.
+            f.temp_path = null
+            f.primary_gallery_id = null
+            if ('processed_filename' in f) f.processed_filename = null
+            if (img._kind === 'pending') {
+                const p = f.multi_images.splice(img._index, 1)[0]
+                f.temp_path = p.temp_path
+                f.image = p.filename
+                f.image_url = p.url
+            } else if (img._kind === 'persisted') {
+                f.primary_gallery_id = img.id
+                f.image_url = img.url
+            } else if (img._kind === 'original') {
+                f.previous_primary_to_gallery = false
+                f.image_url = this.primaryOriginalUrl
+            }
+            this.fondoPrincipal = null
+        },
+        removeGalleryImage(img) {
+            if (img._kind === 'pending') {
+                const p = this.form.multi_images.splice(img._index, 1)[0]
+                if (p && typeof p.url === 'string' && p.url.startsWith('blob:')) URL.revokeObjectURL(p.url)
+                return
+            }
+            if (img._kind !== 'persisted') return
+            this.$confirm('¿Quitar esta foto de la galería?', 'Quitar foto', {
+                confirmButtonText: 'Quitar',
+                cancelButtonText: 'Cancelar',
+                type: 'warning',
+            }).then(() => this.$http.get(`/${this.resource}/images/delete/${img.id}`))
+              .then(() => this.loadGalleryImages())
+              .catch(() => {})
+        },
         saveImages(source) {
-            this.form.multi_images = source
+            // Se suman a las pendientes: abrir el diálogo dos veces no debe
+            // perder las fotos de la primera vez.
+            this.form.multi_images = [...(this.form.multi_images || []), ...source]
             // Refrescar la galería inline para que el seller vea las
             // fotos recién subidas sin tener que recargar el form.
             this.loadGalleryImages()

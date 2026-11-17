@@ -742,7 +742,25 @@ class ItemController extends Controller
             }
         }
 
+        // «Hacer principal» una foto de la galería ya guardada: sus versiones
+        // _medium/_small ya existen en disco (processAndStore las genera para
+        // toda foto), así que basta con cambiar los nombres.
+        $primaryGallery = null;
+        if ($item->exists && $request->filled('primary_gallery_id') && !$temp_path && !$processed_filename) {
+            $primaryGallery = ItemImage::where('item_id', $item->id)
+                ->find((int) $request->input('primary_gallery_id'));
+            if ($primaryGallery) {
+                $item->image        = $primaryGallery->image;
+                $item->image_medium = $this->existingImageVariant($primaryGallery->image, '_medium');
+                $item->image_small  = $this->existingImageVariant($primaryGallery->image, '_small');
+            }
+        }
+
         $item->save();
+
+        if ($primaryGallery) {
+            $primaryGallery->delete();
+        }
 
         // Red de seguridad: si el item tiene variantes, recalcular stock derivado
         // desde item_variant_warehouse para que items.stock e item_warehouse.stock
@@ -774,6 +792,15 @@ class ItemController extends Controller
             } catch (\Throwable $e) {
                 \Log::error('[ItemController::store] Error procesando imagen: ' . $e->getMessage());
             }
+        }
+
+        // La principal que se reemplazó pasa a la galería en vez de perderse.
+        // Solo si de verdad cambió: si la nueva falló al procesarse, la
+        // anterior sigue de principal y no debe duplicarse.
+        if ($request->boolean('previous_primary_to_gallery')
+            && $existingImage && $existingImage !== 'imagen-no-disponible.jpg'
+            && $item->image !== $existingImage) {
+            ItemImage::create(['item_id' => $item->id, 'image' => $existingImage]);
         }
 
         foreach ($request->item_unit_types as $value) {
@@ -993,6 +1020,12 @@ class ItemController extends Controller
         }
 
         $multi_images = isset($request->multi_images) ? $request->multi_images : [];
+
+        // Con selección múltiple llegan varias fotos a la vez y cada una se
+        // procesa aquí: el límite de 30 s del request no alcanza.
+        if (count($multi_images) > 2) {
+            @set_time_limit(30 + 10 * count($multi_images));
+        }
 
         foreach ($multi_images as $im) {
             try {
@@ -2643,6 +2676,16 @@ class ItemController extends Controller
             'success' => true,
             'data' => $records
         ];
+    }
+
+    /** Nombre de la versión reducida si existe en disco; si no, el principal. */
+    private function existingImageVariant(string $filename, string $suffix): string
+    {
+        $variant = ImageProcessingService::variantFilename($filename, $suffix);
+
+        return Storage::disk(ImageProcessingService::disk())->exists(ImageProcessingService::BASE_DIR . '/' . $variant)
+            ? $variant
+            : $filename;
     }
 
     public function delete_images($id)
