@@ -25,6 +25,9 @@ class FalabellaService
     protected string $apiKey;
     protected string $userId;
 
+    /** Caché de skuIndex() para esta ejecución. */
+    protected ?array $skuIndex = null;
+
     public function __construct(MarketplaceChannel $channel)
     {
         $this->channel = $channel;
@@ -595,6 +598,14 @@ class FalabellaService
      */
     public function syncStock(): array
     {
+        // Las tiendas actualizan el stock en Seller Center: Saga es la fuente y
+        // el ERP se alinea con ella. Empujar el stock del ERP solo se hace si el
+        // canal lo pide (settings.stock_source = 'erp'); hacerlo con un ERP que
+        // no lleva la cuenta pisaría el stock real de Saga.
+        if ($this->stockSource() === 'saga') {
+            return $this->pullStock();
+        }
+
         return MarketplaceSyncLog::log($this->channel->id, 'sync_stock', 'push', function ($log) {
             // Sincroniza por SellerSku: aplica tanto a productos creados desde EBAEMY
             // como a los que el seller ya tenía en Seller Center (mapeados, status 'pending').
@@ -662,6 +673,147 @@ class FalabellaService
         })->toArray();
     }
 
+    /**
+     * De dónde sale el stock del canal: 'saga' (Seller Center manda y el ERP
+     * se alinea) o 'erp' (el ERP empuja su stock a Saga).
+     */
+    public function stockSource(): string
+    {
+        return data_get($this->channel->settings, 'stock_source') === 'erp' ? 'erp' : 'saga';
+    }
+
+    /**
+     * Trae el stock de Saga y deja el ERP con el mismo número, con su
+     * movimiento en el kardex (StockAdjustmentService). Solo lee de Saga.
+     *
+     * Un SKU que Saga no devuelve no se toca (no se pone en 0 por omisión), y
+     * si Saga no devuelve ningún producto no se ajusta nada.
+     *
+     * @param bool $apply false = solo calcula las diferencias
+     */
+    public function pullStock(bool $apply = true): array
+    {
+        $run = function () use ($apply) {
+            $saga = $this->sagaStockBySku();
+            if (empty($saga)) {
+                throw new \RuntimeException('Saga no devolvió productos: no se ajusta el stock.');
+            }
+
+            $ajustes = app(\App\Services\Tenant\StockAdjustmentService::class);
+            $cambios = [];
+            $iguales = 0;
+            $failed = 0;
+            $errors = [];
+
+            foreach ($this->skuIndex() as $sku => $target) {
+                if ($target['excluded'] || !array_key_exists($sku, $saga)) continue;
+
+                $qty = $saga[$sku];
+                [$warehouseId, $actual, $otros] = $this->erpStock($target);
+
+                if (abs($actual - $qty) < 0.0001) {
+                    $iguales++;
+                    continue;
+                }
+
+                $cambios[] = ['sku' => $sku, 'erp' => $actual, 'saga' => $qty];
+                if (!$apply) continue;
+
+                try {
+                    $contado = max(0, $qty - $otros);
+                    $motivo = 'Stock de Saga Falabella (SKU ' . $sku . ')';
+                    if ($target['variant']) {
+                        $ajustes->ajustarVariante($target['item'], $target['variant'], $warehouseId, $contado, $motivo);
+                    } else {
+                        $ajustes->ajustarProducto($target['item'], $warehouseId, $contado, $motivo);
+                    }
+                } catch (\Throwable $e) {
+                    $failed++;
+                    $errors[] = ['sku' => $sku, 'error' => $e->getMessage()];
+                }
+            }
+
+            return [
+                'processed' => $iguales + count($cambios),
+                'success'   => $iguales + count($cambios) - $failed,
+                'failed'    => $failed,
+                'details'   => array_filter([
+                    'diferencias' => count($cambios),
+                    'ajustados' => $apply ? count($cambios) - $failed : 0,
+                    'cambios'   => array_slice($cambios, 0, 50),
+                    'errores'   => array_slice($errors, 0, 20),
+                ]) ?: null,
+            ];
+        };
+
+        if (!$apply) {
+            return $run();
+        }
+
+        return MarketplaceSyncLog::log($this->channel->id, 'sync_stock', 'pull', fn ($log) => $run())->toArray();
+    }
+
+    /**
+     * SellerSku → stock en Saga, de la unidad de negocio de Falabella (fape).
+     */
+    protected function sagaStockBySku(): array
+    {
+        $stock = [];
+        $offset = 0;
+        $limit = 500;
+
+        do {
+            $page = $this->getProducts(['Limit' => $limit, 'Offset' => $offset]);
+            foreach ($page as $p) {
+                $sku = trim((string) ($p['SellerSku'] ?? ''));
+                if ($sku === '') continue;
+
+                $bu = data_get($p, 'BusinessUnits.BusinessUnit');
+                if (isset($bu[0])) {
+                    $elegida = $bu[0];
+                    foreach ($bu as $unit) {
+                        if (str_starts_with(mb_strtolower((string) data_get($unit, 'OperatorCode')), 'fa')) {
+                            $elegida = $unit;
+                            break;
+                        }
+                    }
+                    $bu = $elegida;
+                }
+
+                $qty = data_get($bu, 'Stock') ?? data_get($p, 'Quantity') ?? data_get($p, 'Stock');
+                if ($qty === null || $qty === '' || !is_numeric($qty)) continue;
+
+                $stock[$sku] = max(0, (int) $qty);
+            }
+            $offset += $limit;
+        } while (count($page) === $limit);
+
+        return $stock;
+    }
+
+    /**
+     * Stock del ERP de un SKU: [almacén a ajustar, total, stock de los demás almacenes].
+     * Se ajusta el almacén que más tiene; los demás se respetan.
+     */
+    protected function erpStock(array $target): array
+    {
+        $filas = $target['variant']
+            ? \App\Models\Tenant\ItemVariantWarehouse::where('item_variant_id', $target['variant']->id)
+                ->get(['warehouse_id', 'stock_physical as qty'])
+            : \App\Models\Tenant\ItemWarehouse::where('item_id', $target['item']->id)
+                ->get(['warehouse_id', 'stock as qty']);
+
+        $principal = $filas->sortByDesc('qty')->first();
+        $warehouseId = $principal
+            ? (int) $principal->warehouse_id
+            : (int) \App\Models\Tenant\Warehouse::orderBy('id')->value('id');
+
+        $total = (float) $filas->sum('qty');
+        $otros = (float) $filas->where('warehouse_id', '!=', $warehouseId)->sum('qty');
+
+        return [$warehouseId, $total, $otros];
+    }
+
     // ══════════════════════════════════════════════════════════════
     // ORDERS — Obtener y procesar pedidos
     // ══════════════════════════════════════════════════════════════
@@ -723,7 +875,10 @@ class FalabellaService
                     ]);
 
                     // Descontar stock en ERP
-                    $this->processOrderStock($orderItems);
+                    if ($this->processOrderStock($orderItems)) {
+                        $mpOrder->stock_deducted_at = now();
+                        $mpOrder->save();
+                    }
 
                     // Avisar al vendedor (email) que entró un pedido nuevo
                     $this->notifyNewOrder($mpOrder);
@@ -748,57 +903,25 @@ class FalabellaService
     }
 
     /**
-     * Descontar stock cuando se recibe una orden de Falabella
+     * Descontar stock cuando se recibe una orden de Falabella.
+     *
+     * @return bool true si al menos una línea encontró su producto y descontó
      */
-    protected function processOrderStock(array $items): void
+    protected function processOrderStock(array $items): bool
     {
+        $descontado = false;
+
         foreach ($items as $orderItem) {
-            $sku = $orderItem['ShopSku'] ?? $orderItem['Sku'] ?? null;
-            if (!$sku) continue;
+            if (!is_array($orderItem)) continue;
 
-            $mapping = MarketplaceProduct::where('channel_id', $this->channel->id)
-                ->where('external_sku', $sku)
-                ->first();
+            $target = $this->resolveOrderLine($orderItem);
+            if (!$target) continue;
 
-            if (!$mapping) continue;
-
-            $qty = (int) ($orderItem['Quantity'] ?? 1);
-
-            DB::connection('tenant')->transaction(function () use ($mapping, $qty) {
-                if ($mapping->item_variant_id) {
-                    $vw = \App\Models\Tenant\ItemVariantWarehouse::where('item_variant_id', $mapping->item_variant_id)
-                        ->lockForUpdate()->first();
-                    if ($vw) {
-                        // 1. Descontar de la hoja (fuente de verdad).
-                        $vw->stock_physical = max(0, $vw->stock_physical - $qty);
-                        $vw->stock = $vw->stock_physical;
-                        $vw->save();
-
-                        // 2 + 3. Recalcular los agregados derivados. Sin esto, el
-                        // tenant (items.stock) y el marketplace (item_variants.stock)
-                        // quedan desincronizados y se puede sobrevender.
-                        // Ver skill ebaemy-stock-flow (regla de oro).
-                        $variant = $vw->variant;
-                        if ($variant) {
-                            $variant->stock = \App\Models\Tenant\ItemVariantWarehouse::where('item_variant_id', $variant->id)
-                                ->sum('stock_physical');
-                            $variant->save();
-                            app(\App\Services\Tenant\ItemVariantService::class)
-                                ->propagateStock($variant->item);
-                        }
-                    }
-                } else {
-                    $iw = \App\Models\Tenant\ItemWarehouse::where('item_id', $mapping->item_id)
-                        ->lockForUpdate()->first();
-                    if ($iw) {
-                        $iw->applyStockMovement(
-                            \App\Enums\StockMovementTypeEnum::SALE_STORE,
-                            $qty
-                        );
-                    }
-                }
-            });
+            $this->moveStock($target, -$target['qty']);
+            $descontado = true;
         }
+
+        return $descontado;
     }
 
     /**
@@ -806,6 +929,11 @@ class FalabellaService
      * processOrderStock): devuelve las unidades a stock_physical. Idempotente
      * por marketplace_orders.stock_restored_at. Sigue el flujo correcto del
      * skill ebaemy-stock-flow (variante → hoja + propagación).
+     *
+     * Solo repone si la venta descontó (stock_deducted_at): los pedidos
+     * anteriores a 2026-11-17 nunca descontaron y reponerlos sumaría unidades
+     * que no salieron. Devuelve true la primera vez que procesa el pedido,
+     * haya o no unidades que reponer.
      */
     public function restoreOrderStock(MarketplaceOrder $mp): bool
     {
@@ -813,52 +941,20 @@ class FalabellaService
             return false; // ya restituido
         }
 
-        $items = is_array($mp->items_data) ? $mp->items_data : [];
-        if (isset($items['OrderItemId'])) {
-            $items = [$items];
-        }
+        if ($mp->stock_deducted_at) {
+            $items = is_array($mp->items_data) ? $mp->items_data : [];
+            if (isset($items['OrderItemId'])) {
+                $items = [$items];
+            }
 
-        foreach ($items as $orderItem) {
-            if (!is_array($orderItem)) continue;
-            $sku = $orderItem['ShopSku'] ?? $orderItem['Sku'] ?? null;
-            if (!$sku) continue;
+            foreach ($items as $orderItem) {
+                if (!is_array($orderItem)) continue;
 
-            $mapping = MarketplaceProduct::where('channel_id', $this->channel->id)
-                ->where('external_sku', $sku)
-                ->first();
-            if (!$mapping) continue;
+                $target = $this->resolveOrderLine($orderItem);
+                if (!$target) continue;
 
-            $qty = (int) ($orderItem['Quantity'] ?? 1) ?: 1;
-
-            DB::connection('tenant')->transaction(function () use ($mapping, $qty) {
-                if ($mapping->item_variant_id) {
-                    $vw = \App\Models\Tenant\ItemVariantWarehouse::where('item_variant_id', $mapping->item_variant_id)
-                        ->lockForUpdate()->first();
-                    if ($vw) {
-                        $vw->stock_physical = $vw->stock_physical + $qty; // devuelve
-                        $vw->stock = $vw->stock_physical;
-                        $vw->save();
-
-                        $variant = $vw->variant;
-                        if ($variant) {
-                            $variant->stock = \App\Models\Tenant\ItemVariantWarehouse::where('item_variant_id', $variant->id)
-                                ->sum('stock_physical');
-                            $variant->save();
-                            app(\App\Services\Tenant\ItemVariantService::class)
-                                ->propagateStock($variant->item);
-                        }
-                    }
-                } else {
-                    $iw = \App\Models\Tenant\ItemWarehouse::where('item_id', $mapping->item_id)
-                        ->lockForUpdate()->first();
-                    if ($iw) {
-                        $iw->applyStockMovement(
-                            \App\Enums\StockMovementTypeEnum::SALE_STORE_RETURN,
-                            $qty
-                        );
-                    }
-                }
-            });
+                $this->moveStock($target, $target['qty']);
+            }
         }
 
         $mp->stock_restored_at = now();
@@ -867,9 +963,115 @@ class FalabellaService
         Log::channel('payments')->info('Saga: stock restituido por cancelación/devolución', [
             'marketplace_order_id' => $mp->id,
             'external_order_id'    => $mp->external_order_id,
+            'unidades_repuestas'   => (bool) $mp->stock_deducted_at,
         ]);
 
         return true;
+    }
+
+    /**
+     * Producto del ERP de una línea de pedido de Saga, con su cantidad.
+     *
+     * `Sku` es el SellerSku, el que guardamos en external_sku. `ShopSku` es el
+     * código interno de Falabella y no coincide nunca: hasta 2026-11-17 se
+     * buscaba primero por ShopSku y ninguna venta descontó stock.
+     */
+    protected function resolveOrderLine(array $orderItem): ?array
+    {
+        $index = $this->skuIndex();
+
+        foreach (['Sku', 'ShopSku'] as $campo) {
+            $sku = trim((string) ($orderItem[$campo] ?? ''));
+            if ($sku !== '' && isset($index[$sku])) {
+                return $index[$sku] + ['qty' => max(1, (int) ($orderItem['Quantity'] ?? 1))];
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Mueve stock por una venta (delta < 0) o una devolución (delta > 0).
+     */
+    protected function moveStock(array $target, int $delta): void
+    {
+        DB::connection('tenant')->transaction(function () use ($target, $delta) {
+            if ($target['variant']) {
+                $vw = \App\Models\Tenant\ItemVariantWarehouse::where('item_variant_id', $target['variant']->id)
+                    ->lockForUpdate()->first();
+                if (!$vw) return;
+
+                // 1. La hoja es la fuente de verdad.
+                $vw->stock_physical = max(0, $vw->stock_physical + $delta);
+                $vw->stock = $vw->stock_physical;
+                $vw->save();
+
+                // 2 + 3. Recalcular los agregados derivados. Sin esto, el
+                // tenant (items.stock) y el marketplace (item_variants.stock)
+                // quedan desincronizados y se puede sobrevender.
+                // Ver skill ebaemy-stock-flow (regla de oro).
+                $variant = $vw->variant;
+                if ($variant) {
+                    $variant->stock = \App\Models\Tenant\ItemVariantWarehouse::where('item_variant_id', $variant->id)
+                        ->sum('stock_physical');
+                    $variant->save();
+                    app(\App\Services\Tenant\ItemVariantService::class)
+                        ->propagateStock($variant->item);
+                }
+                return;
+            }
+
+            $iw = \App\Models\Tenant\ItemWarehouse::where('item_id', $target['item']->id)
+                ->lockForUpdate()->first();
+            if ($iw) {
+                $iw->applyStockMovement(
+                    $delta < 0
+                        ? \App\Enums\StockMovementTypeEnum::SALE_STORE
+                        : \App\Enums\StockMovementTypeEnum::SALE_STORE_RETURN,
+                    abs($delta)
+                );
+            }
+        });
+    }
+
+    /**
+     * SellerSku → producto (y variante) del ERP para los productos enlazados
+     * del canal. Un producto con variantes publicó un SKU por variante
+     * (variant->sku o internal_id-V{id}): se indexa cada una.
+     *
+     * @return array<string, array{item: Item, variant: ?\App\Models\Tenant\ItemVariant, excluded: bool}>
+     */
+    protected function skuIndex(): array
+    {
+        if ($this->skuIndex !== null) {
+            return $this->skuIndex;
+        }
+
+        $mappings = MarketplaceProduct::where('channel_id', $this->channel->id)
+            ->whereNotNull('external_sku')
+            ->where('external_sku', '!=', '')
+            ->with(['item.variants', 'variant'])
+            ->get();
+
+        $index = [];
+        foreach ($mappings as $m) {
+            if (!$m->item) continue; // enlace a un producto borrado
+
+            $excluded = $m->sync_status === 'excluded';
+
+            if ($m->variant) {
+                $index[$m->external_sku] = ['item' => $m->item, 'variant' => $m->variant, 'excluded' => $excluded];
+            } elseif ($m->item->has_variants && $m->item->variants->count() > 0) {
+                $fallback = $m->item->internal_id ?: $m->item->item_code;
+                foreach ($m->item->variants as $v) {
+                    $index[$v->sku ?: ($fallback . '-V' . $v->id)] = ['item' => $m->item, 'variant' => $v, 'excluded' => $excluded];
+                }
+            } else {
+                $index[$m->external_sku] = ['item' => $m->item, 'variant' => null, 'excluded' => $excluded];
+            }
+        }
+
+        return $this->skuIndex = $index;
     }
 
     // ══════════════════════════════════════════════════════════════
