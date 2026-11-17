@@ -20,7 +20,19 @@
     };
     $seoDescription = $recortar($textoPlano, 155);
     $seoKeywords    = $listing->title . ', ' . ($listing->category_name ?? '') . ', ' . $listing->seller_display . ', marketplace ebaemy';
-    $seoImage       = $listing->image_url ?: asset('logo/logo.png');
+    // Padre sin foto pero con variantes que sí la tienen: se usa la de la
+    // variante principal (el controlador las ordena is_primary primero) o la
+    // primera con foto. Antes salía «Sin imagen disponible».
+    $mpHeroImage = $listing->image_url;
+    if (!$mpHeroImage && isset($variants) && $variants->isNotEmpty()) {
+        $mpHeroImage = optional($variants->first(fn ($v) => !empty($v->image_url)))->image_url;
+    }
+    // SKU por variante (el variantMap del controlador no lo lleva): el chip de
+    // la ficha lo cambia al elegir variante y vuelve al del producto si no hay.
+    $mpVariantSkus = (isset($variants) && $variants->isNotEmpty())
+        ? $variants->mapWithKeys(fn ($v) => [(int) $v->tenant_variant_id => (string) ($v->sku ?? '')])->filter()->all()
+        : [];
+    $seoImage       = $mpHeroImage ?: asset('logo/logo.png');
     $canonical      = route('marketplace.item', $listing->slug);
     $shareImage     = $listing->image_url ? route('marketplace.share.image', $listing->id) : $seoImage;
     $shortUrl       = route('marketplace.share.product', $listing->id);
@@ -245,15 +257,15 @@
     @endphp
     {{-- --side: las miniaturas van en columna a la IZQUIERDA de la principal
          (desde 600px), también con una sola imagen. Sin imagen no hay thumbs. --}}
-    <div class="mp-gallery {{ $listing->image_url ? 'mp-gallery--side' : '' }}">
+    <div class="mp-gallery {{ $mpHeroImage ? 'mp-gallery--side' : '' }}">
         <div class="mp-gallery-main">
-            @if($listing->image_url)
+            @if($mpHeroImage)
                 {{-- En el DETALLE mostramos la variante completa (sin recorte _mp)
                      para que el producto se vea entero. Las thumbs y las cards
                      siguen usando el cuadrado _mp para grilla uniforme. --}}
                 {{-- Es el LCP de la ficha: se pide primero. El 1:1 lo fija el
                      contenedor (aspect-ratio), asi que no mueve el diseno. --}}
-                <img id="mpGalleryMain" src="{{ $listing->image_full_url }}" alt="{{ $listing->title }}"
+                <img id="mpGalleryMain" src="{{ $listing->image_url ? $listing->image_full_url : $mpHeroImage }}" alt="{{ $listing->title }}"
                      width="1080" height="1080" fetchpriority="high">
             @else
                 <div style="display:flex;height:100%;align-items:center;justify-content:center;color:var(--mp-muted);font-size:14px;font-weight:500">Sin imagen disponible</div>
@@ -276,10 +288,10 @@
                     </button>
                 @endforeach
             </div>
-        @elseif($listing->image_url)
+        @elseif($mpHeroImage)
             <div class="mp-gallery-thumbs">
                 <button type="button" class="mp-gallery-thumb is-active" aria-label="Vista principal">
-                    <img src="{{ $listing->image_url }}" alt="" data-full-image="{{ $listing->image_full_url }}">
+                    <img src="{{ $mpHeroImage }}" alt="" data-full-image="{{ $listing->image_url ? $listing->image_full_url : $mpHeroImage }}">
                 </button>
             </div>
         @endif
@@ -531,8 +543,12 @@
             @if($listing->brand_name)
                 <span class="mp-meta-chip">🏷️ {{ $listing->brand_name }}</span>
             @endif
-            @if($listing->internal_id)
-                <span class="mp-meta-chip">🔖 SKU: {{ $listing->internal_id }}</span>
+            {{-- SKU: el de la variante elegida si lo hay (lo cambia el JS de
+                 variantes); si no, el del producto. Siempre se renderiza el
+                 chip si hay alguno de los dos. --}}
+            @if($listing->internal_id || !empty($mpVariantSkus))
+                <span class="mp-meta-chip" id="mpSkuChip" data-base-sku="{{ $listing->internal_id }}"
+                      @if(!$listing->internal_id) style="display:none" @endif>🔖 SKU: <span id="mpSkuText">{{ $listing->internal_id }}</span></span>
             @endif
         </div>
 
@@ -710,6 +726,12 @@
 
             {{-- Datos para JS resolver la combinación elegida --}}
             <script type="application/json" id="mpVariantMapData">{!! json_encode($variantMap) !!}</script>
+            {{-- tenant_variant_id → SKU de la variante (solo las que tienen) --}}
+            <script type="application/json" id="mpVariantSkuData">{!! json_encode((object) $mpVariantSkus) !!}</script>
+            {{-- Aviso cuando la combinación elegida no existe --}}
+            <p id="mpComboMsg" role="status" style="display:none;margin:10px 0 0;padding:8px 12px;border-radius:10px;background:#fef2f2;border:1px solid #fecaca;color:#991b1b;font-size:13px;line-height:1.4">
+                Esa combinación no está disponible. Elige otra opción para continuar.
+            </p>
 
             @push('styles')
             <style>
@@ -785,6 +807,13 @@
                     opacity: .35;
                     cursor: not-allowed;
                 }
+                /* Valor que no forma combinación con la selección actual: se
+                   puede pulsar (para cambiar de rumbo) pero se ve apagado. */
+                .mp-opt-value.is-na {
+                    opacity: .45;
+                    border-style: dashed;
+                }
+                .mp-opt-value--pill.is-na { text-decoration: line-through; }
             </style>
             @endpush
 
@@ -836,17 +865,82 @@
                             // (sino no podemos saber si la combinación existe)
                             if (ids.length === Object.keys(selected).length) {
                                 var v = variantForCombo(ids);
-                                if (v && v.stock <= 0) btn.classList.add('is-out');
-                                else btn.classList.remove('is-out');
+                                // Combinación inexistente → is-na (apagado pero
+                                // pulsable); existente sin stock → is-out.
+                                if (!v) {
+                                    btn.classList.add('is-na');
+                                    btn.classList.remove('is-out');
+                                } else {
+                                    btn.classList.remove('is-na');
+                                    if (v.stock <= 0) btn.classList.add('is-out');
+                                    else btn.classList.remove('is-out');
+                                }
                             } else {
                                 btn.classList.remove('is-out');
+                                btn.classList.remove('is-na');
                             }
                         });
                     });
                 }
 
+                // Variante elegida → input oculto + botones de compra. Sin
+                // variante (combinación inexistente) el id se LIMPIA y los
+                // botones se desactivan: antes quedaba el id de la variante
+                // anterior y se añadía esa al carrito.
+                var hidden = document.getElementById('mpHiddenVariantId');
+                if (!hidden) {
+                    hidden = document.createElement('input');
+                    hidden.type = 'hidden';
+                    hidden.id = 'mpHiddenVariantId';
+                    hidden.name = 'variant_id';
+                    document.body.appendChild(hidden);
+                }
+                var skuMap = {};
+                var skuNode = document.getElementById('mpVariantSkuData');
+                try { skuMap = JSON.parse((skuNode && skuNode.textContent) || '{}'); } catch (_) {}
+
+                function updateSku(v) {
+                    var chip = document.getElementById('mpSkuChip');
+                    var txt  = document.getElementById('mpSkuText');
+                    if (!chip || !txt) return;
+                    var base = chip.dataset.baseSku || '';
+                    var sku = (v && skuMap[v.tenant_variant_id]) ? skuMap[v.tenant_variant_id] : base;
+                    txt.textContent = sku;
+                    chip.style.display = sku ? '' : 'none';
+                }
+
+                function setBuyState(v) {
+                    var ok = !!(v && v.stock > 0);
+                    hidden.value = v ? v.tenant_variant_id : '';
+                    var cartBtn = document.getElementById('mpAddToCartBtn');
+                    if (cartBtn) {
+                        cartBtn.dataset.variantId = v ? v.tenant_variant_id : '';
+                        cartBtn.dataset.comboInvalid = v ? '' : '1';
+                        cartBtn.disabled = !ok;
+                        cartBtn.style.opacity = ok ? '' : '.55';
+                    }
+                    var buyBtn = document.getElementById('mpBuyNowBtn');
+                    if (buyBtn) {
+                        buyBtn.disabled = !ok;
+                        buyBtn.style.opacity = ok ? '' : '.55';
+                    }
+                    var stickyBtn = document.getElementById('mpMobileStickyBtn');
+                    if (stickyBtn) {
+                        stickyBtn.disabled = !ok;
+                        stickyBtn.style.opacity = ok ? '' : '.55';
+                    }
+                    var msg = document.getElementById('mpComboMsg');
+                    if (msg) msg.style.display = v ? 'none' : '';
+                }
+
                 function applyVariant(v) {
-                    if (!v) return;
+                    updateSku(v);
+                    if (!v) {
+                        setBuyState(null);
+                        var sb = document.getElementById('mpStockBox');
+                        if (sb) sb.innerHTML = '<div class="mp-stock mp-stock--none"><span class="mp-stock-dot"></span>Combinación no disponible</div>';
+                        return;
+                    }
                     // Precio
                     var priceEl = document.getElementById('mpDisplayPrice');
                     if (priceEl) priceEl.textContent = 'S/ ' + Number(v.price).toFixed(2);
@@ -926,12 +1020,7 @@
                         }, 120);
                     });
                     // Botón Comprar — habilitar/deshabilitar por stock
-                    var cartBtn = document.getElementById('mpAddToCartBtn');
-                    if (cartBtn) {
-                        cartBtn.disabled = v.stock <= 0;
-                        cartBtn.dataset.variantId = v.tenant_variant_id;
-                        cartBtn.style.opacity = v.stock <= 0 ? '.55' : '';
-                    }
+                    setBuyState(v);
                     // Mobile sticky CTA: sincronizar precio + estado al cambiar variante.
                     var stickyPriceEl = document.getElementById('mpStickyPrice');
                     if (stickyPriceEl) stickyPriceEl.textContent = 'S/ ' + Number(v.price).toFixed(2);
@@ -943,11 +1032,6 @@
                         } else {
                             stickyOldEl.style.display = 'none';
                         }
-                    }
-                    var stickyBtn = document.getElementById('mpMobileStickyBtn');
-                    if (stickyBtn) {
-                        stickyBtn.disabled = v.stock <= 0;
-                        stickyBtn.style.opacity = v.stock <= 0 ? '.55' : '';
                     }
                 }
 
@@ -985,20 +1069,14 @@
                 // Exponer al script existente del botón Comprar (que ya leía
                 // `variant_id` desde un input radio). Mantenemos compatibilidad:
                 // creamos un input radio oculto si no existe, con el valor actual.
-                var hidden = document.getElementById('mpHiddenVariantId');
-                if (!hidden) {
-                    hidden = document.createElement('input');
-                    hidden.type = 'hidden';
-                    hidden.id = 'mpHiddenVariantId';
-                    hidden.name = 'variant_id';
-                    document.body.appendChild(hidden);
-                }
-                function syncHidden() {
-                    var v = findCurrentVariant();
-                    hidden.value = v ? v.tenant_variant_id : '';
-                }
-                optsBox.addEventListener('click', syncHidden);
-                syncHidden();
+                // El input oculto (#mpHiddenVariantId) lo mantiene setBuyState().
+                // Este script corre ANTES de que existan los botones de compra
+                // (están más abajo): al terminar de cargar el DOM se reaplica
+                // el estado para que la combinación inicial también los
+                // active/desactive.
+                document.addEventListener('DOMContentLoaded', function () {
+                    setBuyState(findCurrentVariant());
+                });
             })();
             </script>
         @endif
@@ -1011,12 +1089,23 @@
 
         {{-- CTA principal: añadir al carrito multi-tienda --}}
         @if($listing->stock > 0)
-            <button type="button" class="mp-cta-primary" id="mpAddToCartBtn"
-                    data-slug="{{ $listing->slug }}"
-                    style="width:100%;cursor:pointer;border:none">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
-                Añadir al carrito
-            </button>
+            {{-- Móvil primero: los dos botones van apilados a todo el ancho y
+                 pasan a la misma fila solo si caben (flex-basis 190px). --}}
+            <div class="mp-cta-row" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+                <button type="button" class="mp-cta-primary" id="mpAddToCartBtn"
+                        data-slug="{{ $listing->slug }}"
+                        style="flex:1 1 190px;min-width:0;min-height:48px;margin:0;cursor:pointer;border:none">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+                    Añadir al carrito
+                </button>
+                {{-- Comprar ahora: misma llamada AJAX que «Añadir al carrito»
+                     (variante y validaciones incluidas) y salta al checkout. --}}
+                <button type="button" class="mp-cta-secondary" id="mpBuyNowBtn"
+                        style="flex:1 1 190px;min-width:0;min-height:48px;margin:0;cursor:pointer;font-weight:700;border:1.5px solid var(--mp-primary, #0f8a82)">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                    Comprar ahora
+                </button>
+            </div>
             {{-- Escribir al vendedor: canal directo UNIFICADO (reemplaza al viejo
                  "Contactar al vendedor" + repurpose del botón Compartir).
                  - Con seller_whatsapp → abre WhatsApp directo al vendedor con el
@@ -1129,24 +1218,30 @@
             // ── Add to cart (con soporte de variant_id) ──
             const btn = document.getElementById('mpAddToCartBtn');
             if (!btn) return;
-            btn.addEventListener('click', function () {
-                const slug = btn.dataset.slug;
-                if (btn.disabled) return;
-                btn.disabled = true;
-                const original = btn.innerHTML;
-                btn.innerHTML = 'Añadiendo…';
+            const buyBtn = document.getElementById('mpBuyNowBtn');
+            const checkoutUrl = @json(route('marketplace.checkout'));
 
-                const body = { slug, quantity: 1 };
-                // Prioridad: hidden input poblado por el selector de opciones,
-                // o el data-variant-id que el otro script setea en el botón.
-                const vid = (hiddenVariantInput && hiddenVariantInput.value)
+            // Variante elegida ('' si no hay o si la combinación no existe).
+            function currentVariantId() {
+                return (hiddenVariantInput && hiddenVariantInput.value)
                     ? hiddenVariantInput.value
                     : (btn.dataset.variantId || '');
+            }
+            // Producto con selector de opciones y sin variante válida: no se
+            // puede comprar (antes se añadía la variante anterior).
+            function comboBlocked() {
+                return !!document.getElementById('mpOptions') && !currentVariantId();
+            }
+
+            // Misma llamada para «Añadir al carrito» y «Comprar ahora».
+            // Devuelve una promesa {ok, data}; el mensaje de error ya se muestra.
+            function postToCart() {
+                const body = { slug: btn.dataset.slug, quantity: 1 };
+                const vid = currentVariantId();
                 if (vid) {
                     body.variant_id = parseInt(vid, 10);
                 }
-
-                window.mpCsrfHeaders({
+                return window.mpCsrfHeaders({
                     'Content-Type': 'application/json',
                     'Accept': 'application/json',
                 })
@@ -1159,10 +1254,36 @@
                 .then(r => r.json())
                 .then(function (data) {
                     if (!data.success) {
-                        btn.innerHTML = original; btn.disabled = false;
                         alert(data.message || 'No se pudo añadir el producto');
+                        return { ok: false, data: data };
+                    }
+                    if (window.mpCartBadgeUpdate) window.mpCartBadgeUpdate(data.summary);
+                    /* AddToCart: solo tras confirmar el servidor. Emitirlo al
+                       pulsar contaria carritos que nunca existieron. */
+                    if (window.mpTrack) window.mpTrack({!! json_encode($adsCartPayload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!});
+                    return { ok: true, data: data };
+                })
+                .catch(function () {
+                    alert('Error de red');
+                    return { ok: false, data: null };
+                });
+            }
+
+            btn.addEventListener('click', function () {
+                if (btn.disabled) return;
+                if (comboBlocked()) { alert('Elige una combinación disponible.'); return; }
+                btn.disabled = true;
+                if (buyBtn) buyBtn.disabled = true;
+                const original = btn.innerHTML;
+                btn.innerHTML = 'Añadiendo…';
+
+                postToCart().then(function (res) {
+                    if (buyBtn) buyBtn.disabled = false;
+                    if (!res.ok) {
+                        btn.innerHTML = original; btn.disabled = false;
                         return;
                     }
+                    const data = res.data;
                     btn.innerHTML = '✓ Añadido — ir al carrito';
                     btn.onclick = function () { window.location = @json(route('marketplace.cart')); };
                     btn.disabled = false;
@@ -1173,18 +1294,32 @@
                         pn.setAttribute('role', 'status');
                         pn.style.cssText = 'margin:8px 0 0;padding:8px 12px;border-radius:10px;background:#f0fdfa;border:1px solid #99f6e4;color:#115e59;font-size:13px';
                         pn.textContent = '📦 ' + data.package_note;
-                        btn.insertAdjacentElement('afterend', pn);
+                        (btn.closest('.mp-cta-row') || btn).insertAdjacentElement('afterend', pn);
                     }
-                    if (window.mpCartBadgeUpdate) window.mpCartBadgeUpdate(data.summary);
-                    /* AddToCart: solo tras confirmar el servidor. Emitirlo al
-                       pulsar contaria carritos que nunca existieron. */
-                    if (window.mpTrack) window.mpTrack({!! json_encode($adsCartPayload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!});
-                })
-                .catch(function () {
-                    btn.innerHTML = original; btn.disabled = false;
-                    alert('Error de red');
                 });
             });
+
+            // ── Comprar ahora: añade (variante elegida) y va al checkout ──
+            if (buyBtn) {
+                buyBtn.addEventListener('click', function () {
+                    if (buyBtn.disabled || btn.disabled) return;
+                    if (comboBlocked()) { alert('Elige una combinación disponible.'); return; }
+                    buyBtn.disabled = true;
+                    btn.disabled = true;
+                    const originalBuy = buyBtn.innerHTML;
+                    buyBtn.textContent = 'Procesando…';
+
+                    postToCart().then(function (res) {
+                        if (res.ok) {
+                            window.location.href = checkoutUrl;
+                            return;
+                        }
+                        buyBtn.innerHTML = originalBuy;
+                        buyBtn.disabled = false;
+                        btn.disabled = false;
+                    });
+                });
+            }
 
             // ── Sticky CTA mobile ──
             // Aparece cuando el CTA principal sale del viewport. Click → proxy

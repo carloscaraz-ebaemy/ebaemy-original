@@ -194,9 +194,13 @@ class MarketplaceListingSyncService
      */
     public function buildPayload(object $item, Client $client, int $hostnameId): array
     {
-        $stock = DB::connection('tenant')->table('item_warehouse')
+        // Stock DISPONIBLE (físico − comprometido), por almacén y sin negativos,
+        // igual que las variantes. Antes se sumaba la columna legacy `stock` y se
+        // anunciaba como libre lo ya apartado por pedidos pendientes.
+        $stock = (int) DB::connection('tenant')->table('item_warehouse')
             ->where('item_id', $item->id)
-            ->sum('stock');
+            ->selectRaw('COALESCE(SUM(GREATEST(0, COALESCE(stock_physical, 0) - COALESCE(stock_committed, 0))), 0) AS available')
+            ->value('available');
 
         $fqdn = $client->hostname->fqdn;
 
@@ -333,8 +337,12 @@ class MarketplaceListingSyncService
             'title'             => Str::limit((string) ($item->description ?: $item->name ?: 'Producto'), 250, ''),
             'slug'              => $this->buildSlug($item, $hostnameId),
             'internal_id'       => $item->internal_id ?? null,
-            'short_description' => null,
-            'description'       => $item->mp_notes ?? null,
+            // Respaldo igual que la tienda y los feeds (ProductFeedRowBuilder):
+            // mp_notes manda; si falta, `items.name` (donde muchas tiendas
+            // guardan el texto) siempre que no sea un simple duplicado del
+            // título. short_description lleva ese texto cuando aporta algo.
+            'short_description' => $this->distinctShortText($item),
+            'description'       => ($item->mp_notes ?? null) ?: $this->distinctShortText($item, 5000),
             'image_url'         => $imageUrl,
             'thumb_image_url'   => $thumbImageUrl,
             'secondary_image_url' => $secondaryImageUrl,
@@ -402,6 +410,24 @@ class MarketplaceListingSyncService
             'is_active'         => true,
             'synced_at'         => now(),
         ];
+    }
+
+    /**
+     * `items.name` si aporta algo distinto del título (`items.description`);
+     * null si está vacío o es el mismo texto (ignorando mayúsculas/espacios).
+     */
+    private function distinctShortText(object $item, int $limit = 300): ?string
+    {
+        $name = trim((string) ($item->name ?? ''));
+        if ($name === '') {
+            return null;
+        }
+        $title = trim((string) ($item->description ?? ''));
+        if (mb_strtolower(preg_replace('/\s+/', ' ', $name)) === mb_strtolower(preg_replace('/\s+/', ' ', $title))) {
+            return null;
+        }
+
+        return mb_strlen($name) > $limit ? mb_substr($name, 0, $limit) : $name;
     }
 
     /** Nombres de categoría oficial ya resueltos en esta pasada, por id. */
@@ -479,8 +505,8 @@ class MarketplaceListingSyncService
             ->where('iv.item_id', $item->id)
             ->where('iv.is_active', true)
             ->selectRaw('
-                MIN(COALESCE(iv.sale_unit_price, ?)) AS min_p,
-                MAX(COALESCE(iv.sale_unit_price, ?)) AS max_p,
+                MIN(COALESCE(NULLIF(iv.sale_unit_price, 0), ?)) AS min_p,
+                MAX(COALESCE(NULLIF(iv.sale_unit_price, 0), ?)) AS max_p,
                 GREATEST(0, COALESCE(SUM(ivw.stock_physical), 0) - COALESCE(SUM(ivw.stock_committed), 0)) AS sum_stock,
                 COUNT(DISTINCT iv.id) AS n
             ', [$parentPrice, $parentPrice])
@@ -931,7 +957,11 @@ class MarketplaceListingSyncService
 
         $payloads = [];
         foreach ($variants as $v) {
-            $price = $v->sale_unit_price !== null ? (float) $v->sale_unit_price : $parentPrice;
+            // 0 (lo que devuelve el input numérico) = «sin precio propio»: hereda
+            // el del padre, igual que la tienda (ItemVariant usa > 0).
+            $price = ($v->sale_unit_price !== null && (float) $v->sale_unit_price > 0)
+                ? (float) $v->sale_unit_price
+                : $parentPrice;
             $offer = $this->resolveVariantOffer($item, $v, $price, $channel);
 
             $imageUrl = (!$useParentImage && !empty($v->image))
@@ -1033,6 +1063,18 @@ class MarketplaceListingSyncService
             ->where('is_active', true)
             ->get()
             ->keyBy('id');
+
+        // Solo se publican los valores que usa alguna variante ACTIVA: un
+        // «Rojo» sin variante activa aparecía seleccionable y daba una
+        // combinación imposible. Sin variantes activas no se filtra nada
+        // (comportamiento anterior) para no vaciar las opciones por error.
+        if ($variants->isNotEmpty()) {
+            $tenantMap = $tenantMap->filter(fn ($m) => $variants->has($m->item_variant_id))->values();
+            $usedValueIds = $tenantMap->pluck('item_option_value_id')->flip();
+            $tenantValues = $tenantValues->filter(fn ($val) => $usedValueIds->has($val->id))->values();
+            $optionsWithValues = $tenantValues->pluck('item_option_id')->flip();
+            $tenantOptions = $tenantOptions->filter(fn ($o) => $optionsWithValues->has($o->id))->values();
+        }
 
         $valueToImage = []; // tenant_value_id => image_filename
         foreach ($tenantMap as $m) {
@@ -1205,7 +1247,7 @@ class MarketplaceListingSyncService
         // juntos (regla de ItemVariant::offerFor(), la misma que la tienda del
         // tenant). Antes heredaba el precio rebajado pero perdía el tachado, y
         // en ebaemy.com salía sin oferta lo que en la tienda sí la tenía.
-        if (!isset($variant->compare_at_price) && ($variant->sale_unit_price ?? null) === null) {
+        if (!isset($variant->compare_at_price) && (float) ($variant->sale_unit_price ?? 0) <= 0) {
             $padre = isset($item->compare_at_price) ? (float) $item->compare_at_price : 0.0;
             if ($padre > $price && $this->compareAtActive($item)) {
                 return [
