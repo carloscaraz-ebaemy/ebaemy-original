@@ -189,12 +189,12 @@ class ShalomGuide
             throw new RuntimeException('La oficina ' . ($s->agency_office_name ?: '') . ' ya no recibe envíos de Shalom. Elige otra en el envío.');
         }
 
-        // Empresa (RUC): Shalom entrega a una PERSONA con DNI.
-        $esEmpresa = strlen(preg_replace('/\D/', '', (string) $s->dni)) === 11;
-        $dni = preg_replace('/\D/', '', (string) ($esEmpresa ? $s->pickup_person_dni : $s->dni));
-        $fullName = (string) ($esEmpresa ? $s->pickup_person_name : $s->full_name);
-        if (strlen($dni) !== 8) {
-            throw new RuntimeException('Shalom necesita el DNI (8 dígitos) de quien recoge.');
+        // Empresa (RUC) o pasaporte: Shalom entrega a una PERSONA con DNI o CE.
+        [$dni, $fullName] = self::recipient($s);
+        if (!self::validRecipientDoc($dni)) {
+            throw new RuntimeException($s->is_company || $s->document_type === 'pasaporte'
+                ? 'Shalom no entrega a ' . ($s->is_company ? 'un RUC' : 'un pasaporte') . ': indica en el envío quién recoge, con su DNI o carné de extranjería.'
+                : 'Shalom necesita el DNI (8 dígitos) o el carné de extranjería (9 a 12) de quien recoge.');
         }
         $phone = preg_replace('/\D/', '', (string) $s->phone);
         $phone = strlen($phone) > 9 ? substr($phone, -9) : $phone;
@@ -447,12 +447,34 @@ class ShalomGuide
         return (bool) preg_match('/clave.*(d[ií]a anterior|ayer)/iu', $msg);
     }
 
-    /** DNI de quien recoge en Shalom: el del cliente, o el autorizado si el cliente es empresa (RUC). */
+    /** Documento que Shalom acepta como destinatario: DNI (8) o carné de extranjería (9 a 12). */
+    public static function validRecipientDoc(string $doc): bool
+    {
+        // Un RUC no llega aquí: `recipient()` ya lo cambia por quien recoge.
+        return preg_match('/^\d{8,12}$/', $doc) === 1;
+    }
+
+    /**
+     * Documento y nombre del destinatario de la guía. Shalom entrega a una
+     * persona con DNI o carné de extranjería: un RUC o un pasaporte no le
+     * sirven, y ahí va la persona autorizada a recoger (pedido 565 alasitas:
+     * cliente con CE de 9 dígitos, rechazado como «DNI de 8 dígitos»).
+     *
+     * @return array{0:string, 1:string}
+     */
+    public static function recipient(ShippingRequest $s): array
+    {
+        $propio = !$s->is_company && $s->document_type !== 'pasaporte';
+
+        return [
+            preg_replace('/\D/', '', (string) ($propio ? $s->dni : $s->pickup_person_dni)),
+            (string) ($propio ? $s->full_name : $s->pickup_person_name),
+        ];
+    }
+
     private function recipientDni(ShippingRequest $s): string
     {
-        $esEmpresa = strlen(preg_replace('/\D/', '', (string) $s->dni)) === 11;
-
-        return preg_replace('/\D/', '', (string) ($esEmpresa ? $s->pickup_person_dni : $s->dni));
+        return self::recipient($s)[0];
     }
 
     /** Ticket oficial de Shalom (PDF con el QR que escanea la agencia). */
@@ -606,7 +628,11 @@ class ShalomGuide
             }
         }
 
+        // RENIEC solo conoce DNI: un carné de extranjería se parte por palabras.
         try {
+            if (strlen($dni) !== 8) {
+                throw new RuntimeException('sin RENIEC');
+            }
             $d = $this->api->dni($dni);
             $no = $this->find($d, ['nombres', 'name', 'nombre', 'prenombres']);
             $pa = $this->find($d, ['apellidopaterno', 'apellido_paterno', 'paterno', 'firstname', 'ape_paterno']);

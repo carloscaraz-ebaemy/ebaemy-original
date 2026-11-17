@@ -1116,8 +1116,13 @@ class ShippingRequest extends Model
     /** Un RUC se reconoce por el tipo elegido o por sus 11 dígitos. */
     public static function documentIsRuc(?string $documentType, ?string $number): bool
     {
-        if (mb_strtolower(trim((string) $documentType)) === 'ruc') {
+        $tipo = mb_strtolower(trim((string) $documentType));
+        if ($tipo === 'ruc') {
             return true;
+        }
+        // Un carné de extranjería o pasaporte de 11 dígitos no es un RUC.
+        if ($tipo === 'ce' || $tipo === 'pasaporte') {
+            return false;
         }
 
         return strlen(preg_replace('/\D+/', '', (string) $number)) === 11;

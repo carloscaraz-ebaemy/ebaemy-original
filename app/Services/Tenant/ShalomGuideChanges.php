@@ -163,17 +163,16 @@ class ShalomGuideChanges
             // autorizado si el cliente es empresa.
             // `guide_recipient_doc` cuando la guía se pasó a otro pedido y el
             // cliente del envío ya no es el destinatario de la guía.
-            $esEmpresa = strlen(preg_replace('/\D/', '', (string) $s->dni)) === 11;
             $doc = preg_replace('/\D/', '', (string) (($s->carrier_events ?? [])['guide_recipient_doc']
-                ?? ($esEmpresa ? $s->pickup_person_dni : $s->dni)));
+                ?? ShalomGuide::recipient($s)[0]));
             if ($doc !== '') {
                 $data['destinatario'] = $doc;
             }
             $local = ['destino' => (int) $office->ter_id];
         } else {
             $doc = preg_replace('/\D/', '', (string) ($params['destinatario'] ?? ''));
-            if (!preg_match('/^\d{8}$|^\d{11}$/', $doc)) {
-                throw new RuntimeException('El documento de quien recoge debe tener 8 dígitos (DNI) u 11 (RUC).');
+            if (!preg_match('/^\d{8,12}$/', $doc)) {
+                throw new RuntimeException('El documento de quien recoge debe ser un DNI (8 dígitos), RUC (11) o carné de extranjería (9 a 12).');
             }
             $data['destinatario'] = $doc;
             $local = ['destinatario' => $doc, 'nombre' => trim((string) ($params['nombre'] ?? ''))];

@@ -111,7 +111,7 @@
                     <template v-else>
                         <div class="shg-field">
                             <label>Documento de quien recoge <span class="shg-req">*</span></label>
-                            <el-input v-model="f.destinatario" maxlength="11" placeholder="DNI (8) o RUC (11)"></el-input>
+                            <el-input v-model="f.destinatario" maxlength="12" placeholder="DNI (8), RUC (11) o CE"></el-input>
                         </div>
                         <div class="shg-field">
                             <label>Nombre <small class="shg-opt-l">(para el panel)</small></label>
