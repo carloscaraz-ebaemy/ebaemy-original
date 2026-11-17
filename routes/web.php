@@ -2315,6 +2315,7 @@ if ($hostname) {
             Route::get('configurations/visual-theme', 'System\ConfigurationController@getVisualTheme');
             
             Route::get('information', 'System\ConfigurationController@InfoIndex')->name('system.information');
+            Route::get('status/servidor', 'System\StatusController@server')->name('system.status.server');
             Route::get('status/history', 'System\StatusController@history')->name('system.status');
             Route::get('status/memory', 'System\StatusController@memory')->name('system.status.memory');
             Route::get('status/cpu', 'System\StatusController@cpu')->name('system.status.cpu');

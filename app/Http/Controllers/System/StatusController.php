@@ -230,6 +230,24 @@ class StatusController extends Controller
         return $load;
     }
 
+    /**
+     * Estado del servidor: disco, memoria, CPU, bases, colas y si está listo
+     * para videos. `?actualizar=1` vuelve a medir lo que va cacheado 10 min.
+     */
+    public function server(Request $request, \App\Services\System\ServerHealth $health)
+    {
+        if ($request->boolean('actualizar')) {
+            \Cache::forget('server_health_dirs_v1');
+            \Cache::forget('server_health_dbs_v1');
+            return redirect()->route('system.status.server');
+        }
+
+        return view('system.status.server', [
+            's'  => $health->snapshot(),
+            'h'  => $health,
+        ]);
+    }
+
     //para graficas
     public function history()
     {
