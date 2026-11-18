@@ -921,6 +921,15 @@
             </div>
         @endif
 
+        {{-- Busqueda flexible: ningun producto tenia TODAS las palabras y se
+             muestran los que tienen al menos la mitad. Se dice siempre, por
+             la misma razon que el rescate de erratas. --}}
+        @if(!empty($looseSearch) && $listings->isNotEmpty())
+            <div class="mp-rescued" role="status">
+                No encontramos "<strong>{{ $q }}</strong>" exacto; te mostramos productos parecidos.
+            </div>
+        @endif
+
         @if($listings->isEmpty())
             <div class="mp-empty">
                 <div class="mp-empty-icon">

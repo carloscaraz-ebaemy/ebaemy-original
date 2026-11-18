@@ -116,15 +116,33 @@ class ShoppingAssistantTools
 
         $relevancia = MarketplaceListing::textRelevanceSql($consulta);
 
-        $q = MarketplaceListing::published()->search($consulta);
-        if ($min !== null) $q->whereRaw('COALESCE(mp_price, price) >= ?', [$min]);
-        if ($max !== null) $q->whereRaw('COALESCE(mp_price, price) <= ?', [$max]);
-        if ($relevancia) $q->orderByRaw("{$relevancia} DESC");
+        // Igual que el listado: primero la busqueda exacta y, si no trae nada,
+        // la FLEXIBLE (al menos la mitad de las palabras). `parecidos` le
+        // dice al modelo que no son exactos, para que no los venda como tales.
+        $buscar = function (bool $flexible) use ($consulta, $min, $max, $relevancia) {
+            $q = MarketplaceListing::published();
+            if ($flexible) {
+                $q->searchLoose($consulta);
+                $q->orderByRaw(MarketplaceListing::matchCountSql($consulta) . ' DESC');
+            } else {
+                $q->search($consulta);
+            }
+            if ($min !== null) $q->whereRaw('COALESCE(mp_price, price) >= ?', [$min]);
+            if ($max !== null) $q->whereRaw('COALESCE(mp_price, price) <= ?', [$max]);
+            if ($relevancia) $q->orderByRaw("{$relevancia} DESC");
 
-        $filas = $q->orderByRaw('CASE WHEN is_featured = 1 AND (featured_until IS NULL OR featured_until > NOW()) THEN 1 ELSE 0 END DESC')
-            ->orderByDesc('view_count')
-            ->limit(self::MAX_RESULTADOS)
-            ->get();
+            return $q->orderByRaw('CASE WHEN is_featured = 1 AND (featured_until IS NULL OR featured_until > NOW()) THEN 1 ELSE 0 END DESC')
+                ->orderByDesc('view_count')
+                ->limit(self::MAX_RESULTADOS)
+                ->get();
+        };
+
+        $filas = $buscar(false);
+        $parecidos = false;
+        if ($filas->isEmpty() && MarketplaceListing::looseMinMatches($consulta) !== null) {
+            $filas = $buscar(true);
+            $parecidos = $filas->isNotEmpty();
+        }
 
         $productos = $filas->map(fn ($l) => $this->resumen($l))->all();
 
@@ -132,7 +150,7 @@ class ShoppingAssistantTools
             'consulta'  => $consulta,
             'total'     => count($productos),
             'productos' => $productos,
-        ];
+        ] + ($parecidos ? ['parecidos' => true, 'nota' => 'Ningun producto tiene todas las palabras; estos son parecidos.'] : []);
     }
 
     public function verProducto(string $slug): array

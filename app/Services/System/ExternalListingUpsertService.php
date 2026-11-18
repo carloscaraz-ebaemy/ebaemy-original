@@ -69,9 +69,12 @@ class ExternalListingUpsertService
             'tenant_verified' => false,
             'slug'            => Str::limit(Str::slug($data['title']) ?: 'producto', 180, '')
                                  . '-t' . $seller->hostname_id . '-' . $remoteItemId,
-            'search_text'     => Str::limit(MarketplaceListingSyncService::normalizeForSearch(
-                $data['title'] . ' ' . $brand . ' ' . $category
-            ), 500, ''),
+            // Mismo índice que el sync de tiendas: medidas canónicas y
+            // palabras de la descripción tras lo decisivo.
+            'search_text'     => MarketplaceListingSyncService::buildSearchText(
+                [$data['title'], $brand, $category],
+                $data['description'] ?? null
+            ),
             'marketplace_category_id' => $this->categoryId($in['category_full_slug'] ?? null),
             'status'          => ($data['status'] ?? 'active') === 'paused' ? 'paused' : 'active',
             'is_pack'         => false,

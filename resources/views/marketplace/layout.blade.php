@@ -1237,6 +1237,13 @@ window.mpCouponTenantIds = []; // hostname_ids donde el user tiene cupn
                  +  `Mostrando resultados para <strong>${esc(data.corrected_to)}</strong>`
                  +  `</div>`;
         }
+        /* Busqueda flexible: ningun producto tiene TODAS las palabras. Igual
+           que la correccion, se dice: son parecidos, no lo que se escribio. */
+        if (data.loose) {
+            html += `<div class="mp-search-suggest__corrected">`
+                 +  `No encontramos "<strong>${esc(q)}</strong>" exacto; te mostramos productos parecidos`
+                 +  `</div>`;
+        }
 
         if (sug.length) {
             html += '<div class="mp-search-suggest__section">';

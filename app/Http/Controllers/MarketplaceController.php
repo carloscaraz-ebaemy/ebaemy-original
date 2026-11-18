@@ -80,11 +80,17 @@ class MarketplaceController extends Controller
         // tiendas del sidebar (facetas) para que ambos cuadren. $includeShop=false
         // omite el filtro de tienda seleccionada (el facet muestra todas para
         // poder cambiar de tienda, estilo MercadoLibre).
-        $applyFilters = function ($qb, bool $includeShop = true) use (
+        //
+        // `$term` busca otro termino con los mismos filtros (comprobar una
+        // correccion de errata) y `$loose` usa la busqueda FLEXIBLE en vez de
+        // la exacta (ver MarketplaceListing::scopeSearchLoose).
+        $applyFilters = function ($qb, bool $includeShop = true, ?string $term = null, bool $loose = false) use (
             $q, $category, $officialCatId, $shopHostnameId, $priceMin, $priceMax,
             $onOfferOnly, $verifiedOnly, $inStockOnly, $packsOnly, $brand
         ) {
-            $qb->search($q)->category($category)->inOfficialCategory($officialCatId);
+            $term = $term ?? $q;
+            ($loose ? $qb->searchLoose($term) : $qb->search($term))
+                ->category($category)->inOfficialCategory($officialCatId);
             if ($includeShop && $shopHostnameId) $qb->where('hostname_id', $shopHostnameId);
             // COALESCE(mp_price, price) → precio efectivo mostrado al usuario
             if ($priceMin !== null) $qb->whereRaw('COALESCE(mp_price, price) >= ?', [$priceMin]);
@@ -97,66 +103,81 @@ class MarketplaceController extends Controller
             return $qb;
         };
 
+        // Orden del listado. `$matchCount` solo llega en la busqueda flexible:
+        // va POR DELANTE de todo, tambien de un orden por precio, porque ahi
+        // hay productos que casan con todas menos una palabra y otros con la
+        // mitad, y el precio solo ordena dentro de cada grupo.
+        $applySort = function ($query, ?string $matchCount = null) use ($sort, $q) {
+            if ($matchCount) {
+                $query->orderByRaw("{$matchCount} DESC");
+            }
+            switch ($sort) {
+                case 'price_asc':
+                    $query->orderByRaw('COALESCE(mp_price, price) ASC');
+                    break;
+                case 'price_desc':
+                    $query->orderByRaw('COALESCE(mp_price, price) DESC');
+                    break;
+                case 'newest':
+                    $query->orderByDesc('created_at');
+                    break;
+                default:
+                    // Relevance + DIVERSIDAD DE TIENDAS a nivel SQL (window function,
+                    // MySQL 8). Rankeamos cada producto DENTRO de su tienda por
+                    // relevancia (tenant_rank vía ROW_NUMBER) y ordenamos globalmente
+                    // por ese rank primero → round-robin REAL en TODA la paginación:
+                    // el 1er producto de cada tienda, luego el 2º de cada una, etc.
+                    // Así ninguna pantalla queda dominada por una sola tienda (antes
+                    // el ranking global agrupaba muchos productos del mismo seller).
+                    //
+                    // El orden de relevancia interno: destacados (no expirados), luego
+                    // impulso de novedad (≤14 días, igual al badge "NUEVO"), después
+                    // desempeño (score, vistas) y created_at como desempate. El cutoff
+                    // de novedad va INLINE (no binding) a propósito: así no aparece en
+                    // el SELECT/ORDER del COUNT de la paginación y no rompe el conteo.
+                    $newCut = now()->subDays(14)->toDateTimeString();
+
+                    // Con query de texto, la RELEVANCIA TEXTUAL manda sobre todo
+                    // lo demas: no sirve que un destacado con muchas vistas se
+                    // cuele arriba si solo casa a mitad de palabra (buscar "polo"
+                    // devolvia "espolon calcaneo" primero). Ver
+                    // MarketplaceListing::textRelevanceSql.
+                    $textRelevance = MarketplaceListing::textRelevanceSql($q);
+                    $relevanceOrder =
+                        ($matchCount ? "{$matchCount} DESC, " : '')
+                        . ($textRelevance ? "{$textRelevance} DESC, " : '')
+                        . "CASE WHEN is_featured = 1 AND (featured_until IS NULL OR featured_until > NOW()) THEN 1 ELSE 0 END DESC, "
+                        . "featured_score DESC, "
+                        . "CASE WHEN created_at >= '{$newCut}' THEN 1 ELSE 0 END DESC, "
+                        . "sort_score DESC, "
+                        . "view_count DESC, "
+                        . "created_at DESC";
+                    $query->selectRaw(
+                            "marketplace_listings.*, "
+                            . "ROW_NUMBER() OVER (PARTITION BY hostname_id ORDER BY {$relevanceOrder}) AS tenant_rank"
+                        );
+                    // Con busqueda de texto: primero el grado de acierto, y la
+                    // diversidad de tiendas intercala DENTRO de cada grado. Asi se
+                    // conserva el round-robin (es intencional) sin que un match
+                    // flojo de otra tienda adelante al producto que se buscaba.
+                    if ($textRelevance) {
+                        $query->orderByRaw("{$textRelevance} DESC");
+                    }
+                    $query->orderBy('tenant_rank')          // round-robin entre tiendas
+                        ->orderByDesc('tenant_verified')    // dentro de cada ronda, verificadas primero
+                        ->orderByRaw($relevanceOrder);      // y luego por relevancia
+            }
+        };
+
         $query = MarketplaceListing::published();
         $applyFilters($query);
-
-        switch ($sort) {
-            case 'price_asc':
-                $query->orderByRaw('COALESCE(mp_price, price) ASC');
-                break;
-            case 'price_desc':
-                $query->orderByRaw('COALESCE(mp_price, price) DESC');
-                break;
-            case 'newest':
-                $query->orderByDesc('created_at');
-                break;
-            default:
-                // Relevance + DIVERSIDAD DE TIENDAS a nivel SQL (window function,
-                // MySQL 8). Rankeamos cada producto DENTRO de su tienda por
-                // relevancia (tenant_rank vía ROW_NUMBER) y ordenamos globalmente
-                // por ese rank primero → round-robin REAL en TODA la paginación:
-                // el 1er producto de cada tienda, luego el 2º de cada una, etc.
-                // Así ninguna pantalla queda dominada por una sola tienda (antes
-                // el ranking global agrupaba muchos productos del mismo seller).
-                //
-                // El orden de relevancia interno: destacados (no expirados), luego
-                // impulso de novedad (≤14 días, igual al badge "NUEVO"), después
-                // desempeño (score, vistas) y created_at como desempate. El cutoff
-                // de novedad va INLINE (no binding) a propósito: así no aparece en
-                // el SELECT/ORDER del COUNT de la paginación y no rompe el conteo.
-                $newCut = now()->subDays(14)->toDateTimeString();
-
-                // Con query de texto, la RELEVANCIA TEXTUAL manda sobre todo
-                // lo demas: no sirve que un destacado con muchas vistas se
-                // cuele arriba si solo casa a mitad de palabra (buscar "polo"
-                // devolvia "espolon calcaneo" primero). Ver
-                // MarketplaceListing::textRelevanceSql.
-                $textRelevance = MarketplaceListing::textRelevanceSql($q);
-                $relevanceOrder =
-                    ($textRelevance ? "{$textRelevance} DESC, " : '')
-                    . "CASE WHEN is_featured = 1 AND (featured_until IS NULL OR featured_until > NOW()) THEN 1 ELSE 0 END DESC, "
-                    . "featured_score DESC, "
-                    . "CASE WHEN created_at >= '{$newCut}' THEN 1 ELSE 0 END DESC, "
-                    . "sort_score DESC, "
-                    . "view_count DESC, "
-                    . "created_at DESC";
-                $query->selectRaw(
-                        "marketplace_listings.*, "
-                        . "ROW_NUMBER() OVER (PARTITION BY hostname_id ORDER BY {$relevanceOrder}) AS tenant_rank"
-                    );
-                // Con busqueda de texto: primero el grado de acierto, y la
-                // diversidad de tiendas intercala DENTRO de cada grado. Asi se
-                // conserva el round-robin (es intencional) sin que un match
-                // flojo de otra tienda adelante al producto que se buscaba.
-                if ($textRelevance) {
-                    $query->orderByRaw("{$textRelevance} DESC");
-                }
-                $query->orderBy('tenant_rank')          // round-robin entre tiendas
-                    ->orderByDesc('tenant_verified')    // dentro de cada ronda, verificadas primero
-                    ->orderByRaw($relevanceOrder);      // y luego por relevancia
-        }
+        $applySort($query);
 
         $listings   = $query->paginate(24)->withQueryString();
+
+        // Busqueda flexible: true si lo que se muestra NO es la busqueda
+        // exacta sino «parecidos» (la vista lo avisa).
+        $looseSearch = false;
 
         // Rescate por errata: la busqueda no devolvio nada, asi que antes de
         // dar la cara con una pantalla vacia probamos si fue un error de
@@ -173,7 +194,13 @@ class MarketplaceController extends Controller
         ) {
             $sugerencia = app(\App\Services\Marketplace\SearchSpellRescue::class)->suggest($q);
 
-            if ($sugerencia && $sugerencia !== $q) {
+            // Solo se redirige si la correccion encuentra algo: antes
+            // «floreros colgantes» saltaba a «florero colgantes» y la pagina
+            // seguia vacia, ahora con un aviso de correccion encima. Si no
+            // encuentra, se sigue con la busqueda flexible del original.
+            if ($sugerencia && $sugerencia !== $q
+                && $applyFilters(MarketplaceListing::published(), true, $sugerencia)->exists()
+            ) {
                 // Se redirige en vez de rehacer la consulta aqui para que la
                 // URL refleje lo que se esta mostrando: asi el enlace se puede
                 // compartir y el boton de atras hace lo esperable.
@@ -181,6 +208,26 @@ class MarketplaceController extends Controller
                     $request->except(['page', 'rescued_from']),
                     ['q' => $sugerencia, 'rescued_from' => $q]
                 ));
+            }
+        }
+
+        // Busqueda FLEXIBLE: ni la exacta ni la correccion encontraron nada.
+        // Se muestran los productos que tienen al menos la mitad de las
+        // palabras, los que mas aciertan primero, con un aviso de que no son
+        // exactos. Mismos filtros, orden (con el numero de aciertos delante),
+        // diversidad de tiendas y paginacion. Dos consultas mas, y solo en
+        // las busquedas que iban a dar la pantalla vacia.
+        if ($listings->total() === 0 && !empty($q)
+            && MarketplaceListing::looseMinMatches($q) !== null
+        ) {
+            $looseQuery = MarketplaceListing::published();
+            $applyFilters($looseQuery, true, null, true);
+            $applySort($looseQuery, MarketplaceListing::matchCountSql($q));
+            $parecidos = $looseQuery->paginate(24)->withQueryString();
+
+            if ($parecidos->total() > 0) {
+                $listings    = $parecidos;
+                $looseSearch = true;
             }
         }
 
@@ -299,7 +346,7 @@ class MarketplaceController extends Controller
             // los conteos del sidebar cuadran con los resultados (no más "208"
             // cuando la búsqueda da 0).
             $fq = MarketplaceListing::published();
-            $applyFilters($fq, false);
+            $applyFilters($fq, false, null, $looseSearch);
             $shops = $shopSelect($fq)->get()->map($mapShop)->filter(fn($s) => $s->subdomain)->values();
         } else {
             // Home limpia → lista global cacheada (ranking lento).
@@ -395,7 +442,8 @@ class MarketplaceController extends Controller
             'shops', 'shopSubdomain',
             'onOfferOnly', 'verifiedOnly', 'inStockOnly', 'packsOnly',
             'brand', 'brands',
-            'recentlyViewed', 'expiringCoupons', 'recommendedForYou'
+            'recentlyViewed', 'expiringCoupons', 'recommendedForYou',
+            'looseSearch'
         ));
     }
 
@@ -684,7 +732,7 @@ class MarketplaceController extends Controller
             return response()->json($this->suggestPopular());
         }
 
-        $cacheKey = 'mp_suggest_v5_' . md5(mb_strtolower($q));
+        $cacheKey = 'mp_suggest_v6_' . md5(mb_strtolower($q));
         $data = \Cache::remember($cacheKey, 60, function () use ($q) {
             $qNorm = trim(preg_replace('/\s+/', ' ', $q));
 
@@ -721,7 +769,21 @@ class MarketplaceController extends Controller
                 }
             }
 
-            // Ni corrigiendo: populares + categorías para no dejar el vacío.
+            // Ni corrigiendo: busqueda FLEXIBLE (al menos la mitad de las
+            // palabras), la misma que el listado. `loose` hace que el
+            // desplegable avise de que no son resultados exactos.
+            if (MarketplaceListing::looseMinMatches($qNorm) !== null) {
+                $parecidos = $this->buscarParaSugerencia($qNorm, true);
+                if ($parecidos['listings']->isNotEmpty()) {
+                    return [
+                        'suggestions' => $parecidos['listings'],
+                        'shops'       => $shops,
+                        'loose'       => true,
+                    ];
+                }
+            }
+
+            // Nada: populares + categorías para no dejar el vacío.
             return array_merge($out, $this->suggestPopular());
         });
 
@@ -737,7 +799,7 @@ class MarketplaceController extends Controller
      *
      * @return array{listings:\Illuminate\Support\Collection,shops:\Illuminate\Support\Collection}
      */
-    private function buscarParaSugerencia(string $termino): array
+    private function buscarParaSugerencia(string $termino, bool $loose = false): array
     {
         // El filtro es el MISMO scopeSearch del listado — antes estaba
         // duplicado aqui y las dos busquedas podian discrepar.
@@ -747,8 +809,13 @@ class MarketplaceController extends Controller
         // tipo '!!'): entonces se omite el termino.
         $textRelevance = MarketplaceListing::textRelevanceSql($termino);
 
+        // `$loose`: segunda pasada flexible, ordenada primero por cuantas
+        // palabras casan (ver MarketplaceListing::scopeSearchLoose).
+        $matchCount = $loose ? MarketplaceListing::matchCountSql($termino) : null;
+
         $listings = MarketplaceListing::published()
-            ->search($termino)
+            ->when($loose, fn ($qb) => $qb->searchLoose($termino), fn ($qb) => $qb->search($termino))
+            ->when($matchCount, fn ($qb) => $qb->orderByRaw("{$matchCount} DESC"))
             ->when($textRelevance, fn ($qb) => $qb->orderByRaw("{$textRelevance} DESC"))
             ->orderByRaw('CASE WHEN is_featured = 1 AND (featured_until IS NULL OR featured_until > NOW()) THEN 1 ELSE 0 END DESC')
             ->orderByDesc('view_count')
@@ -757,7 +824,8 @@ class MarketplaceController extends Controller
             ->map(fn ($l) => $this->mapListingForSuggest($l))
             ->values();
 
-        $shops = MarketplaceListing::published()
+        // En la pasada flexible las tiendas ya se buscaron (y no salio ninguna).
+        $shops = $loose ? collect() : MarketplaceListing::published()
             ->where('tenant_name', 'like', '%' . $termino . '%')
             ->select('tenant_name', 'tenant_fqdn', \DB::raw('COUNT(*) as products_count'))
             ->groupBy('tenant_name', 'tenant_fqdn')
@@ -973,9 +1041,13 @@ class MarketplaceController extends Controller
      */
     private function variantMatchesSearch(?string $nombre, array $grafias, ?string $sku = null, array $tokens = []): bool
     {
+        // Medidas a su forma canonica, como el indice: la variante «2.40 m»
+        // casa con lo buscado «240cm».
         $palabras = preg_split(
             '/[^\p{L}\p{N}]+/u',
-            \App\Services\System\MarketplaceListingSyncService::normalizeForSearch((string) $nombre),
+            \App\Services\System\SearchMeasures::normalize(
+                \App\Services\System\MarketplaceListingSyncService::normalizeForSearch((string) $nombre)
+            ),
             -1,
             PREG_SPLIT_NO_EMPTY
         );
@@ -1056,7 +1128,7 @@ class MarketplaceController extends Controller
         $tokensBuscados  = MarketplaceListing::searchTokens($q);
         $grafiasBuscadas = [];
         foreach ($tokensBuscados as $tok) {
-            foreach (\App\Services\System\SearchSynonyms::spellings($tok) as $g) {
+            foreach (MarketplaceListing::tokenSpellings($tok) as $g) {
                 $grafiasBuscadas[] = $g;
             }
         }

@@ -174,6 +174,91 @@ class MarketplaceListingSyncService
      */
     public static function normalizeForSearch(string $text): string
     {
+        return mb_substr(static::normalizeWords($text), 0, 500, 'UTF-8');
+    }
+
+    /** Largo de `search_text` si aún no se ha ampliado la columna. */
+    private const SEARCH_TEXT_LEGACY_MAX = 500;
+
+    /** Lo que admite hoy la columna `search_text` (cacheado por proceso). */
+    private static ?int $searchTextMax = null;
+
+    /**
+     * Construye `marketplace_listings.search_text`, el índice del buscador.
+     *
+     * `$decisivo` va en orden de importancia (título, marca, categorías,
+     * variantes, nombre) y entra ENTERO y primero. Después, con lo que quede
+     * hasta el largo de la columna, las palabras útiles de la descripción
+     * (`mp_notes` sin HTML): sin palabras de relleno, sin las de menos de 3
+     * letras y sin repetir las que ya están. Así «arbol pino verde» encuentra
+     * el «Pino Americano» cuya descripción dice «color verde intenso», y una
+     * descripción larga nunca empuja fuera del índice la categoría o las
+     * variantes.
+     *
+     * Las medidas se llevan a su forma canónica (SearchMeasures): «2.1 m» y
+     * «210 cm» quedan las dos como «210cm», igual que en la consulta.
+     *
+     * @param array<int,string|null> $decisivo
+     */
+    public static function buildSearchText(array $decisivo, ?string $descripcion = null): string
+    {
+        $max = static::searchTextMax();
+
+        $base = SearchMeasures::normalize(static::normalizeWords(implode(' ', array_map('strval', $decisivo))));
+        $base = mb_substr($base, 0, $max, 'UTF-8');
+
+        $descripcion = trim((string) $descripcion);
+        if ($descripcion === '' || mb_strlen($base) >= $max - 4) {
+            return trim($base);
+        }
+
+        // Sin HTML: las etiquetas separan palabras («<p>uno</p><p>dos</p>»).
+        $texto = html_entity_decode(strip_tags(preg_replace('/<[^>]*>/', ' $0 ', $descripcion)), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $texto = SearchMeasures::normalize(static::normalizeWords($texto));
+
+        $ya = array_flip(preg_split('/[^\p{L}\p{N}]+/u', $base, -1, PREG_SPLIT_NO_EMPTY));
+        $relleno = array_flip(MarketplaceListing::STOPWORDS);
+        $extra = '';
+        foreach (preg_split('/[^\p{L}\p{N}]+/u', $texto, -1, PREG_SPLIT_NO_EMPTY) as $palabra) {
+            if (mb_strlen($palabra) < 3 || isset($ya[$palabra]) || isset($relleno[$palabra])) {
+                continue;
+            }
+            if (mb_strlen($base) + mb_strlen($extra) + mb_strlen($palabra) + 1 > $max) {
+                break;
+            }
+            $ya[$palabra] = true;
+            $extra .= ' ' . $palabra;
+        }
+
+        return trim($base . $extra);
+    }
+
+    /**
+     * Largo real de la columna: 1000 tras la migración
+     * 2026_11_18_000001; 500 si aún no se ha corrido. Así desplegar el código
+     * antes que la migración no rompe el sync con «Data too long».
+     */
+    public static function searchTextMax(): int
+    {
+        if (static::$searchTextMax !== null) {
+            return static::$searchTextMax;
+        }
+        try {
+            $len = DB::connection('system')->selectOne(
+                "SELECT CHARACTER_MAXIMUM_LENGTH AS l FROM information_schema.COLUMNS
+                  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'marketplace_listings' AND COLUMN_NAME = 'search_text'"
+            );
+            $n = (int) ($len->l ?? 0);
+        } catch (\Throwable $e) {
+            $n = 0;
+        }
+
+        return static::$searchTextMax = $n > 0 ? $n : self::SEARCH_TEXT_LEGACY_MAX;
+    }
+
+    /** Minúsculas, sin tildes y espacios colapsados, SIN cortar. */
+    private static function normalizeWords(string $text): string
+    {
         $text = mb_strtolower(trim($text), 'UTF-8');
         $map = [
             'á'=>'a','à'=>'a','ä'=>'a','â'=>'a','ã'=>'a',
@@ -185,7 +270,7 @@ class MarketplaceListingSyncService
         ];
         $text = strtr($text, $map);
         $text = preg_replace('/\s+/', ' ', $text);
-        return mb_substr(trim($text), 0, 500, 'UTF-8');
+        return trim($text);
     }
 
     /**
@@ -358,16 +443,20 @@ class MarketplaceListingSyncService
             // Lleva también el nombre corto si difiere del título y los nombres
             // de las variantes (color, talla): sin ellos «polo rojo» no
             // encontraba un «Polo básico» con variante Rojo.
-            'search_text'       => self::normalizeForSearch(
-                (string) ($item->description ?: $item->name ?: '') . ' '
-                . (string) $brandName . ' ' . (string) $categoryName . ' '
-                . $this->officialCategoryTerms($item->marketplace_category_id ?? null) . ' '
-                . ($variantInfo['has_variants'] ? $this->variantSearchTerms($item) . ' ' : '')
-                // El índice se corta a 500 caracteres: lo corto y decisivo
-                // va antes. Y hay tiendas que usan `name` para la descripción
-                // larga, que solo mete ruido: se toma solo si es un nombre.
-                . (($item->name && $item->name !== $item->description && mb_strlen($item->name) <= 120) ? $item->name : '')
-            ),
+            //
+            // El índice tiene un largo máximo (ver buildSearchText): lo corto
+            // y decisivo va antes, y la descripción solo rellena lo que sobra.
+            // Hay tiendas que usan `name` para la descripción larga: como
+            // nombre entra solo si es corto; si no, cuenta como descripción
+            // (la misma que la ficha: mp_notes y, si falta, ese `name`).
+            'search_text'       => self::buildSearchText([
+                (string) ($item->description ?: $item->name ?: ''),
+                (string) $brandName,
+                (string) $categoryName,
+                $this->officialCategoryTerms($item->marketplace_category_id ?? null),
+                $variantInfo['has_variants'] ? $this->variantSearchTerms($item) : '',
+                ($item->name && $item->name !== $item->description && mb_strlen($item->name) <= 120) ? $item->name : '',
+            ], ($item->mp_notes ?? null) ?: $this->distinctShortText($item, 5000)),
 
             // Precio "principal" mostrado en cards. Para items con variantes
             // usamos el min — el cliente verá "Desde S/X" derivado de min_price.

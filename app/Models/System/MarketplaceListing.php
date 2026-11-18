@@ -227,7 +227,7 @@ class MarketplaceListing extends Model
      * para nina» dejaba fuera «Zapatillas nina rosadas» solo porque el titulo
      * no dice «para». Se comparan ya normalizadas (sin tildes, minusculas).
      */
-    private const STOPWORDS = [
+    public const STOPWORDS = [
         'a', 'al', 'con', 'de', 'del', 'e', 'el', 'en', 'la', 'las', 'lo', 'los',
         'mas', 'mi', 'mis', 'muy', 'o', 'para', 'por', 'que', 'sin', 'su', 'sus',
         'tu', 'tus', 'u', 'un', 'una', 'unas', 'unos', 'y',
@@ -246,6 +246,11 @@ class MarketplaceListing extends Model
         if (!$q) return [];
         $q = trim(preg_replace('/\s+/', ' ', $q));
         if ($q === '') return [];
+
+        // Medidas a su forma canonica ANTES de partir: «2,40 m», «2.40m» y
+        // «240 cm» son el token «240cm», igual que en el indice. Va primero
+        // porque la coma decimal partiria «2,40» en dos palabras.
+        $q = \App\Services\System\SearchMeasures::normalize($q);
 
         // Comas y barras separan palabras igual que el espacio: «polo,rojo».
         $palabras = preg_split('/[\s,;\/]+/u', $q, -1, PREG_SPLIT_NO_EMPTY);
@@ -305,6 +310,35 @@ class MarketplaceListing extends Model
     }
 
     /**
+     * Grafias de un token (SearchSynonyms::spellings) MAS sus formas de
+     * medida (SearchMeasures::alternatives: «2.40» -> «240cm»). Es lo que
+     * usan filtro, orden y la eleccion de variante, para que los tres
+     * coincidan.
+     *
+     * @return array<int,string>
+     */
+    public static function tokenSpellings(string $tok): array
+    {
+        return array_values(array_unique(array_merge(
+            \App\Services\System\SearchSynonyms::spellings($tok),
+            \App\Services\System\SearchMeasures::alternatives($tok)
+        )));
+    }
+
+    /**
+     * tokenSpellings MAS los sinonimos de significado (SearchSynonyms::expand).
+     *
+     * @return array<int,string>
+     */
+    public static function tokenExpansions(string $tok): array
+    {
+        return array_values(array_unique(array_merge(
+            \App\Services\System\SearchSynonyms::expand($tok),
+            \App\Services\System\SearchMeasures::alternatives($tok)
+        )));
+    }
+
+    /**
      * Expresion SQL de RELEVANCIA TEXTUAL para ordenar resultados de busqueda.
      *
      * Sin esto, scopeSearch filtra con LIKE '%token%' — que tambien casa a
@@ -350,9 +384,9 @@ class MarketplaceListing extends Model
 
         $terms = [];
         foreach (array_slice($tokens, 0, 5) as $tok) {
-            $grafias = static::cleanVariants(\App\Services\System\SearchSynonyms::spellings($tok));
+            $grafias = static::cleanVariants(static::tokenSpellings($tok));
             $sinonimos = array_values(array_diff(
-                static::cleanVariants(\App\Services\System\SearchSynonyms::expand($tok)),
+                static::cleanVariants(static::tokenExpansions($tok)),
                 $grafias
             ));
             $plain = static::sanitizeSqlLiteral($tok);
@@ -414,12 +448,91 @@ class MarketplaceListing extends Model
     }
 
     /**
+     * Máximo de palabras que entran en la búsqueda flexible. Cada una suma un
+     * CASE con sus variantes; más allá de esto la consulta crece sin que el
+     * orden cambie de verdad.
+     */
+    private const LOOSE_MAX_TOKENS = 8;
+
+    /**
+     * Condición SQL de UN token: verdadera si el producto lo contiene. Es la
+     * pieza de scopeSearch (todas a la vez) y de la búsqueda flexible (cuenta
+     * cuántas casan).
+     *
+     * Casa si alguna de estas cosas empieza por la palabra (o una de sus
+     * grafías, sinónimos o formas de medida):
+     *  - una palabra del índice `search_text` (al inicio: ver wordStartRegex);
+     *  - el índice a mitad de palabra, solo si allowsInnerMatch;
+     *  - el nombre o el SKU de una VARIANTE activa con stock, en vivo:
+     *    `search_text` tiene un largo máximo y no lleva SKU, así que una
+     *    variante «Rojo» o el SKU «PVC-T1-04» no encontraban al producto. Solo
+     *    grafías (plural/erratas), no sinónimos: «asiento» no debe traer
+     *    variantes de «silla»;
+     *  - título, categoría o marca tal cual, y el código interno a mitad.
+     *
+     * Todo va INLINE, sin bindings, por dos motivos:
+     *  1. La búsqueda flexible reutiliza esta condición en el WHERE, en el
+     *     window function del SELECT y en el ORDER BY; duplicar bindings
+     *     rompe el COUNT de la paginación (ver textRelevanceSql).
+     *  2. Un REGEXP con el patrón como parámetro de un prepared statement
+     *     se recompila en CADA fila en MySQL 8: medido en local, 566 ms
+     *     contra 4 ms del mismo patrón inline sobre 300 filas. Con 4 o 5
+     *     patrones por palabra, cada búsqueda tardaba más de 2 s en SQL.
+     *
+     * Lo que se interpola es seguro: las variantes pasan por
+     * sanitizeSqlLiteral (letras, dígitos, espacio, guion) y lo que se
+     * compara tal cual se cita con PDO::quote, que es lo mismo que hacía el
+     * binding.
+     */
+    public static function tokenMatchSql(string $tok): string
+    {
+        $pdo   = (new static)->getConnection()->getPdo();
+        $quote = fn (string $v) => $pdo->quote($v);
+
+        $variants = static::cleanVariants(static::tokenExpansions($tok));
+        $norm = static::sanitizeSqlLiteral(
+            \App\Services\System\MarketplaceListingSyncService::normalizeForSearch($tok)
+        );
+
+        $or = [];
+        foreach ($variants as $v) {
+            $or[] = "search_text REGEXP '" . static::wordStartRegex($v) . "'";
+        }
+        if ($norm !== '' && static::allowsInnerMatch($norm)) {
+            $or[] = "search_text LIKE '%{$norm}%'";
+        }
+
+        $grafiasVar = static::cleanVariants(static::tokenSpellings($tok));
+        $tokLike = str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $tok);
+        $varOr = [];
+        foreach ($grafiasVar as $v) {
+            $varOr[] = "lvs.display_name LIKE '{$v}%'";
+            $varOr[] = "lvs.display_name LIKE '% {$v}%'";
+        }
+        // SKU: a mitad desde 3 caracteres; con 2, solo prefijo.
+        $varOr[] = 'lvs.sku LIKE ' . $quote((mb_strlen($tokLike) >= 3 ? '%' : '') . $tokLike . '%');
+        $or[] = 'EXISTS (SELECT 1 FROM marketplace_listing_variants AS lvs'
+            . ' WHERE lvs.listing_id = marketplace_listings.id'
+            . ' AND lvs.is_active = 1 AND lvs.stock > 0'
+            . ' AND (' . implode(' OR ', $varOr) . '))';
+
+        $or[] = 'title LIKE ' . $quote($tok . '%');
+        $or[] = 'title LIKE ' . $quote('% ' . $tok . '%');
+        $or[] = 'category_name LIKE ' . $quote($tok . '%');
+        $or[] = 'category_name LIKE ' . $quote('% ' . $tok . '%');
+        $or[] = 'brand_name LIKE ' . $quote($tok . '%');
+        $or[] = 'internal_id LIKE ' . $quote('%' . $tok . '%');
+
+        return '(' . implode(' OR ', $or) . ')';
+    }
+
+    /**
      * Búsqueda tolerante: divide la query en palabras y exige que CADA
-     * palabra aparezca en title/category/brand. Asi 'x 24' encuentra
+     * palabra aparezca (ver tokenMatchSql). Asi 'x 24' encuentra
      * 'x24 Hojas', 'planta artificial' encuentra 'planta de bambu artificial',
      * etc. Sin la division, una sola palabra inexacta hace 0 resultados.
      *
-     * Tambien colapsa espacios multiples y trim — defensivo.
+     * Si esto da cero, el llamante puede probar scopeSearchLoose.
      */
     public function scopeSearch($query, ?string $q)
     {
@@ -430,53 +543,79 @@ class MarketplaceListing extends Model
 
         return $query->where(function ($w) use ($tokens) {
             foreach ($tokens as $tok) {
-                // Token normalizado + grafias + sinónimos (asiento→silla,
-                // etc.), insensibles a tildes, contra el índice search_text.
-                // Todos al INICIO de palabra: ver wordStartRegex.
-                $variants = static::cleanVariants(\App\Services\System\SearchSynonyms::expand($tok));
-                $norm = static::sanitizeSqlLiteral(
-                    \App\Services\System\MarketplaceListingSyncService::normalizeForSearch($tok)
-                );
-                $w->where(function ($sub) use ($tok, $variants, $norm) {
-                    foreach ($variants as $v) {
-                        $sub->orWhereRaw('search_text REGEXP ?', [static::wordStartRegex($v)]);
-                    }
-                    if ($norm !== '' && static::allowsInnerMatch($norm)) {
-                        $sub->orWhere('search_text', 'like', '%' . $norm . '%');
-                    }
-                    // Fallback: columnas originales (también al inicio de
-                    // palabra) + SKU/código interno, que sí casa a mitad.
-                    // Nombre y SKU de las VARIANTES (activas y con stock), en vivo:
-                    // `search_text` se corta a 500 caracteres y no lleva SKU, así
-                    // que una variante «Rojo» o el SKU «PVC-T1-04» no encontraban
-                    // al producto. Solo grafías (plural/erratas), no sinónimos:
-                    // «asiento» no debe traer variantes de «silla».
-                    $grafiasVar = static::cleanVariants(\App\Services\System\SearchSynonyms::spellings($tok));
-                    $tokLike = str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $tok);
-                    $sub->orWhereExists(function ($ex) use ($grafiasVar, $tokLike) {
-                        $ex->select(\DB::raw(1))
-                            ->from('marketplace_listing_variants as lvs')
-                            ->whereColumn('lvs.listing_id', 'marketplace_listings.id')
-                            ->where('lvs.is_active', true)
-                            ->where('lvs.stock', '>', 0)
-                            ->where(function ($m) use ($grafiasVar, $tokLike) {
-                                foreach ($grafiasVar as $v) {
-                                    $m->orWhere('lvs.display_name', 'like', $v . '%')
-                                      ->orWhere('lvs.display_name', 'like', '% ' . $v . '%');
-                                }
-                                // SKU: a mitad desde 3 caracteres; con 2, solo prefijo.
-                                $m->orWhere('lvs.sku', 'like', (mb_strlen($tokLike) >= 3 ? '%' : '') . $tokLike . '%');
-                            });
-                    });
-                    $sub->orWhere('title', 'like', $tok . '%')
-                        ->orWhere('title', 'like', '% ' . $tok . '%')
-                        ->orWhere('category_name', 'like', $tok . '%')
-                        ->orWhere('category_name', 'like', '% ' . $tok . '%')
-                        ->orWhere('brand_name', 'like', $tok . '%')
-                        ->orWhere('internal_id', 'like', '%' . $tok . '%');
-                });
+                $w->whereRaw(static::tokenMatchSql($tok));
             }
         });
+    }
+
+    /**
+     * Palabras con contenido que cuentan en la búsqueda flexible: las de
+     * searchTokens sin las de relleno, hasta LOOSE_MAX_TOKENS.
+     *
+     * @return array<int,string>
+     */
+    public static function looseTokens(?string $q): array
+    {
+        $relleno = array_flip(self::STOPWORDS);
+        $tokens = array_values(array_filter(
+            static::searchTokens($q),
+            fn ($t) => !isset($relleno[\App\Services\System\MarketplaceListingSyncService::normalizeForSearch($t)])
+        ));
+
+        return array_slice($tokens, 0, self::LOOSE_MAX_TOKENS);
+    }
+
+    /**
+     * Cuántas palabras tienen que casar en la búsqueda flexible: la mitad de
+     * las palabras con contenido, redondeando hacia arriba, y nunca 0. Null
+     * si no hay búsqueda flexible posible: con una sola palabra «la mitad» es
+     * esa misma palabra, y la búsqueda exacta ya dijo que no está.
+     */
+    public static function looseMinMatches(?string $q): ?int
+    {
+        $n = count(static::looseTokens($q));
+
+        return $n >= 2 ? max(1, (int) ceil($n / 2)) : null;
+    }
+
+    /**
+     * Expresión SQL con CUÁNTAS palabras de la búsqueda casan con el
+     * producto (0..n). Sirve para filtrar la búsqueda flexible y para
+     * ordenarla: primero el que acierta más palabras. Inline, como
+     * textRelevanceSql, para poder repetirla en SELECT y ORDER BY.
+     */
+    public static function matchCountSql(?string $q): ?string
+    {
+        $tokens = static::looseTokens($q);
+        if (count($tokens) < 2) return null;
+
+        $partes = array_map(
+            fn ($tok) => '(CASE WHEN ' . static::tokenMatchSql($tok) . ' THEN 1 ELSE 0 END)',
+            $tokens
+        );
+
+        return '(' . implode(' + ', $partes) . ')';
+    }
+
+    /**
+     * Búsqueda FLEXIBLE: la segunda pasada cuando la exacta (todas las
+     * palabras) no encontró nada. Acepta productos que tengan al menos la
+     * mitad de las palabras con contenido (looseMinMatches). «arbol pino
+     * verde» trae los «Pino Americano» aunque ninguno diga «verde».
+     *
+     * El llamante ordena por matchCountSql DESC y avisa al comprador de que
+     * no son resultados exactos. Sin búsqueda flexible posible (una sola
+     * palabra) no devuelve nada: no hay «parecido» que mostrar.
+     */
+    public function scopeSearchLoose($query, ?string $q)
+    {
+        $min   = static::looseMinMatches($q);
+        $count = static::matchCountSql($q);
+        if ($min === null || $count === null) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->whereRaw("{$count} >= {$min}");
     }
 
     public function scopeCategory($query, ?string $category)

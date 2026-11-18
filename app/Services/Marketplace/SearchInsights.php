@@ -36,7 +36,7 @@ class SearchInsights
     {
         $bruto = trim(preg_replace('/\s+/', ' ', (string) $termino));
 
-        if (mb_strlen($bruto) < self::MIN_LONGITUD) {
+        if (mb_strlen($bruto) < self::MIN_LONGITUD || static::isNoise($bruto)) {
             return;
         }
 
@@ -75,6 +75,18 @@ class SearchInsights
                 'error' => $e->getMessage(),
             ]);
         }
+    }
+
+    /**
+     * Términos que no son una búsqueda de una persona. Hoy: cualquier cosa con
+     * llaves. El caso real es `{search_term_string}`, el marcador del
+     * SearchAction de schema.org que algunos robots piden literal: 29 de las
+     * 87 búsquedas «sin resultados» de un mes eran eso, y tapaban las de
+     * verdad. Nadie escribe llaves para buscar un producto.
+     */
+    public static function isNoise(string $termino): bool
+    {
+        return strpbrk($termino, '{}') !== false;
     }
 
     /**
