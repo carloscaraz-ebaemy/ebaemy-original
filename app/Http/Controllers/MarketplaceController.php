@@ -1070,21 +1070,29 @@ class MarketplaceController extends Controller
             // grilla, igual que published() filtra productos sin stock).
             $inStock = $variants ? $variants->filter(fn($v) => (int) $v->stock > 0) : collect();
 
-            $explotar = !empty($l->has_variants) && $variants && $variants->count() >= 2 && $inStock->isNotEmpty();
-            // Ninguna con foto propia: las cards saldrían idénticas → la del padre.
-            if ($explotar && $inStock->every(fn ($v) => empty($v->image_url))) {
-                $explotar = false;
-            }
+            // Decisión del dueño 2026-11-18: una variante SIN foto propia no sale
+            // como tarjeta (se puede elegir y comprar en la ficha). Si ninguna
+            // tiene foto, sale la tarjeta del producto.
+            $conFoto = $inStock->filter(fn ($v) => !empty($v->image_url));
+
+            $explotar = !empty($l->has_variants) && $variants && $variants->count() >= 2 && $conFoto->isNotEmpty();
             if (!$explotar) {
                 $expanded->push($l);
                 continue;
             }
 
-            $mostrar = $inStock;
+            $mostrar = $conFoto;
             if ($grafiasBuscadas) {
                 $casan = $inStock->filter(fn ($v) => $this->variantMatchesSearch($v->display_name, $grafiasBuscadas, $v->sku, $tokensBuscados));
                 if ($casan->isNotEmpty()) {
-                    $mostrar = $casan;
+                    // Lo buscado es una variante concreta («polo rojo»): si no
+                    // tiene foto, la tarjeta del producto, nunca otros colores.
+                    $casanConFoto = $casan->filter(fn ($v) => !empty($v->image_url));
+                    if ($casanConFoto->isEmpty()) {
+                        $expanded->push($l);
+                        continue;
+                    }
+                    $mostrar = $casanConFoto;
                 }
             }
             $mostrar = $mostrar->take($maxCards);
