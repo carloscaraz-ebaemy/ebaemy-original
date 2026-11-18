@@ -3256,7 +3256,7 @@ class ShipmentController extends Controller
             ->when($status, fn ($q) => $q->where('status', $status))
             ->withCount('shipments')
             ->orderByDesc('id')
-            ->paginate(20)
+            ->paginate(\App\Support\PerPage::resolve(20))
             ->withQueryString();
 
         $window = $service->currentWindow();

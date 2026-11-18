@@ -78,7 +78,9 @@
           <el-pagination
             :page-size="paginator.per_page"
             :page-count="paginator.size"
-            layout="prev, pager, next"
+            layout="sizes, prev, pager, next"
+            :page-sizes="opcionesTamano(paginator.per_page)"
+            @size-change="cambiarFilas"
             :total="paginator.total"
             :current-page.sync="filter.page"
             @current-change="onFilter"
@@ -100,9 +102,11 @@
 </template>
 
 <script>
+import { perPage } from "@mixins/per_page";
 import ModalAddEdit from "./AddEdit.vue";
 
 export default {
+  mixins: [perPage],
   props: {
     floors: {
       type: Object,
@@ -133,6 +137,7 @@ export default {
       filter: {
         establishment_id: '',
         page: 1,
+        per_page: undefined,
       },
       paginator: {
         size: 1,
@@ -147,6 +152,12 @@ export default {
     this.paginator.total = this.floors.total;
     this.paginator.per_page = this.floors.per_page;
     this.filter.establishment_id = this.establishmentId;
+    // Filas por página guardadas en este equipo: si difieren de las del servidor, recargar.
+    const filas = this.filasPorPagina();
+    if (filas && filas !== this.paginator.per_page) {
+      this.filter.per_page = filas;
+      this.onFilter();
+    }
   },
   methods: {
     onDelete(item) {
@@ -179,6 +190,10 @@ export default {
     onCreate() {
       this.floor = null;
       this.openModalAddEdit = true;
+    },
+    cambiarFilas(n) {
+      this.filter.page = 1;
+      this.cambiarTamano(n, this.onFilter, this.filter);
     },
     onFilter() {
       this.loading = true;

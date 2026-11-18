@@ -51,7 +51,7 @@ class AdminNotificationController extends Controller
     public function index(Request $request)
     {
         $items = SystemAdminNotification::orderByDesc('created_at')
-            ->paginate(30);
+            ->paginate(\App\Support\PerPage::resolve(30))->withQueryString();
 
         return view('system.admin_notifications.index', compact('items'));
     }

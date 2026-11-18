@@ -9,7 +9,7 @@
                 </div>
                 <div class="col-md-12 mt-2" >
 
-                    <data-tables :data='lots'  :current-page.sync="currentPage" :table-props="tableProps" :pagination-props="{ pageSizes: [20] }" style="width: 100%" >
+                    <data-tables :data='lots'  :current-page.sync="currentPage" :table-props="tableProps" :pagination-props="{ pageSizes: [20, 50, 100] }" style="width: 100%" >
                     
                         <el-table-column
                             width="80"

@@ -362,7 +362,8 @@ class DashboardSalePurchase
 
         if($no_take) {
             $collect = $sorted->values();
-            return new LengthAwarePaginator($collect->forPage($page, 10), $collect->count(), 10, $page);
+            $perPage = \App\Support\PerPage::resolve(10);
+            return new LengthAwarePaginator($collect->forPage($page, $perPage), $collect->count(), $perPage, $page);
             //config('tenant.items_per_page_simple_d_table')
         } else {
             return $sorted->values()->take(10);

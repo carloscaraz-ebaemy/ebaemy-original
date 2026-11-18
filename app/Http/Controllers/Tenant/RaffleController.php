@@ -63,7 +63,7 @@ class RaffleController extends Controller
             });
         }
 
-        $raffles = $query->orderByDesc('id')->paginate(20)->withQueryString();
+        $raffles = $query->orderByDesc('id')->paginate(\App\Support\PerPage::resolve(20))->withQueryString();
 
         // Indicadores globales del módulo.
         $counts = Raffle::selectRaw('status, count(*) as c')->groupBy('status')->pluck('c', 'status');
@@ -187,7 +187,7 @@ class RaffleController extends Controller
                 RaffleParticipant::STATUS_DECLINED,
             ])
             ->orderByDesc('total_amount')
-            ->paginate(30)
+            ->paginate(\App\Support\PerPage::resolve(30))
             ->withQueryString();
 
         $winners = $raffle->winners()->with('participant')->get();

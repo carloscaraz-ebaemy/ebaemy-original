@@ -92,23 +92,26 @@
                 </table>
             </div>
 
-            <div class="card-footer d-flex justify-content-between align-items-center bg-white">
-                <small class="text-muted">{{ pageInfo }}</small>
-                <div>
-                    <button class="btn btn-sm btn-outline-secondary me-1"
-                            :disabled="filters.page <= 1 || loading"
-                            @click="load(filters.page - 1)">← Anterior</button>
-                    <button class="btn btn-sm btn-outline-secondary"
-                            :disabled="filters.page >= lastPage || loading"
-                            @click="load(filters.page + 1)">Siguiente →</button>
-                </div>
+            <div class="card-footer bg-white">
+                <el-pagination
+                    @current-change="load"
+                    @size-change="cambiarTamano($event, () => load(1), filters)"
+                    layout="total, sizes, prev, pager, next"
+                    :page-sizes="opcionesTamano(filters.per_page)"
+                    :total="total"
+                    :current-page="filters.page"
+                    :page-size="filters.per_page"
+                    :disabled="loading">
+                </el-pagination>
             </div>
         </div>
     </div>
 </template>
 
 <script>
+import { perPage } from '@mixins/per_page'
 export default {
+    mixins: [perPage],
     name: 'SystemMarketplaceOrders',
     props: {
         // Stats iniciales del controller (PHP -> blade -> componente).
@@ -134,7 +137,8 @@ export default {
             rows: [],
             total: 0,
             lastPage: 1,
-            filters: { q: '', status: '', page: 1 },
+            // 25 = tamaño de siempre del servidor; el elegido se recuerda por equipo.
+            filters: { q: '', status: '', page: 1, per_page: 25 },
             debounceTimer: null,
         };
     },
@@ -161,6 +165,8 @@ export default {
         },
     },
     mounted() {
+        const filas = this.filasPorPagina();
+        if (filas) this.filters.per_page = filas;
         this.load(1);
     },
     methods: {

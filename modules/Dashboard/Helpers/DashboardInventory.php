@@ -37,7 +37,7 @@ class DashboardInventory
                     ->whereHas('warehouse',function($query) use($establishment_id){
                         $query->where('establishment_id', $establishment_id);
                     })
-                    ->paginate(config('tenant.items_per_page_simple_d_table'));
+                    ->paginate(\App\Support\PerPage::resolve((int) config('tenant.items_per_page_simple_d_table')));
         }else{
             $products = ItemWarehouse::whereHas('item',function($query){
 
@@ -48,7 +48,7 @@ class DashboardInventory
             ->whereHas('warehouse',function($query) use($establishment_id){
                 $query->where('establishment_id', $establishment_id);
             })
-            ->paginate(config('tenant.items_per_page_simple_d_table'));
+            ->paginate(\App\Support\PerPage::resolve((int) config('tenant.items_per_page_simple_d_table')));
         }
                    
         return new DashboardInventoryCollection($products);

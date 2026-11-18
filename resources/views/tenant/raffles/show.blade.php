@@ -496,6 +496,12 @@
             </div>
 
             {{ $participants->links() }}
+            {{-- Filas por página: visible si hay más filas que la opción más chica --}}
+            @if($participants->total() > 20)
+                <div class="mt-2 mb-2 d-flex justify-content-center">
+                    @include('partials.per_page_select', ['paginator' => $participants, 'key' => 'raffle_participants'])
+                </div>
+            @endif
         </div>
     </div>
 </div>

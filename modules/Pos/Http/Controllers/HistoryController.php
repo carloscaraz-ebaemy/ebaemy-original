@@ -45,7 +45,7 @@ class HistoryController extends Controller
 
         $records = $documents->union($sale_notes)->orderBy('date_of_issue', 'desc');
 
-        return new HistorySalesCollection($records->paginate(config('tenant.items_per_page_simple_d_table_params')));
+        return new HistorySalesCollection($records->paginate(\App\Support\PerPage::resolve((int) config('tenant.items_per_page_simple_d_table_params'))));
 
     }
 
@@ -64,7 +64,7 @@ class HistoryController extends Controller
 
         $records = $purchases->orderBy('date_of_issue','desc')->orderBy('number','desc');
 
-        return new HistoryPurchasesCollection($records->paginate(config('tenant.items_per_page_simple_d_table_params')));
+        return new HistoryPurchasesCollection($records->paginate(\App\Support\PerPage::resolve((int) config('tenant.items_per_page_simple_d_table_params'))));
 
     }
 }

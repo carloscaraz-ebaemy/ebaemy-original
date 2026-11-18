@@ -194,7 +194,7 @@ class MarketplaceController extends Controller
                 });
             })
             ->orderBy('description')
-            ->paginate(50)
+            ->paginate(\App\Support\PerPage::resolve(50))
             ->withQueryString();
 
         $completos = Item::where('weight', '>', 0)->where('length', '>', 0)
@@ -409,7 +409,7 @@ class MarketplaceController extends Controller
                 });
             })
             ->orderByDesc('ordered_at')
-            ->paginate(30)
+            ->paginate(\App\Support\PerPage::resolve(30))
             ->withQueryString();
 
         return view('tenant.marketplace_orders.index', compact('channel', 'orders', 'metrics', 'filter', 'q'));

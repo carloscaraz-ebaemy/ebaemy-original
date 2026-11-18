@@ -21,7 +21,7 @@ class MarketingCampaignController extends Controller
     {
         $campaigns = MarketingCampaign::query()
             ->orderByDesc('created_at')
-            ->paginate(20);
+            ->paginate(\App\Support\PerPage::resolve(20))->withQueryString();
 
         $stats = [
             'contacts'        => MarketingContact::count(),

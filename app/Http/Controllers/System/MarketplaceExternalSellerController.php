@@ -23,7 +23,7 @@ class MarketplaceExternalSellerController extends Controller
             ->when($status, fn ($q) => $q->where('status', $status))
             ->orderByRaw("FIELD(status, 'pending', 'approved', 'suspended', 'rejected')")
             ->orderByDesc('id')
-            ->paginate(30)->withQueryString();
+            ->paginate(\App\Support\PerPage::resolve(30))->withQueryString();
 
         $counts = MarketplaceExternalSeller::query()
             ->selectRaw('status, COUNT(*) as n')->groupBy('status')->pluck('n', 'status');

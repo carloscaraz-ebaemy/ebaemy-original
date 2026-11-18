@@ -47,7 +47,7 @@ class ReturnController extends Controller
             })->orWhere('tracking_number', 'like', "%{$request->search}%");
         }
 
-        $returns    = $query->paginate(20)->withQueryString();
+        $returns    = $query->paginate(\App\Support\PerPage::resolve(20))->withQueryString();
         $warehouses = Warehouse::orderBy('description')->get();
         $counters   = [
             'pendiente' => LogisticReturn::where('status', 'PENDIENTE')->count(),

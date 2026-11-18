@@ -78,10 +78,12 @@
                         </table>
                         <div>
                             <el-pagination
+                                @size-change="cambiarTamano($event, getRecords)"
+                                :page-sizes="opcionesTamano(pagination.per_page)"
                                 :current-page.sync="pagination.current_page"
                                 :page-size="pagination.per_page"
                                 :total="pagination.total"
-                                layout="total, prev, pager, next"
+                                layout="total, sizes, prev, pager, next"
                                 @current-change="getRecords"
                             >
                             </el-pagination>
@@ -105,6 +107,7 @@
 </style>
 <script>
 
+import { perPage } from '@mixins/per_page'
 import {mapActions, mapState} from "vuex/dist/vuex.mjs";
 import ItemPerPackageForm from '../form.vue';
 
@@ -112,7 +115,7 @@ export default {
     props: [
         'configuration',
     ],
-    mixins: [],
+    mixins: [perPage],
     components: {
         ItemPerPackageForm
     },
@@ -165,9 +168,14 @@ export default {
         getRecords() {
             this.$store.commit('setLoadingSubmit', true);
             return this.$http
-                .get(`./${this.resource}/records`)
+                .get(`./${this.resource}/records`, { params: { page: this.pagination.current_page || 1, per_page: this.filasPorPagina() } })
                 .then(response => {
                     let data = response.data;
+                    this.pagination = {
+                        current_page: data.current_page,
+                        total: data.total,
+                        per_page: parseInt(data.per_page),
+                    };
                     this.$store.commit('setRecords', data.data)
                     this.$store.commit('setPagination', {
                         current_page: data.current_page,

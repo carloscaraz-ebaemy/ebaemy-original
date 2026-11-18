@@ -145,5 +145,11 @@
     <div class="mt-3 d-flex justify-content-center">
         {{ $listings->links() }}
     </div>
+    {{-- Filas por página: visible si hay más filas que la opción más chica --}}
+    @if($listings->total() > 20)
+        <div class="mt-2 d-flex justify-content-center">
+            @include('partials.per_page_select', ['paginator' => $listings, 'key' => 'admin_mp_listings'])
+        </div>
+    @endif
 </div>
 @endsection

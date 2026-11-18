@@ -31,7 +31,7 @@ class HotelFloorController extends Controller
 				$query->where('establishment_id', $user->establishment_id);
 			}
 
-			$floors = $query->paginate(25);
+			$floors = $query->paginate(\App\Support\PerPage::resolve(25));
 
 			$floors->getCollection()->transform(function ($floor) {
 				return [
@@ -51,7 +51,7 @@ class HotelFloorController extends Controller
 
         $query->where('establishment_id', $user->establishment_id);
 
-		$floors = $query->paginate(25);
+		$floors = $query->paginate(\App\Support\PerPage::resolve(25));
 		
 		$floors->getCollection()->transform(function ($floor) {
 			return [

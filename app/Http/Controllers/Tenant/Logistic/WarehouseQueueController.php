@@ -29,7 +29,7 @@ class WarehouseQueueController extends Controller
             ->when($request->status === 'confirmed',      fn($q) => $q->where('logistic_status', LogisticStatusEnum::PENDIENTE->value))
             ->when($request->status === 'in_preparation', fn($q) => $q->where('logistic_status', LogisticStatusEnum::PREPARANDO->value));
 
-        $orders = $query->paginate($request->per_page ?? 20);
+        $orders = $query->paginate(max(1, min((int) ($request->per_page ?? 20), 100)));
 
         $data = $orders->getCollection()->map(fn(SaleNote $sn) => $this->formatOrder($sn))->values();
 

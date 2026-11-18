@@ -138,8 +138,10 @@
                                     </tbody>
                                 </table>
                                 <el-pagination
+                                    @size-change="cambiarTamano($event, loadDataAditional)"
+                                    :page-sizes="opcionesTamano(pagination.per_page)"
                                     @current-change="loadDataAditional"
-                                    layout="prev, pager, next"
+                                    layout="sizes, prev, pager, next"
                                     :total="pagination.total"
                                     :current-page.sync="pagination.current_page"
                                     :page-size="pagination.per_page"
@@ -155,10 +157,12 @@
 </template>
 <script>
 
+import { perPage } from '@mixins/per_page'
 import LoaderGraph from "../../components/loaders/l-graph.vue";
 import queryString from 'query-string'
 
 export default {
+    mixins: [perPage],
     components: { LoaderGraph },
     data() {
         return {
@@ -267,6 +271,7 @@ export default {
         },
         getQueryParameters() {
             return queryString.stringify({
+                per_page: this.filasPorPagina(),
                 page: this.pagination.current_page,
                 limit: 10
             })

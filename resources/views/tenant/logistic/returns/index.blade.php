@@ -131,6 +131,12 @@
         @if($returns->hasPages())
             <div class="card-footer">{{ $returns->links() }}</div>
         @endif
+        {{-- Filas por página: visible si hay más filas que la opción más chica --}}
+        @if($returns->total() > 20)
+            <div class="mt-2 mb-2 d-flex justify-content-center">
+                @include('partials.per_page_select', ['paginator' => $returns, 'key' => 'logistic_returns'])
+            </div>
+        @endif
     </div>
 
 </div>

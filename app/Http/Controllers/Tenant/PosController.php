@@ -441,7 +441,7 @@ class PosController extends Controller
 
         self::FilterItem($items, $request);
 
-        $items_collection = $items->paginate(50);
+        $items_collection = $items->paginate(\App\Support\PerPage::resolve(50));
 
         return new PosCollection($items_collection);
 
@@ -502,7 +502,7 @@ class PosController extends Controller
         }
 
         self::FilterItem($item, $request);
-        return new PosCollection($item->paginate(50));
+        return new PosCollection($item->paginate(\App\Support\PerPage::resolve(50)));
 
     }
 

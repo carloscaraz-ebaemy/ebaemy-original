@@ -65,5 +65,11 @@
         </table>
     </div>
     <div class="mt-2">{{ $campaigns->links() }}</div>
+    {{-- Filas por página: visible si hay más filas que la opción más chica --}}
+    @if($campaigns->total() > 20)
+        <div class="mt-2 d-flex justify-content-center">
+            @include('partials.per_page_select', ['paginator' => $campaigns, 'key' => 'admin_marketing_campaigns'])
+        </div>
+    @endif
 </div>
 @endsection

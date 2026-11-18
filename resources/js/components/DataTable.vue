@@ -372,10 +372,10 @@ import queryString from "query-string";
 
 export default {
     props: {
-        // Filas por página a elegir (p. ej. [10, 25, 50, 100, 200]). Solo las
-        // pantallas cuyo servidor acepta `per_page` lo activan; la elección
-        // se recuerda en este equipo con `pageSizeKey`.
-        pageSizes: { type: Array, default: null },
+        // Filas por página a elegir. Activo en TODAS las tablas: el middleware
+        // ApplyPerPage hace que el servidor respete `per_page`. La elección se
+        // recuerda en este equipo por tabla (`pageSizeKey` o el resource).
+        pageSizes: { type: Array, default: () => [20, 50, 100] },
         pageSizeKey: { type: String, default: null },
         productType: {
             type: String,
@@ -740,15 +740,18 @@ export default {
             this.search.value = "";
             this.getRecords();
         },
+        claveTamano() {
+            return this.pageSizeKey || ('per_page_' + (this.resource || 'tabla'));
+        },
         filasPorPagina() {
             if (this.tamano) return this.tamano;
             let guardado = null;
-            try { guardado = this.pageSizeKey ? parseInt(localStorage.getItem(this.pageSizeKey), 10) : null; } catch (e) {}
+            try { guardado = parseInt(localStorage.getItem(this.claveTamano()), 10); } catch (e) {}
             return this.pageSizes.indexOf(guardado) !== -1 ? guardado : null;
         },
         cambiarTamano(n) {
             this.tamano = n;
-            try { if (this.pageSizeKey) localStorage.setItem(this.pageSizeKey, String(n)); } catch (e) {}
+            try { localStorage.setItem(this.claveTamano(), String(n)); } catch (e) {}
             this.pagination.current_page = 1;
             this.getRecords();
         },

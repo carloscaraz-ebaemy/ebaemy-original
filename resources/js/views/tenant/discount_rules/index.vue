@@ -92,10 +92,12 @@
             </el-table>
 
             <el-pagination
-                v-if="pagination.total > pagination.per_page"
+                v-if="pagination.total > opcionesTamano(pagination.per_page)[0]"
                 class="mt-3 text-right"
                 background
-                layout="prev, pager, next, total"
+                layout="sizes, prev, pager, next, total"
+                :page-sizes="opcionesTamano(pagination.per_page)"
+                @size-change="cambiarTamano($event, load)"
                 :page-size="pagination.per_page"
                 :total="pagination.total"
                 :current-page.sync="pagination.current_page"
@@ -500,7 +502,9 @@
 </template>
 
 <script>
+import { perPage } from '@mixins/per_page'
 export default {
+    mixins: [perPage],
     data() {
         return {
             records: [],
@@ -568,7 +572,7 @@ export default {
             this.loading = true;
             const p = typeof page === 'number' ? page : this.pagination.current_page;
             this.$http.get('/discount-rules/records', {
-                params: { type: this.filterType, search: this.search, page: p }
+                params: { type: this.filterType, search: this.search, page: p, per_page: this.filasPorPagina() }
             }).then(r => {
                 this.records = r.data.data;
                 this.pagination = {

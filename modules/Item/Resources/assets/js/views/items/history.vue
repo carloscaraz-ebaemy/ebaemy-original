@@ -62,7 +62,9 @@
                                     <div>
                                         <el-pagination
                                                 @current-change="getSalesRecords"
-                                                layout="total, prev, pager, next"
+                                                @size-change="cambiarTamano($event, getSalesRecords, sales_pagination)"
+                                                :page-sizes="opcionesTamano(sales_pagination.per_page)"
+                                                layout="total, sizes, prev, pager, next"
                                                 :total="sales_pagination.total"
                                                 :current-page.sync="sales_pagination.current_page"
                                                 :page-size="sales_pagination.per_page">
@@ -105,7 +107,9 @@
                                     <div>
                                         <el-pagination
                                                 @current-change="getPurchasesRecords"
-                                                layout="total, prev, pager, next"
+                                                @size-change="cambiarTamano($event, getPurchasesRecords, purchases_pagination)"
+                                                :page-sizes="opcionesTamano(purchases_pagination.per_page)"
+                                                layout="total, sizes, prev, pager, next"
                                                 :total="purchases_pagination.total"
                                                 :current-page.sync="purchases_pagination.current_page"
                                                 :page-size="purchases_pagination.per_page">
@@ -137,8 +141,10 @@
 
     import ItemLotsIndex from "./item_lots/index.vue";
     import queryString from 'query-string'
+    import { perPage } from '@mixins/per_page'
 
     export default {
+        mixins: [perPage],
         props:['showDialog', 'recordId'],
         components: {
             ItemLotsIndex,
@@ -148,6 +154,7 @@
                 showImportDialog: false,
                 showDialogItemLots: false,
                 resource: 'items',
+                pageSizeKey: 'per_page_items_history',
                 activeName: "first",
                 titleDialog: 'Historial',
                 data: {
@@ -225,6 +232,7 @@
             },
             getSalesQueryParameters() {
                 return queryString.stringify({
+                    per_page: this.filasPorPagina(),
                     page: this.sales_pagination.current_page,
                     form: JSON.stringify(this.form_history),
                     limit: this.limit
@@ -232,6 +240,7 @@
             } ,
             getPurchasesQueryParameters() {
                 return queryString.stringify({
+                    per_page: this.filasPorPagina(),
                     page: this.purchases_pagination.current_page,
                     form: JSON.stringify(this.form_history),
                     limit: this.limit

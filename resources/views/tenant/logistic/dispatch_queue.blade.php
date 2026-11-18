@@ -422,6 +422,12 @@ window.addEventListener('load', function(){ _startTimer(); });
                 <div class="d-flex justify-content-center py-3">
                     {{ $saleNotes->withQueryString()->links() }}
                 </div>
+                {{-- Filas por página: visible si hay más filas que la opción más chica --}}
+                @if($saleNotes->total() > 20)
+                    <div class="mt-2 mb-2 d-flex justify-content-center">
+                        @include('partials.per_page_select', ['paginator' => $saleNotes, 'key' => 'logistic_dispatch_queue'])
+                    </div>
+                @endif
             @endif
         </div>
     </div>

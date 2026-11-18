@@ -31,7 +31,7 @@ class HotelRateController extends Controller
 				$query->where('establishment_id', $user->establishment_id);
 			}
 
-			$rates = $query->paginate(25);
+			$rates = $query->paginate(\App\Support\PerPage::resolve(25));
 
 			$rates->getCollection()->transform(function ($rate) {
 				return [
@@ -51,7 +51,7 @@ class HotelRateController extends Controller
 
         $query->where('establishment_id', $user->establishment_id);
 
-		$rates = $query->paginate(25);
+		$rates = $query->paginate(\App\Support\PerPage::resolve(25));
 		
 		$rates->getCollection()->transform(function ($rate) {
 			return [

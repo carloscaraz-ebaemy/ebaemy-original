@@ -622,8 +622,10 @@
                 <div v-if="place == 'prod' || place == 'cat2'" class="row">
                     <div class="col-md-12 text-center">
                         <el-pagination
+                            @size-change="cambiarTamano($event, getRecords)"
+                            :page-sizes="opcionesTamano(pagination.per_page)"
                             @current-change="getRecords"
-                            layout="total, prev, pager, next"
+                            layout="total, sizes, prev, pager, next"
                             :total="pagination.total"
                             :current-page.sync="pagination.current_page"
                             :page-size="pagination.per_page"
@@ -910,6 +912,7 @@
 </style>
 
 <script>
+import { perPage } from '@mixins/per_page'
 import Keypress from "vue-keypress";
 import { calculateRowItem } from "../../../helpers/functions";
 import FastPayment from "./partials/fast_payment_garage.vue";
@@ -944,7 +947,7 @@ export default {
         Keypress,
         TableItems
     },
-    mixins: [functions, exchangeRate],
+    mixins: [perPage, functions, exchangeRate],
 
     data() {
         return {
@@ -1213,6 +1216,7 @@ export default {
         },
         getQueryParameters() {
             return queryString.stringify({
+                per_page: this.filasPorPagina(),
                 garage: 1,
                 page: this.pagination.current_page
                     ? this.pagination.current_page

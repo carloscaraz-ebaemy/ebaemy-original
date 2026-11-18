@@ -19,7 +19,7 @@ class MarketplaceAdRequestController extends Controller
             ->when($status, fn ($q) => $q->where('status', $status))
             ->orderByRaw("FIELD(status, 'solicitada', 'pagada', 'activa', 'terminada', 'rechazada')")
             ->orderByDesc('id')
-            ->paginate(30)->withQueryString();
+            ->paginate(\App\Support\PerPage::resolve(30))->withQueryString();
 
         $counts = MarketplaceAdRequest::query()
             ->selectRaw('status, COUNT(*) as n')->groupBy('status')->pluck('n', 'status');

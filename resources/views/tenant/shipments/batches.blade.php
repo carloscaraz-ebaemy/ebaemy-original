@@ -162,6 +162,12 @@
     </div>
 
     {{ $batches->links() }}
+    {{-- Filas por página: visible si hay más filas que la opción más chica --}}
+    @if($batches->total() > 20)
+        <div class="mt-2 mb-2 d-flex justify-content-center">
+            @include('partials.per_page_select', ['paginator' => $batches, 'key' => 'shipment_batches'])
+        </div>
+    @endif
 </div>
 @endsection
 

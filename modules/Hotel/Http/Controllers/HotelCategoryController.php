@@ -30,7 +30,7 @@ class HotelCategoryController extends Controller
 				$query->where('establishment_id', $user->establishment_id);
 			}
 
-			$categories = $query->paginate(25);
+			$categories = $query->paginate(\App\Support\PerPage::resolve(25));
 
 			$categories->getCollection()->transform(function ($category) {
 				return [
@@ -51,7 +51,7 @@ class HotelCategoryController extends Controller
 
         $query->where('establishment_id', $user->establishment_id);
 
-		$categories = $query->paginate(25);
+		$categories = $query->paginate(\App\Support\PerPage::resolve(25));
 		
 		$categories->getCollection()->transform(function ($category) {
 			return [

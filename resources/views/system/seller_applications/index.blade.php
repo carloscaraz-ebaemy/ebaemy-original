@@ -48,9 +48,16 @@
         </table>
     </div>
 
-    <div class="d-flex justify-content-between align-items-center mt-3">
+    <div class="d-flex flex-wrap gap-2 justify-content-between align-items-center mt-3">
         <div class="text-muted small" id="saPaginationInfo"></div>
-        <div id="saPagination"></div>
+        <div class="per-page-select d-flex align-items-center flex-wrap gap-2">
+            <style>@media (max-width: 600px) { .per-page-select select { font-size: 16px; min-height: 44px; } }</style>
+            {{-- Filas por página: se recuerda en este equipo --}}
+            <select id="saPerPage" class="form-control form-control-sm w-auto" aria-label="Filas por página" data-pp-key="per_page_admin_seller_applications"
+                    onchange="try{localStorage.setItem(this.dataset.ppKey,this.value)}catch(e){} saLoad(1)"><option value="20" selected>20 por página</option><option value="50">50 por página</option><option value="100">100 por página</option></select>
+            <script>try{(function(s){var g=localStorage.getItem(s.dataset.ppKey);if(g&&s.querySelector('option[value="'+g+'"]'))s.value=g;})(document.getElementById('saPerPage'))}catch(e){}</script>
+            <div id="saPagination"></div>
+        </div>
     </div>
 </div>
 
@@ -106,6 +113,7 @@ async function saLoad(page = 1) {
     const status = document.getElementById('saStatus').value;
     const params = new URLSearchParams({ page });
     if (search) params.set('search', search);
+    params.set('per_page', document.getElementById('saPerPage').value);
     if (status) params.set('status', status);
 
     const tbody = document.getElementById('saRows');

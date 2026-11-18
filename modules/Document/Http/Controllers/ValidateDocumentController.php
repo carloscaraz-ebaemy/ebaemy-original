@@ -54,7 +54,7 @@ class ValidateDocumentController extends Controller
         if (empty($config)) {
             $config = new Configuration();
         }
-        $records_paginate = $records->paginate($config->getNewValidatorPagination());
+        $records_paginate = $records->paginate(\App\Support\PerPage::resolve((int) $config->getNewValidatorPagination()));
 
         // dd($this->access_token, $records_paginate->getCollection());
 

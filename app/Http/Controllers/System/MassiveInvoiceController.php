@@ -260,7 +260,7 @@ class MassiveInvoiceController extends Controller
         }
         
         $records = $query->orderBy('id', 'desc')
-                ->paginate($request->input('per_page', 10));
+                ->paginate(\App\Support\PerPage::resolve(10));
 
         return [
             'success' => true,

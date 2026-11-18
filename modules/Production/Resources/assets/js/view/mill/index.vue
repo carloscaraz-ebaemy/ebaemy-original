@@ -172,8 +172,10 @@
                     </table>
                     <div>
                         <el-pagination
+                            @size-change="cambiarTamano($event, getRecords)"
+                            :page-sizes="opcionesTamano(pagination.per_page)"
                             @current-change="getRecords"
-                            layout="total, prev, pager, next"
+                            layout="total, sizes, prev, pager, next"
                             :total="pagination.total"
                             :current-page.sync="pagination.current_page"
                             :page-size="pagination.per_page">
@@ -203,6 +205,7 @@
 <script>
 
 
+import { perPage } from '@mixins/per_page'
 import DataTable from '@components/DataTable.vue'
 // import DocumentPayments from './partials/payments.vue'
 // import ExpenseVoided from './partials/voided.vue'
@@ -212,6 +215,7 @@ import moment from "moment";
 import {mapActions, mapState} from "vuex/dist/vuex.mjs";
 
 export default {
+    mixins: [perPage],
     components: {
         // DocumentPayments,
         // ExpenseVoided,
@@ -333,6 +337,7 @@ export default {
         },
         getQueryParameters() {
             return queryString.stringify({
+                per_page: this.filasPorPagina(),
                 page: this.pagination.current_page,
                 form: JSON.stringify(this.form),
                 limit: this.limit

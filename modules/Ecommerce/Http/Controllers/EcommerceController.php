@@ -2155,7 +2155,8 @@ class EcommerceController extends Controller
             default      => $query->orderByDesc('stock')->orderBy('description'),
         };
 
-        $items = $query->paginate($request->input('per_page', 24));
+        // Acotado: es público y sin límite cualquiera podía pedir 100.000 filas.
+        $items = $query->paginate(max(1, min((int) $request->input('per_page', 24), 100)));
         StorefrontCatalog::attachVariantImageFallback($items);
 
         // Transformar para frontend

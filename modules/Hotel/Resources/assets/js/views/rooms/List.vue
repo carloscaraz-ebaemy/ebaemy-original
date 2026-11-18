@@ -200,7 +200,9 @@
           <el-pagination
             :page-size="paginator.per_page"
             :page-count="paginator.size"
-            layout="prev, pager, next"
+            layout="sizes, prev, pager, next"
+            :page-sizes="opcionesTamano(paginator.per_page)"
+            @size-change="cambiarFilas"
             :total="paginator.total"
             :current-page.sync="filter.page"
             @current-change="onFilter"
@@ -226,10 +228,12 @@
 </template>
 
 <script>
+import { perPage } from "@mixins/per_page";
 import ModalAddEdit from "./AddEdit.vue";
 import ModalRoomRates from "./RoomRates.vue";
 
 export default {
+  mixins: [perPage],
   props: {
     roomStatus: {
       type: Array,
@@ -274,6 +278,7 @@ export default {
         establishment_id: "",
         status: "",
         page: 1,
+        per_page: undefined,
       },
       paginator: {
         size: 1,
@@ -290,6 +295,12 @@ export default {
     this.paginator.total = this.rooms.total;
     this.paginator.per_page = this.rooms.per_page;
     this.filter.establishment_id = this.establishmentId;
+    // Filas por página guardadas en este equipo: si difieren de las del servidor, recargar.
+    const filas = this.filasPorPagina();
+    if (filas && filas !== this.paginator.per_page) {
+      this.filter.per_page = filas;
+      this.onFilter();
+    }
     this.getTables()
 
     this.$nextTick(() => {
@@ -313,6 +324,10 @@ export default {
     },
     toggleInformation(){
       this.isVisible = !this.isVisible;
+    },
+    cambiarFilas(n) {
+      this.filter.page = 1;
+      this.cambiarTamano(n, this.onFilter, this.filter);
     },
     onFilter() {
       this.loading = true;

@@ -152,10 +152,12 @@
                     </table>
                     <div>
                         <el-pagination
+                            @size-change="cambiarTamano($event, getRecords)"
+                            :page-sizes="opcionesTamano(pagination.per_page)"
                             :current-page.sync="pagination.current_page"
                             :page-size="pagination.per_page"
                             :total="pagination.total"
-                            layout="total, prev, pager, next"
+                            layout="total, sizes, prev, pager, next"
                             @current-change="getRecords">
                         </el-pagination>
                     </div>
@@ -166,10 +168,12 @@
 </template>
 
 <script>
+import { perPage } from '@mixins/per_page'
 import moment from 'moment'
 import queryString from 'query-string'
 
 export default {
+    mixins: [perPage],
     props: {
         resource: String,
     },
@@ -250,6 +254,7 @@ export default {
         },
         getQueryParameters() {
             return queryString.stringify({
+                per_page: this.filasPorPagina(),
                 page: this.pagination.current_page,
                 ...this.form
             })

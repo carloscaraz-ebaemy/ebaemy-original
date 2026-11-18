@@ -107,7 +107,9 @@
                 </el-table-column>
             </el-table>
 
-            <el-pagination class="mt-3" layout="total, prev, pager, next" background
+            <el-pagination class="mt-3" layout="total, sizes, prev, pager, next" background
+                           :page-sizes="opcionesTamano(pagination.per_page)"
+                           @size-change="cambiarTamano($event, load)"
                            :total="pagination.total" :page-size="pagination.per_page"
                            :current-page="pagination.current_page"
                            @current-change="load"></el-pagination>
@@ -250,7 +252,9 @@
 </template>
 
 <script>
+import { perPage } from '@mixins/per_page'
 export default {
+    mixins: [perPage],
     data() {
         return {
             rows: [],
@@ -286,9 +290,11 @@ export default {
     methods: {
         load(page) {
             this.loading = true;
+            const elegido = this.filasPorPagina();
+            if (elegido) this.pagination.per_page = elegido;
             const params = Object.assign({}, this.filters, {
                 page: page || 1,
-                limit: this.pagination.per_page,
+                per_page: this.pagination.per_page,
                 date_from: this.dateRange ? this.dateRange[0] : null,
                 date_to: this.dateRange ? this.dateRange[1] : null,
             });

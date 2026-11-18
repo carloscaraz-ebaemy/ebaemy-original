@@ -128,5 +128,11 @@
     </div>
 
     {{ $raffles->links() }}
+    {{-- Filas por página: visible si hay más filas que la opción más chica --}}
+    @if($raffles->total() > 20)
+        <div class="mt-2 mb-2 d-flex justify-content-center">
+            @include('partials.per_page_select', ['paginator' => $raffles, 'key' => 'raffles'])
+        </div>
+    @endif
 </div>
 @endsection

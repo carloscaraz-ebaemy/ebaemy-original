@@ -5,3 +5,45 @@
   font-weight: normal;
   font-style: normal;
 }
+// Paginación en móvil (tenant + SuperAdmin): con el selector «filas por página»
+// (layout `total, sizes, prev, pager, next`) la fila no cabe en 360 px. Se
+// envuelve en varias líneas en vez de provocar scroll horizontal, y los botones
+// quedan con área táctil de 44 px (skill ebaemy-responsive, reglas 1 y 2).
+@media (max-width: 600px) {
+  .el-pagination {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 6px 4px;
+    max-width: 100%;
+    white-space: normal;
+    padding-left: 0;
+    padding-right: 0;
+
+    .el-pagination__total,
+    .el-pagination__sizes,
+    .el-pagination__jump {
+      margin: 0 4px;
+    }
+
+    .el-pager {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .el-pager li,
+    .btn-prev,
+    .btn-next {
+      min-width: 44px;
+      height: 44px;
+      line-height: 44px;
+    }
+
+    .el-pagination__sizes .el-input .el-input__inner {
+      height: 44px;
+      line-height: 44px;
+    }
+  }
+}

@@ -143,7 +143,7 @@
                 ->where('warehouse_id', $form->warehouse_id)
                 ->latest();
 
-            return new ItemLotCollection($records->paginate(config('tenant.items_per_page_simple_d_table_params')));
+            return new ItemLotCollection($records->paginate(\App\Support\PerPage::resolve((int) config('tenant.items_per_page_simple_d_table_params'))));
 
         }
 
@@ -169,7 +169,7 @@
                                             persons.number as customer_number, persons.name as customer_name, document_items.quantity as quantity,
                                             documents.created_at as created_at"));
 
-            return new ItemHistorySalesCollection($documents->union($sale_notes)->orderBy('created_at', 'desc')->paginate(config('tenant.items_per_page_simple_d_table_params')));
+            return new ItemHistorySalesCollection($documents->union($sale_notes)->orderBy('created_at', 'desc')->paginate(\App\Support\PerPage::resolve((int) config('tenant.items_per_page_simple_d_table_params'))));
 
         }
 
@@ -188,7 +188,7 @@
                                     purchases.created_at as created_at"));
 
 
-            return new ItemHistoryPurchasesCollection($purchases->orderBy('created_at', 'desc')->paginate(config('tenant.items_per_page_simple_d_table_params')));
+            return new ItemHistoryPurchasesCollection($purchases->orderBy('created_at', 'desc')->paginate(\App\Support\PerPage::resolve((int) config('tenant.items_per_page_simple_d_table_params'))));
 
         }
 

@@ -98,7 +98,7 @@ class WarehouseDispatchController extends Controller
             });
         }
 
-        $saleNotes = $query->paginate(25)->withQueryString();
+        $saleNotes = $query->paginate(\App\Support\PerPage::resolve(25))->withQueryString();
 
         $totals = [
             'DESPACHADO' => SaleNote::where('requires_warehouse_dispatch', true)
@@ -145,7 +145,7 @@ class WarehouseDispatchController extends Controller
             $query->whereDate('date_of_issue', '<=', $request->date_to);
         }
 
-        $saleNotes = $query->paginate(20)->withQueryString();
+        $saleNotes = $query->paginate(\App\Support\PerPage::resolve(20))->withQueryString();
 
         // Contadores por estado
         $counters = SaleNote::where('requires_warehouse_dispatch', true)

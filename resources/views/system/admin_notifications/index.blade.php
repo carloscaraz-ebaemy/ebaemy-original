@@ -60,5 +60,11 @@
     @if($items->hasPages())
         <div class="mt-3">{{ $items->links() }}</div>
     @endif
+    {{-- Filas por página: visible si hay más filas que la opción más chica --}}
+    @if($items->total() > 20)
+        <div class="mt-2 d-flex justify-content-center">
+            @include('partials.per_page_select', ['paginator' => $items, 'key' => 'admin_notifications'])
+        </div>
+    @endif
 </section>
 @endsection

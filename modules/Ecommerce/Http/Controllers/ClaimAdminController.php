@@ -80,7 +80,7 @@ class ClaimAdminController extends Controller
         }
 
         $records = $query->orderByDesc('id')
-            ->paginate((int) $request->input('limit', 25));
+            ->paginate(\App\Support\PerPage::resolve(25));
 
         $records->getCollection()->transform(function (Claim $claim) {
             return $this->rowData($claim);

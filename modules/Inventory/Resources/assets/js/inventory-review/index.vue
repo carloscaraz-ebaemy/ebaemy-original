@@ -137,7 +137,7 @@
                                 :data="records"
                                 :current-page.sync="currentPage" 
                                 :table-props="tableProps"
-                                :pagination-props="{ pageSizes: [20] }"
+                                :pagination-props="{ pageSizes: [20, 50, 100] }"
                                 style="width: 100%" 
                             >
                             

@@ -136,5 +136,11 @@
     <div class="mt-3 d-flex justify-content-center">
         {{ $reviews->links() }}
     </div>
+    {{-- Filas por página: visible si hay más filas que la opción más chica --}}
+    @if($reviews->total() > 20)
+        <div class="mt-2 d-flex justify-content-center">
+            @include('partials.per_page_select', ['paginator' => $reviews, 'key' => 'admin_mp_reviews'])
+        </div>
+    @endif
 </div>
 @endsection

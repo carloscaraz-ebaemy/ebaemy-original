@@ -50,7 +50,7 @@ class HotelRoomController extends Controller
 				$query->where('name', 'like', '%' . request('name') . '%');
 			}
 
-			$rooms = $query->paginate(25);
+			$rooms = $query->paginate(\App\Support\PerPage::resolve(25));
 			return response()->json([
 				'success' => true,
 				'rooms' => $rooms
@@ -59,7 +59,7 @@ class HotelRoomController extends Controller
 
 		$query->where('establishment_id', $user->establishment_id);
 
-		$rooms = $query->paginate(25);
+		$rooms = $query->paginate(\App\Support\PerPage::resolve(25));
 
 		$establishments = Establishment::select('id','description')->get();
 		$userType = auth()->user()->type;

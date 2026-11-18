@@ -125,6 +125,12 @@
     </div>
 
     <div class="mt-3">{{ $items->links() }}</div>
+    {{-- Filas por página: visible si hay más filas que la opción más chica --}}
+    @if($items->total() > 20)
+        <div class="mt-2 mb-2 d-flex justify-content-center">
+            @include('partials.per_page_select', ['paginator' => $items, 'key' => 'marketplace_dimensions'])
+        </div>
+    @endif
 </div>
 
 @push('scripts')

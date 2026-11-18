@@ -56,7 +56,7 @@ class ReportInventoryController extends Controller
         //$date_start = $request->has('date_start') ? $request->date_start : null;
         $records = $this->getRecords($warehouse_id, $filter, $request);
 
-        return new ReportInventoryCollection($records->paginate(50), $filter);
+        return new ReportInventoryCollection($records->paginate(\App\Support\PerPage::resolve(50)), $filter);
 
     }
 

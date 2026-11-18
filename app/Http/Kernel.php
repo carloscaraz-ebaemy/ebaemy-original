@@ -48,6 +48,8 @@ class Kernel extends HttpKernel
             // No bloquea, no redirige. Costo: 1 query a system DB
             // por request (cacheable a futuro).
             \App\Http\Middleware\IdentifyMarketplaceUser::class,
+            // «Filas por página» (?per_page=20|50|100) para todas las tablas.
+            \App\Http\Middleware\ApplyPerPage::class,
         ],
 
         'api' => [

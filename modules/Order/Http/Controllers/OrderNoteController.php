@@ -109,7 +109,7 @@
             $records = $this->getRecords($request);
 
             // $collect = new OrderNoteCollection($records->paginate(config('tenant.items_per_page')));
-            $collect = new OrderNoteCollection($records->paginate(5));
+            $collect = new OrderNoteCollection($records->paginate(\App\Support\PerPage::resolve(5)));
 
             return $collect;
         }

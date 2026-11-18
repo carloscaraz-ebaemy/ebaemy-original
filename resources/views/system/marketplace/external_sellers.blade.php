@@ -111,6 +111,12 @@
     @endforelse
 
     {{ $sellers->links() }}
+    {{-- Filas por página: visible si hay más filas que la opción más chica --}}
+    @if($sellers->total() > 20)
+        <div class="mt-2 d-flex justify-content-center">
+            @include('partials.per_page_select', ['paginator' => $sellers, 'key' => 'admin_mp_external_sellers'])
+        </div>
+    @endif
 </div>
 </div>
 @endsection

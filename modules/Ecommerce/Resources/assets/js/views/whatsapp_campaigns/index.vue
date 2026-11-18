@@ -99,7 +99,9 @@
                     Total: {{ messagesMeta.total }}
                 </div>
                 <el-pagination
-                    layout="prev, pager, next"
+                    layout="sizes, prev, pager, next"
+                    :page-sizes="opcionesTamano(messagesMeta.per_page)"
+                    @size-change="cambiarTamano($event, loadMessages, messagesMeta)"
                     :current-page="messagesMeta.current_page"
                     :page-size="messagesMeta.per_page"
                     :total="messagesMeta.total"
@@ -111,7 +113,9 @@
 </template>
 
 <script>
+import { perPage } from '@mixins/per_page'
 export default {
+    mixins: [perPage],
     data() {
         return {
             loading: false,
@@ -165,7 +169,7 @@ export default {
             this.$http.get(`/ecommerce/whatsapp-campaigns/${this.selectedCampaign.id}/messages`, {
                 params: {
                     page,
-                    per_page: this.messagesMeta.per_page,
+                    per_page: this.filasPorPagina() || this.messagesMeta.per_page,
                     search: this.messagesFilters.search,
                     status: this.messagesFilters.status,
                 }

@@ -672,7 +672,7 @@ class MarketplaceAdminController extends Controller
             $query->where('title', 'like', '%' . $request->q . '%');
         }
 
-        $listings = $query->paginate(20)->withQueryString();
+        $listings = $query->paginate(\App\Support\PerPage::resolve(20))->withQueryString();
         $stats = [
             'total'    => MarketplaceListing::count(),
             'active'   => MarketplaceListing::where('status', 'active')->count(),
@@ -787,7 +787,7 @@ class MarketplaceAdminController extends Controller
             $query->where('tenant_fqdn', 'like', '%' . $request->tenant . '%');
         }
 
-        $leads = $query->paginate(20)->withQueryString();
+        $leads = $query->paginate(\App\Support\PerPage::resolve(20))->withQueryString();
 
         return view('system.marketplace.leads', compact('leads'));
     }
@@ -825,7 +825,7 @@ class MarketplaceAdminController extends Controller
             $query->whereHas('listing', fn($q) => $q->where('tenant_fqdn', 'like', '%'.$tenantFqdn.'%'));
         }
 
-        $reviews = $query->paginate(20)->withQueryString();
+        $reviews = $query->paginate(\App\Support\PerPage::resolve(20))->withQueryString();
         $stats = [
             'pending'  => MarketplaceReview::where('status', 'pending')->count(),
             'approved' => MarketplaceReview::where('status', 'approved')->count(),

@@ -35,7 +35,7 @@ class DashboardStock
                     })
                     ->where('stock','<=', 20)
                     ->orderBy('stock')
-                    ->paginate(config('tenant.items_per_page_simple_d_table'));
+                    ->paginate(\App\Support\PerPage::resolve((int) config('tenant.items_per_page_simple_d_table')));
                             
         return new DashboardStockCollection($products);
     }

@@ -899,7 +899,9 @@
                                                     @current-change="
                                                         loadUnpaid()
                                                     "
-                                                    layout="total, prev, pager, next"
+                                                    @size-change="cambiarTamano($event, loadUnpaid)"
+                                                    :page-sizes="opcionesTamano(pagination.per_page)"
+                                                    layout="total, sizes, prev, pager, next"
                                                     :total="pagination.total"
                                                     :current-page.sync="
                                                         pagination.current_page
@@ -942,8 +944,10 @@ import DocumentPayments from "@views/documents/partials/payments.vue";
 import SaleNotePayments from "@views/sale_notes/partials/payments.vue";
 // import DataTable from '../../components/DataTableWithoutPaging.vue'
 import queryString from "query-string";
+import { perPage } from "@mixins/per_page";
 
 export default {
+    mixins: [perPage],
     props: ["typeUser", "configuration"],
     components: { DocumentPayments, SaleNotePayments },
     data() {
@@ -1242,6 +1246,7 @@ export default {
         },
         getQueryParameters() {
             return queryString.stringify({
+                per_page: this.filasPorPagina(),
                 page: this.pagination.current_page,
                 limit: this.limit,
                 ...this.form
