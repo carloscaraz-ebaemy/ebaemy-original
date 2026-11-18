@@ -881,14 +881,14 @@ use App\Models\System\PlanPeriod;
             \App\Models\Tenant\Configuration::flushCache();
 
             // El marketplace no miraba el bloqueo: la tienda bloqueada seguía
-            // vendiendo ahí. Al bloquear se pausan sus productos en el acto; al
-            // desbloquear vuelven con el sync de esa tienda (en la cola).
+            // vendiendo ahí. Bloquear OCULTA sus productos (no los anula) y
+            // desbloquear los devuelve en el acto, tal cual estaban.
             $tenancy->tenant(null);
             if ($client->locked_tenant) {
-                \App\Models\System\MarketplaceListing::where('hostname_id', $client->hostname_id)
-                    ->where('is_active', true)
-                    ->update(['is_active' => false, 'status' => 'paused', 'synced_at' => now()]);
+                \App\Services\System\MarketplaceStoreLock::hide((int) $client->hostname_id);
             } else {
+                \App\Services\System\MarketplaceStoreLock::restore((int) $client->hostname_id);
+                // Por si algo cambió mientras estuvo bloqueada (stock, precios).
                 \Illuminate\Support\Facades\Artisan::queue('ebaemy-marketplace:sync', ['--client' => $client->id]);
             }
 

@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Models\System\Client;
 use App\Models\System\MarketplaceListing;
 use App\Services\System\MarketplaceListingSyncService;
+use App\Services\System\MarketplaceStoreLock;
 use Hyn\Tenancy\Environment;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
@@ -53,15 +54,19 @@ class SyncMarketplaceListings extends Command
             $this->info("→ Sync tenant {$hostname->fqdn} (client_id={$client->id})");
 
             try {
-                $tenancy->tenant($hostname->website);
-
-                // Tienda bloqueada: no publica nada; el paso de «desactivar lo
-                // no visto» de abajo pausa todos sus productos.
+                // Tienda bloqueada: sus productos se OCULTAN sin tocar nada más
+                // (ver MarketplaceStoreLock) y no se sincroniza; al desbloquear
+                // vuelven tal cual.
                 if ($client->locked_tenant) {
-                    $this->line('  · tienda bloqueada: se pausan sus productos');
+                    $tenancy->tenant(null);
+                    $hidden = $dry ? 0 : MarketplaceStoreLock::hide((int) $hostname->id);
+                    $this->line("  · tienda bloqueada: {$hidden} productos ocultos, sin sincronizar");
+                    continue;
                 }
 
-                $items = $client->locked_tenant ? collect() : DB::connection('tenant')->table('items')
+                $tenancy->tenant($hostname->website);
+
+                $items = DB::connection('tenant')->table('items')
                     ->where('marketplace_publishable', true)
                     ->where(function ($q) {
                         $q->whereNull('mp_status')->orWhere('mp_status', '!=', 'rejected');
