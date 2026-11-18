@@ -1522,6 +1522,11 @@
 
 /* ─────── Responsive global del form ─────── */
 .ie-items-dialog .el-dialog__body { padding: 14px 18px; }
+@media (min-width: 768px) {
+    /* Casi pantalla completa (ver dialogWidth) con tope para monitores muy
+       anchos, y margen inferior para que el pie no quede pegado al borde. */
+    .ie-items-dialog { max-width: 1600px; margin-bottom: 2vh !important; }
+}
 @media (max-width: 767px) {
     /* En mobile NO forzamos full-screen con flex+altura fija: eso obligaba al
        body a ser el contenedor de scroll y chocaba con la estructura interna
@@ -2028,6 +2033,11 @@
 
 /* ─────── Colapsable variantes — más espacioso ─────── */
 .ie-collapse--variants .ie-collapse__content { padding: 14px; }
+@media (max-width: 767px) {
+    /* Las tarjetas de variante ya traen su propio relleno: en el celular cada
+       píxel de ancho cuenta para las fotos. */
+    .ie-collapse--variants .ie-collapse__content { padding: 8px 4px; }
+}
 
 /* ─────── Sticky action bar al fondo del dialog ─────── */
 .ie-sticky-actions {
@@ -2210,14 +2220,17 @@ export default {
         // del viewport. Refresca via this.viewportWidth en mounted/resize.
         dialogWidth() {
             const w = this.viewportWidth || (typeof window !== 'undefined' ? window.innerWidth : 1200)
-            if (w < 576) return '100%'        // celular: full screen
-            if (w < 768) return '95%'         // tablet vertical
-            if (w < 1200) return '80%'        // tablet horizontal
-            return '65%'                       // desktop
+            // Casi pantalla completa desde tablet: las variantes, con su foto
+            // principal y su galería, necesitan sitio para cargarse rápido. En
+            // escritorio el tope de ancho (CSS .ie-items-dialog) evita líneas
+            // de texto interminables en monitores muy anchos.
+            if (w < 768) return '100%'        // celular: pantalla completa
+            if (w < 1200) return '96%'        // tablet
+            return '94%'                       // escritorio
         },
         dialogTop() {
             const w = this.viewportWidth || (typeof window !== 'undefined' ? window.innerWidth : 1200)
-            return w < 768 ? '0' : '7vh'      // mobile: pegado arriba
+            return w < 768 ? '0' : '2vh'      // mobile: pegado arriba
         },
         // Galería unificada: fotos persistidas en DB (galleryImages, de
         // /items/images/{id}) + fotos recién subidas via upload-async

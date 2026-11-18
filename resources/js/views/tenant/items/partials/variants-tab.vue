@@ -36,6 +36,12 @@
                         <el-radio-button label="matrix">Matriz</el-radio-button>
                     </el-radio-group>
                     <el-button v-if="variants.length > 0" size="small" plain
+                               icon="el-icon-copy-document"
+                               title="Pon el mismo precio a todas las variantes de una vez"
+                               @click="openBulkPriceDialog">
+                        Mismo precio a todas
+                    </el-button>
+                    <el-button v-if="variants.length > 0" size="small" plain
                                icon="el-icon-magic-stick"
                                @click="generateSkus"
                                title="Genera SKUs automáticos basados en el código del producto y los valores de cada variante">
@@ -201,175 +207,205 @@
                 </div>
             </el-dialog>
 
-            <!-- ── Tabla de variantes ──────────────────────────────────── -->
-            <div v-if="variants.length > 0 && viewMode === 'list'" class="table-responsive">
-                <table class="table table-sm table-bordered mb-0">
-                    <thead class="table-light">
-                        <tr>
-                            <th>Variante</th>
-                            <th style="width:60px">Imagen</th>
-                            <th style="width:80px" title="La variante con esta estrella es la que aparece primero en el marketplace (imagen, color seleccionado por default y precio inicial). Solo una por producto.">⭐ Mostrar primero</th>
-                            <th style="width:140px">
-                                Precio venta
-                                <el-tooltip content="Aplicar el mismo precio a TODAS las variantes (útil cuando solo cambia el color o hojas pero el precio es igual)" placement="top">
-                                    <el-button size="mini" type="text" icon="el-icon-copy-document"
-                                               style="padding:2px 4px;font-size:14px;color:#16a34a"
-                                               @click="openBulkPriceDialog" />
-                                </el-tooltip>
-                            </th>
-                            <th style="width:110px" title="Utilidad por unidad y margen sobre el precio de venta, contra el costo efectivo de esta variante (o el heredado del producto).">Utilidad</th>
-                            <th style="width:90px">SKU</th>
-                            <th style="width:80px">Stock</th>
-                            <th style="width:70px">Activo</th>
-                            <th style="width:60px"></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <template v-for="group in groupedVariants">
-                            <!-- Header del grupo: solo cuando hay 2+ opciones (ej. Color × Talla).
-                                 Reduce el ruido visual al no repetir el color en cada fila. -->
-                            <tr v-if="hasMultipleOptions" :key="`hdr-${group.key}`" class="vt-group-header">
-                                <td colspan="9">
-                                    <span v-if="group.color_hex"
-                                          class="vt-group-swatch"
-                                          :style="`background:${group.color_hex}`"></span>
-                                    <strong>{{ group.label }}</strong>
-                                    <span class="text-muted small ms-2">
-                                        ({{ group.variants.length }} {{ group.variants.length === 1 ? 'variante' : 'variantes' }})
-                                    </span>
-                                </td>
-                            </tr>
-                            <tr v-for="v in group.variants" :key="v.id"
-                                :class="{ 'table-secondary text-muted': !v.is_active }">
-                                <td>
-                                    <span class="fw-semibold">{{ variantSubLabel(v) }}</span>
-                                    <div v-if="!hasMultipleOptions" class="d-flex flex-wrap gap-1 mt-1">
-                                        <el-tag v-for="ov in v.option_values" :key="ov.id"
-                                                size="mini" type="info">
-                                            {{ ov.value }}
-                                        </el-tag>
-                                    </div>
-                                </td>
-                            <td class="text-center" :class="{ 'vt-img-cell--muted': useParentImage }">
-                                <el-upload :action="`/items/${itemId}/variants/${v.id}/image`"
-                                           :headers="headers"
-                                           :show-file-list="false"
-                                           :on-success="(r) => onVariantImageSuccess(v, r)"
-                                           :on-error="onVariantImageError"
-                                           :before-upload="beforeVariantImage"
-                                           accept="image/jpeg,image/jpg,image/png,image/webp,image/bmp,image/heic,image/heif"
-                                           capture="environment"
-                                           name="file"
-                                           class="vt-img-uploader">
-                                    <div v-if="v.image_url" class="vt-img-thumb"
-                                         :style="`background-image:url('${v.image_url}')`">
-                                        <button type="button" class="vt-img-del"
-                                                @click.stop.prevent="deleteVariantImage(v)"
-                                                title="Quitar imagen">×</button>
-                                    </div>
-                                    <div v-else class="vt-img-empty" title="Subir imagen para esta variante">
-                                        📷+
-                                    </div>
-                                </el-upload>
-                                <!-- Cuando el toggle "usar imagen del padre" está
-                                     activo, las imágenes de variante son ignoradas
-                                     por el marketplace — lo decimos visualmente con
-                                     un texto debajo. La imagen sigue guardada por
-                                     si el seller decide desactivar el toggle. -->
-                                <div v-if="useParentImage" class="vt-img-overridden">
-                                    ⓘ se usará la del producto
+            <!-- ── Variantes como tarjetas ─────────────────────────────────
+                 Una tarjeta por variante: foto principal + fotos adicionales,
+                 precio, stock, SKU y estado. En escritorio salen en dos
+                 columnas; en el celular, apiladas a todo el ancho. Todo se
+                 guarda al momento (no hay botón Guardar en esta sección). -->
+            <div v-if="variants.length > 0 && viewMode === 'list'" class="vt-cards">
+                <template v-for="group in groupedVariants">
+                    <div v-if="hasMultipleOptions" :key="`hdr-${group.key}`" class="vt-group-title">
+                        <span v-if="group.color_hex" class="vt-group-swatch"
+                              :style="`background:${group.color_hex}`"></span>
+                        <strong>{{ group.label }}</strong>
+                        <span class="text-muted small">
+                            ({{ group.variants.length }} {{ group.variants.length === 1 ? 'variante' : 'variantes' }})
+                        </span>
+                    </div>
+
+                    <article v-for="v in group.variants" :key="v.id"
+                             class="vt-card"
+                             :class="{ 'vt-card--off': !v.is_active }">
+
+                        <!-- Cabecera: nombre + mostrar primero + activa -->
+                        <header class="vt-card__head">
+                            <div class="vt-card__title">
+                                <span class="vt-card__name">{{ variantSubLabel(v) }}</span>
+                                <span v-if="!v.is_active" class="vt-card__badge">desactivada</span>
+                            </div>
+                            <button type="button"
+                                    class="vt-star-btn"
+                                    :class="{ 'is-on': v.is_primary }"
+                                    :aria-pressed="v.is_primary ? 'true' : 'false'"
+                                    :title="v.is_primary ? 'Esta variante aparece primero en el marketplace' : 'Marcar para que aparezca primero en el marketplace'"
+                                    @click="setPrimary(v)">
+                                {{ v.is_primary ? '⭐' : '☆' }}
+                            </button>
+                            <label class="vt-card__active" :title="v.is_active ? 'Se vende' : 'No se vende'">
+                                <el-switch v-model="v.is_active" @change="patchVariant(v)" />
+                                <span>{{ v.is_active ? 'Activa' : 'Inactiva' }}</span>
+                            </label>
+                        </header>
+
+                        <!-- Fotos: principal + adicionales -->
+                        <div class="vt-media" :class="{ 'vt-media--muted': useParentImage }">
+                            <div class="vt-media__row">
+                                <!-- Principal. Sin foto: sube varias de una vez (la
+                                     primera queda de principal y el resto en la
+                                     galería). Con foto: tocarla la cambia. -->
+                                <div class="vt-media__main">
+                                    <el-upload v-if="v.image_url"
+                                               :action="`/items/${itemId}/variants/${v.id}/image`"
+                                               :headers="headers"
+                                               :show-file-list="false"
+                                               :before-upload="(f) => beforeVariantUpload(v, f)"
+                                               :on-success="(r) => onVariantImageSuccess(v, r)"
+                                               :on-error="(e, f) => onVariantUploadError(v, e, f)"
+                                               accept="image/jpeg,image/jpg,image/png,image/gif,image/webp,image/bmp,image/heic,image/heif"
+                                               name="file"
+                                               class="vt-tile-upload">
+                                        <div class="vt-tile vt-tile--main" title="Cambiar la foto principal">
+                                            <img :src="v.thumb_url || v.image_url" :alt="'Foto principal de ' + v.display_name" loading="lazy">
+                                            <span class="vt-tile__tag">Principal</span>
+                                        </div>
+                                    </el-upload>
+                                    <el-upload v-else
+                                               :action="`/items/${itemId}/variants/${v.id}/images`"
+                                               :headers="headers"
+                                               multiple
+                                               :show-file-list="false"
+                                               :before-upload="(f) => beforeVariantUpload(v, f)"
+                                               :on-success="(r) => onVariantGallerySuccess(v, r)"
+                                               :on-error="(e, f) => onVariantUploadError(v, e, f)"
+                                               accept="image/jpeg,image/jpg,image/png,image/gif,image/webp,image/bmp,image/heic,image/heif"
+                                               name="file"
+                                               class="vt-tile-upload">
+                                        <div class="vt-tile vt-tile--main vt-tile--empty" title="Subir fotos de esta variante (puedes elegir varias)">
+                                            <i class="el-icon-camera"></i>
+                                            <span>Fotos</span>
+                                        </div>
+                                    </el-upload>
                                 </div>
-                            </td>
-                            <td class="text-center">
-                                <!-- Estrella exclusiva: solo UNA variante puede ser la
-                                     "Mostrar primero" (imagen y color por default en
-                                     la card del marketplace). Click cambia a estrella
-                                     llena dorada; las demás quedan vacías. -->
-                                <button type="button"
-                                        class="vt-star-btn"
-                                        :class="{ 'is-on': v.is_primary }"
-                                        :title="v.is_primary ? 'Esta variante aparece primero en el marketplace' : 'Marcar para que aparezca primero'"
-                                        @click="setPrimary(v)">
-                                    {{ v.is_primary ? '⭐' : '☆' }}
-                                </button>
-                            </td>
-                            <td>
-                                <!-- Precio: si está vacío usa el del producto padre.
-                                     Mostramos el placeholder con el valor heredado para
-                                     que el seller no tenga que llenar el mismo precio
-                                     en cada variante (caso típico: solo cambia el color). -->
+
+                                <!-- Adicionales: tocar una muestra sus acciones -->
+                                <div class="vt-media__strip">
+                                    <button v-for="(img, i) in (v.images || [])" :key="img.id"
+                                            type="button"
+                                            class="vt-tile"
+                                            :class="{ 'is-picked': picked.variantId === v.id && picked.imageId === img.id }"
+                                            :aria-label="`Foto ${i + 2} de ${v.display_name}`"
+                                            @click="togglePick(v, img)">
+                                        <img :src="img.thumb_url || img.url" alt="" loading="lazy">
+                                    </button>
+                                    <div v-for="n in (uploading[v.id] || 0)" :key="'up' + n"
+                                         class="vt-tile vt-tile--loading" aria-label="Subiendo foto">
+                                        <i class="el-icon-loading"></i>
+                                    </div>
+                                    <el-upload v-if="v.image_url && (v.images || []).length < maxGallery"
+                                               :action="`/items/${itemId}/variants/${v.id}/images`"
+                                               :headers="headers"
+                                               multiple
+                                               :show-file-list="false"
+                                               :before-upload="(f) => beforeVariantUpload(v, f)"
+                                               :on-success="(r) => onVariantGallerySuccess(v, r)"
+                                               :on-error="(e, f) => onVariantUploadError(v, e, f)"
+                                               accept="image/jpeg,image/jpg,image/png,image/gif,image/webp,image/bmp,image/heic,image/heif"
+                                               name="file"
+                                               class="vt-tile-upload">
+                                        <div class="vt-tile vt-tile--add" title="Agregar más fotos a esta variante">
+                                            <i class="el-icon-plus"></i>
+                                            <span>Más</span>
+                                        </div>
+                                    </el-upload>
+                                </div>
+                            </div>
+
+                            <!-- Acciones de la foto elegida (botones de 44px) -->
+                            <div v-if="picked.variantId === v.id && pickedImage(v)" class="vt-pick-bar">
+                                <button type="button" class="vt-pick-btn vt-pick-btn--star"
+                                        :disabled="busyImage"
+                                        @click="promoteVariantImage(v, pickedImage(v))">★ Principal</button>
+                                <button type="button" class="vt-pick-btn"
+                                        :disabled="busyImage || pickedIndex(v) === 0"
+                                        aria-label="Mover a la izquierda"
+                                        @click="moveVariantImage(v, -1)">◀</button>
+                                <button type="button" class="vt-pick-btn"
+                                        :disabled="busyImage || pickedIndex(v) === (v.images || []).length - 1"
+                                        aria-label="Mover a la derecha"
+                                        @click="moveVariantImage(v, 1)">▶</button>
+                                <button type="button" class="vt-pick-btn vt-pick-btn--del"
+                                        :disabled="busyImage"
+                                        @click="removeVariantGalleryImage(v, pickedImage(v))">Quitar</button>
+                            </div>
+                            <div v-else-if="v.image_url" class="vt-media__hint">
+                                Toca una foto para hacerla principal, moverla o quitarla.
+                                <button type="button" class="vt-link-btn"
+                                        @click="deleteVariantImage(v)">Quitar la principal</button>
+                            </div>
+
+                            <div v-if="useParentImage" class="vt-img-overridden">
+                                ⓘ Se usará la foto del producto: estas fotos quedan guardadas pero no se muestran.
+                            </div>
+                        </div>
+
+                        <!-- Datos de venta -->
+                        <div class="vt-fields">
+                            <label class="vt-field">
+                                <span class="vt-field__label">Precio (S/)</span>
                                 <el-input-number v-model="v.sale_unit_price"
-                                                 :min="0" :precision="4" :controls="false"
-                                                 size="mini" style="width:110px"
+                                                 :min="0" :precision="2" :controls="false"
                                                  :placeholder="parentPriceLabel"
+                                                 class="vt-input"
                                                  @change="patchVariant(v)" />
-                                <div v-if="!v.sale_unit_price && parentPrice > 0"
-                                     class="vt-inherit-hint">
-                                    hereda S/ {{ formatMoney(parentPrice) }}
-                                </div>
-                            </td>
-                            <td class="text-end">
-                                <!-- Utilidad y margen reales de esta variante. Sin
-                                     esto, la pérdida existía pero no se veía: el
-                                     cálculo devolvía negativo y ninguna pantalla
-                                     lo mostraba. -->
-                                <template v-if="margin(v)">
-                                    <div :class="margin(v).loss ? 'vt-margin-loss' : 'vt-margin-ok'">
-                                        {{ margin(v).profit }}
-                                    </div>
-                                    <div class="vt-margin-pct">{{ margin(v).pct }}%</div>
-                                </template>
-                                <span v-else class="vt-inherit-hint">sin costo</span>
-                            </td>
-                            <td>
-                                <el-input v-model="v.sku" size="mini" style="width:80px"
-                                          placeholder="Auto"
+                                <small v-if="!v.sale_unit_price && parentPrice > 0" class="vt-inherit-hint">
+                                    usa el del producto
+                                </small>
+                                <small v-else-if="margin(v)" :class="margin(v).loss ? 'vt-margin-loss' : 'vt-margin-ok'">
+                                    gana {{ margin(v).profit }} ({{ margin(v).pct }}%)
+                                </small>
+                            </label>
+
+                            <div class="vt-field">
+                                <span class="vt-field__label">Stock</span>
+                                <button type="button" class="vt-stock-btn"
+                                        :class="{ 'vt-stock-zero': v.stock <= 0 }"
+                                        :title="stockTooltip(v)"
+                                        @click="openStockDialog(v)">
+                                    <span>{{ formatQty(v.stock) }}</span>
+                                    <i class="el-icon-edit"></i>
+                                </button>
+                                <small v-if="isMarketplacePublishable && v.stock <= 0 && v.is_active"
+                                       class="vt-stock-warn"
+                                       title="Esta variante no se mostrará en el marketplace mientras tenga stock 0">
+                                    ⚠ no sale en el marketplace
+                                </small>
+                            </div>
+
+                            <label class="vt-field">
+                                <span class="vt-field__label">SKU</span>
+                                <el-input v-model="v.sku" placeholder="Auto" class="vt-input"
                                           @change="patchVariant(v)" />
-                            </td>
-                            <td class="text-center">
-                                <el-tooltip :content="stockTooltip(v)" placement="top">
-                                    <span :class="{ 'vt-stock-zero': v.stock <= 0 }">
-                                        {{ v.stock }}
-                                    </span>
-                                </el-tooltip>
-                                <el-button size="mini" type="text" icon="el-icon-edit"
-                                           @click="openStockDialog(v)" />
-                                <!-- Aviso visible solo cuando la variante NO se mostrará
-                                     en marketplace por stock=0 (cards filtran stock>0).
-                                     Solo aparece si el producto tiene marketplace activo. -->
-                                <div v-if="isMarketplacePublishable && v.stock <= 0 && v.is_active"
-                                     class="vt-stock-warn"
-                                     title="Esta variante no se mostrará en el marketplace mientras tenga stock 0">
-                                    ⚠ oculta en marketplace
-                                </div>
-                            </td>
-                            <td class="text-center">
-                                <el-switch v-model="v.is_active" size="mini"
-                                           @change="patchVariant(v)" />
-                            </td>
-                            <td class="text-center">
-                                <!-- Variante desactivada: en vez de borrar, las dos
-                                     salidas para su stock. Borrarla perdería unidades
-                                     reales del inventario. -->
-                                <div v-if="!v.is_active" class="d-flex gap-1 justify-content-center">
-                                    <el-button size="mini" plain icon="el-icon-refresh-left"
-                                               title="Reactivar esta variante"
-                                               @click="reactivateVariant(v)" />
-                                    <el-button size="mini" plain icon="el-icon-sort"
-                                               :disabled="!(v.stock > 0)"
-                                               :title="v.stock > 0 ? 'Mover su stock a otra variante' : 'No tiene stock que mover'"
-                                               @click="openMoveStock(v)" />
-                                </div>
-                                <el-popconfirm v-else title="¿Eliminar esta variante?"
-                                               @confirm="deleteVariant(v)">
-                                    <el-button slot="reference" size="mini" type="danger"
-                                               plain icon="el-icon-delete" />
-                                </el-popconfirm>
-                            </td>
-                        </tr>
-                        </template>
-                    </tbody>
-                </table>
+                            </label>
+                        </div>
+
+                        <!-- Acciones de la variante -->
+                        <footer class="vt-card__foot">
+                            <template v-if="!v.is_active">
+                                <el-button size="small" plain icon="el-icon-refresh-left"
+                                           @click="reactivateVariant(v)">Reactivar</el-button>
+                                <el-button size="small" plain icon="el-icon-sort"
+                                           :disabled="!(v.stock > 0)"
+                                           :title="v.stock > 0 ? 'Mover su stock a otra variante' : 'No tiene stock que mover'"
+                                           @click="openMoveStock(v)">Mover stock</el-button>
+                            </template>
+                            <el-popconfirm v-else title="¿Eliminar esta variante?"
+                                           @confirm="deleteVariant(v)">
+                                <el-button slot="reference" size="small" type="danger"
+                                           plain icon="el-icon-delete">Eliminar</el-button>
+                            </el-popconfirm>
+                        </footer>
+                    </article>
+                </template>
             </div>
 
             <!-- ── Vista matriz (solo con 2 opciones) ───────────────────── -->
@@ -571,7 +607,9 @@ export default {
         // Vista matriz solo disponible cuando hay EXACTAMENTE 2 opciones.
         // Con 1 opción la lista basta; con 3+ no cabe en una tabla 2D.
         canShowMatrix() {
-            return (this.editOptions || []).length === 2 && this.variants.length > 0
+            // En el celular la matriz obligaba a desplazarse de lado: ahí solo
+            // se ofrecen las tarjetas.
+            return !this.narrow && (this.editOptions || []).length === 2 && this.variants.length > 0
         },
 
         // Configuración de la matriz: ordenamos las opciones por position
@@ -691,6 +729,17 @@ export default {
             // Toggle "usar imagen del padre" — copia desde el prop al mount,
             // luego se mantiene local y se persiste con cada cambio.
             useParentImage: false,
+
+            // Galería por variante. `uploading` cuenta las fotos en camino por
+            // variante (pinta un recuadro «cargando» por cada una); `picked` es
+            // la foto adicional tocada, cuyas acciones salen debajo de la tira.
+            uploading: {},
+            picked:    { variantId: null, imageId: null },
+            busyImage: false,
+            maxGallery: 8,   // = ItemVariantController::MAX_GALLERY_IMAGES
+
+            // Pantalla estrecha (< 768px): sin vista matriz.
+            narrow: false,
         }
     },
 
@@ -706,6 +755,23 @@ export default {
 
     mounted() {
         if (this.itemId) this.loadVariants()
+        if (typeof window !== 'undefined' && window.matchMedia) {
+            this._mq = window.matchMedia('(max-width: 767px)')
+            this._onMq = () => {
+                this.narrow = this._mq.matches
+                if (this.narrow && this.viewMode === 'matrix') this.viewMode = 'list'
+            }
+            this._onMq()
+            if (this._mq.addEventListener) this._mq.addEventListener('change', this._onMq)
+            else if (this._mq.addListener) this._mq.addListener(this._onMq)
+        }
+    },
+
+    beforeDestroy() {
+        if (this._mq && this._onMq) {
+            if (this._mq.removeEventListener) this._mq.removeEventListener('change', this._onMq)
+            else if (this._mq.removeListener) this._mq.removeListener(this._onMq)
+        }
     },
 
     methods: {
@@ -1147,13 +1213,13 @@ export default {
         },
 
         onVariantImageSuccess(variant, response) {
+            this.bumpUploading(variant.id, -1)
             if (!response || !response.success) {
                 this.$message.error(response && response.message ? response.message : 'Error al subir')
                 return
             }
             // Refrescar la variante en la lista con la nueva info (image + image_url)
-            const idx = this.variants.findIndex(v => v.id === variant.id)
-            if (idx !== -1) this.$set(this.variants, idx, response.variant)
+            this.replaceVariant(response.variant)
             this.$message.success('Imagen actualizada')
         },
 
@@ -1162,12 +1228,161 @@ export default {
             this.$message.error('No se pudo subir la imagen. Intenta de nuevo.')
         },
 
+        // ── Galería de la variante ───────────────────────────────────────
+        // Toda foto pasa por la misma puerta del estándar (prepararImagen:
+        // valida y comprime en el navegador); el servidor la procesa con
+        // ImageProcessingService. Cada acción se guarda al momento.
+
+        async beforeVariantUpload(variant, file) {
+            const lista = await this.prepararImagen(file)   // rechaza = no se sube
+            this.bumpUploading(variant.id, 1)
+            return lista
+        },
+
+        bumpUploading(variantId, delta) {
+            const n = Math.max(0, (this.uploading[variantId] || 0) + delta)
+            this.$set(this.uploading, variantId, n)
+        },
+
+        // Las fotos suben en paralelo y cada respuesta trae la variante tal
+        // como estaba al guardarse ESA foto: una respuesta que llega tarde no
+        // debe borrar de la pantalla las fotos que ya llegaron.
+        mergeVariant(variantId, fresh) {
+            const idx = this.variants.findIndex(v => v.id === variantId)
+            if (idx === -1 || !fresh) return
+            const actual = this.variants[idx]
+            const porId = {}
+            ;(actual.images || []).forEach(i => { porId[i.id] = i })
+            ;(fresh.images || []).forEach(i => { porId[i.id] = i })
+            const images = Object.values(porId)
+                .sort((a, b) => (a.position - b.position) || (a.id - b.id))
+            this.$set(this.variants, idx, {
+                ...fresh,
+                image:     fresh.image || actual.image,
+                image_url: fresh.image_url || actual.image_url,
+                thumb_url: fresh.thumb_url || actual.thumb_url,
+                images,
+                sale_unit_price: Number(fresh.sale_unit_price) > 0 ? Number(fresh.sale_unit_price) : null,
+            })
+        },
+
+        // Reemplazo directo (borrar, ordenar, ★): ahí la respuesta es la verdad.
+        replaceVariant(fresh) {
+            if (!fresh) return
+            const idx = this.variants.findIndex(v => v.id === fresh.id)
+            if (idx === -1) return
+            this.$set(this.variants, idx, {
+                ...fresh,
+                sale_unit_price: Number(fresh.sale_unit_price) > 0 ? Number(fresh.sale_unit_price) : null,
+            })
+        },
+
+        onVariantGallerySuccess(variant, response) {
+            this.bumpUploading(variant.id, -1)
+            if (!response || !response.success) {
+                this.$message.error((response && response.message) || 'No se pudo subir la foto.')
+                return
+            }
+            this.mergeVariant(variant.id, response.variant)
+            if (response.message) this.$message.warning(response.message)
+        },
+
+        onVariantUploadError(variant, err, file) {
+            this.bumpUploading(variant.id, -1)
+            this.$message.error('No se pudo subir "' + ((file && file.name) || 'la foto') + '". ' + this.uploadErrorText(err))
+        },
+
+        // El <el-upload> entrega el error como Error con el cuerpo en `message`.
+        // En el panel los 422 llegan con { message } o como { campo: [msg] }.
+        uploadErrorText(err) {
+            const raw = err && err.message ? String(err.message) : ''
+            try {
+                const body = JSON.parse(raw.replace(/^[^{]*/, ''))
+                if (body.message) return body.message
+                const first = Object.values(body).find(x => Array.isArray(x) && x.length)
+                if (first) return first[0]
+            } catch (_) { /* no era JSON */ }
+            if (/413/.test(raw)) return 'La foto pesa demasiado.'
+            return 'Intenta de nuevo.'
+        },
+
+        togglePick(variant, img) {
+            const same = this.picked.variantId === variant.id && this.picked.imageId === img.id
+            this.picked = same ? { variantId: null, imageId: null } : { variantId: variant.id, imageId: img.id }
+        },
+
+        pickedImage(variant) {
+            return (variant.images || []).find(i => i.id === this.picked.imageId) || null
+        },
+
+        pickedIndex(variant) {
+            return (variant.images || []).findIndex(i => i.id === this.picked.imageId)
+        },
+
+        promoteVariantImage(variant, img) {
+            if (!img || this.busyImage) return
+            this.busyImage = true
+            this.$http.post(`/items/${this.itemId}/variants/${variant.id}/images/${img.id}/primary`)
+                .then(({ data }) => {
+                    // La que era principal ocupa el sitio de la elegida (mismo
+                    // id): sigue marcada, así otro ★ deshace el cambio.
+                    this.replaceVariant(data.variant)
+                    this.$message.success('Foto principal cambiada.')
+                })
+                .catch(() => this.$message.error('No se pudo cambiar la foto principal.'))
+                .finally(() => { this.busyImage = false })
+        },
+
+        moveVariantImage(variant, dir) {
+            const list = [...(variant.images || [])]
+            const i = this.pickedIndex(variant)
+            const j = i + dir
+            if (i < 0 || j < 0 || j >= list.length || this.busyImage) return
+            const tmp = list[i]; list[i] = list[j]; list[j] = tmp
+            // Optimista: se pinta ya y se revierte si el servidor no lo guarda.
+            const antes = variant.images
+            this.$set(variant, 'images', list)
+            this.busyImage = true
+            this.$http.post(`/items/${this.itemId}/variants/${variant.id}/images/reorder`, {
+                ids: list.map(x => x.id),
+            })
+                .then(({ data }) => this.replaceVariant(data.variant))
+                .catch(() => {
+                    this.$set(variant, 'images', antes)
+                    this.$message.error('No se pudo cambiar el orden.')
+                })
+                .finally(() => { this.busyImage = false })
+        },
+
+        removeVariantGalleryImage(variant, img) {
+            if (!img || this.busyImage) return
+            this.$confirm('¿Quitar esta foto de la variante?', 'Quitar foto', {
+                confirmButtonText: 'Quitar',
+                cancelButtonText: 'Cancelar',
+                type: 'warning',
+            }).then(() => {
+                this.busyImage = true
+                return this.$http.delete(`/items/${this.itemId}/variants/${variant.id}/images/${img.id}`)
+                    .then(({ data }) => {
+                        this.picked = { variantId: null, imageId: null }
+                        this.replaceVariant(data.variant)
+                        this.$message.success('Foto quitada.')
+                    })
+                    .catch(() => this.$message.error('No se pudo quitar la foto.'))
+                    .finally(() => { this.busyImage = false })
+            }).catch(() => {})
+        },
+
+        formatQty(n) {
+            const num = Number(n) || 0
+            return Number.isInteger(num) ? String(num) : num.toFixed(2)
+        },
+
         deleteVariantImage(variant) {
             this.$http.delete(`/items/${this.itemId}/variants/${variant.id}/image`)
                 .then(({ data }) => {
                     if (!data.success) return this.$message.error('No se pudo quitar la imagen')
-                    const idx = this.variants.findIndex(v => v.id === variant.id)
-                    if (idx !== -1) this.$set(this.variants, idx, data.variant)
+                    this.replaceVariant(data.variant)
                     this.$message.success('Imagen quitada')
                 })
                 .catch(() => this.$message.error('Error al quitar imagen'))
@@ -1562,76 +1777,6 @@ export default {
         flex-shrink: 0;
     }
 
-    /* Tabla de variantes: cada <tr> se convierte en card y los <td>
-       se apilan con su label arriba (header oculto). */
-    .variants-tab .table-responsive {
-        overflow-x: visible;
-    }
-    .variants-tab .table {
-        border: 0 !important;
-    }
-    .variants-tab .table thead { display: none; }
-    .variants-tab .table tbody,
-    .variants-tab .table tr,
-    .variants-tab .table td {
-        display: block;
-        width: 100%;
-    }
-    .variants-tab .table tr.vt-group-header {
-        background: #f3f4f6;
-        padding: 8px 12px;
-        margin-top: 12px;
-        margin-bottom: 6px;
-        border-radius: 8px 8px 0 0;
-        font-size: 13px;
-    }
-    .variants-tab .table tr.vt-group-header td {
-        padding: 0;
-        border: 0;
-    }
-    .variants-tab .table tbody tr:not(.vt-group-header) {
-        background: #fff;
-        border: 1px solid #e5e7eb;
-        border-radius: 10px;
-        padding: 10px;
-        margin-bottom: 10px;
-        box-shadow: 0 1px 2px rgba(15,23,42,.04);
-    }
-    .variants-tab .table td {
-        padding: 6px 0 !important;
-        border: 0 !important;
-        text-align: left !important;
-        display: flex;
-        flex-wrap: wrap;
-        align-items: center;
-        gap: 8px;
-    }
-    /* Primera columna (nombre variante): destacarla como título de la card */
-    .variants-tab .table td:first-child {
-        font-size: 15px;
-        font-weight: 700;
-        padding-bottom: 8px !important;
-        border-bottom: 1px dashed #e5e7eb !important;
-        margin-bottom: 6px;
-    }
-    /* Inputs y números: ancho automático full */
-    .variants-tab .table td .el-input,
-    .variants-tab .table td .el-input-number {
-        flex: 1;
-        min-width: 0;
-    }
-    .variants-tab .table td .el-input__inner {
-        font-size: 16px !important;
-        width: 100% !important;
-    }
-    /* Botones de acción: agrupar en una fila final */
-    .variants-tab .table td:last-child {
-        justify-content: flex-end;
-        padding-top: 6px !important;
-        border-top: 1px dashed #e5e7eb !important;
-        margin-top: 6px;
-    }
-
     /* Chips predefinidos: scroll horizontal en lugar de wrap-vertical
        (ocupaba demasiado alto en móvil con 16 colores). */
     .vt-pre-chips {
@@ -1649,5 +1794,160 @@ export default {
         max-width: 80vw;
         white-space: normal;
     }
+}
+
+/* ═══════════════════ Tarjetas de variante (vista lista) ═══════════════════
+   Móvil primero: una columna a todo el ancho, sin desplazamiento lateral,
+   áreas táctiles de 44px. Desde 1100px, dos columnas (el modal del producto
+   ocupa casi toda la pantalla en escritorio). */
+.vt-cards {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+}
+@media (min-width: 1100px) {
+    .vt-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+.vt-group-title {
+    grid-column: 1 / -1;
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 4px 0;
+    font-size: 14px; color: #1f2937;
+}
+.vt-card {
+    min-width: 0;
+    display: flex; flex-direction: column; gap: 12px;
+    padding: 12px;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, .04);
+}
+.vt-card--off { background: #f8fafc; border-style: dashed; }
+.vt-card--off .vt-media,
+.vt-card--off .vt-fields { opacity: .7; }
+
+.vt-card__head {
+    display: flex; align-items: center; gap: 10px;
+    min-width: 0;
+}
+.vt-card__title { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.vt-card__name {
+    font-size: 15px; font-weight: 700; color: #111827;
+    overflow-wrap: anywhere;
+}
+.vt-card__badge {
+    font-size: 11px; font-weight: 600;
+    color: #92400e; background: #fef3c7;
+    border-radius: 999px; padding: 2px 8px;
+}
+.vt-card__active {
+    display: inline-flex; align-items: center; gap: 6px;
+    min-height: 44px; margin: 0;
+    font-size: 12.5px; color: #475569; cursor: pointer;
+}
+.vt-card .vt-star-btn { width: 44px; height: 44px; flex-shrink: 0; }
+
+/* Fotos */
+.vt-media { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.vt-media__row { display: flex; gap: 10px; align-items: flex-start; min-width: 0; }
+.vt-media__main { flex-shrink: 0; }
+.vt-media__strip {
+    flex: 1; min-width: 0;
+    display: flex; flex-wrap: wrap; gap: 8px;
+}
+.vt-tile-upload, .vt-tile-upload :deep(.el-upload) { display: block; }
+.vt-tile {
+    position: relative;
+    width: 64px; height: 64px;
+    padding: 0;
+    border-radius: 10px;
+    border: 2px solid #e5e7eb;
+    background: #f8fafc;
+    overflow: hidden;
+    cursor: pointer;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+    color: #64748b; font-size: 11px; font-weight: 600;
+    transition: border-color .12s, box-shadow .12s;
+}
+.vt-tile img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.vt-tile:hover, .vt-tile:focus-visible { border-color: #10b981; outline: none; }
+.vt-tile.is-picked { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37, 99, 235, .25); }
+.vt-tile--main { width: 96px; height: 96px; border-color: #10b981; }
+.vt-tile--main i, .vt-tile--add i { font-size: 20px; }
+.vt-tile--empty, .vt-tile--add { border-style: dashed; border-color: #cbd5e1; background: #fff; }
+.vt-tile--empty { border-color: #10b981; color: #065f46; background: #ecfdf5; }
+.vt-tile--loading { cursor: default; font-size: 20px; }
+.vt-tile__tag {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    background: rgba(6, 95, 70, .85); color: #fff;
+    font-size: 10.5px; font-weight: 700; text-align: center;
+    padding: 2px 0;
+}
+.vt-media--muted .vt-media__row { opacity: .4; filter: grayscale(.6); }
+
+.vt-media__hint { font-size: 11.5px; color: #64748b; line-height: 1.4; }
+.vt-link-btn {
+    background: none; border: 0; padding: 0 0 0 4px;
+    color: #b91c1c; font-size: 11.5px; font-weight: 600;
+    text-decoration: underline; cursor: pointer;
+}
+
+.vt-pick-bar {
+    display: flex; flex-wrap: wrap; gap: 8px;
+    padding: 8px; border-radius: 10px;
+    background: #eff6ff; border: 1px solid #bfdbfe;
+}
+.vt-pick-btn {
+    min-height: 44px; min-width: 44px;
+    padding: 0 14px;
+    border-radius: 8px;
+    border: 1px solid #cbd5e1; background: #fff;
+    font-size: 14px; font-weight: 600; color: #1f2937;
+    cursor: pointer;
+}
+.vt-pick-btn:disabled { opacity: .45; cursor: not-allowed; }
+.vt-pick-btn--star { border-color: #f59e0b; color: #92400e; background: #fffbeb; }
+.vt-pick-btn--del  { border-color: #fecaca; color: #b91c1c; margin-left: auto; }
+
+/* Datos de venta: 3 columnas (precio · stock · SKU), 2 en celular chico */
+.vt-fields {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+}
+.vt-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; margin: 0; }
+.vt-field__label { font-size: 11.5px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: .3px; }
+.vt-input, .vt-input.el-input-number { width: 100% !important; }
+/* !important: el formulario de Tienda virtual fuerza 36px a todos los campos
+   en el celular; aquí son áreas táctiles y necesitan 44px. */
+.vt-card .vt-input :deep(.el-input__inner) { height: 44px !important; line-height: 44px !important; text-align: left; }
+.vt-stock-btn {
+    min-height: 44px; width: 100%;
+    display: flex; align-items: center; justify-content: space-between; gap: 6px;
+    padding: 0 12px;
+    border: 1px solid #dcdfe6; border-radius: 4px; background: #fff;
+    font-size: 15px; font-weight: 700; color: #111827;
+    cursor: pointer;
+}
+.vt-stock-btn i { color: #64748b; font-size: 14px; }
+.vt-stock-btn.vt-stock-zero { color: #dc2626; }
+
+.vt-card__foot {
+    display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end;
+    padding-top: 8px; border-top: 1px dashed #e5e7eb;
+}
+.vt-card__foot .el-button { min-height: 44px; margin-left: 0; }
+
+@media (max-width: 767px) {
+    /* iOS no hace zoom si el texto del campo mide 16px o más */
+    .vt-card .vt-input :deep(.el-input__inner) { font-size: 16px !important; }
+    .vt-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .vt-fields .vt-field:last-child { grid-column: 1 / -1; }
+    .vt-tile { width: 72px; height: 72px; }
+    .vt-tile--main { width: 96px; height: 96px; }
+    .vt-media__row { flex-wrap: wrap; }
+    .vt-pick-btn { flex: 1 1 auto; }
+    .vt-pick-btn--del { margin-left: 0; }
 }
 </style>

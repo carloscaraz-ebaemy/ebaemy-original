@@ -48,6 +48,12 @@
     // La pista de prioridad solo para las dos primeras: marcarlas todas como
     // "high" es lo mismo que no marcar ninguna, compiten entre ellas.
     $cardPriority   = $cardEager && $cardIdx < 2;
+
+    // Enlace de la card. Si es la card de una variante concreta
+    // (explodeVariantsIntoCards), la ficha se abre con esa variante elegida:
+    // `?variant=` lleva el id de marketplace_listing_variants.
+    $cardUrl = route('marketplace.item', $listing->slug)
+        . (!empty($listing->variant_card_id) ? '?variant=' . (int) $listing->variant_card_id : '');
 @endphp
 {{-- Card como <div> (no <a>): los <button> de dots dentro de un <a>
      compiten con la navegacion del link y en mobile el navegador prefiere
@@ -55,14 +61,14 @@
      para que la navegacion al detalle sea programatica y los dots tengan
      control limpio. SEO: el <a class="mp-card__seo-link"> dentro mantiene
      el href crawleable. --}}
-<div class="mp-card" data-href="{{ route('marketplace.item', $listing->slug) }}"
+<div class="mp-card" data-href="{{ $cardUrl }}"
      data-hostname-id="{{ $listing->hostname_id ?? '' }}"
      role="link" tabindex="0"
      aria-label="{{ $listing->title }}"
    @if(!empty($listing->gallery_image_urls) && count($listing->gallery_image_urls) >= 2)
        data-gallery="{{ json_encode($listing->gallery_image_urls) }}"
    @endif>
-    <a class="mp-card__seo-link" href="{{ route('marketplace.item', $listing->slug) }}" aria-hidden="true" tabindex="-1"></a>
+    <a class="mp-card__seo-link" href="{{ $cardUrl }}" aria-hidden="true" tabindex="-1"></a>
     <div class="mp-card-img" data-has-secondary="{{ $listing->secondary_image_url ? '1' : '0' }}">
         @if($cardPrimaryImg)
             {{-- srcset: la card se pinta a ~260px en escritorio y ~48vw en
@@ -235,6 +241,7 @@
                         class="mp-card-quickadd {{ $cardCanQuickAdd ? 'is-quickadd' : 'is-detail' }}"
                         data-listing-id="{{ $listing->id }}"
                         data-listing-slug="{{ $listing->slug }}"
+                        data-detail-url="{{ $cardUrl }}"
                         data-has-variants="{{ $cardHasVariants ? '1' : '0' }}"
                         aria-label="{{ $cardCanQuickAdd ? 'Añadir al carrito' : 'Ver detalles' }}">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" aria-hidden="true">

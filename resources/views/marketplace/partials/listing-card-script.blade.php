@@ -275,8 +275,11 @@ window.mpBindGallery = mpBindGallery;
 
         // Si no se puede quick-add (variantes/sin stock) → ir a detalle.
         if (btn.classList.contains('is-detail')) {
+            // data-detail-url lleva ?variant=<id> en las cards de variante.
+            var urlD = btn.getAttribute('data-detail-url');
             var slugD = btn.getAttribute('data-listing-slug');
-            if (slugD) window.location.href = detailBase + slugD;
+            if (urlD) window.location.href = urlD;
+            else if (slugD) window.location.href = detailBase + slugD;
             return;
         }
 

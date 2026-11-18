@@ -964,11 +964,14 @@ class MarketplaceController extends Controller
 
     /**
      * Si alguna palabra del nombre de la variante («Rojo / M») empieza por
-     * alguna de las grafías buscadas. Al inicio de palabra, como el filtro.
+     * alguna de las grafías buscadas, o si su SKU contiene lo tecleado. Al
+     * inicio de palabra en el nombre, como el filtro; el SKU casa a mitad,
+     * igual que `internal_id` en MarketplaceListing::scopeSearch.
      *
      * @param array<int,string> $grafias
+     * @param array<int,string> $tokens  palabras buscadas tal cual (para el SKU)
      */
-    private function variantMatchesSearch(?string $nombre, array $grafias): bool
+    private function variantMatchesSearch(?string $nombre, array $grafias, ?string $sku = null, array $tokens = []): bool
     {
         $palabras = preg_split(
             '/[^\p{L}\p{N}]+/u',
@@ -983,6 +986,15 @@ class MarketplaceController extends Controller
                 }
             }
         }
+        if ($sku !== null && $sku !== '') {
+            $skuNorm = \App\Services\System\MarketplaceListingSyncService::normalizeForSearch($sku);
+            foreach ($tokens as $t) {
+                $t = \App\Services\System\MarketplaceListingSyncService::normalizeForSearch($t);
+                if (mb_strlen($t) >= 3 && str_contains($skuNorm, $t)) {
+                    return true;
+                }
+            }
+        }
         return false;
     }
 
@@ -990,17 +1002,30 @@ class MarketplaceController extends Controller
      * Expande cada producto CON variantes en UNA card por variante: la grilla
      * muestra cada color/talla individualmente (decisión de negocio). Reusa el
      * MISMO partial — clona el listing y sobreescribe imagen/precio/título/stock
-     * con los de la variante. Cap a 6 por producto para no dominar la grilla.
+     * con los de la variante, y marca `variant_card_id` (id de
+     * marketplace_listing_variants) para que la card enlace a `?variant=<id>`.
+     *
+     * La expansión es POR PÁGINA, después de paginar: la paginación, el orden
+     * (relevance + round-robin de tiendas), los filtros y el total
+     * («N productos») siguen siendo por PRODUCTO; solo cambia cuántas cards
+     * caben en la página. Por eso no se expande en SQL.
+     *
+     * Reglas:
+     *  - Solo variantes activas y CON stock: las agotadas no son card propia.
+     *  - Si NINGUNA variante con stock tiene foto propia → UNA sola card del
+     *    padre (nueve cards con la misma foto no ayudan a elegir).
+     *  - Variante sin foto (habiendo otras con foto) usa la foto del PRODUCTO.
+     *  - Título «<producto> — <variante>»; precio, oferta y stock son los de
+     *    la variante que publica el sync (ItemVariant::offerFor).
+     *  - Sin búsqueda: como mucho 6 por producto.
+     *  - Con búsqueda (`$q`): si alguna variante casa con lo buscado por
+     *    nombre o SKU («polo rojo» → la variante Rojo) salen SOLO esas; si
+     *    ninguna casa (se buscó el producto: «colgantes») salen TODAS las
+     *    que tienen stock, hasta 12 por producto.
      *
      * Solo aplica a paginators (las rails de "recomendados/recién vistos" se
      * quedan con 1 card por producto). Llamar DESPUÉS de
-     * decorateListingsWithVariantData en las 4 vistas de listado.
-     *
-     * Con búsqueda (`$q`): si alguna variante casa con lo buscado («polo
-     * rojo» → la variante Rojo) salen SOLO esas; si ninguna casa, como mucho
-     * 3, para que un producto con muchos colores no llene la página con lo
-     * que no se pidió. Antes salían siempre las 6 primeras por id y la roja
-     * podía ser la séptima.
+     * decorateListingsWithVariantData en las vistas de listado.
      */
     private function explodeVariantsIntoCards($listings, ?string $q = null): void
     {
@@ -1022,12 +1047,15 @@ class MarketplaceController extends Controller
 
         // Grafías de cada palabra buscada (plural, erratas): las mismas que
         // usa el filtro, para que la variante elegida cuadre con él.
+        $tokensBuscados  = MarketplaceListing::searchTokens($q);
         $grafiasBuscadas = [];
-        foreach (MarketplaceListing::searchTokens($q) as $tok) {
+        foreach ($tokensBuscados as $tok) {
             foreach (\App\Services\System\SearchSynonyms::spellings($tok) as $g) {
                 $grafiasBuscadas[] = $g;
             }
         }
+        $buscando = !empty($tokensBuscados);
+        $maxCards = $buscando ? 12 : 6;
 
         $expanded = collect();
         foreach ($items as $l) {
@@ -1036,42 +1064,71 @@ class MarketplaceController extends Controller
             // grilla, igual que published() filtra productos sin stock).
             $inStock = $variants ? $variants->filter(fn($v) => (int) $v->stock > 0) : collect();
 
-            if (!empty($l->has_variants) && $variants && $variants->count() >= 2 && $inStock->isNotEmpty()) {
-                $mostrar = $inStock->take(6);
-                if ($grafiasBuscadas) {
-                    $casan = $inStock->filter(fn ($v) => $this->variantMatchesSearch($v->display_name, $grafiasBuscadas));
-                    $mostrar = $casan->isNotEmpty() ? $casan->take(6) : $inStock->take(3);
-                }
-                foreach ($mostrar as $v) {
-                    // Sin foto no hay card: ni la variante ni el padre tienen
-                    // imagen -> la card saldria con el bloque "Sin imagen".
-                    // El seller lo ve como alerta en su panel de productos.
-                    $cardImg = $v->image_url ?: ($l->primary_image_url ?? $l->image_url);
-                    if (!$cardImg) {
-                        continue;
-                    }
-                    $unit = (float) ($v->price ?: $l->display_price);
-                    $card = clone $l;
-                    $card->variant_card_id     = $v->id;                       // marca: card de variante concreta
-                    $card->has_variants        = false;                        // precio exacto, sin "Desde", sin dots
-                    $card->title               = $v->display_name ? ($l->title . ' - ' . $v->display_name) : $l->title;
-                    $card->primary_image_url   = $cardImg;
-                    $card->image_url           = $v->image_url ?: $l->image_url;
-                    $card->secondary_image_url = null;
-                    // display_price es accessor (lee mp_price/price) → seteamos
-                    // las columnas para que muestre el precio de la variante.
-                    $card->price               = $unit;
-                    $card->mp_price            = null;
-                    $card->original_price      = $v->original_price;
-                    $card->is_on_offer         = (bool) $v->is_on_offer;
-                    $card->discount_pct        = $v->discount_pct;
-                    $card->stock               = (int) $v->stock;
-                    $card->color_dots          = collect();
-                    $card->variant_thumbs      = collect();
-                    $expanded->push($card);
-                }
-            } else {
+            $explotar = !empty($l->has_variants) && $variants && $variants->count() >= 2 && $inStock->isNotEmpty();
+            // Ninguna con foto propia: las cards saldrían idénticas → la del padre.
+            if ($explotar && $inStock->every(fn ($v) => empty($v->image_url))) {
+                $explotar = false;
+            }
+            if (!$explotar) {
                 $expanded->push($l);
+                continue;
+            }
+
+            $mostrar = $inStock;
+            if ($grafiasBuscadas) {
+                $casan = $inStock->filter(fn ($v) => $this->variantMatchesSearch($v->display_name, $grafiasBuscadas, $v->sku, $tokensBuscados));
+                if ($casan->isNotEmpty()) {
+                    $mostrar = $casan;
+                }
+            }
+            $mostrar = $mostrar->take($maxCards);
+
+            // La foto del producto, no la de la variante principal: una
+            // variante sin foto no debe mostrar la de otra.
+            $parentImg = $l->image_url ?: ($l->primary_image_url ?? null);
+
+            foreach ($mostrar as $v) {
+                // Sin foto no hay card: ni la variante ni el padre tienen
+                // imagen -> la card saldria con el bloque "Sin imagen".
+                // El seller lo ve como alerta en su panel de productos.
+                $cardImg = $v->image_url ?: $parentImg;
+                if (!$cardImg) {
+                    continue;
+                }
+                // Oferta vencida que el sync aún no limpió: precio de lista.
+                $ofertaVigente = (bool) $v->is_on_offer
+                    && (empty($v->offer_ends_at) || $v->offer_ends_at->isFuture());
+                $unit = (float) ($v->price ?: $l->display_price);
+                if (!$ofertaVigente && $v->is_on_offer && (float) $v->original_price > 0) {
+                    $unit = (float) $v->original_price;
+                }
+                $nombreVar = trim((string) $v->display_name);
+                $card = clone $l;
+                $card->variant_card_id     = $v->id;                       // marca: card de variante concreta
+                $card->has_variants        = false;                        // precio exacto, sin "Desde", sin dots
+                $card->title               = ($nombreVar !== '' && mb_strtolower($nombreVar) !== mb_strtolower(trim((string) $l->title)))
+                    ? ($l->title . ' — ' . $nombreVar)
+                    : $l->title;
+                $card->primary_image_url   = $cardImg;
+                $card->image_url           = $v->image_url ?: $l->image_url;
+                $card->secondary_image_url = null;
+                $card->gallery_image_urls  = [];                           // la galería del padre no es de esta variante
+                // display_price es accessor (lee mp_price/price) → seteamos
+                // las columnas para que muestre el precio de la variante.
+                $card->price               = $unit;
+                $card->mp_price            = null;
+                $card->original_price      = $ofertaVigente ? $v->original_price : null;
+                $card->is_on_offer         = $ofertaVigente;
+                $card->discount_pct        = $ofertaVigente ? $v->discount_pct : null;
+                // «hasta -X%» (variant_partial) describe al producto; esta card
+                // es una variante exacta.
+                if (($card->discount_source ?? null) !== 'flash_sale') {
+                    $card->discount_source = null;
+                }
+                $card->stock               = (int) $v->stock;
+                $card->color_dots          = collect();
+                $card->variant_thumbs      = collect();
+                $expanded->push($card);
             }
         }
         $listings->setCollection($expanded);
@@ -1389,6 +1446,26 @@ class MarketplaceController extends Controller
         ));
     }
 
+    /**
+     * Galería de una variante para la ficha: [{thumb, full}] o null. La
+     * miniatura es la versión _medium (512px) que genera el pipeline; si no
+     * existiera, la ficha cae a la completa (onerror).
+     */
+    private function variantGalleryForShow($variant): ?array
+    {
+        $urls = $variant->gallery_image_urls ?? null;
+        if (!is_array($urls) || !$urls) return null;
+
+        $out = [];
+        foreach (array_values(array_unique(array_filter($urls))) as $u) {
+            $out[] = [
+                'full'  => $u,
+                'thumb' => preg_replace('/(\.[a-z0-9]+)$/i', '_medium$1', $u),
+            ];
+        }
+        return $out ?: null;
+    }
+
     public function show(string $slug)
     {
         // Activos con foto, aunque esten agotados (ver scopeHasPublicPage). Los
@@ -1444,17 +1521,12 @@ class MarketplaceController extends Controller
                 ->orderBy('price')
                 ->get();
 
-            // Resolver qué values del selector deben marcarse como is-selected
-            // al cargar la página: los de la variante is_primary. Si nadie
-            // está marcado, el blade cae al fallback "primer value de cada opción".
-            $primaryVariant = $variants->firstWhere('is_primary', true);
-            if ($primaryVariant) {
-                $primaryValueIds = \DB::connection('system')->table('marketplace_listing_variant_values')
-                    ->where('listing_variant_id', $primaryVariant->id)
-                    ->pluck('option_value_id')
-                    ->map(fn($i) => (int) $i)
-                    ->all();
-            }
+            // Al entrar NO se preselecciona ninguna variante (decisión del
+            // dueño, 2026-11-17): antes se marcaban los valores de la variante
+            // is_primary. $primaryValueIds queda vacío a propósito. La única
+            // preselección es el enlace ?variant=<marketplace_listing_variants.id>,
+            // que resuelve el JS de la ficha para que el HTML siga siendo el
+            // mismo para todos (cacheable).
 
             // Opciones agrupadas (Color/Talla) con sus valores, listas para
             // renderizar como thumbs-imagen o pills según corresponda.
@@ -1494,6 +1566,12 @@ class MarketplaceController extends Controller
                         'stock'          => (int) $v->stock,
                         // Sin foto propia → la del padre (la de la ficha).
                         'image_url'      => $v->image_url ?: ($listing->image_full_url ?: null),
+                        // Foto propia (sin el respaldo del padre): la galería de
+                        // la ficha la usa cuando la variante no tiene galería.
+                        'own_image_url'  => $v->image_url ?: null,
+                        // Galería propia de la variante (principal + adicionales);
+                        // null = la ficha muestra la del producto.
+                        'gallery'        => $this->variantGalleryForShow($v),
                         'display_name'   => $v->display_name,
                     ];
                 }
@@ -1988,7 +2066,7 @@ class MarketplaceController extends Controller
 
         $listings = $query->paginate(24)->withQueryString();
         $this->decorateListingsWithVariantData($listings);
-        $this->explodeVariantsIntoCards($listings);
+        $this->explodeVariantsIntoCards($listings, $q);
         $this->decorateListingsWithAlsoIn($listings);
         $this->decorateListingsWithPersonalCoupon($listings);
         $total = Cache::remember('mp_shop_total_v1_' . $hostname->id, 1800, function () use ($hostname) {

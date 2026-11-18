@@ -1054,6 +1054,12 @@ if ($hostname) {
                 // se borra, y sin estas dos rutas su stock quedaba inaccesible.
                 Route::post('/{variant}/reactivate',  [\App\Http\Controllers\Tenant\ItemVariantController::class, 'reactivate']);
                 Route::post('/{variant}/move-stock',  [\App\Http\Controllers\Tenant\ItemVariantController::class, 'moveStock']);
+                // Galería de la variante (fotos adicionales). /reorder va antes
+                // de /{image} para que no se lea como un id.
+                Route::post('/{variant}/images',                  [\App\Http\Controllers\Tenant\ItemVariantController::class, 'uploadGalleryImage']);
+                Route::post('/{variant}/images/reorder',          [\App\Http\Controllers\Tenant\ItemVariantController::class, 'reorderGalleryImages']);
+                Route::delete('/{variant}/images/{image}',        [\App\Http\Controllers\Tenant\ItemVariantController::class, 'deleteGalleryImage'])->whereNumber('image');
+                Route::post('/{variant}/images/{image}/primary',  [\App\Http\Controllers\Tenant\ItemVariantController::class, 'promoteGalleryImage'])->whereNumber('image');
             });
 
             //Persons

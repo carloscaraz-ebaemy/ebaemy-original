@@ -447,7 +447,12 @@ class EcommerceController extends Controller
         $itemOptions = [];
         $itemVariants = [];
         if ($row->has_variants) {
-            $row->load('itemOptions.values', 'variants.optionValues', 'variants.warehouseStocks');
+            $row->load(array_merge(
+                ['itemOptions.values', 'variants.optionValues', 'variants.warehouseStocks'],
+                // Galería por variante: solo si el tenant ya tiene la tabla
+                // (los 17 no se migran a la vez).
+                \App\Models\Tenant\ItemVariant::galleryTableExists() ? ['variants.images'] : []
+            ));
             $itemOptions = $row->itemOptions->map(function($opt) {
                 return [
                     'id'     => $opt->id,
@@ -473,6 +478,24 @@ class EcommerceController extends Controller
                 $imageUrl = (!$useParentImage && !empty($v->image))
                     ? \App\Services\Tenant\ImageProcessingService::getUrl($v->image)
                     : null;
+                // Galería de la variante para la ficha: su principal y después
+                // sus fotos adicionales. Vacía = la ficha sigue con las fotos
+                // del producto (sin fotos propias, o «usar la imagen del
+                // producto» activado). Rutas relativas al host, como el resto
+                // de la ficha.
+                $gallery = [];
+                if (!$useParentImage) {
+                    $files = array_merge(
+                        [$v->image],
+                        $v->relationLoaded('images') ? $v->images->pluck('image')->all() : []
+                    );
+                    foreach ($files as $f) {
+                        if (!empty($f) && $f !== 'imagen-no-disponible.jpg') {
+                            $gallery[] = asset('storage/uploads/items/' . $f);
+                        }
+                    }
+                    $gallery = array_values(array_unique($gallery));
+                }
                 return [
                     'id'               => $v->id,
                     'display_name'     => $v->display_name,
@@ -483,6 +506,7 @@ class EcommerceController extends Controller
                     'is_primary'       => (bool) $v->is_primary,
                     'image'            => $v->image,
                     'image_url'        => $imageUrl,
+                    'gallery'          => $gallery,
                     'option_value_ids' => $v->optionValues->pluck('id')->map(fn($i) => (int) $i)->toArray(),
                     // Precio propio y oferta propia vigente: los usa el ajuste
                     // de abajo, cuando ya se conoce el precio final del producto.
@@ -675,7 +699,9 @@ class EcommerceController extends Controller
                 'event_id'     => 'vc_' . $row->id . '_' . time(),
                 'content_ids'  => [(string) $row->id],
                 'content_type' => 'product',
-                'value'        => (float) $record['sale_unit_price'],
+                // $record es un objeto: con $record['…'] lanzaba un error que el
+                // catch se tragaba y el ViewContent nunca se enviaba.
+                'value'        => (float) ($record->sale_unit_price ?? 0),
                 'currency'     => 'PEN',
                 'source_url'   => request()->fullUrl(),
                 'client_ip'    => request()->ip(),

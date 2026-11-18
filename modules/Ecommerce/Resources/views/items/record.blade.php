@@ -14,6 +14,31 @@
                              ? asset('storage/uploads/items/'.$record->image)
                              : $defaultImagePath;
     $productUrl            = route('tenant.ecommerce.item', ['slug' => $record->slug ?: $record->id]);
+
+    // Fotos del PRODUCTO (principal + galería), en el orden del carrusel. El JS
+    // de variantes las restaura al quitar la selección.
+    $productGalleryUrls = [$mainImagePath];
+    foreach ($record->images as $gi) {
+        if ($gi->image && $gi->image !== 'imagen-no-disponible.jpg') {
+            $productGalleryUrls[] = asset('storage/uploads/items/' . $gi->image);
+        }
+    }
+    $productGalleryUrls = array_values(array_unique($productGalleryUrls));
+
+    // Con variantes, al entrar no hay ninguna elegida: el precio se anuncia
+    // «Desde S/ X» (el más barato de las activas) y la compra espera a que el
+    // comprador elija. Si todas cuestan lo mismo, el precio a secas.
+    $variantPriceLabel = null;
+    if (!empty($record->has_variants) && !empty($record->item_variants)) {
+        $vpPrices = collect($record->item_variants)->where('is_active', true)
+            ->pluck('sale_unit_price')->filter(fn ($p) => $p !== null && (float) $p > 0)
+            ->map(fn ($p) => (float) $p);
+        if ($vpPrices->isNotEmpty()) {
+            $vpMin = $vpPrices->min();
+            $variantPriceLabel = ($vpMin == $vpPrices->max() ? '' : 'Desde ')
+                . $record->currency_type_symbol . ' ' . number_format($vpMin, 2);
+        }
+    }
     // Corte por PALABRA, no por caracter. `Str::limit(..., 155)` partia la
     // ultima palabra por la mitad y Google publicaba «...y base de tru...» en
     // los resultados: el respaldo lo usan los 95 productos, porque ninguno
@@ -281,7 +306,9 @@
 
                 {{-- Precio — muestra descuento si hay Flash Sale o Pack --}}
                 @php
-                    $hasDiscount = !empty($record->original_price);
+                    // Con variantes y sin ninguna elegida no se muestra tachado:
+                    // sería el del producto, no el de lo que se va a comprar.
+                    $hasDiscount = !empty($record->original_price) && !$variantPriceLabel;
                     $discountPct = $hasDiscount ? round((1 - $record->sale_unit_price / $record->original_price) * 100) : 0;
                 @endphp
                 <div class="price-box" itemprop="offers" itemscope itemtype="https://schema.org/Offer">
@@ -303,7 +330,7 @@
                     </div>
 
                     <span class="product-price" style="font-size:32px;font-weight:800;{{ $hasDiscount ? 'color:#e53e3e' : 'color:#1a1a1a' }}">
-                        {{ $record->currency_type['symbol'] }} {{ number_format($record->sale_unit_price, 2) }}
+                        {{ $variantPriceLabel ?: ($record->currency_type['symbol'] . ' ' . number_format($record->sale_unit_price, 2)) }}
                     </span>
 
                     <p id="ec-price-save" style="display:{{ $hasDiscount ? 'block' : 'none' }};color:#16a34a;font-size:13px;font-weight:600;margin:4px 0 0">
@@ -464,7 +491,8 @@
                     var baseOriginal = {{ $record->original_price ? (float) $record->original_price : 'null' }};
                     var symbol    = '{{ $record->currency_type_symbol }}';
                     var useParentImage = {{ !empty($record->use_parent_image_for_variants) ? 'true' : 'false' }};
-                    var primaryValueIds = @json($record->primary_value_ids ?? []);
+                    var productGallery = {!! json_encode($productGalleryUrls, JSON_UNESCAPED_SLASHES) !!};
+                    var fromLabel = {!! json_encode($variantPriceLabel, JSON_UNESCAPED_UNICODE) !!};
                     var selected  = {}; // optionId -> valueId
 
                     // ── Matriz de disponibilidad ─────────────────────────────────────
@@ -498,6 +526,19 @@
                             var valId   = parseInt(this.getAttribute('data-value-id'));
                             var val     = this.getAttribute('data-val');
                             var labelId = this.getAttribute('data-label-id');
+                            var lbl = document.getElementById(labelId);
+
+                            // Tocar la opción ya elegida la QUITA: así el comprador
+                            // puede volver a ver el producto completo (sus fotos y
+                            // el precio «Desde»).
+                            if (this.getAttribute('aria-pressed') === 'true') {
+                                this.setAttribute('aria-pressed', 'false');
+                                delete selected[optId];
+                                if(lbl) lbl.textContent = '';
+                                refreshAvailability();
+                                resolveVariant();
+                                return;
+                            }
 
                             // Deselect siblings — el CSS maneja el estilo via aria-pressed
                             document.querySelectorAll('.ec-rv-opt[data-option-id="'+optId+'"]').forEach(function(b){
@@ -506,7 +547,6 @@
                             this.setAttribute('aria-pressed', 'true');
 
                             selected[optId] = valId;
-                            var lbl = document.getElementById(labelId);
                             if(lbl) lbl.textContent = '— ' + val;
 
                             refreshAvailability();
@@ -526,6 +566,18 @@
                             if(resEl) resEl.style.display = 'none';
                             if(reqEl) reqEl.style.display = 'none';
                             window._ecSelectedVariant = null;
+                            setBuyReady(false);
+                            // Selección a medias (p. ej. solo el color): las fotos
+                            // de la primera variante activa que encaje y tenga
+                            // fotos propias; sin selección, las del producto.
+                            var partial = Object.keys(selected).length ? variants.find(function(v){
+                                if(!v.is_active || !(v.gallery || []).length) return false;
+                                return Object.keys(selected).every(function(oid){
+                                    return (v.option_value_ids || []).indexOf(selected[oid]) !== -1;
+                                });
+                            }) : null;
+                            setGallery(partial ? partial.gallery : productGallery);
+                            setProductCode(parentCode);
                             return;
                         }
                         var selIds = options.map(function(o){ return selected[String(o.id)]; })
@@ -534,6 +586,13 @@
                             var vIds = (v.option_value_ids||[]).slice().sort(function(a,b){return a-b;});
                             return JSON.stringify(vIds) === JSON.stringify(selIds);
                         });
+                        // Galería: la de ESA variante (principal + adicionales,
+                        // cada foto una vez). Sin fotos propias, o con «usar la
+                        // imagen del producto», la del producto. Antes se pisaban
+                        // TODAS las imágenes grandes con la de la variante y el
+                        // carrusel quedaba con la misma foto repetida.
+                        setGallery(found && !useParentImage && (found.gallery || []).length
+                            ? found.gallery : productGallery);
                         if(found && found.is_active && (found.stock||0) > 0){
                             window._ecSelectedVariant = found;
                             setPriceDisplay(
@@ -541,18 +600,15 @@
                                 found.original_price != null ? parseFloat(found.original_price) : null
                             );
                             updateStockUI(found.stock);
+                            setBuyReady(true);
                             if(resEl){ resEl.style.display='block'; resEl.textContent='✓ '+found.display_name; }
                             if(reqEl) reqEl.style.display='none';
-                            // Cambiar imagen solo si la variante tiene foto propia
-                            // Y el seller NO marcó "usar imagen del producto en todas las variantes".
-                            // Si no la tiene (o se usa la del padre), VUELVE a la principal del
-                            // producto: antes la ficha se quedaba con la foto de la variante anterior.
-                            if(found.image && !useParentImage) swapMainImage('/storage/uploads/items/'+found.image);
-                            else swapMainImage(parentImageUrl);
                             // Codigo: el SKU de la variante, o el del producto si no tiene.
                             setProductCode(found.sku || parentCode);
                         } else {
                             window._ecSelectedVariant = null;
+                            setBuyReady(false);
+                            setProductCode(found ? (found.sku || parentCode) : parentCode);
                             if(resEl) resEl.style.display='none';
                             if(reqEl){
                                 reqEl.style.display='block';
@@ -569,11 +625,12 @@
                         var el = document.querySelector('.product-price');
                         if(!el) return;
                         var p = (price != null) ? price : basePrice;
-                        var o = (price != null) ? original : baseOriginal;
+                        // Sin variante elegida: «Desde S/ X» y sin tachado.
+                        var o = (price != null) ? original : (fromLabel ? null : baseOriginal);
                         var hay = o != null && o > p;
                         el.classList.add('ec-price-flash');
                         setTimeout(function(){
-                            el.textContent = symbol + ' ' + p.toFixed(2);
+                            el.textContent = (price == null && fromLabel) ? fromLabel : (symbol + ' ' + p.toFixed(2));
                             el.style.color = hay ? '#e53e3e' : '#1a1a1a';
                             el.classList.remove('ec-price-flash');
                         }, 130);
@@ -638,6 +695,93 @@
                         var notifyBtn = document.querySelector('.ec-btn-notify');
                         if(notifyBtn) notifyBtn.style.display = s > 0 ? 'none' : '';
                     }
+
+                    // ── Galería (carrusel Owl + miniaturas) ──────────────────────────
+                    // Se REEMPLAZAN las diapositivas por la lista dada, una por foto.
+                    // Si Owl aún no arrancó (este script corre antes que main.js:
+                    // pasa al entrar con ?variant=), basta con reescribir el HTML y
+                    // Owl se inicia ya con las fotos de la variante.
+                    var galleryKey = productGallery.join('|');
+                    var galleryIsProduct = true;
+                    function escAttr(s){
+                        return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/"/g,'&quot;')
+                            .replace(/</g,'&lt;').replace(/>/g,'&gt;');
+                    }
+                    function setGallery(urls){
+                        if(!urls || !urls.length) urls = productGallery;
+                        var key = urls.join('|');
+                        if(key === galleryKey) return;
+                        galleryKey = key;
+                        galleryIsProduct = (key === productGallery.join('|'));
+                        var car = document.querySelector('.product-single-carousel');
+                        if(!car) return;
+                        var titleEl = document.querySelector('.product-title');
+                        var alt = escAttr(titleEl ? titleEl.textContent.trim() : '');
+                        var slides = urls.map(function(u){
+                            return '<div class="product-item"><img class="product-single-image" src="'+escAttr(u)+'" data-zoom-image="'+escAttr(u)+'" alt="'+alt+'"></div>';
+                        }).join('');
+                        var dotsEl = document.getElementById('carousel-custom-dots');
+                        if(dotsEl){
+                            dotsEl.innerHTML = urls.map(function(u, i){
+                                return '<div class="col-3 owl-dot'+(i === 0 ? ' active' : '')+'"><img src="'+escAttr(u)+'" alt="'+alt+'"></div>';
+                            }).join('');
+                        }
+                        var $j = window.jQuery;
+                        var owl = $j && $j(car).data('owl.carousel');
+                        if(owl){
+                            $j(car).trigger('replace.owl.carousel', [slides]).trigger('refresh.owl.carousel');
+                            $j(car).trigger('to.owl.carousel', [0, 0]);
+                        } else {
+                            car.innerHTML = slides;
+                        }
+                    }
+                    // Miniaturas reconstruidas: main.js solo enlazó las originales.
+                    (function(){
+                        var dotsEl = document.getElementById('carousel-custom-dots');
+                        if(!dotsEl) return;
+                        dotsEl.addEventListener('click', function(e){
+                            var d = e.target.closest('.owl-dot');
+                            if(!d || !dotsEl.contains(d) || !window.jQuery) return;
+                            var idx = Array.prototype.indexOf.call(dotsEl.children, d);
+                            window.jQuery('.product-single-carousel').trigger('to.owl.carousel', [idx, 300]);
+                        });
+                    })();
+                    // Visor a pantalla completa con las fotos de la VARIANTE: los
+                    // visores del tema recogen las fotos una sola vez al cargar.
+                    // Solo actúa cuando la galería ya no es la del producto.
+                    document.addEventListener('click', function(e){
+                        if(galleryIsProduct) return;
+                        var img = e.target.closest && e.target.closest('.product-single-carousel .product-single-image, .product-single-carousel .product-item');
+                        if(!img || typeof window.GLightbox !== 'function') return;
+                        e.preventDefault();
+                        e.stopPropagation();
+                        var urls = galleryKey.split('|');
+                        var owlNow = window.jQuery && window.jQuery('.product-single-carousel').data('owl.carousel');
+                        var start = 0;
+                        if(owlNow && typeof owlNow.relative === 'function'){
+                            start = owlNow.relative(owlNow.current()) || 0;
+                        }
+                        var lb = window.GLightbox({
+                            elements: urls.map(function(u){ return { href: u, type: 'image' }; }),
+                            loop: true, touchNavigation: true, closeOnOutsideClick: true,
+                        });
+                        lb.openAt(Math.max(0, Math.min(start, urls.length - 1)));
+                    }, true);
+
+                    // ── Botón de compra según la elección ────────────────────────────
+                    // Sin combinación válida el botón se VE (desactivado) y dice
+                    // «Elige un modelo»; al tocarlo lleva a los selectores.
+                    function setBuyReady(ready){
+                        document.querySelectorAll('#btn-add-to-cart, .ec-mob-cart-btn, .ec-sticky-desktop__btn').forEach(function(b){
+                            b.classList.toggle('ec-buy-disabled', !ready);
+                            b.setAttribute('aria-disabled', ready ? 'false' : 'true');
+                            var lab = b.querySelector('.ec-buy-label') || b.querySelector('span');
+                            if(lab) lab.textContent = ready ? 'Agregar al Carrito' : 'Elige un modelo';
+                        });
+                        var qtyWrap = document.getElementById('ec-qty-selector');
+                        if(qtyWrap && qtyWrap.closest('.mb-3')) qtyWrap.closest('.mb-3').style.display = ready ? '' : 'none';
+                    }
+                    window._ecSetBuyReady = setBuyReady;
 
                     // ── Swap imagen principal ────────────────────────────────────────
                     // Soporta varios themes ecommerce — probamos los selectores
@@ -707,15 +851,15 @@
 
                     refreshAvailability();
 
-                    // Si el seller marcó una variante como "Mostrar primero" (is_primary),
-                    // la auto-seleccionamos para que el comprador llegue con todo listo
-                    // (precio, stock, imagen) y solo tenga que dar click en "Agregar".
-                    // Sin primary: comportamiento Shopify, el usuario elige todo.
-                    // Antes de eso, el enlace profundo: los feeds de catálogo
-                    // (Meta/WhatsApp, Google, TikTok) publican UN item por
-                    // variante y su link trae ?variant=<id>. Si el comprador
-                    // llega desde ese anuncio tiene que caer en la variante
-                    // anunciada, no en el producto con todo por elegir.
+                    // Al entrar NO se preselecciona ninguna variante (decisión del
+                    // dueño, 2026-11-17): se ve el producto con sus fotos y el precio
+                    // «Desde», y la compra espera a que el comprador elija. Antes se
+                    // elegía sola la variante «Mostrar primero».
+                    //
+                    // ÚNICA excepción, el enlace profundo ?variant=<item_variants.id>
+                    // (id de la variante en ESTA tienda): lo usan los feeds de
+                    // catálogo (Meta/WhatsApp, Google, TikTok), que publican un item
+                    // por variante. Un id que no es de este producto se ignora.
                     function preselectFromUrl() {
                         var match = /[?&]variant=(\d+)/.exec(window.location.search);
                         if (!match) return false;
@@ -739,22 +883,28 @@
                         return !!window._ecSelectedVariant;
                     }
 
-                    if (!preselectFromUrl() && Array.isArray(primaryValueIds) && primaryValueIds.length) {
-                        primaryValueIds.forEach(function (valId) {
-                            var btn = document.querySelector('.ec-rv-opt[data-value-id="' + valId + '"]:not([disabled])');
-                            if (btn) btn.click();
-                        });
-                    }
+                    preselectFromUrl();
 
-                    // Estado inicial — solo si NO se autoseleccionó (window._ecSelectedVariant
-                    // se setea en resolveVariant tras el click programático arriba).
+                    // Estado inicial sin variante: el botón se ve desactivado con
+                    // «Elige un modelo» (la barra fija de escritorio se crea más
+                    // abajo, por eso se repite al terminar de cargar).
+                    // Los botones de compra están MÁS ABAJO en la página: este
+                    // script corre antes de que existan, así que su estado se
+                    // aplica de nuevo al terminar de cargar.
+                    document.addEventListener('DOMContentLoaded', function(){
+                        var sel = window._ecSelectedVariant;
+                        setBuyReady(!!sel);
+                        if (sel) updateStockUI(sel.stock);
+                    });
                     if (!window._ecSelectedVariant) {
-                        var qtyWrapInit = document.getElementById('ec-qty-selector');
-                        if(qtyWrapInit && qtyWrapInit.closest('.mb-3')) qtyWrapInit.closest('.mb-3').style.display = 'none';
-                        var addBtnInit = document.getElementById('btn-add-to-cart');
-                        if(addBtnInit) addBtnInit.style.display = 'none';
+                        setBuyReady(false);
                         var reqInit = document.getElementById('ec-variant-required');
-                        if(reqInit){ reqInit.style.display = 'block'; reqInit.textContent = 'Selecciona talla y color para agregar al carrito'; reqInit.style.color = '#6b7280'; }
+                        if(reqInit){
+                            var nombres = options.map(function(o){ return String(o.name || '').toLowerCase(); }).filter(Boolean);
+                            reqInit.style.display = 'block';
+                            reqInit.textContent = 'Elige ' + (nombres.length ? nombres.join(' y ') : 'un modelo') + ' para agregar al carrito.';
+                            reqInit.style.color = '#6b7280';
+                        }
                     }
 
                     // ── Zoom hover + thumbs clickeables ──────────────────────────────
@@ -813,6 +963,10 @@
                         );
                         thumbCandidates.forEach(function (t) {
                             if (t === mainImg || t.dataset.ecZoomBound) return
+                            // El carrusel Owl y sus miniaturas ya navegan solos. Aquí
+                            // un clic COPIABA esa foto en todas las imágenes grandes
+                            // y el carrusel quedaba con la misma foto repetida.
+                            if (t.closest('.product-single-gallery')) return
                             t.dataset.ecZoomBound = '1'
                             t.style.cursor = 'pointer'
                             t.addEventListener('click', function (e) {
@@ -966,7 +1120,7 @@
                        data-product="{{ json_encode($record) }}"
                        data-ec-cart="{{ json_encode($record) }}"
                        title="Agregar al carrito">
-                        <span>Agregar al Carrito</span>
+                        <span class="ec-buy-label">Agregar al Carrito</span>
                     </a>
                     @if($record->has_variants)
                     <script>
@@ -1238,7 +1392,7 @@
                         <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
                         <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
                     </svg>
-                    Agregar al Carrito
+                    <span class="ec-buy-label">Agregar al Carrito</span>
                 </a>
             </div>
             @endif
@@ -1647,6 +1801,15 @@ document.addEventListener('DOMContentLoaded', function () {
 </script>
 
 <style>
+/* Compra sin variante elegida: el botón se ve, apagado, con «Elige un modelo».
+   Sigue siendo pulsable para llevar al comprador a los selectores. */
+.ec-buy-disabled,
+a.ec-buy-disabled.paction.add-cart,
+.ec-mob-cart-btn.ec-buy-disabled {
+    opacity: .55 !important;
+    filter: grayscale(.35);
+    cursor: not-allowed !important;
+}
 .product-attributes { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:14px; }
 .product-attr-badge {
     display:inline-block; padding:4px 10px;
@@ -1905,7 +2068,7 @@ document.addEventListener('DOMContentLoaded', function () {
         '<div class="ec-sticky-desktop__inner">',
         '  <p class="ec-sticky-desktop__name">{{ addslashes($record->description) }}</p>',
         '  <span class="ec-sticky-desktop__price">',
-        '    {{ $record->currency_type_symbol }} {{ number_format($record->sale_unit_price, 2) }}',
+        '    {{ $variantPriceLabel ?: ($record->currency_type_symbol . ' ' . number_format($record->sale_unit_price, 2)) }}',
         '  </span>',
         '  <a href="#" class="paction add-cart ec-sticky-desktop__btn"',
         '     data-product=\'{{ addslashes(json_encode($record)) }}\'',
@@ -1916,11 +2079,27 @@ document.addEventListener('DOMContentLoaded', function () {
         '      <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>',
         '      <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>',
         '    </svg>',
-        '    Agregar al carrito',
+        '    <span class="ec-buy-label">Agregar al carrito</span>',
         '  </a>',
         '</div>'
     ].join('');
     document.body.appendChild(bar);
+
+    @if($record->has_variants)
+    // Con variantes el botón fijo hace lo mismo que el principal (que exige
+    // elegir la variante y la manda al carrito). Antes añadía el producto
+    // SIN variante.
+    var stickyBtn = bar.querySelector('.ec-sticky-desktop__btn');
+    if (stickyBtn) {
+        stickyBtn.addEventListener('click', function (e) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            var main = document.getElementById('btn-add-to-cart');
+            if (main) { main.scrollIntoView({ behavior: 'smooth', block: 'center' }); main.click(); }
+        });
+    }
+    if (window._ecSetBuyReady) window._ecSetBuyReady(!!window._ecSelectedVariant);
+    @endif
 
     var trigger = document.getElementById('product-actions');
     if (!trigger || !('IntersectionObserver' in window)) return;

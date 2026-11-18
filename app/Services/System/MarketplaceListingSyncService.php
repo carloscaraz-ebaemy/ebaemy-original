@@ -838,7 +838,9 @@ class MarketplaceListingSyncService
         if (empty($item->is_set)) return $empty;
 
         try {
-            // Join item_sets -> items (componentes) + item_warehouse (stock total)
+            // Join item_sets -> items (componentes) + item_warehouse. Disponible =
+            // físico − comprometido, igual que el resto del sync y que la venta
+            // (antes leía la columna legacy `stock` y anunciaba packs de más).
             $rows = DB::connection('tenant')->table('item_sets')
                 ->join('items', 'items.id', '=', 'item_sets.individual_item_id')
                 ->leftJoin('item_warehouse', 'item_warehouse.item_id', '=', 'items.id')
@@ -848,7 +850,7 @@ class MarketplaceListingSyncService
                     items.description AS comp_name,
                     items.image     AS comp_image,
                     item_sets.quantity AS qty_in_pack,
-                    COALESCE(SUM(item_warehouse.stock), 0) AS comp_stock
+                    COALESCE(SUM(GREATEST(0, COALESCE(item_warehouse.stock_physical, 0) - COALESCE(item_warehouse.stock_committed, 0))), 0) AS comp_stock
                 ')
                 ->groupBy('items.id', 'items.description', 'items.image', 'item_sets.quantity')
                 ->get();
@@ -955,6 +957,26 @@ class MarketplaceListingSyncService
         // imágenes individuales de las variantes — todas heredan la del padre.
         $useParentImage = (bool) ($item->use_parent_image_for_variants ?? false);
 
+        // Fotos adicionales de cada variante (item_variant_images), en orden.
+        // Solo si el tenant ya tiene la tabla: los 17 no se migran a la vez.
+        $extraByVariant = [];
+        if (!$useParentImage && !empty($variantIds)) {
+            try {
+                if (DB::connection('tenant')->getSchemaBuilder()->hasTable('item_variant_images')) {
+                    $extraByVariant = DB::connection('tenant')->table('item_variant_images')
+                        ->whereIn('item_variant_id', $variantIds)
+                        ->whereNotNull('image')->where('image', '!=', '')
+                        ->orderBy('position')->orderBy('id')
+                        ->get(['item_variant_id', 'image'])
+                        ->groupBy('item_variant_id')
+                        ->map(fn ($rows) => $rows->pluck('image')->all())
+                        ->all();
+                }
+            } catch (\Throwable $e) {
+                $extraByVariant = [];
+            }
+        }
+
         $payloads = [];
         foreach ($variants as $v) {
             // 0 (lo que devuelve el input numérico) = «sin precio propio»: hereda
@@ -968,6 +990,19 @@ class MarketplaceListingSyncService
                 ? 'https://' . $fqdn . '/storage/uploads/items/' . $v->image
                 : null; // si toggle activo o sin imagen propia, la UI cae al image_url del listing
 
+            // Galería de la variante para la ficha: su principal y después sus
+            // fotos adicionales, URLs absolutas del tenant (tamaño completo; la
+            // ficha deriva las miniaturas _medium). NULL = sin galería propia y
+            // la ficha se queda con la del producto.
+            $galleryUrls = null;
+            if (!$useParentImage) {
+                $files = array_merge([$v->image ?? null], $extraByVariant[$v->id] ?? []);
+                $files = array_values(array_unique(array_filter($files, fn ($f) => !empty($f) && $f !== 'imagen-no-disponible.jpg')));
+                if ($files) {
+                    $galleryUrls = array_map(fn ($f) => 'https://' . $fqdn . '/storage/uploads/items/' . $f, $files);
+                }
+            }
+
             // Stock: tabla item_variant_warehouse → fallback al stock global de variant
             $stock = $stockByVariant[$v->id] ?? (int) ($v->stock ?? 0);
 
@@ -977,6 +1012,7 @@ class MarketplaceListingSyncService
                 'sku'               => $v->sku ?? null,
                 'display_name'      => (string) ($v->display_name ?: 'Variante ' . $v->id),
                 'image_url'         => $imageUrl,
+                'gallery_image_urls'=> $galleryUrls,
                 'price'             => $offer['price'],
                 'original_price'    => $offer['original_price'],
                 'is_on_offer'       => $offer['is_on_offer'],
@@ -994,6 +1030,14 @@ class MarketplaceListingSyncService
         // Upsert en system
         $tenancy = app(Environment::class);
         $tenancy->tenant(null);
+
+        // La columna de la galería llega con una migración system nueva: si
+        // aún no corrió, se publica todo lo demás igual (sin galería).
+        if (!$this->variantGalleryColumnExists()) {
+            foreach ($payloads as $i => $p) {
+                unset($payloads[$i]['gallery_image_urls']);
+            }
+        }
 
         $seenIds = [];
         foreach ($payloads as $p) {
@@ -1350,6 +1394,20 @@ class MarketplaceListingSyncService
      * (`_medium` del pipeline actual y `-medium` de un generador anterior)
      * porque los archivos con guion siguen en uso.
      */
+    private function variantGalleryColumnExists(): bool
+    {
+        static $existe = null;
+        if ($existe === null) {
+            try {
+                $existe = \Illuminate\Support\Facades\Schema::connection('system')
+                    ->hasColumn('marketplace_listing_variants', 'gallery_image_urls');
+            } catch (\Throwable $e) {
+                $existe = false;
+            }
+        }
+        return $existe;
+    }
+
     private function resolveThumbUrl(string $fqdn, string $file): ?string
     {
         $ext  = pathinfo($file, PATHINFO_EXTENSION);

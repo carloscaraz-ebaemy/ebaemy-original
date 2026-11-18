@@ -95,6 +95,37 @@ class ItemVariant extends ModelTenant
         return $this->hasMany(ItemVariantWarehouse::class, 'item_variant_id');
     }
 
+    /**
+     * Fotos adicionales de la variante (la principal es `image`), en el orden
+     * en que se ven en la galería de la ficha.
+     */
+    public function images(): HasMany
+    {
+        return $this->hasMany(ItemVariantImage::class, 'item_variant_id')
+            ->orderBy('position')
+            ->orderBy('id');
+    }
+
+    /**
+     * ¿Existe ya la tabla de la galería en este tenant? Los 17 tenants no se
+     * migran a la vez: sin esta guarda, cargar `images` en un tenant sin la
+     * tabla tumbaría la pestaña de variantes y la ficha de la tienda.
+     */
+    public static function galleryTableExists(): bool
+    {
+        static $cache = [];
+        try {
+            $conn = (new static)->getConnection();
+            $key  = $conn->getDatabaseName();
+            if (!array_key_exists($key, $cache)) {
+                $cache[$key] = $conn->getSchemaBuilder()->hasTable('item_variant_images');
+            }
+            return $cache[$key];
+        } catch (\Throwable $e) {
+            return false;
+        }
+    }
+
     // ── Helpers ────────────────────────────────────────────────────────────
 
     /**

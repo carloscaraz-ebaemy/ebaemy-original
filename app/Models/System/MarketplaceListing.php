@@ -446,6 +446,28 @@ class MarketplaceListing extends Model
                     }
                     // Fallback: columnas originales (también al inicio de
                     // palabra) + SKU/código interno, que sí casa a mitad.
+                    // Nombre y SKU de las VARIANTES (activas y con stock), en vivo:
+                    // `search_text` se corta a 500 caracteres y no lleva SKU, así
+                    // que una variante «Rojo» o el SKU «PVC-T1-04» no encontraban
+                    // al producto. Solo grafías (plural/erratas), no sinónimos:
+                    // «asiento» no debe traer variantes de «silla».
+                    $grafiasVar = static::cleanVariants(\App\Services\System\SearchSynonyms::spellings($tok));
+                    $tokLike = str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $tok);
+                    $sub->orWhereExists(function ($ex) use ($grafiasVar, $tokLike) {
+                        $ex->select(\DB::raw(1))
+                            ->from('marketplace_listing_variants as lvs')
+                            ->whereColumn('lvs.listing_id', 'marketplace_listings.id')
+                            ->where('lvs.is_active', true)
+                            ->where('lvs.stock', '>', 0)
+                            ->where(function ($m) use ($grafiasVar, $tokLike) {
+                                foreach ($grafiasVar as $v) {
+                                    $m->orWhere('lvs.display_name', 'like', $v . '%')
+                                      ->orWhere('lvs.display_name', 'like', '% ' . $v . '%');
+                                }
+                                // SKU: a mitad desde 3 caracteres; con 2, solo prefijo.
+                                $m->orWhere('lvs.sku', 'like', (mb_strlen($tokLike) >= 3 ? '%' : '') . $tokLike . '%');
+                            });
+                    });
                     $sub->orWhere('title', 'like', $tok . '%')
                         ->orWhere('title', 'like', '% ' . $tok . '%')
                         ->orWhere('category_name', 'like', $tok . '%')

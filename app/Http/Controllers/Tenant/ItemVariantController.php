@@ -8,6 +8,7 @@ use App\Models\Tenant\Item;
 use App\Models\Tenant\ItemOption;
 use App\Models\Tenant\ItemOptionValue;
 use App\Models\Tenant\ItemVariant;
+use App\Models\Tenant\ItemVariantImage;
 use App\Models\Tenant\ItemVariantWarehouse;
 use App\Rules\MinMarginRule;
 use App\Services\Tenant\ItemVariantService;
@@ -51,11 +52,11 @@ class ItemVariantController extends Controller
         );
         $relation = $includeInactive ? 'allVariants' : 'variants';
 
-        $item->load([
+        $item->load(array_merge([
             'itemOptions.values',
             $relation . '.optionValues',
             $relation . '.warehouseStocks.warehouse',
-        ]);
+        ], ItemVariant::galleryTableExists() ? [$relation . '.images'] : []));
 
         $variants = $item->{$relation};
 
@@ -496,12 +497,24 @@ class ItemVariantController extends Controller
     {
         abort_if($variant->item_id !== $item->id, 404);
 
-        // Limpieza best-effort de la imagen de la variante. Si falla no rompe
-        // el delete (la fila se borra igual y el archivo huérfano se puede
-        // limpiar luego con un comando manual).
-        $this->deleteVariantImageFile($variant->image);
+        // Archivos de la variante (principal + galería) leídos ANTES: si se
+        // borra la fila, el cascade se lleva las de item_variant_images.
+        $files = array_filter(array_merge(
+            [$variant->image],
+            ItemVariant::galleryTableExists() ? $variant->images()->pluck('image')->all() : []
+        ));
 
         $result = $this->service->deleteVariant($variant);
+
+        // Solo si la variante se BORRÓ de verdad. Con stock no se borra, se
+        // desactiva, y antes se le borraba la foto igual: la fila quedaba
+        // apuntando a un archivo inexistente y al reactivarla salía sin foto.
+        // Best-effort: un archivo huérfano no rompe nada.
+        if ($result === 'deleted') {
+            foreach ($files as $f) {
+                $this->deleteVariantImageFile($f);
+            }
+        }
 
         // Borrar o desactivar una variante cambia el rango de precio y el stock
         // publicados: el listado central debe enterarse ya, no en media hora.
@@ -608,6 +621,222 @@ class ItemVariantController extends Controller
         ]);
     }
 
+    // ────────────────────────────────────────────────────────────────────────
+    // Galería de la variante (fotos adicionales en item_variant_images)
+    //
+    // POST   /items/{item}/variants/{variant}/images                → uploadGalleryImage
+    // DELETE /items/{item}/variants/{variant}/images/{image}        → deleteGalleryImage
+    // POST   /items/{item}/variants/{variant}/images/reorder        → reorderGalleryImages
+    // POST   /items/{item}/variants/{variant}/images/{image}/primary → promoteGalleryImage
+    //
+    // Mismo patrón que la galería del producto (ItemController::store con
+    // primary_gallery_id / previous_primary_to_gallery), pero cada acción se
+    // guarda al momento: la pestaña de variantes no tiene botón «Guardar».
+    // ────────────────────────────────────────────────────────────────────────
+
+    /** Tope de fotos adicionales por variante (sin contar la principal). */
+    public const MAX_GALLERY_IMAGES = 8;
+
+    public function uploadGalleryImage(Request $request, Item $item, ItemVariant $variant): JsonResponse
+    {
+        abort_if($variant->item_id !== $item->id, 404);
+
+        if (!ItemVariant::galleryTableExists()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'La galería de variantes aún no está disponible en esta tienda. Intenta más tarde.',
+            ], 422);
+        }
+
+        // Una foto por petición (el <el-upload multiple> manda una por archivo,
+        // en paralelo) o varias en `files[]`.
+        $files = [];
+        if ($request->hasFile('file')) {
+            $files[] = $request->file('file');
+        }
+        if ($request->hasFile('files')) {
+            foreach ((array) $request->file('files') as $f) {
+                if ($f) $files[] = $f;
+            }
+        }
+        if (!$files) {
+            return response()->json([
+                'success' => false,
+                'message' => UploadFileHelper::motivoArchivoAusente($request),
+            ], 422);
+        }
+
+        $request->validate([
+            'file'    => 'nullable|file|mimes:jpeg,png,jpg,gif,webp,bmp,heic,heif|max:15360',
+            'files'   => 'nullable|array|max:' . self::MAX_GALLERY_IMAGES,
+            'files.*' => 'file|mimes:jpeg,png,jpg,gif,webp,bmp,heic,heif|max:15360',
+        ]);
+
+        $added    = 0;
+        $errores  = [];
+
+        foreach ($files as $file) {
+            try {
+                $temp = tempnam(sys_get_temp_dir(), 'vgal_');
+                file_put_contents($temp, file_get_contents($file->getPathname()));
+
+                $validation = ImageProcessingService::validate($temp);
+                if (!$validation['success']) {
+                    @unlink($temp);
+                    $errores[] = $validation['message'];
+                    continue;
+                }
+
+                $prefix = 'v' . $variant->id . '-' . ($variant->sku ?: 'gal');
+                $base   = ImageProcessingService::sanitizeFilename($file->getClientOriginalName() ?: 'variant', $prefix);
+                $result = ImageProcessingService::processAndStore($temp, $base);
+                $main   = $result['main'];
+
+                // La decisión (¿principal o galería? ¿cabe?) bajo bloqueo de la
+                // fila de la variante: las fotos llegan en paralelo y, sin él,
+                // dos podían ver la principal vacía a la vez y una pisaba a la
+                // otra (foto perdida y archivo huérfano).
+                $ok = DB::connection('tenant')->transaction(function () use ($variant, $main) {
+                    $locked = ItemVariant::lockForUpdate()->find($variant->id);
+                    if (!$locked) return 'gone';
+
+                    if (empty($locked->image)) {
+                        $locked->update(['image' => $main]);
+                        return 'primary';
+                    }
+
+                    $count = ItemVariantImage::where('item_variant_id', $locked->id)->count();
+                    if ($count >= self::MAX_GALLERY_IMAGES) {
+                        return 'full';
+                    }
+
+                    $next = (int) ItemVariantImage::where('item_variant_id', $locked->id)->max('position');
+                    ItemVariantImage::create([
+                        'item_variant_id' => $locked->id,
+                        'image'           => $main,
+                        'position'        => $count === 0 ? 0 : $next + 1,
+                    ]);
+                    return 'gallery';
+                });
+
+                if ($ok === 'full' || $ok === 'gone') {
+                    $this->deleteVariantImageFile($main);
+                    $errores[] = $ok === 'full'
+                        ? 'Cada variante admite hasta ' . self::MAX_GALLERY_IMAGES . ' fotos adicionales.'
+                        : 'La variante ya no existe.';
+                    continue;
+                }
+                $added++;
+            } catch (\Throwable $e) {
+                Log::error('[ItemVariantController::uploadGalleryImage] ' . $e->getMessage(), [
+                    'variant_id' => $variant->id,
+                ]);
+                $errores[] = 'No se pudo procesar la imagen: ' . $e->getMessage();
+            }
+        }
+
+        if ($added > 0) {
+            $this->triggerMarketplaceSync($item);
+        }
+
+        $payload = [
+            'success' => $added > 0,
+            'added'   => $added,
+            'variant' => $this->formatVariant($variant->fresh(['optionValues', 'warehouseStocks.warehouse'])),
+        ];
+        if ($errores) {
+            $payload['message'] = implode(' ', array_unique($errores));
+        }
+
+        return response()->json($payload, $added > 0 ? 200 : 422);
+    }
+
+    public function deleteGalleryImage(Item $item, ItemVariant $variant, int $image): JsonResponse
+    {
+        abort_if($variant->item_id !== $item->id, 404);
+        abort_unless(ItemVariant::galleryTableExists(), 404);
+
+        $row = ItemVariantImage::where('item_variant_id', $variant->id)->findOrFail($image);
+        $file = $row->image;
+        $row->delete();
+        $this->deleteVariantImageFile($file);
+
+        $this->triggerMarketplaceSync($item);
+
+        return response()->json([
+            'success' => true,
+            'variant' => $this->formatVariant($variant->fresh(['optionValues', 'warehouseStocks.warehouse'])),
+        ]);
+    }
+
+    public function reorderGalleryImages(Request $request, Item $item, ItemVariant $variant): JsonResponse
+    {
+        abort_if($variant->item_id !== $item->id, 404);
+        abort_unless(ItemVariant::galleryTableExists(), 404);
+
+        $data = $request->validate([
+            'ids'   => 'required|array|max:50',
+            'ids.*' => 'integer',
+        ]);
+
+        $own = ItemVariantImage::where('item_variant_id', $variant->id)->pluck('id')->all();
+        $ids = array_values(array_unique(array_map('intval', $data['ids'])));
+
+        // Solo ids de ESTA variante; los que falten en la lista quedan al final
+        // en su orden actual, así un cliente desactualizado no pierde fotos.
+        $ids = array_values(array_intersect($ids, $own));
+        foreach (array_diff($own, $ids) as $resto) {
+            $ids[] = (int) $resto;
+        }
+
+        DB::connection('tenant')->transaction(function () use ($ids, $variant) {
+            foreach ($ids as $pos => $id) {
+                ItemVariantImage::where('item_variant_id', $variant->id)
+                    ->where('id', $id)
+                    ->update(['position' => $pos]);
+            }
+        });
+
+        $this->triggerMarketplaceSync($item);
+
+        return response()->json([
+            'success' => true,
+            'variant' => $this->formatVariant($variant->fresh(['optionValues', 'warehouseStocks.warehouse'])),
+        ]);
+    }
+
+    /**
+     * ★ Principal: la foto de la galería pasa a ser la principal de la variante
+     * y la que lo era baja a la galería, en el MISMO sitio. Nada se borra ni se
+     * reprocesa: las versiones _medium/_mp/... ya existen para las dos.
+     */
+    public function promoteGalleryImage(Item $item, ItemVariant $variant, int $image): JsonResponse
+    {
+        abort_if($variant->item_id !== $item->id, 404);
+        abort_unless(ItemVariant::galleryTableExists(), 404);
+
+        DB::connection('tenant')->transaction(function () use ($variant, $image) {
+            $locked = ItemVariant::lockForUpdate()->findOrFail($variant->id);
+            $row    = ItemVariantImage::where('item_variant_id', $locked->id)->findOrFail($image);
+
+            $anterior = $locked->image;
+            $locked->update(['image' => $row->image]);
+
+            if (!empty($anterior)) {
+                $row->update(['image' => $anterior]);
+            } else {
+                $row->delete();
+            }
+        });
+
+        $this->triggerMarketplaceSync($item);
+
+        return response()->json([
+            'success' => true,
+            'variant' => $this->formatVariant($variant->fresh(['optionValues', 'warehouseStocks.warehouse'])),
+        ]);
+    }
+
     /**
      * Dispara sync inmediato del item al marketplace central, solo si está
      * publicado (marketplace_publishable=true) y activo. Best-effort: errores
@@ -644,7 +873,17 @@ class ItemVariantController extends Controller
         $base = preg_replace('/\.[^.]+$/', '', $main); // sin extensión
         $disk = ImageProcessingService::disk();
 
-        foreach ([$main, $base . '_medium.webp', $base . '_small.webp', $base . '_medium.jpg', $base . '_small.jpg'] as $f) {
+        // Las cinco versiones que genera processAndStore (mismo formato que la
+        // principal) más las dos extensiones por si el servidor cambió de WebP
+        // a JPG entre subidas. Antes quedaban en disco _mp y _mobile.
+        $candidatos = [$main];
+        foreach (['_medium', '_small', '_mp', '_mobile'] as $suf) {
+            foreach (['webp', 'jpg'] as $ext) {
+                $candidatos[] = $base . $suf . '.' . $ext;
+            }
+        }
+
+        foreach (array_unique($candidatos) as $f) {
             try {
                 $path = ImageProcessingService::BASE_DIR . '/' . $f;
                 if (Storage::disk($disk)->exists($path)) {
@@ -846,6 +1085,21 @@ class ItemVariantController extends Controller
     // Helpers
     // ────────────────────────────────────────────────────────────────────────
 
+    private function formatGallery(ItemVariant $variant): array
+    {
+        if (!ItemVariant::galleryTableExists()) return [];
+
+        $rows = $variant->relationLoaded('images') ? $variant->images : $variant->images()->get();
+
+        return $rows->map(fn ($img) => [
+            'id'        => $img->id,
+            'image'     => $img->image,
+            'position'  => $img->position,
+            'url'       => ImageProcessingService::getUrl($img->image),
+            'thumb_url' => ImageProcessingService::getUrl($img->image, 'small'),
+        ])->values()->all();
+    }
+
     private function formatVariant(ItemVariant $variant): array
     {
         return [
@@ -875,6 +1129,11 @@ class ItemVariantController extends Controller
             'image_url'           => $variant->image
                 ? ImageProcessingService::getUrl($variant->image)
                 : null,
+            'thumb_url'           => $variant->image
+                ? ImageProcessingService::getUrl($variant->image, 'small')
+                : null,
+            // Galería adicional (item_variant_images), en orden.
+            'images'              => $this->formatGallery($variant),
             'option_values'       => $variant->relationLoaded('optionValues')
                 ? $variant->optionValues->map(fn($v) => [
                     'id'            => $v->id,

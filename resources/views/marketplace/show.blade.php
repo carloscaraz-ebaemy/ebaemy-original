@@ -317,45 +317,75 @@
     <script>
     (function () {
         var mainImgEl = document.getElementById('mpGalleryMain');
-        var thumbBtns = document.querySelectorAll('.mp-gallery .mp-gallery-thumb');
+        var galleryEl = document.querySelector('.mp-gallery');
+        // Las miniaturas se leen del DOM cada vez: al elegir una variante se
+        // reemplazan por las de esa variante (window.mpSetGallery).
+        function thumbList() {
+            return document.querySelectorAll('.mp-gallery .mp-gallery-thumb');
+        }
 
-        // ── Thumbs clickeables → cambian la imagen principal ──
-        thumbBtns.forEach(function (btn) {
-            if (btn.dataset.mpBound) return;
-            btn.dataset.mpBound = '1';
-            btn.addEventListener('click', function (e) {
+        function showMain(url) {
+            if (!mainImgEl || !url) return;
+            mainImgEl.style.transition = 'opacity .15s ease, transform .15s ease';
+            mainImgEl.style.opacity = '0';
+            mainImgEl.style.transform = 'scale(1)';
+            mainImgEl.style.transformOrigin = 'center center';
+            setTimeout(function () {
+                mainImgEl.src = url;
+                if (mainImgEl.dataset.zoomImage !== undefined) mainImgEl.dataset.zoomImage = url;
+                mainImgEl.style.opacity = '1';
+            }, 80);
+        }
+
+        // ── Thumbs clickeables → cambian la imagen principal ── (delegado)
+        if (galleryEl && !galleryEl.dataset.mpBound) {
+            galleryEl.dataset.mpBound = '1';
+            galleryEl.addEventListener('click', function (e) {
+                var btn = e.target.closest('.mp-gallery-thumb');
+                if (!btn || !galleryEl.contains(btn)) return;
                 e.preventDefault();
                 var thumbImg = btn.querySelector('img');
-                if (!thumbImg || !mainImgEl) return;
-                var url = thumbImg.dataset.fullImage || thumbImg.src;
-                if (!url) return;
-
-                mainImgEl.style.transition = 'opacity .15s ease, transform .15s ease';
-                mainImgEl.style.opacity = '0';
-                mainImgEl.style.transform = 'scale(1)';
-                mainImgEl.style.transformOrigin = 'center center';
-                setTimeout(function () {
-                    mainImgEl.src = url;
-                    if (mainImgEl.dataset.zoomImage !== undefined) mainImgEl.dataset.zoomImage = url;
-                    mainImgEl.style.opacity = '1';
-                }, 80);
-
-                thumbBtns.forEach(function (b) { b.classList.remove('is-active'); });
+                if (!thumbImg) return;
+                showMain(thumbImg.dataset.fullImage || thumbImg.src);
+                thumbList().forEach(function (b) { b.classList.remove('is-active'); });
                 btn.classList.add('is-active');
             });
-        });
+        }
 
-        // ── Lightbox: click en la imagen principal → ver el producto COMPLETO
-        // en grande (pantalla completa). Reemplaza al viejo zoom-hover que
-        // magnificaba una región y recortaba el resto del producto.
-        var galleryImgs = [];
-        thumbBtns.forEach(function (b) {
-            var im = b.querySelector('img');
-            if (im) galleryImgs.push(im.dataset.fullImage || im.src);
-        });
-        if (!galleryImgs.length && mainImgEl) galleryImgs.push(mainImgEl.src);
+        // ── Galería de una variante ──
+        // items: [{thumb, full}]; null/vacío = vuelve la del producto. Cada foto
+        // sale UNA vez: antes se pisaban todas las imágenes grandes con la de la
+        // variante.
+        var thumbsBox = document.querySelector('.mp-gallery .mp-gallery-thumbs');
+        var productThumbsHtml = thumbsBox ? thumbsBox.innerHTML : '';
+        var productMainSrc = mainImgEl ? mainImgEl.getAttribute('src') : null;
+        var currentKey = 'product';
+        function esc(s) {
+            return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/"/g, '&quot;')
+                .replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        }
+        window.mpSetGallery = function (items) {
+            var key = (items && items.length) ? items.map(function (i) { return i.full; }).join('|') : 'product';
+            if (key === currentKey) return;
+            currentKey = key;
+            if (!mainImgEl) return;
+            if (key === 'product') {
+                if (thumbsBox) thumbsBox.innerHTML = productThumbsHtml;
+                thumbList().forEach(function (b, i) { b.classList.toggle('is-active', i === 0); });
+                showMain(productMainSrc);
+                return;
+            }
+            if (thumbsBox) {
+                thumbsBox.innerHTML = items.map(function (it, i) {
+                    return '<button type="button" class="mp-gallery-thumb' + (i === 0 ? ' is-active' : '') + '" aria-label="Vista ' + (i + 1) + '">'
+                        + '<img src="' + esc(it.thumb || it.full) + '" alt="" data-full-image="' + esc(it.full) + '"'
+                        + ' onerror="this.onerror=null;this.src=this.dataset.fullImage"></button>';
+                }).join('');
+            }
+            showMain(items[0].full);
+        };
 
-        if (mainImgEl && galleryImgs.length) {
+        if (mainImgEl) {
             mainImgEl.style.cursor = 'zoom-in';
 
             var lb = document.createElement('div');
@@ -372,9 +402,21 @@
             var lbNext = lb.querySelector('.mp-lightbox__next');
             var lbIndex = 0;
 
+            // Fotos del visor: las miniaturas que haya EN ESE MOMENTO (las del
+            // producto o las de la variante elegida).
+            var galleryImgs = [];
+            function collect() {
+                galleryImgs = [];
+                thumbList().forEach(function (b) {
+                    var im = b.querySelector('img');
+                    if (im) galleryImgs.push(im.dataset.fullImage || im.src);
+                });
+                if (!galleryImgs.length && mainImgEl) galleryImgs.push(mainImgEl.src);
+            }
             function currentThumbIndex() {
+                var list = thumbList();
                 var active = document.querySelector('.mp-gallery .mp-gallery-thumb.is-active');
-                var idx = Array.prototype.indexOf.call(thumbBtns, active);
+                var idx = Array.prototype.indexOf.call(list, active);
                 return idx >= 0 ? idx : 0;
             }
             function render() {
@@ -397,7 +439,7 @@
                 render();
             }
 
-            mainImgEl.addEventListener('click', function () { openAt(currentThumbIndex()); });
+            mainImgEl.addEventListener('click', function () { collect(); openAt(currentThumbIndex()); });
             lb.querySelector('.mp-lightbox__close').addEventListener('click', close);
             lbPrev.addEventListener('click', function (e) { e.stopPropagation(); step(-1); });
             lbNext.addEventListener('click', function (e) { e.stopPropagation(); step(1); });
@@ -555,9 +597,22 @@
         @php
             // Precio vigente y original (soporta variantes). Si está en oferta y
             // el original es mayor, calculamos % y ahorro para destacar el descuento.
-            $curPrice  = $variants->isNotEmpty() ? $variants->first()->price : $listing->display_price;
-            $origPrice = $variants->isNotEmpty() ? ($variants->first()->original_price ?? 0) : ($listing->original_price ?? 0);
-            $isOnOffer = $variants->isNotEmpty() ? $variants->first()->is_on_offer : $listing->is_on_offer;
+            //
+            // Con variantes, al entrar NO hay ninguna elegida (decisión del
+            // dueño, 2026-11-17): se anuncia «Desde S/ X» con la más barata de
+            // las activas, sin tachado (sería de otra variante), y la compra
+            // espera a que el comprador elija.
+            $mpFromPrice = null;
+            if ($variants->isNotEmpty()) {
+                $mpPrecios = $variants->pluck('price')->map(fn ($p) => (float) $p)->filter(fn ($p) => $p > 0);
+                if ($mpPrecios->isNotEmpty()) {
+                    $mpFromPrice = $mpPrecios->min();
+                    $mpFromLabel = ($mpFromPrice == $mpPrecios->max() ? '' : 'Desde ') . 'S/ ' . number_format($mpFromPrice, 2);
+                }
+            }
+            $curPrice  = $mpFromPrice !== null ? $mpFromPrice : $listing->display_price;
+            $origPrice = $variants->isNotEmpty() ? 0 : ($listing->original_price ?? 0);
+            $isOnOffer = $variants->isNotEmpty() ? false : $listing->is_on_offer;
             $hasOffer  = $isOnOffer && $origPrice > 0 && $origPrice > $curPrice;
             $offerPct  = $hasOffer ? (int) round((1 - $curPrice / $origPrice) * 100) : 0;
             $offerSave = $hasOffer ? $origPrice - $curPrice : 0;
@@ -576,8 +631,10 @@
                  label se mantiene corto para no competir con el monto. --}}
             <div class="mp-price-box-label" id="mpPriceLabel">{{ $hasOffer ? 'Precio de oferta' : 'Precio' }}</div>
             <div class="mp-price-line">
-                <div class="mp-price" id="mpDisplayPrice">
-                    @if($listing->display_price > 0)
+                <div class="mp-price" id="mpDisplayPrice" data-from-label="{{ $mpFromLabel ?? '' }}">
+                    @if(!empty($mpFromLabel))
+                        {{ $mpFromLabel }}
+                    @elseif($listing->display_price > 0)
                         S/ {{ number_format($curPrice, 2) }}
                     @else
                         <span style="font-size:18px;color:#6b7280">Precio a consultar</span>
@@ -592,7 +649,8 @@
             @endif
 
             @php
-                $initialStock = $variants->isNotEmpty() ? $variants->first()->stock : $listing->stock;
+                // Sin variante elegida: el disponible de todas las activas.
+                $initialStock = $variants->isNotEmpty() ? (int) $variants->sum('stock') : $listing->stock;
             @endphp
             <div id="mpStockBox">
                 @if($initialStock <= 0)
@@ -686,21 +744,14 @@
                 @foreach($options as $opt)
                     @php
                         $colorMode = $isColorOpt($opt->name);
-                        // Value inicial seleccionado: el del primary (si lo hay)
-                        // o fallback al primero. Determina qué está activo al
-                        // cargar la página y qué texto sale en "Color: X".
-                        $initialValue = !empty($primaryValueIds)
-                            ? $opt->values->first(fn($v) => in_array($v->id, $primaryValueIds))
-                            : null;
-                        if (!$initialValue) $initialValue = $opt->values->first();
-                        $initialId = $initialValue ? $initialValue->id : null;
+                        // Ningún valor elegido al entrar: el comprador elige.
+                        // (?variant= lo resuelve el JS de abajo.)
+                        $initialId = null;
                     @endphp
                     <div class="mp-option-group" data-option-id="{{ $opt->id }}">
                         <div class="mp-option-group__head">
                             <span class="mp-option-group__name">{{ $opt->name }}:</span>
-                            <span class="mp-option-group__current" data-current-for="{{ $opt->id }}">
-                                {{ $initialValue->value ?? '—' }}
-                            </span>
+                            <span class="mp-option-group__current" data-current-for="{{ $opt->id }}">Elige una opción</span>
                         </div>
                         <div class="mp-option-group__values {{ $colorMode ? 'is-color' : 'is-pill' }}">
                             @foreach($opt->values as $vIdx => $val)
@@ -709,7 +760,8 @@
                                     data-option-id="{{ $opt->id }}"
                                     data-value-id="{{ $val->id }}"
                                     data-value-label="{{ $val->value }}"
-                                    @if(!$colorMode) title="{{ $val->value }}" @endif>
+                                    aria-pressed="false"
+                                    title="{{ $val->value }}">
                                     @if($colorMode && $val->image_url)
                                         <img src="{{ $val->image_url }}" alt="{{ $val->value }}" loading="lazy">
                                     @elseif($colorMode && $val->color_hex)
@@ -729,6 +781,9 @@
             {{-- tenant_variant_id → SKU de la variante (solo las que tienen) --}}
             <script type="application/json" id="mpVariantSkuData">{!! json_encode((object) $mpVariantSkus) !!}</script>
             {{-- Aviso cuando la combinación elegida no existe --}}
+            <p id="mpChooseMsg" role="status" style="margin:10px 0 0;font-size:13px;color:#6b7280">
+                Elige {{ mb_strtolower($options->pluck('name')->filter()->implode(' y ')) ?: 'un modelo' }} para comprar.
+            </p>
             <p id="mpComboMsg" role="status" style="display:none;margin:10px 0 0;padding:8px 12px;border-radius:10px;background:#fef2f2;border:1px solid #fecaca;color:#991b1b;font-size:13px;line-height:1.4">
                 Esa combinación no está disponible. Elige otra opción para continuar.
             </p>
@@ -826,11 +881,14 @@
                 var variantMap = {};
                 try { variantMap = JSON.parse(dataNode.textContent || '{}'); } catch (_) {}
 
-                // Estado: option_id (string) → value_id (number) seleccionado
+                // Estado: option_id (string) → value_id (number) seleccionado.
+                // Empieza VACÍO: al entrar no hay variante elegida.
                 var selected = {};
-                optsBox.querySelectorAll('.mp-opt-value.is-selected').forEach(function (b) {
-                    selected[b.dataset.optionId] = parseInt(b.dataset.valueId, 10);
-                });
+                var optionCount = optsBox.querySelectorAll('.mp-option-group').length;
+
+                function isComplete() {
+                    return Object.keys(selected).length === optionCount;
+                }
 
                 function valueIdsArr() {
                     return Object.keys(selected)
@@ -843,10 +901,8 @@
                     return variantMap[combo.join('-')] || null;
                 }
                 function findCurrentVariant() {
-                    var ids = valueIdsArr();
-                    return ids.length === Object.keys(selected).length
-                        ? variantForCombo(ids)
-                        : null;
+                    if (!isComplete()) return null;
+                    return variantForCombo(valueIdsArr());
                 }
 
                 // Marcar como out-of-stock las opciones cuya combinación final
@@ -861,9 +917,9 @@
                             var ids = Object.keys(hypothetical)
                                 .map(function (k) { return hypothetical[k]; })
                                 .sort(function (a, b) { return a - b; });
-                            // Solo marcamos out si TODAS las opciones tienen valor
-                            // (sino no podemos saber si la combinación existe)
-                            if (ids.length === Object.keys(selected).length) {
+                            // Solo marcamos out si con este valor quedan TODAS las
+                            // opciones elegidas (sino no se sabe si existe)
+                            if (Object.keys(hypothetical).length === optionCount) {
                                 var v = variantForCombo(ids);
                                 // Combinación inexistente → is-na (apagado pero
                                 // pulsable); existente sin stock → is-out.
@@ -909,8 +965,25 @@
                     chip.style.display = sku ? '' : 'none';
                 }
 
+                // Texto del botón principal: «Elige un modelo» mientras falte
+                // elegir; al completarse vuelve el suyo. Solo se toca en ese
+                // cambio, para no pisar «✓ Añadido» ni «Añadiendo…».
+                function setBuyLabel(btnEl, choosing, readyText) {
+                    if (!btnEl) return;
+                    var lab = btnEl.querySelector('.mp-buy-label');
+                    if (!lab) return;
+                    if (choosing) {
+                        btnEl.dataset.choosing = '1';
+                        lab.textContent = 'Elige un modelo';
+                    } else if (btnEl.dataset.choosing === '1') {
+                        btnEl.dataset.choosing = '';
+                        lab.textContent = readyText;
+                    }
+                }
+
                 function setBuyState(v) {
                     var ok = !!(v && v.stock > 0);
+                    var choosing = !isComplete();
                     hidden.value = v ? v.tenant_variant_id : '';
                     var cartBtn = document.getElementById('mpAddToCartBtn');
                     if (cartBtn) {
@@ -918,6 +991,7 @@
                         cartBtn.dataset.comboInvalid = v ? '' : '1';
                         cartBtn.disabled = !ok;
                         cartBtn.style.opacity = ok ? '' : '.55';
+                        setBuyLabel(cartBtn, choosing, 'Añadir al carrito');
                     }
                     var buyBtn = document.getElementById('mpBuyNowBtn');
                     if (buyBtn) {
@@ -928,15 +1002,62 @@
                     if (stickyBtn) {
                         stickyBtn.disabled = !ok;
                         stickyBtn.style.opacity = ok ? '' : '.55';
+                        setBuyLabel(stickyBtn, choosing, 'Añadir');
                     }
                     var msg = document.getElementById('mpComboMsg');
-                    if (msg) msg.style.display = v ? 'none' : '';
+                    if (msg) msg.style.display = (v || choosing) ? 'none' : '';
+                    var choose = document.getElementById('mpChooseMsg');
+                    if (choose) choose.style.display = choosing ? '' : 'none';
+                }
+
+                // Precio/stock del producto sin variante elegida («Desde»).
+                var priceElInit = document.getElementById('mpDisplayPrice');
+                var basePriceHtml = priceElInit ? priceElInit.innerHTML : '';
+                var stockBoxInit = document.getElementById('mpStockBox');
+                var baseStockHtml = stockBoxInit ? stockBoxInit.innerHTML : '';
+                function resetToProduct() {
+                    if (priceElInit) priceElInit.innerHTML = basePriceHtml;
+                    if (stockBoxInit) stockBoxInit.innerHTML = baseStockHtml;
+                    ['mpOldPrice', 'mpOfferBadge', 'mpPriceSaving'].forEach(function (id) {
+                        var el = document.getElementById(id);
+                        if (el) el.style.display = 'none';
+                    });
+                    var boxEl = document.getElementById('mpPriceBox');
+                    if (boxEl) boxEl.classList.remove('mp-price-box--offer');
+                    var labelEl = document.getElementById('mpPriceLabel');
+                    if (labelEl) labelEl.textContent = 'Precio';
+                    var stickyPriceEl = document.getElementById('mpStickyPrice');
+                    if (stickyPriceEl && stickyPriceEl.dataset.base) stickyPriceEl.textContent = stickyPriceEl.dataset.base;
+                    var stickyOldEl = document.getElementById('mpStickyOld');
+                    if (stickyOldEl) stickyOldEl.style.display = 'none';
+                }
+
+                // Galería mientras se elige: con una selección a medias (p. ej.
+                // solo el color) las fotos de la primera variante que encaje y
+                // tenga galería propia; sin nada elegido, las del producto.
+                function partialGallery() {
+                    var keys = Object.keys(selected);
+                    if (!keys.length || !window.mpSetGallery) return null;
+                    var ids = keys.map(function (k) { return selected[k]; });
+                    for (var combo in variantMap) {
+                        var v = variantMap[combo];
+                        if (!v || !v.gallery || !v.gallery.length) continue;
+                        var parts = combo.split('-').map(function (x) { return parseInt(x, 10); });
+                        if (ids.every(function (id) { return parts.indexOf(id) !== -1; })) return v.gallery;
+                    }
+                    return null;
                 }
 
                 function applyVariant(v) {
                     updateSku(v);
                     if (!v) {
                         setBuyState(null);
+                        if (!isComplete()) {
+                            resetToProduct();
+                            if (window.mpSetGallery) window.mpSetGallery(partialGallery());
+                            return;
+                        }
+                        if (window.mpSetGallery) window.mpSetGallery(partialGallery());
                         var sb = document.getElementById('mpStockBox');
                         if (sb) sb.innerHTML = '<div class="mp-stock mp-stock--none"><span class="mp-stock-dot"></span>Combinación no disponible</div>';
                         return;
@@ -980,45 +1101,19 @@
                             stockBox.innerHTML = '<div class="mp-stock"><span class="mp-stock-dot"></span>En stock (' + s + ' disponibles)</div>';
                         }
                     }
-                    // Imagen principal: cambia TODAS las imágenes grandes del
-                    // producto en la página (Falabella-style — varias copias
-                    // sincronizadas pueden existir). Mismo enfoque que el
-                    // ecommerce tenant.
-                    //
-                    // Variante SIN foto propia (image_url null): vuelve a la foto
-                    // del producto. Antes se quedaba la del color anterior y el
-                    // comprador veia siempre el mismo color/modelo.
-                    var imgs = Array.from(document.querySelectorAll('img')).filter(function (i) {
-                        return i.src && (i.dataset.mpOrigSrc || i.src.indexOf('/uploads/items/') !== -1)
-                            && i.offsetWidth >= 200;
-                    });
-                    if (!imgs.length) {
-                        var fallback = document.querySelector('#mpGalleryMain, .mp-gallery img');
-                        if (fallback) imgs = [fallback];
+                    // Galería: la de ESTA variante (principal + adicionales, cada
+                    // foto una vez). Sin galería propia: su foto sola si la
+                    // tiene, o las del producto. Antes se pisaban TODAS las
+                    // imágenes grandes de la página con la foto de la variante.
+                    if (window.mpSetGallery) {
+                        if (v.gallery && v.gallery.length) {
+                            window.mpSetGallery(v.gallery);
+                        } else if (v.own_image_url) {
+                            window.mpSetGallery([{ thumb: v.own_image_url, full: v.own_image_url }]);
+                        } else {
+                            window.mpSetGallery(null);
+                        }
                     }
-                    imgs.forEach(function (img) {
-                        if (!img.dataset.mpOrigSrc) img.dataset.mpOrigSrc = img.src;
-                    });
-                    imgs = imgs.filter(function (img) {
-                        return img.src !== (v.image_url || img.dataset.mpOrigSrc);
-                    });
-                    imgs.forEach(function (img) {
-                        var next = v.image_url || img.dataset.mpOrigSrc;
-                        img.style.transition = 'opacity .15s ease, transform .15s ease';
-                        img.style.opacity = '0';
-                        // Reset del zoom hover (si el cursor sigue sobre la imagen
-                        // al cambiar variante, mouseleave no se dispara — la
-                        // imagen nueva quedaría con scale 1.8). Volvemos a scale 1
-                        // y origin centro para que la imagen entre completa en
-                        // su contenedor.
-                        img.style.transform = 'scale(1)';
-                        img.style.transformOrigin = 'center center';
-                        setTimeout(function () {
-                            img.src = next;
-                            if (img.dataset.zoomImage !== undefined) img.dataset.zoomImage = next;
-                            img.style.opacity = '1';
-                        }, 120);
-                    });
                     // Botón Comprar — habilitar/deshabilitar por stock
                     setBuyState(v);
                     // Mobile sticky CTA: sincronizar precio + estado al cambiar variante.
@@ -1035,31 +1130,61 @@
                     }
                 }
 
+                function choose(btn, force) {
+                    var optId = btn.dataset.optionId;
+                    var currentTxt = btn.closest('.mp-option-group').querySelector('.mp-option-group__current');
+                    // Tocar el valor ya elegido lo QUITA: vuelve el producto
+                    // completo (sus fotos y el precio «Desde»).
+                    if (!force && btn.classList.contains('is-selected')) {
+                        btn.classList.remove('is-selected');
+                        btn.setAttribute('aria-pressed', 'false');
+                        delete selected[optId];
+                        if (currentTxt) currentTxt.textContent = 'Elige una opción';
+                    } else {
+                        btn.parentElement.querySelectorAll('.mp-opt-value.is-selected').forEach(function (b) {
+                            b.classList.remove('is-selected');
+                            b.setAttribute('aria-pressed', 'false');
+                        });
+                        btn.classList.add('is-selected');
+                        btn.setAttribute('aria-pressed', 'true');
+                        selected[optId] = parseInt(btn.dataset.valueId, 10);
+                        if (currentTxt) currentTxt.textContent = btn.dataset.valueLabel || '';
+                    }
+                    refreshAvailability();
+                    applyVariant(findCurrentVariant());
+                }
+
                 optsBox.addEventListener('click', function (e) {
                     var btn = e.target.closest('.mp-opt-value');
                     if (!btn) return;
-                    if (btn.classList.contains('is-out')) return;
-                    var optId = btn.dataset.optionId;
-                    // Limpiar selected del mismo grupo
-                    btn.parentElement.querySelectorAll('.mp-opt-value.is-selected').forEach(function (b) {
-                        b.classList.remove('is-selected');
-                    });
-                    btn.classList.add('is-selected');
-                    selected[optId] = parseInt(btn.dataset.valueId, 10);
-
-                    // Actualizar texto "Color: Rojo" arriba del grupo
-                    var currentTxt = btn.closest('.mp-option-group').querySelector('.mp-option-group__current');
-                    if (currentTxt) currentTxt.textContent = btn.dataset.valueLabel || '';
-
-                    refreshAvailability();
-                    var v = findCurrentVariant();
-                    applyVariant(v);
+                    if (btn.classList.contains('is-out') && !btn.classList.contains('is-selected')) return;
+                    choose(btn, false);
                 });
 
-                // Init: aplicar la combinación inicial (primer valor de cada opción)
+                // Enlace profundo ?variant=<marketplace_listing_variants.id>: el
+                // buscador muestra cada variante como tarjeta propia y enlaza
+                // aquí. Un id que no es de este producto (o de una variante
+                // inactiva, que no está en el mapa) se ignora y se entra sin
+                // selección. La variante agotada también se marca, para que el
+                // comprador vea por qué no la puede comprar.
+                function preselectFromUrl() {
+                    var m = /[?&]variant=(\d+)/.exec(window.location.search);
+                    if (!m) return;
+                    var wanted = parseInt(m[1], 10);
+                    for (var combo in variantMap) {
+                        if (!variantMap[combo] || variantMap[combo].id !== wanted) continue;
+                        combo.split('-').forEach(function (valId) {
+                            var b = optsBox.querySelector('.mp-opt-value[data-value-id="' + valId + '"]');
+                            if (b) choose(b, true);
+                        });
+                        return;
+                    }
+                }
+
+                // Init: SIN selección (o la de ?variant=).
                 refreshAvailability();
-                var initial = findCurrentVariant();
-                applyVariant(initial);
+                applyVariant(null);
+                preselectFromUrl();
 
                 // Nota: el binding de thumbs clickeables + zoom hover se movió a
                 // un script standalone justo después de la galería (corre para
@@ -1096,7 +1221,7 @@
                         data-slug="{{ $listing->slug }}"
                         style="flex:1 1 190px;min-width:0;min-height:48px;margin:0;cursor:pointer;border:none">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
-                    Añadir al carrito
+                    <span class="mp-buy-label">Añadir al carrito</span>
                 </button>
                 {{-- Comprar ahora: misma llamada AJAX que «Añadir al carrito»
                      (variante y validaciones incluidas) y salta al checkout. --}}
@@ -1191,14 +1316,14 @@
                     @if(!empty($listing->has_variants))
                         <span class="mp-mobile-sticky-cta__prefix">Desde</span>
                     @endif
-                    <span class="mp-mobile-sticky-cta__price" id="mpStickyPrice">S/ {{ number_format($stickyPrice, 2) }}</span>
+                    <span class="mp-mobile-sticky-cta__price" id="mpStickyPrice" data-base="S/ {{ number_format($stickyPrice, 2) }}">S/ {{ number_format($stickyPrice, 2) }}</span>
                     @if(!empty($listing->is_on_offer) && !empty($listing->original_price) && $listing->original_price > $listing->display_price)
                         <span class="mp-mobile-sticky-cta__old" id="mpStickyOld">S/ {{ number_format($listing->original_price, 2) }}</span>
                     @endif
                 </div>
                 <button type="button" class="mp-mobile-sticky-cta__btn" id="mpMobileStickyBtn" aria-label="Añadir al carrito">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
-                    Añadir
+                    <span class="mp-buy-label">Añadir</span>
                 </button>
             </div>
         @endif

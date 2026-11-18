@@ -27,6 +27,8 @@ class MarketplaceListingVariant extends Model
         'sku',
         'display_name',
         'image_url',
+        // Galería de la variante: [principal, adicionales...] en URLs absolutas.
+        'gallery_image_urls',
         'price',
         'original_price',
         'is_on_offer',
@@ -38,6 +40,7 @@ class MarketplaceListingVariant extends Model
     ];
 
     protected $casts = [
+        'gallery_image_urls' => 'array',
         'price'          => 'float',
         'original_price' => 'float',
         'is_on_offer'    => 'boolean',
