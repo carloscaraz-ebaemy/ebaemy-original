@@ -1036,8 +1036,10 @@ class ShipmentController extends Controller
             'content'     => 'required|string|in:' . implode(',', \App\Services\Tenant\ShalomGuide::CONTENTS),
             'clave'       => 'nullable|digits:4',
             'declaracion' => 'nullable|string|in:' . implode(',', \App\Services\Tenant\ShalomGuide::AIR_DECLARATIONS),
-            'bultos'      => 'nullable|integer|min:1|max:50',
-        ], [], ['content' => 'tamaño del paquete', 'clave' => 'clave de recojo', 'declaracion' => 'declaración jurada', 'bultos' => 'bultos']);
+            'bultos'      => 'nullable|integer|min:1|max:' . \App\Services\Tenant\ShalomGuide::MAX_BULTOS,
+        ], [
+            'bultos.max' => 'Shalom acepta hasta ' . \App\Services\Tenant\ShalomGuide::MAX_BULTOS . ' bultos por guía. Junta los paquetes (por ejemplo, flejando las cajas) o divide el envío en dos guías.',
+        ], ['content' => 'tamaño del paquete', 'clave' => 'clave de recojo', 'declaracion' => 'declaración jurada', 'bultos' => 'bultos']);
 
         // Cuántos bultos salen se sabe al alistar, justo antes de crear la
         // guía. Se guarda en el envío: ShalomGuide lo manda como `cantidad` y
@@ -3194,12 +3196,15 @@ class ShipmentController extends Controller
                 $out[] = ['id' => $s->id, 'code' => $code, 'ok' => false, 'message' => 'La tienda no tiene «tamaño típico» de paquete: elige el tamaño en la revisión del lote o configúralo en la política de envío.'];
                 continue;
             }
-            if (!empty($s->shalom_air)) {
-                $out[] = ['id' => $s->id, 'code' => $code, 'ok' => false, 'message' => 'Va por vía aérea: Shalom pide declarar el contenido. Créala desde su panel.'];
-                continue;
-            }
+            // Shalom exige la declaración jurada en toda guía desde 2026-11-18
+            // (antes solo en aéreo): la misma sugerida que en el diálogo, por las
+            // categorías de los productos del pedido. Sin ella el lote rebotaba.
+            $items = optional($s->order)->items;
+            $items = is_string($items) ? json_decode($items, true) : json_decode(json_encode($items ?: []), true);
+            $itemIds = collect($items ?: [])->map(fn ($i) => $i['item_id'] ?? $i['id'] ?? null)->filter()->unique()->values()->all();
+            $declaracion = \App\Services\Tenant\ShalomGuide::suggestDeclaration($itemIds)['declaracion'];
             try {
-                $r = $guide->create($s, $contenido);
+                $r = $guide->create($s, $contenido, null, $declaracion);
                 $out[] = ['id' => $s->id, 'code' => $code, 'ok' => true, 'message' => 'Guía ' . ($r['number'] ?: 'creada') . ' · ' . max(1, (int) $s->package_count) . ' bulto(s)'];
             } catch (\Throwable $e) {
                 $out[] = ['id' => $s->id, 'code' => $code, 'ok' => false, 'message' => $e->getMessage()];

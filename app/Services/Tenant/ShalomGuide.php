@@ -148,6 +148,14 @@ class ShalomGuide
     public const AIR_DECLARATIONS = ['Artículos de uso personal', 'Documentos', 'Ropa', 'Electrodomésticos'];
 
     /**
+     * Bultos máximos por guía. Shalom Pro no admite más de 2 por guía
+     * (dueño, 2026-11-18; la API llegó a aceptar 3). Con más, la tienda junta
+     * los paquetes o divide el envío. Único sitio: lo usan el diálogo, el lote
+     * y «rehacer la guía».
+     */
+    public const MAX_BULTOS = 2;
+
+    /**
      * Declaración jurada sugerida según las categorías de los productos.
      * Shalom solo acepta sus 4 opciones (AIR_DECLARATIONS): la categoría de
      * la tienda se muestra al vendedor y la categoría oficial raíz decide la
@@ -261,6 +269,12 @@ class ShalomGuide
         $clave = $delDialogo ? $clave : self::claveDelDia($st);
 
         // Aéreo: destino «0» + ter_id y declaración jurada obligatoria.
+        $bultos = max(1, (int) ($s->package_count ?: 1));
+        if ($bultos > self::MAX_BULTOS) {
+            throw new RuntimeException('Shalom acepta hasta ' . self::MAX_BULTOS . ' bultos por guía y este envío tiene '
+                . $bultos . '. Junta los paquetes (por ejemplo, flejando las cajas) o divide el envío en dos guías.');
+        }
+
         $aereo = !empty($s->shalom_air);
         if ($aereo && !in_array($declaracion, self::AIR_DECLARATIONS, true)) {
             throw new RuntimeException('El envío es aéreo: elige qué contiene el paquete (declaración jurada).');

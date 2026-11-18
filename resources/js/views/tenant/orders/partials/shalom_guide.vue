@@ -159,7 +159,8 @@
                 <div class="shg-sec">Cambiar la cantidad de bultos</div>
                 <div class="shg-field">
                     <label>¿Cuántos bultos son ahora?</label>
-                    <el-input-number v-model="f.bultos" :min="1" :max="50" size="small"></el-input-number>
+                    <el-input-number v-model="f.bultos" :min="1" :max="maxBultos" size="small"></el-input-number>
+                    <small class="shg-sub">Shalom acepta hasta {{ maxBultos }} bultos por guía.</small>
                 </div>
                 <p class="shg-warn">
                     Shalom no permite editar la cantidad. Se quita la guía {{ tracking }} y se crea una nueva con
@@ -208,11 +209,18 @@
 
             <div class="shg-field">
                 <label>¿Cuántos bultos? <span class="shg-req">*</span></label>
-                <el-input-number v-model="bultos" :min="1" :max="50" size="small"></el-input-number>
+                <!-- Máximo = el mayor entre el tope y los bultos del pedido: si no,
+                     Element recorta 3 → 2 en silencio y saldría una guía con menos
+                     bultos que cajas. Con más del tope, aviso y «Crear» bloqueado. -->
+                <el-input-number v-model="bultos" :min="1" :max="Math.max(maxBultos, packageCount || 1)" size="small"></el-input-number>
                 <small class="shg-sub">
                     Cuéntalos al alistar el pedido. Es una sola guía y una sola clave para todos;
                     Shalom los registra juntos{{ bultos > 1 ? ' y en cada caja va su rótulo' : '' }}.
                 </small>
+                <div v-if="bultos > maxBultos" class="shg-warn" style="margin-top:8px">
+                    Este pedido tiene {{ bultos }} bultos y Shalom acepta hasta {{ maxBultos }} por guía.
+                    Junta los paquetes (por ejemplo, flejando las cajas) o divide el envío en dos guías.
+                </div>
             </div>
 
             <div class="shg-field">
@@ -248,7 +256,7 @@
             <div v-if="error" class="shg-alert shg-alert--foot">{{ error }}</div>
             <el-button @click="cerrar">{{ hecho || (conGuia && !modo) ? 'Cerrar' : 'Cancelar' }}</el-button>
             <el-button v-if="!conGuia && !hecho" type="primary" :loading="cargando"
-                       :disabled="!content || !sh.ready || !declaracion" @click="crear">
+                       :disabled="!content || !sh.ready || !declaracion || bultos > maxBultos" @click="crear">
                 Crear guía
             </el-button>
             <el-button v-else-if="modo && accionTxt" :type="modo === 'quitar' ? 'danger' : 'primary'" :loading="cargando" @click="accion">
@@ -320,6 +328,10 @@ export default {
         aereo() {
             return !!this.sh.air;
         },
+        // Tope de Shalom Pro por guía (ShalomGuide::MAX_BULTOS).
+        maxBultos() {
+            return this.sh.max_bultos || 2;
+        },
         oficinaElegida() {
             return this.oficinas.find(o => o.id === this.f.destino) || null;
         },
@@ -386,7 +398,7 @@ export default {
                 destino: null,
                 codigo: "",
                 clave: "",
-                bultos: Math.max(1, (this.sh.bultos || 1) + (modo === "bultos" ? 1 : 0)),
+                bultos: Math.min(this.maxBultos, Math.max(1, (this.sh.bultos || 1) + (modo === "bultos" ? 1 : 0))),
                 motivo: "",
             };
             // Con un cambio pendiente, la oficina elegida ya viene marcada.

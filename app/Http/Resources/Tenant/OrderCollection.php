@@ -829,6 +829,7 @@ class OrderCollection extends ResourceCollection
             // Cambios sobre la guía creada: null = se puede; si no, el motivo.
             'manage_block'  => $tiene ? \App\Services\Tenant\ShalomGuideChanges::blocker($s) : null,
             'bultos'        => max(1, (int) ($s->package_count ?: 1)),
+            'max_bultos'    => \App\Services\Tenant\ShalomGuide::MAX_BULTOS,
             'pickup_dni'    => $s->pickup_person_dni ?: $s->dni,
             // A nombre de quién está la guía y quién la retira, si es otra persona.
             'recipient'     => $s->full_name,
