@@ -44,6 +44,9 @@
     .mp-cat-drawer.is-open .mp-cat-drawer__backdrop { opacity: 1; }
     .mp-cat-drawer__panel {
         position: absolute;
+        /* El backdrop va DESPUÉS en el HTML: sin z-index se pintaba encima
+           del panel y en escritorio se comía los clics de las categorías. */
+        z-index: 1;
         top: 0; left: 0; bottom: 0;
         width: min(720px, 92vw);
         max-width: 100vw;
