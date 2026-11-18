@@ -79,7 +79,16 @@ class OrderToSaleNoteService
                     return null;
                 }
 
+                // Mismo correlativo que SaleNoteController::store (serie + tipo
+                // de envío de la EMPRESA). Antes se tomaba el máximo de la serie
+                // y el tipo salía '01' (demo) aunque la empresa estuviera en
+                // producción ('02'): la pantalla normal no veía estas notas y
+                // repetía su número (dos NV01-29 en alasitas). El lock evita que
+                // dos altas simultáneas tomen el mismo número.
+                $soapTypeId = \App\Models\Tenant\Company::query()->value('soap_type_id') ?: '01';
                 $lastNumber = SaleNote::where('series', $series->number)
+                    ->where('soap_type_id', $soapTypeId)
+                    ->lockForUpdate()
                     ->max('number') ?? 0;
 
                 // Resolve customer data from order
@@ -105,8 +114,11 @@ class OrderToSaleNoteService
                 $saleNote->prefix = 'NV';
                 $saleNote->user_id = $order->seller_id ?? auth()->id() ?? 1;
                 $saleNote->establishment_id = $establishment->id;
-                $saleNote->establishment = $establishment->toArray();
-                $saleNote->soap_type_id = $establishment->company->soap_type_id ?? '01';
+                // Con distrito, provincia y departamento como hace la pantalla de
+                // notas: con toArray() solo iban los ids y TODOS los PDF (A4, A5,
+                // ticket) fallaban con «Undefined property: stdClass::$district».
+                $saleNote->establishment = \App\CoreFacturalo\Requests\Inputs\Common\EstablishmentInput::set($establishment->id);
+                $saleNote->soap_type_id = $soapTypeId;
                 $saleNote->series = $series->number;
                 $saleNote->number = $lastNumber + 1;
                 $saleNote->date_of_issue = now()->format('Y-m-d');
