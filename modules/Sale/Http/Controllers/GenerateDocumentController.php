@@ -113,7 +113,7 @@
                     $inputs['items'] = DocumentInput::items($inputs);
                     $inputs['type_period'] = null;
                     $inputs['quantity_period'] = null;
-                    $res = (new SaleNoteController())->storeWithData($inputs);
+                    $res = app(SaleNoteController::class)->storeWithData($inputs);
                 }
 
                 DB::connection('tenant')->commit();

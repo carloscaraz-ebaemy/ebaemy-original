@@ -97,7 +97,9 @@ class DownloadController extends Controller
             $quotation = new QuotationController();
             return $quotation->toPrint($external_id,$format);
         }elseif($document_type =='salenote'){
-            $saleNote = new SaleNoteController();
+            // Por el contenedor: el constructor pide SaleNoteQueryService y con
+            // `new` sin argumentos el enlace de descarga de la NV daba 500.
+            $saleNote = app(SaleNoteController::class);
             return $saleNote->toPrint($external_id,$format);
         }
         $type = 'invoice';

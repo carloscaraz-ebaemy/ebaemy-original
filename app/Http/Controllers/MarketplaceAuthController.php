@@ -93,7 +93,7 @@ class MarketplaceAuthController extends Controller
         $request->session()->regenerate();
         $this->flashCouponsAvailable($user, $request);
 
-        return redirect($data['next'] ?: route('marketplace.account'))
+        return redirect(($data['next'] ?? null) ?: route('marketplace.account'))
             ->with('mkt_login_ok', 'Bienvenido a ebaemy.');
     }
 
@@ -175,7 +175,7 @@ class MarketplaceAuthController extends Controller
         $this->merge->mergeFromSession($user, $anonSessionId);
         $request->session()->regenerate();
         $this->flashCouponsAvailable($user, $request);
-        return redirect($data['next'] ?: route('marketplace.account'))
+        return redirect(($data['next'] ?? null) ?: route('marketplace.account'))
             ->with('mkt_login_ok', 'Bienvenido de vuelta, ' . $user->name . '.');
     }
 
@@ -210,7 +210,7 @@ class MarketplaceAuthController extends Controller
         Auth::guard('marketplace')->login($user, true);
         $this->merge->mergeFromSession($user, $anonSessionId);
         $request->session()->regenerate();
-        return redirect($data['next'] ?: route('marketplace.account'))
+        return redirect(($data['next'] ?? null) ?: route('marketplace.account'))
             ->with('mkt_login_ok', 'Cuenta creada. Bienvenido a ebaemy, ' . $user->name . '.');
     }
 

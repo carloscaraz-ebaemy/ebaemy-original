@@ -332,6 +332,16 @@ class PosController extends Controller
 
     public function validate_stock($item_id, $quantity)
     {
+        // Con texto en la cantidad («4vela», del buscador) la resta de abajo
+        // lanzaba «A non-numeric value» y el POS recibía un 500.
+        $quantity = str_replace(',', '.', (string) $quantity);
+        if (!is_numeric($quantity)) {
+            return [
+                'success' => false,
+                'message' => 'La cantidad debe ser un número.',
+            ];
+        }
+        $quantity = (float) $quantity;
 
         $inventory_configuration = InventoryConfiguration::firstOrFail();
         $warehouse = Warehouse::where('establishment_id', auth()->user()->establishment_id)->first();

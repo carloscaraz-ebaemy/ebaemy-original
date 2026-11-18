@@ -585,7 +585,8 @@
                                         </td>
                                         <td style="width: 80px; vertical-align: top">
                                             <el-input v-model="item.item.aux_quantity"
-                                                      @input="clickAddItem(item, index, true)"
+                                                      inputmode="decimal"
+                                                      @input="onQuantityInput(item, index)"
                                                       @keyup.enter.native="keyupEnterQuantity"></el-input>
                                             <!-- <el-input
                                                 v-model="item.item.aux_quantity"
@@ -1563,6 +1564,22 @@ export default {
             this.loading = false;
 
             await this.setFormPosLocalStorage();
+        },
+        /**
+         * La cantidad solo admite números. Si el foco se quedaba en la cantidad
+         * y se empezaba a escribir el siguiente producto, llegaba «4vela» al
+         * servidor y validate_stock respondía 500 (25 veces en noviembre).
+         */
+        onQuantityInput(item, index) {
+            const limpio = String(item.item.aux_quantity ?? '')
+                .replace(',', '.')
+                .replace(/[^0-9.]/g, '')
+                .replace(/(\..*)\./g, '$1');
+            if (limpio !== String(item.item.aux_quantity ?? '')) {
+                item.item.aux_quantity = limpio;
+            }
+            if (limpio === '' || limpio === '.') return;
+            this.clickAddItem(item, index, true);
         },
         async getStatusStock(item_id, quantity) {
             let data = {};

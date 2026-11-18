@@ -156,7 +156,13 @@ class Functions
 
             if (($inputs['operation_type_id'] == '0101')) {
                 if (($inputs['document_type_id'] == '01')) {
-                    if (!in_array($person->identity_document_type_id, ['6'], true)) throw new Exception("El tipo doc. identidad {$person->identity_document_type->description} del cliente no es válido.");
+                    // Regla de SUNAT. El texto anterior («El tipo doc. identidad
+                    // DNI del cliente no es válido») no decía qué hacer y se
+                    // reintentaba (9 veces en noviembre).
+                    if (!in_array($person->identity_document_type_id, ['6'], true)) {
+                        $tipo = optional($person->identity_document_type)->description ?: 'sin RUC';
+                        throw new Exception("Una FACTURA solo se puede emitir a un cliente con RUC, y este cliente tiene {$tipo}. Emite una BOLETA o elige un cliente con RUC.");
+                    }
                 }
             }
 

@@ -331,7 +331,7 @@
                 $request->merge($data);
 
                 // app/Http/Controllers/Tenant/SaleNoteController.php store
-                $saleNoteController = new SaleNoteController();
+                $saleNoteController = app(SaleNoteController::class);
                 $saleNoteSaved = $saleNoteController->store($request);
                 if (isset($saleNoteSaved['data']) && isset($saleNoteSaved['data']['id'])) {
                     $ids[] = (int)$saleNoteSaved['data']['id'];
