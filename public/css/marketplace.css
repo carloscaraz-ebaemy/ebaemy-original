@@ -1753,13 +1753,13 @@ button { font-family: inherit; cursor: pointer; }
        lectura compacta y profesional. Los CTA (WhatsApp/compartir) NO se
        tocan: deben mantener su área táctil. */
     .mp-detail { padding: 14px; gap: 16px; border-radius: 14px; }
-    .mp-breadcrumb { font-size: 11.5px; margin-bottom: 10px; gap: 5px; }
+    .mp-breadcrumb { font-size: 12px; margin-bottom: 10px; gap: 5px; }
     .mp-detail-info h1 { font-size: 19px; margin-bottom: 6px; line-height: 1.22; }
     .mp-detail-info h1 + * { margin-top: 0; }
     #mpDetailFavBtn { width: 38px !important; height: 38px !important; }
     .mp-shop-link { padding: 6px 11px; font-size: 12px; margin-bottom: 10px; }
     .mp-rating-summary { margin-bottom: 10px; font-size: 12.5px; }
-    .mp-meta { gap: 7px; margin-bottom: 12px; font-size: 11.5px; }
+    .mp-meta { gap: 7px; margin-bottom: 12px; font-size: 12px; }
     .mp-meta-chip { padding: 3px 8px; }
     .mp-price-box { padding: 14px 16px; margin-bottom: 14px; }
     .mp-price { font-size: 27px; }
@@ -2492,7 +2492,7 @@ button { font-family: inherit; cursor: pointer; }
     max-width: 100%;
 }
 .mp-shop-card-meta {
-    font-size: 11.5px;
+    font-size: 12px;
     color: var(--mp-muted);
     display: inline-flex;
     gap: 4px;
@@ -2710,4 +2710,96 @@ button { font-family: inherit; cursor: pointer; }
         bottom: calc(66px + env(safe-area-inset-bottom));
         padding-bottom: 14px;
     }
+}
+
+
+/* ───── Adaptabilidad móvil, deuda P2 (auditoría responsive 2026-11-17) ───── */
+
+/* 1. Texto mínimo de 12 px (breadcrumb, tienda en cards, avisos del pie,
+   badges, metas). `body` + selector gana a los 11/11,5 px de las reglas en
+   línea de cada vista sin recurrir a !important. */
+body .mp-breadcrumb,
+body .mp-breadcrumb a,
+body .mp-breadcrumb span,
+body .mp-shop-card-meta,
+body .mp-offer-card__shop,
+body .mp-footer-trust__label,
+body .mp-footer-trust__badge,
+body .mp-footer-trust__badge span,
+body .mp-footer-trust__badge strong,
+body .mp-card .mp-badge,
+body .mp-card-price-pct,
+body .mp-card-shop-name,
+body .mp-meta,
+body .mp-meta-chip a,
+body #mpSkuChip,
+body #mpSkuText,
+body #mpPriceLabel,
+body .mp-mobile-sticky-cta__prefix,
+body .mp-trust-mini-item span,
+body .mp-related__card-shop span { font-size: 12px; }
+
+/* 2. Aviso de cookies: no tapa para siempre el final de la página. Mientras
+   está visible se reserva su altura debajo del contenido (desaparece con el
+   aviso: al aceptar/rechazar el nodo se elimina). */
+body:has(#mpConsentBar) { padding-bottom: 96px; }
+@media (max-width: 599px) {
+    body:has(#mpConsentBar) { padding-bottom: 170px; }
+}
+
+/* 3. Táctiles: el área crece, el dibujo no. */
+@media (max-width: 1023px) {
+    /* Enlaces del pie en columna: 44 px de alto reales, sin hueco extra. */
+    .mp-footer-col ul { gap: 0; }
+    .mp-footer-col a,
+    .mp-footer-brand a:not(.mp-footer-social),
+    .mp-footer-bottom a {
+        display: inline-flex; align-items: center; min-height: 44px;
+    }
+    .mp-footer-col a { display: flex; }
+
+    /* Miga de pan y enlaces sueltos: área ampliada con ::after (no cambia el renglón). */
+    .mp-breadcrumb a,
+    .mp-meta-chip a,
+    .mp-share-link,
+    .mp-shop-link,
+    .mp-show-offers__see-all,
+    .mp-section-head > a,
+    .mp-stores-stat a { position: relative; }
+    .mp-breadcrumb a::after,
+    .mp-meta-chip a::after,
+    .mp-share-link::after,
+    .mp-shop-link::after,
+    .mp-show-offers__see-all::after,
+    .mp-section-head > a::after,
+    .mp-stores-stat a::after {
+        content: ""; position: absolute; left: -4px; right: -4px;
+        top: 50%; height: 44px; transform: translateY(-50%);
+    }
+
+    /* Controles de formulario/filtros/cabecera. */
+    .mp-logo { display: inline-flex; align-items: center; min-height: 44px; }
+    .mp-nav-icon, #mpFavNavLink, #mpCartNavLink, #mpAccountNavLink { min-width: 44px; }
+    .mp-footer-newsletter__form input,
+    .mp-footer-newsletter__form button,
+    .mp-mobile-topbar__btn,
+    .mp-filters-mobile-btn,
+    .mp-sort-dropdown,
+    .mp-store-btn,
+    .mp-review-form-wrap > summary,
+    .mp-review-form .mp-cta { min-height: 44px; }
+    .mp-mobile-topbar .mp-mobile-topbar__btn--sort select { min-height: 44px; }
+    #mpDetailFavBtn { width: 44px !important; height: 44px !important; }
+}
+@media (max-width: 767px) {
+    .mp-container .pagination { flex-wrap: wrap; justify-content: center; gap: 4px; }
+    .mp-container .pagination .page-link {
+        min-width: 44px; min-height: 44px;
+        display: inline-flex; align-items: center; justify-content: center;
+    }
+}
+/* Opciones de variante en «píldora» (48×38): su regla vive en show.blade.php;
+   la doble clase gana sin tocar esa vista. */
+@media (max-width: 1023px) {
+    .mp-opt-value.mp-opt-value--pill { min-height: 44px; min-width: 48px; }
 }

@@ -285,7 +285,7 @@
     align-items: center; justify-content: space-between;
 }
 .mp-footer-trust__label {
-    font-size: 11px; font-weight: 700;
+    font-size: 12px; font-weight: 700;
     color: #9ca3af; text-transform: uppercase;
     letter-spacing: .5px; margin-bottom: 6px;
 }
@@ -300,7 +300,7 @@
     padding: 5px 10px;
     background: #064e3b; color: #d1fae5;
     border: 1px solid #047857; border-radius: 6px;
-    font-size: 11.5px;
+    font-size: 12px;
 }
 .mp-footer-trust__badge strong { color: #fff; font-weight: 700; }
 @media (max-width: 720px) {

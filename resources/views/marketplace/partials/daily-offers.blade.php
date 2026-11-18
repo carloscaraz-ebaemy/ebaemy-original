@@ -220,7 +220,7 @@
         position:absolute; bottom:8px; right:8px;
         display:inline-flex; align-items:center;
         background:rgba(15,23,42,.85); color:#fff;
-        font-size:11px; font-weight:600;
+        font-size:12px; font-weight:600;
         padding:3px 8px; border-radius:999px;
         backdrop-filter: blur(4px);
     }
@@ -235,7 +235,7 @@
     .mp-offer-card__price-row { display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; }
     .mp-offer-card__price { font-size:16px; font-weight:800; color:#dc2626; }
     .mp-offer-card__old { font-size:12px; color:#6b7280; text-decoration:line-through; }   /* #9ca3af sobre blanco daba 2,54 */
-    .mp-offer-card__shop { margin-top:4px; font-size:11.5px; color:#6b7280; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .mp-offer-card__shop { margin-top:4px; font-size:12px; color:#6b7280; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     @media (max-width: 640px) {
         .mp-offer-card { width: 160px; }
         .mp-offers-title { font-size:16px; }
@@ -277,7 +277,7 @@
             display: inline-flex; align-items: center; gap: 6px;
             position: fixed; left: 14px; bottom: 80px; z-index: 1200;
             background: linear-gradient(135deg,#ef4444,#dc2626); color:#fff;
-            border: none; border-radius: 999px; padding: 10px 16px;
+            border: none; border-radius: 999px; padding: 0 16px; min-height: 44px;
             font-size: 13px; font-weight: 800;
             box-shadow: 0 8px 20px -6px rgba(220,38,38,.55); cursor: pointer;
         }
@@ -285,7 +285,7 @@
 
         .mp-offers-modal__panel {
             left: 0; right: 0; top: auto; bottom: 0; transform: none;
-            width: auto; max-height: 84vh;
+            width: auto; max-height: 84vh; max-height: min(84vh, calc(100dvh - 140px)); /* deja a la vista el header */
             border-radius: 18px 18px 0 0;
             padding: 14px 14px calc(14px + env(safe-area-inset-bottom));
             box-shadow: none;
@@ -439,6 +439,12 @@ window.mpOffersEnsureClone = function () {
     // De paso es mejor para quien mira: un interstitial encima de un
     // escaparate a medio pintar es justo lo que Google penaliza.
     function autoAbrir() {
+        // En móvil (< 768 px) NO se abre solo: a 360 px la hoja con su fondo oscuro
+        // tapaba logo, buscador y Categorías nada más cargar, que es un intersticial
+        // justo cuando la persona busca dónde tocar. En su lugar queda el botón
+        // flotante «🔥 Ofertas», que abre la hoja a petición. No se consume la clave
+        // de sesión: si gira a tablet/escritorio, se abrirá una vez como siempre.
+        if (window.matchMedia && window.matchMedia('(max-width: 767px)').matches) return;
         try {
             var KEY = @json($modalSeenKey);
             if (sessionStorage.getItem(KEY)) return;

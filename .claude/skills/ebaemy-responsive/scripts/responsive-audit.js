@@ -230,6 +230,43 @@ const PAGE_LIB = String.raw`
     }
     return false;
   }
+  // Rect táctil efectivo = rect del elemento ∪ rects de sus ::before/::after posicionados
+  // (absolute/fixed, con contenido), verificados por elementFromPoint cuando están a la vista.
+  function effectiveRect(el, r, cw, vh){
+    var base = { l: r.left, t: r.top, r: r.right, b: r.bottom };
+    var u = { l: base.l, t: base.t, r: base.r, b: base.b };
+    ['::before', '::after'].forEach(function(ps){
+      var pc;
+      try { pc = getComputedStyle(el, ps); } catch (e) { return; }
+      if (!pc || pc.content === 'none' || pc.content === 'normal' || pc.display === 'none') return;
+      if (pc.position !== 'absolute' && pc.position !== 'fixed') return;
+      if (pc.pointerEvents === 'none' || pc.visibility === 'hidden') return;
+      var w = parseFloat(pc.width), h = parseFloat(pc.height);
+      if (!(w > 0 && h > 0)) return;
+      // Contenedor de referencia: el offsetParent más cercano posicionado (o el propio el si lo es).
+      var cb = el;
+      if (getComputedStyle(el).position === 'static') { cb = el.offsetParent || document.documentElement; }
+      var cr = cb.getBoundingClientRect(), cbs = getComputedStyle(cb);
+      var left = parseFloat(pc.left), top = parseFloat(pc.top);
+      if (isNaN(left)) { var rg = parseFloat(pc.right); left = isNaN(rg) ? 0 : cr.width - parseFloat(cbs.borderLeftWidth || 0) - parseFloat(cbs.borderRightWidth || 0) - rg - w; }
+      if (isNaN(top)) { var bt = parseFloat(pc.bottom); top = isNaN(bt) ? 0 : cr.height - parseFloat(cbs.borderTopWidth || 0) - parseFloat(cbs.borderBottomWidth || 0) - bt - h; }
+      var tx = 0, ty = 0, sx = 1, sy = 1;
+      if (pc.transform && pc.transform !== 'none') { var m = pc.transform.match(/matrix\(([^)]+)\)/); if (m) { var v = m[1].split(',').map(parseFloat); sx = v[0]; sy = v[3]; tx = v[4]; ty = v[5]; } }
+      var pw = w * sx, ph = h * sy;
+      var pl = cr.left + parseFloat(cbs.borderLeftWidth || 0) + left + tx + (w - pw) / 2;
+      var pt = cr.top + parseFloat(cbs.borderTopWidth || 0) + top + ty + (h - ph) / 2;
+      var pr = { l: pl, t: pt, r: pl + pw, b: pt + ph };
+      // Verificación real si el elemento está en pantalla: las esquinas del pseudo deben llegar al elemento.
+      var onScreen = pr.l >= 0 && pr.t >= 0 && pr.r <= cw && pr.b <= vh;
+      if (onScreen) {
+        var pts = [[pr.l + 2, pr.t + 2], [pr.r - 2, pr.t + 2], [pr.l + 2, pr.b - 2], [pr.r - 2, pr.b - 2]];
+        var okAll = pts.every(function(p){ var hit = document.elementFromPoint(p[0], p[1]); return hit && (hit === el || el.contains(hit)); });
+        if (!okAll) return;
+      }
+      u.l = Math.min(u.l, pr.l); u.t = Math.min(u.t, pr.t); u.r = Math.max(u.r, pr.r); u.b = Math.max(u.b, pr.b);
+    });
+    return { w: u.r - u.l, h: u.b - u.t };
+  }
   function info(el){
     var cs = getComputedStyle(el);
     return { selector: sel(el), tag: el.tagName.toLowerCase(), position: cs.position, zIndex: cs.zIndex, pointerEvents: cs.pointerEvents, opacity: cs.opacity, display: cs.display, rect: rect(el) };
@@ -279,13 +316,19 @@ const PAGE_LIB = String.raw`
         if (r.bottom < 0 || r.top > de.scrollHeight) return;
         if (r.width <= 2 && r.height <= 2) return; // patrón sr-only / enlace SEO invisible
         var cs = getComputedStyle(el);
+        if (cs.pointerEvents === 'none') return; // indicador, no control (p. ej. bullets de swiper desactivados)
         // Excepción WCAG 2.5.8: enlace en línea dentro de un párrafo de texto.
         if (el.tagName === 'A' && cs.display === 'inline' && el.parentElement && /^(P|LI|SPAN|SMALL|LABEL|TD)$/.test(el.parentElement.tagName) && (el.parentElement.textContent || '').trim().length > (el.textContent || '').trim().length + 15) return;
         // Un hijo interactivo dentro de otro interactivo más grande cuenta como el padre.
         var parentHit = el.parentElement && el.parentElement.closest('a[href],button,label');
         if (parentHit && parentHit !== el) { var pr = parentHit.getBoundingClientRect(); if (pr.width >= 44 && pr.height >= 44) return; }
         if ((el.type === 'checkbox' || el.type === 'radio') && el.closest('label')) { var lr = el.closest('label').getBoundingClientRect(); if (lr.height >= 44 || lr.width >= 44) return; }
-        if (r.width < 44 || r.height < 44) touch.push({ selector: sel(el), w: Math.round(r.width), h: Math.round(r.height), text: (el.innerText || el.value || el.getAttribute('aria-label') || '').trim().slice(0, 40) });
+        // Área táctil REAL: un ::before/::after posicionado que sobresale del elemento
+        // también recibe el toque (patrón «inset:-6px»). Se amplía el rect con él, y si
+        // el elemento está en pantalla se verifica con elementFromPoint que de verdad
+        // devuelve al elemento (si no, el pseudo no cuenta: queda tapado o recortado).
+        var eff = effectiveRect(el, r, cw, vh);
+        if (eff.w < 44 || eff.h < 44) touch.push({ selector: sel(el), w: Math.round(eff.w), h: Math.round(eff.h), text: (el.innerText || el.value || el.getAttribute('aria-label') || '').trim().slice(0, 40) });
         if (/^(INPUT|SELECT|TEXTAREA)$/.test(el.tagName) && !/^(checkbox|radio|range|color|file|submit|button|image|reset)$/.test(el.type) && parseFloat(cs.fontSize) < 16)
           smallInputs.push({ selector: sel(el), fontSize: cs.fontSize });
       });

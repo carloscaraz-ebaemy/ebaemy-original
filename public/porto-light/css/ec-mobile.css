@@ -232,6 +232,25 @@
         min-height: 24px;
     }
 
+    /* Deuda P2 (2026-11): el area de toque de esos enlaces llega a 44px sin
+       tocar el renglon: un ::after invisible, centrado, que recibe el toque.
+       Verificado con elementFromPoint (el script de la skill ya cuenta el
+       pseudo-elemento). */
+    .breadcrumb-item a,
+    .product-category a {
+        position: relative;
+    }
+    .breadcrumb-item a::after,
+    .product-category a::after {
+        content: "";
+        position: absolute;
+        left: -8px;
+        right: -8px;
+        top: 50%;
+        height: 44px;
+        transform: translateY(-50%);
+    }
+
     /* Los enlaces del pie del tema de nicho van en <li> pelados, sin clase,
        y median 17px: Catalogo, Terminos, Rastrear pedido, Libro de
        Reclamaciones… Son navegacion, no texto corrido. */
@@ -264,5 +283,69 @@
     button,
     [role="button"] {
         -webkit-tap-highlight-color: rgba(0, 0, 0, 0.04);
+    }
+}
+
+/* ==========================================================================
+   Deuda P2 de adaptabilidad (auditoria responsive 2026-11-17)
+   ========================================================================== */
+
+@media (max-width: 991.98px) {
+
+    /* Texto de 12px como minimo. Va con !important porque cada tema por rubro
+       (fashion, food…) fija 9,5-10px con [data-ec-theme] y especificidad
+       mayor, y esta capa existe precisamente para ganar al tema. Base Porto:
+       1rem = 10px, de ahi los 11px de .pcard__stock-pill (1.1rem). */
+    .pcard__cat,
+    .pbadge,
+    .pcard__stock-pill,
+    .pcard__low-stock span,
+    .pcard__cta-text,
+    .badge-custom.cart-count,
+    .tech-footer__title,
+    .ec-wp-card__btn,
+    .ec-wp-card__btn span,
+    .ec-cslot__label,
+    .ec-compare-bar__open,
+    .ec-compare-bar__clear {
+        font-size: 12px !important;
+    }
+    .badge-custom.cart-count {
+        min-width: 18px;
+        line-height: 18px;
+    }
+
+    /* Botones de comprar y cantidad de la ficha y de las tarjetas. */
+    .ec-btn-cart,
+    .ec-slider-btn,
+    .ec-variant-opt--size,
+    #ec-qty-input,
+    #ec-search-input,
+    #ec-filter-mob-toggle,
+    .ec-compare-bar__clear {
+        min-height: 44px;
+    }
+    .ec-slider-btn { min-width: 44px; }
+
+    /* Los puntos del carrusel (8x8) son un INDICADOR, no un control: el
+       dedo los fallaria siempre y no se pueden agrandar sin hacerlos
+       dibujo de otra cosa. Se desactivan como objetivo de toque; el
+       carrusel se mueve con swipe y con las flechas (44px, arriba). */
+    .swiper-pagination-bullet {
+        pointer-events: none;
+    }
+}
+
+/* La barra de comparar no puede quedar bajo la barra fija de compra de la
+   ficha (z-index 10000): se apoya encima de ella, contando el area segura
+   de iOS, y cuando esta oculta se va del todo en vez de asomar 12px. */
+@media (max-width: 767px) {
+    .ec-compare-bar {
+        bottom: calc(76px + env(safe-area-inset-bottom)) !important;
+        z-index: 10001;
+    }
+    .ec-compare-bar:not(.ec-compare-bar--visible) {
+        transform: translateY(calc(100% + 96px + env(safe-area-inset-bottom)));
+        visibility: hidden;
     }
 }
