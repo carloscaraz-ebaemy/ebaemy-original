@@ -417,6 +417,9 @@ window.mpOffersEnsureClone = function () {
         modal.classList.add('is-open');  modal.setAttribute('aria-hidden', 'false'); document.body.style.overflow = 'hidden';
     }
     function close() { modal.classList.remove('is-open'); modal.setAttribute('aria-hidden', 'true');  document.body.style.overflow = ''; }
+    // El drawer de Categorías lo cierra al abrirse: si no, su fondo oscuro
+    // quedaba encima y no se podía elegir ninguna categoría.
+    window.mpOffersClose = function () { if (modal.classList.contains('is-open')) close(); };
 
     if (fab) fab.addEventListener('click', open);
     modal.querySelectorAll('[data-offers-close]').forEach(function (el) { el.addEventListener('click', close); });
@@ -442,8 +445,22 @@ window.mpOffersEnsureClone = function () {
             sessionStorage.setItem(KEY, '1');
         } catch (e) { return; }
 
+        // Si la persona ya empezó a usar la página (abrió Categorías, tocó el
+        // buscador, hizo scroll…), el modal NO se abre solo: aparecía encima
+        // de lo que estaba haciendo y su fondo oscuro bloqueaba los clics.
+        var interactuo = false;
+        var marcar = function () { interactuo = true; };
+        ['pointerdown', 'keydown', 'touchstart', 'wheel'].forEach(function (ev) {
+            document.addEventListener(ev, marcar, { once: true, passive: true, capture: true });
+        });
+        var abrirSiLibre = function () {
+            if (interactuo) return;
+            if (document.querySelector('.mp-cat-drawer.is-open, [aria-modal="true"][aria-hidden="false"]')) return;
+            open();
+        };
+
         // `load` ya implica que las imagenes del primer pliegue entraron.
-        var tras = function () { setTimeout(open, 1500); };
+        var tras = function () { setTimeout(abrirSiLibre, 1500); };
         if (document.readyState === 'complete') tras();
         else window.addEventListener('load', tras, { once: true });
     }

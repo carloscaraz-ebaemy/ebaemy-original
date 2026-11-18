@@ -27,7 +27,10 @@
     /* ═══════════════════════ DRAWER 2-pane ═══════════════════════ */
     .mp-cat-drawer {
         position: fixed; inset: 0;
-        z-index: 1100;
+        /* Por encima del modal (1300/1310) y del botón flotante (1200) de
+           Ofertas del día: abierto, el drawer es lo único que debe recibir
+           clics. */
+        z-index: 1350;
         pointer-events: none;
         visibility: hidden;
     }

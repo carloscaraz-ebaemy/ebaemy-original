@@ -496,6 +496,9 @@
                     // navegador procesa el cambio de display antes del
                     // transition del slide-in.
                     drawer.hidden = false;
+                    // El modal de Ofertas del día podía quedar abierto encima
+                    // (se abre solo al cargar) y su fondo tapaba las categorías.
+                    if (window.mpOffersClose) window.mpOffersClose();
                     requestAnimationFrame(function () {
                         requestAnimationFrame(function () {
                             drawer.classList.add('is-open');
