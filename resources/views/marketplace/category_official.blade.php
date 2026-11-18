@@ -110,8 +110,10 @@
     scrollbar-width: thin;
     scrollbar-color: #cbd5e1 transparent;
     /* Margen negativo para que el rail llegue al borde de la pantalla */
-    margin-left: calc(-1 * clamp(16px, 4vw, 32px));
-    margin-right: calc(-1 * clamp(16px, 4vw, 32px));
+    /* Mismo clamp que el padding horizontal de .mp-container (12px-24px): con
+       otro valor el rail se salía del viewport y daba scroll horizontal. */
+    margin-left: calc(-1 * clamp(12px, 3vw, 24px));
+    margin-right: calc(-1 * clamp(12px, 3vw, 24px));
 }
 .mp-subcats-rail::-webkit-scrollbar { height: 4px; }
 .mp-subcats-rail::-webkit-scrollbar-track { background: transparent; }

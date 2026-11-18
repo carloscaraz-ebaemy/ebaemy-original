@@ -72,7 +72,10 @@
 
 .dialog-import {
     .el-dialog {
+        /* 500px en escritorio, pero nunca más ancho que el 95 % del viewport:
+           el !important fijo anulaba el 95 % que Element UI aplica en móvil. */
         width: 500px !important;
+        max-width: 95vw;
     }
 }
 

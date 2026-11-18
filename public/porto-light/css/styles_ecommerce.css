@@ -5206,7 +5206,7 @@ input,select,textarea,.form-control {
 
 /* ── Required notice ── */
 .ec-variant-required {
-    font-size: .75rem;
+    font-size: 12px;
     color: #dc2626;
     margin-top: .25rem;
     display: none;
@@ -5381,7 +5381,7 @@ input,select,textarea,.form-control {
     border-radius: 20px;
     background: #fff;
     color: #374151;
-    font-size: .85rem;
+    font-size: 14px;
     font-weight: 500;
     cursor: pointer;
     transition: border-color .18s, background .18s, color .18s;
@@ -5492,7 +5492,7 @@ input,select,textarea,.form-control {
     display: inline-flex;
     align-items: center;
     gap: .35rem;
-    font-size: .78rem;
+    font-size: 12px;
     color: #6b7280;
 }
 
@@ -5514,7 +5514,7 @@ input,select,textarea,.form-control {
     display: flex;
     align-items: center;
     gap: .5rem;
-    font-size: .82rem;
+    font-size: 13px;
     color: #374151;
 }
 
@@ -10008,4 +10008,20 @@ a:focus-visible {
     .product-col-item { animation: none !important; }
     .pcard, .pcard__img, .pcard__cta, .ec-catmenu__panel { transition: none !important; }
     .pcard:hover { transform: none; }
+}
+
+
+/* ── Adaptabilidad móvil (auditoría responsive 2026-11) ──
+   Porto fija html{font-size:10px}: 1rem = 10px, así que los rem de arriba
+   quedaban en 7,5-8,5px; se pasaron a px. Aquí: paginación y 16px en inputs. */
+.page-pagination .pagination { flex-wrap: wrap; justify-content: center; max-width: 100%; }
+#ec-pagination nav { max-width: 100%; }
+@media (max-width: 575px) {
+    #ec-pagination > div { justify-content: center !important; }
+    .page-pagination .pagination .page-item .page-link { min-width: 44px; min-height: 44px; padding: 0 !important; font-size: 14px; }
+}
+@media (max-width: 1023px) {
+    #ec-ship-dept, #ec-ship-prov, #ec-ship-dist,
+    .ec-shipping-calc__select,
+    #ec-search-input, #ec-qty-input { font-size: 16px !important; }
 }
