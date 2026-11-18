@@ -23,9 +23,18 @@
             <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
                 <div>
                     <strong>Variantes del producto</strong>
+                    <span v-if="showNewBadge" class="vt-new-badge">NUEVO</span>
                     <span class="text-muted ms-2 small">
                         ({{ variants.length }} combinaciones)
                     </span>
+                    <!-- Novedad 2026-11: fotos por modelo y tarjetas. Una vez por
+                         usuario (se guarda en su cuenta). Ver components/FeatureTour.vue. -->
+                    <feature-tour
+                        v-if="variants.length"
+                        tour-key="variantes-galeria-2026-11"
+                        :delay="1200"
+                        :steps="tourSteps"
+                    ></feature-tour>
                 </div>
                 <div class="d-flex gap-2 flex-wrap align-items-center">
                     <!-- Toggle vista matriz: solo cuando hay EXACTAMENTE 2 opciones
@@ -237,7 +246,7 @@
                                     class="vt-star-btn"
                                     :class="{ 'is-on': v.is_primary }"
                                     :aria-pressed="v.is_primary ? 'true' : 'false'"
-                                    :title="v.is_primary ? 'Esta variante aparece primero en el marketplace' : 'Marcar para que aparezca primero en el marketplace'"
+                                    :title="v.is_primary ? 'Este modelo sale primero en el listado del marketplace. En la ficha, tu cliente elige el modelo antes de comprar.' : 'Marcar para que este modelo salga primero en el listado del marketplace'"
                                     @click="setPrimary(v)">
                                 {{ v.is_primary ? '⭐' : '☆' }}
                             </button>
@@ -539,10 +548,15 @@
 
 <script>
 import { imageCompressor } from '../../../../mixins/imageCompressor'
+import FeatureTour from '../../../../components/FeatureTour.vue'
+
+// Etiqueta «NUEVO» de las fotos por modelo (2026-11).
+const NOVEDAD_VARIANTES_HASTA = new Date('2026-12-31T23:59:59')
 
 export default {
     name: 'VariantsTab',
     mixins: [imageCompressor],
+    components: { FeatureTour },
 
     props: {
         itemId:                   { type: Number,  default: null },
@@ -664,6 +678,19 @@ export default {
 
     data() {
         return {
+            showNewBadge: new Date() <= NOVEDAD_VARIANTES_HASTA,
+            tourSteps: [
+                {
+                    target: '.vt-media',
+                    title: 'Fotos por modelo',
+                    body: 'Sube varias fotos de cada modelo a la vez. La primera queda como principal; toca cualquier otra para hacerla principal, moverla o quitarla.',
+                },
+                {
+                    target: '.vt-fields',
+                    title: 'Todo en una tarjeta',
+                    body: 'Cambia precio, stock y código de cada modelo aquí mismo. Se guarda al momento, en tu tienda y en el marketplace.',
+                },
+            ],
             // Estado principal
             variants:    [],
             editOptions: [],
@@ -1850,6 +1877,17 @@ export default {
 
 /* Fotos */
 .vt-media { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.vt-new-badge {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 2px 7px;
+    border-radius: 999px;
+    background: #dcfce7;
+    color: #166534;
+    font-size: 12px;
+    font-weight: 700;
+    vertical-align: middle;
+}
 .vt-media__row { display: flex; gap: 10px; align-items: flex-start; min-width: 0; }
 .vt-media__main { flex-shrink: 0; }
 .vt-media__strip {
