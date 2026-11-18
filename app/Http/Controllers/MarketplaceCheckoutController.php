@@ -5,12 +5,9 @@ namespace App\Http\Controllers;
 use App\Models\System\MarketingContact;
 use App\Models\System\MarketplaceOrder;
 use App\Services\System\MarketplaceCartService;
-use App\Services\System\MarketplaceCheckoutRules;
 use App\Services\System\MarketplaceCheckoutService;
-use App\Services\System\MarketplaceCheckoutShipping;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Validator;
 
 /**
  * Checkout multi-tienda del marketplace central. Se compone de:
@@ -23,7 +20,6 @@ class MarketplaceCheckoutController extends Controller
     public function __construct(
         private MarketplaceCartService $cart,
         private MarketplaceCheckoutService $checkoutService,
-        private MarketplaceCheckoutShipping $shipping,
     ) {}
 
     public function show()
@@ -81,61 +77,10 @@ class MarketplaceCheckoutController extends Controller
             (float) ($summary['total'] ?? 0)
         );
 
-        // Comprador con cuenta: nombre, teléfono, email y lo último que dio al
-        // comprar (documento, dirección, distrito, modalidad). Sin cuenta, vacío.
-        // `old()` manda sobre esto en la vista, así que un error de validación
-        // no pisa lo que el comprador acaba de escribir.
-        $prefill = [];
-        if ($mktUser) {
-            $profile = (array) ($mktUser->checkout_profile ?? []);
-            $prefill = array_filter([
-                'name'       => $mktUser->name,
-                'phone'      => $profile['phone'] ?? $mktUser->phone,
-                'email'      => $mktUser->email,
-                'doc_type'   => $profile['doc_type'] ?? null,
-                'doc_number' => $profile['doc_number'] ?? null,
-                'address'    => $profile['address'] ?? null,
-                'notes'      => $profile['notes'] ?? null,
-                'department' => $profile['department'] ?? null,
-                'province'   => $profile['province'] ?? null,
-                'district'   => $profile['district'] ?? null,
-                'mode'       => $profile['mode'] ?? null,
-            ], fn ($v) => $v !== null && $v !== '');
-        }
-
         return view('marketplace.checkout', compact(
             'stores', 'summary', 'appliedCoupons',
-            'platformCoupons', 'platformDiscountTotal', 'adsCheckoutPayload', 'prefill'
-        ) + ['paysOnline' => $this->checkoutService->paysOnline()]);
-    }
-
-    /**
-     * «¿Cómo lo recibes?»: modalidades, costo y plazo de cada tienda del carrito
-     * hacia el distrito elegido. Solo lee el carrito de la sesión: nunca revela
-     * datos de tiendas que el comprador no tiene en su carrito.
-     */
-    public function quote(Request $request)
-    {
-        $data = $request->validate([
-            'department' => 'nullable|string|max:80',
-            'province'   => 'nullable|string|max:80',
-            'district'   => 'nullable|string|max:80',
-        ]);
-
-        $stores = $this->cart->groupedByStore();
-        if ($stores->isEmpty()) {
-            return response()->json(['ok' => false, 'message' => 'Tu carrito está vacío.'], 422);
-        }
-
-        $ubigeo = $this->shipping->resolveUbigeo(
-            $data['department'] ?? null, $data['province'] ?? null, $data['district'] ?? null,
-            $stores->pluck('hostname_id')->all()
-        );
-        $place = MarketplaceCheckoutShipping::placeLabel($data['department'] ?? null, $data['province'] ?? null, $data['district'] ?? null);
-
-        return response()->json(['ok' => true, 'unresolved' => !$ubigeo && !empty($data['district'])]
-            + $this->shipping->quote($stores, $ubigeo, $place))
-            ->header('Cache-Control', 'no-store');
+            'platformCoupons', 'platformDiscountTotal', 'adsCheckoutPayload'
+        ));
     }
 
     /**
@@ -270,87 +215,24 @@ class MarketplaceCheckoutController extends Controller
             return redirect()->route('marketplace.cart');
         }
 
-        $stores = $this->cart->groupedByStore();
-        if ($stores->isEmpty()) {
-            return redirect()->route('marketplace.cart')
-                ->with('mp_message', 'Tu carrito está vacío.');
-        }
-
-        // Estos tres se rellenan dentro de after(): lo que NO se puede validar
-        // con una regla suelta (documento según tipo, destino contra el catálogo,
-        // modalidad ofrecida por cada tienda).
-        $plans = [];
-        $ubigeo = null;
-        $docNumber = null;
-        $phone = null;
-        $address = null;
-
-        $validator = Validator::make($request->all(), [
-            'customer_name'        => 'required|string|min:3|max:180',
+        $data = $request->validate([
+            'customer_name'        => 'required|string|max:180',
             'customer_doc_type'    => 'nullable|in:DNI,RUC,CE,Pasaporte',
-            'customer_doc_number'  => 'nullable|string|max:30',
+            'customer_doc_number'  => 'nullable|string|max:20',
             'customer_phone'       => 'required|string|max:40',
             'customer_email'       => 'nullable|email|max:180',
-            'delivery_address'     => 'nullable|string|max:500',
+            'delivery_address'     => 'required|string|max:500',
             'delivery_department'  => 'nullable|string|max:80',
             'delivery_province'    => 'nullable|string|max:80',
             'delivery_district'    => 'nullable|string|max:80',
-            'delivery_ubigeo'      => 'nullable|string|max:6',
             'delivery_notes'       => 'nullable|string|max:1000',
             'accepts_marketing'    => 'nullable|boolean',
             'website'              => 'nullable|string',
-            'ship'                 => 'nullable|array',
             // Cupones por tienda: { hostname_id => code }. La key es el id
             // numérico del hostname, value el código (el server lo revalida).
             'coupons'              => 'nullable|array',
             'coupons.*'            => 'nullable|string|max:60',
-        ], [
-            'customer_name.required' => 'Ingresa tu nombre completo o razón social.',
-            'customer_name.min'      => 'Ingresa tu nombre completo o razón social.',
-            'customer_phone.required'=> 'Ingresa tu celular o WhatsApp.',
-            'customer_email.email'   => 'Revisa el formato del correo.',
         ]);
-
-        $validator->after(function ($v) use ($request, $stores, &$plans, &$ubigeo, &$docNumber, &$phone, &$address) {
-            $type = MarketplaceCheckoutRules::docType($request->input('customer_doc_type'));
-            $docNumber = MarketplaceCheckoutRules::normalizeDocNumber($type, $request->input('customer_doc_number'));
-            if ($e = MarketplaceCheckoutRules::docError($type, $request->input('customer_doc_number'))) {
-                $v->errors()->add('customer_doc_number', $e);
-            }
-
-            $phone = MarketplaceCheckoutRules::normalizePhone($request->input('customer_phone'));
-            if ($phone === null && trim((string) $request->input('customer_phone')) !== '') {
-                $v->errors()->add('customer_phone', 'Debe ser un celular de 9 dígitos que empiece en 9 (con o sin +51).');
-            }
-
-            $dep  = $request->input('delivery_department');
-            $prov = $request->input('delivery_province');
-            $dist = $request->input('delivery_district');
-            $ubigeo = $this->shipping->resolveUbigeo($dep, $prov, $dist, $stores->pluck('hostname_id')->all());
-            $place = MarketplaceCheckoutShipping::placeLabel($dep, $prov, $dist);
-
-            $sel = $this->shipping->resolveSelection($stores, (array) $request->input('ship', []), $ubigeo, $place);
-            $plans = $sel['plans'];
-            foreach ($sel['errors'] as $field => $msg) {
-                $v->errors()->add($field, $msg);
-            }
-
-            // El destino solo es opcional cuando TODO se recoge en tienda.
-            if (!$ubigeo && !$sel['all_pickup']) {
-                $v->errors()->add('delivery_district', 'Elige tu distrito de la lista para saber a dónde va y cuánto cuesta el envío.');
-            }
-
-            $address = trim((string) $request->input('delivery_address'));
-            if ($sel['any_delivery'] && mb_strlen($address) < 5) {
-                $v->errors()->add('delivery_address', 'Ingresa la dirección de entrega (calle, número y distrito).');
-            }
-        });
-
-        $data = $validator->validate();
-
-        $data['customer_phone'] = $phone;
-        $data['customer_doc_number'] = $docNumber !== '' ? $docNumber : null;
-        $data['customer_doc_type'] = $data['customer_doc_number'] ? MarketplaceCheckoutRules::docType($data['customer_doc_type'] ?? null) : null;
 
         // Captura opt-in marketing — sólo si el comprador marcó el checkbox.
         // Sin este consent NO entra a marketing_contacts con flag activo.
@@ -360,19 +242,15 @@ class MarketplaceCheckoutController extends Controller
 
         $result = $this->checkoutService->process([
             'name'        => $data['customer_name'],
-            'doc_type'    => $data['customer_doc_type'],
-            'doc_number'  => $data['customer_doc_number'],
+            'doc_type'    => $data['customer_doc_type']    ?? null,
+            'doc_number'  => $data['customer_doc_number']  ?? null,
             'phone'       => $data['customer_phone'],
             'email'       => $data['customer_email']       ?? null,
-            // La columna es NOT NULL: sin dirección se guarda el marcador que el
-            // resto del ERP ya reconoce como «no hay dirección».
-            'address'     => $address !== '' ? $address : 'Sin dirección',
+            'address'     => $data['delivery_address'],
             'department'  => $data['delivery_department']  ?? null,
             'province'    => $data['delivery_province']    ?? null,
             'district'    => $data['delivery_district']    ?? null,
-            'ubigeo'      => $ubigeo,
             'notes'       => $data['delivery_notes']       ?? null,
-            'shipping'    => $plans,
         ], $request);
 
         if (!($result['success'] ?? false)) {
@@ -677,29 +555,9 @@ class MarketplaceCheckoutController extends Controller
                 'coupon'   => $sub?->coupon_code,
                 'discount' => $discount,
                 'total'    => max(0, $subtotal - $discount),
-                // Lo que el comprador ELIGIÓ y vio antes de pagar (guardado en el
-                // subpedido). Solo los pedidos anteriores al selector, sin esa
-                // foto, caen al cálculo con la política vigente.
-                'ship'     => ($sub && $sub->shipping_mode)
-                    ? [
-                        'saved'   => true,
-                        'mode'    => $sub->shipping_mode,
-                        'label'   => $sub->shipping_label,
-                        'text'    => $sub->shipping_pending && $sub->shipping_cost === null
-                                        ? 'Te lo confirma la tienda'
-                                        : ((float) $sub->shipping_cost > 0
-                                            ? 'S/ ' . number_format((float) $sub->shipping_cost, 2) . ($sub->shipping_pending ? ' + por confirmar' : '')
-                                            : ($sub->shipping_pending ? 'Por confirmar' : 'Gratis')),
-                        'amount'  => $sub->shipping_cost,
-                        'pending' => (bool) $sub->shipping_pending,
-                        'free'    => !$sub->shipping_pending && (float) $sub->shipping_cost <= 0,
-                        'eta'     => $sub->shipping_eta,
-                        'office'  => $sub->agency_office_name,
-                        'has_policy' => (bool) $sub->shipping_has_policy,
-                    ]
-                    : ($conDestino
-                        ? \App\Services\Marketplace\ShippingSummaryText::forZone($listing->shipping ?? null, $zona, $subtotal)
-                        : null),
+                'ship'     => $conDestino
+                    ? \App\Services\Marketplace\ShippingSummaryText::forZone($listing->shipping ?? null, $zona, $subtotal)
+                    : null,
             ];
         })->values();
 

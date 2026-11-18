@@ -108,7 +108,7 @@
                                 <td style="padding:2px 0">
                                     <a href="tel:{{ $order->customer_phone }}" style="color:#0c6b65;text-decoration:none;font-weight:600">{{ $order->customer_phone }}</a>
                                     &nbsp;·&nbsp;
-                                    <a href="https://wa.me/{{ strlen(preg_replace('/\D+/', '', $order->customer_phone)) === 9 ? '51' : '' }}{{ preg_replace('/\D+/', '', $order->customer_phone) }}" style="color:#16a34a;text-decoration:none;font-weight:600">WhatsApp →</a>
+                                    <a href="https://wa.me/{{ preg_replace('/\D+/', '', $order->customer_phone) }}" style="color:#16a34a;text-decoration:none;font-weight:600">WhatsApp →</a>
                                 </td>
                             </tr>
                             @if($order->customer_email)
@@ -117,52 +117,12 @@
                                     <td style="padding:2px 0"><a href="mailto:{{ $order->customer_email }}" style="color:#0c6b65;text-decoration:none">{{ $order->customer_email }}</a></td>
                                 </tr>
                             @endif
-                            @php $dest = \App\Services\System\MarketplaceCheckoutShipping::describe($order, $sub ?? null); @endphp
-                            @if($dest['mode_label'])
-                                <tr>
-                                    <td style="padding:6px 0 2px;color:#6b7280;vertical-align:top">Entrega:</td>
-                                    <td style="padding:6px 0 2px;line-height:1.45"><strong>{{ $dest['mode_label'] }}</strong></td>
-                                </tr>
-                                @if($dest['mode'] !== 'pickup')
-                                    <tr>
-                                        <td style="padding:2px 0;color:#6b7280;vertical-align:top">Destino:</td>
-                                        <td style="padding:2px 0;line-height:1.45">{{ collect([$dest['city'], $dest['province'], $dest['department']])->filter()->unique()->implode(', ') }}</td>
-                                    </tr>
-                                    @if($dest['address'])
-                                        <tr>
-                                            <td style="padding:2px 0;color:#6b7280;vertical-align:top">Dirección:</td>
-                                            <td style="padding:2px 0;line-height:1.45">{{ $dest['address'] }}</td>
-                                        </tr>
-                                    @endif
-                                    @if($dest['office'])
-                                        <tr>
-                                            <td style="padding:2px 0;color:#6b7280;vertical-align:top">Oficina:</td>
-                                            <td style="padding:2px 0;line-height:1.45">Shalom {{ $dest['office'] }}@if($dest['office_address']) — {{ $dest['office_address'] }}@endif</td>
-                                        </tr>
-                                    @endif
-                                @else
-                                    <tr>
-                                        <td style="padding:2px 0;color:#6b7280;vertical-align:top">Destino:</td>
-                                        <td style="padding:2px 0;line-height:1.45">El cliente recoge en tu tienda</td>
-                                    </tr>
-                                @endif
-                                <tr>
-                                    <td style="padding:2px 0;color:#6b7280;vertical-align:top">Envío:</td>
-                                    <td style="padding:2px 0;line-height:1.45">{{ $dest['cost'] }}@if($dest['eta']) · {{ $dest['eta'] }}@endif</td>
-                                </tr>
-                                @if(!$dest['has_policy'] && $dest['mode'] !== 'pickup')
-                                    <tr>
-                                        <td colspan="2" style="padding:4px 0;color:#b45309;font-size:12.5px">⚠️ No tienes política de envío confirmada: confirma el costo con el cliente.</td>
-                                    </tr>
-                                @endif
-                            @else
-                                <tr>
-                                    <td style="padding:6px 0 2px;color:#6b7280;vertical-align:top">Entrega:</td>
-                                    <td style="padding:6px 0 2px;line-height:1.45">
-                                        {{ $order->delivery_address }}@if($order->delivery_district) — {{ $order->delivery_district }}@endif
-                                    </td>
-                                </tr>
-                            @endif
+                            <tr>
+                                <td style="padding:6px 0 2px;color:#6b7280;vertical-align:top">Entrega:</td>
+                                <td style="padding:6px 0 2px;line-height:1.45">
+                                    {{ $order->delivery_address }}@if($order->delivery_district) — {{ $order->delivery_district }}@endif
+                                </td>
+                            </tr>
                             @if($order->delivery_notes)
                                 <tr>
                                     <td style="padding:2px 0;color:#6b7280;vertical-align:top">Indicaciones:</td>

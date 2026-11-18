@@ -13,15 +13,9 @@
     $firstName = \Illuminate\Support\Str::of((string) $order->customer_name)->trim()->explode(' ')->first();
     $firstName = $firstName ? mb_convert_case(mb_strtolower($firstName), MB_CASE_TITLE) : null;
     // Envio estimado: solo lo que tiene precio; lo demas se dice «por confirmar».
-    // Pedidos nuevos: lo que el comprador eligio y vio al pagar (guardado). Los
-    // anteriores, sin esa foto, se estiman con la politica vigente.
-    $shipSaved   = $order->shipping_total !== null;
-    $shipKnown   = $shipSaved ? (float) $order->shipping_total : $packages->sum(fn ($p) => (float) ($p->ship['amount'] ?? 0));
-    $shipPending = $shipSaved ? (bool) $order->shipping_pending : $packages->contains(fn ($p) => !$p->ship || !empty($p->ship['pending']));
-    $place = \App\Services\System\MarketplaceCheckoutShipping::placeLabel($order->delivery_department, $order->delivery_province, $order->delivery_district)
-        ?: collect([$order->delivery_district, $order->delivery_province])->filter()->map(fn ($t) => mb_convert_case(mb_strtolower($t), MB_CASE_TITLE))->unique()->implode(', ');
-    $allPickup = $packages->isNotEmpty() && $packages->every(fn ($p) => ($p->ship['mode'] ?? null) === 'pickup');
-    $hasAddress = trim((string) $order->delivery_address) !== '' && mb_strtolower(trim((string) $order->delivery_address)) !== 'sin dirección';
+    $shipKnown   = $packages->sum(fn ($p) => (float) ($p->ship['amount'] ?? 0));
+    $shipPending = $packages->contains(fn ($p) => !$p->ship || !empty($p->ship['pending']));
+    $place = collect([$order->delivery_district, $order->delivery_province])->filter()->map(fn ($t) => mb_convert_case(mb_strtolower($t), MB_CASE_TITLE))->unique()->implode(', ');
     $statusText = [
         'dispatched' => ['La tienda ya tiene tu pedido', 'is-ok'],
         'delivered'  => ['Entregado', 'is-ok'],
@@ -176,15 +170,9 @@
                                 <div class="mp-ok-row" style="color:#16a34a"><span>Cupón {{ $pk->coupon }}</span><span class="v">-S/ {{ number_format($pk->discount, 2) }}</span></div>
                             @endif
                             <div class="mp-ok-row">
-                                <span>{{ ($ship['mode'] ?? null) === 'pickup' ? '🏬 Recojo en tienda' : '🚚 Envío' . (!empty($ship['saved']) ? '' : ($place ? ' a ' . $place : '')) }}</span>
+                                <span>🚚 Envío{{ $place ? ' a ' . $place : '' }}</span>
                                 <span class="v {{ $ship && $ship['free'] ? 'is-free' : '' }} {{ !$ship || $ship['pending'] ? 'is-pending' : '' }}">{{ $ship['text'] ?? 'Te lo confirma la tienda' }}</span>
                             </div>
-                            @if(!empty($ship['saved']) && !empty($ship['label']))
-                                <div class="mp-ok-note" style="margin:2px 0 0">{{ $ship['label'] }}</div>
-                            @endif
-                            @if(!empty($ship['saved']) && !$ship['has_policy'] && ($ship['mode'] ?? null) !== 'pickup')
-                                <div class="mp-ok-note" style="margin:2px 0 0;color:#b45309">El costo de envío te lo confirma la tienda por WhatsApp.</div>
-                            @endif
                             <div class="mp-ok-row mp-ok-row--total"><span>Productos de este paquete</span><span class="v">S/ {{ number_format($pk->total, 2) }}</span></div>
                             @if($pk->whatsapp)
                                 <a class="mp-ok-wa" href="https://wa.me/{{ $pk->whatsapp }}?text={{ rawurlencode($waText) }}" target="_blank" rel="noopener">💬 Escribir a {{ $pk->name }}</a>
@@ -217,12 +205,7 @@
                 <dl class="mp-ok-dl">
                     <dt>Recibe</dt><dd>{{ $order->customer_name }}</dd>
                     <dt>WhatsApp</dt><dd>{{ $order->customer_phone }}</dd>
-                    @if($allPickup)
-                        <dt>Entrega</dt><dd>Recojo en tienda</dd>
-                    @else
-                        @if($hasAddress)<dt>Dirección</dt><dd>{{ $order->delivery_address }}</dd>@endif
-                        <dt>Destino</dt><dd>{{ collect([$order->delivery_district, $order->delivery_province, $order->delivery_department])->filter()->map(fn ($t) => \App\Services\System\MarketplaceCheckoutShipping::pretty($t))->unique()->implode(', ') }}</dd>
-                    @endif
+                    <dt>Dirección</dt><dd>{{ $order->delivery_address }}{{ $place ? ' — ' . $place : '' }}</dd>
                     @if($order->delivery_notes)<dt>Referencia</dt><dd>{{ $order->delivery_notes }}</dd>@endif
                 </dl>
             </section>

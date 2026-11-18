@@ -102,20 +102,11 @@ class OrderShipmentLinker
             $pickup = (bool) ($dest['pickup'] ?? false);
             $geo    = $this->resolveGeo($dest['ubigeo'] ?? null, $dest);
 
-            // La modalidad que el comprador ELIGIÓ manda (marketplace: recojo,
-            // delivery Lima o agencia). Sin ella —tienda online y pedidos
-            // antiguos— se deduce del distrito, como siempre. Antes un distrito
-            // de Lima que no casaba por nombre quedaba como AGENCIA.
-            $mode = $dest['mode'] ?? null;
             $type = $pickup
                 ? ShippingRequest::DELIVERY_TIENDA
-                : match ($mode) {
-                    'delivery' => ShippingRequest::DELIVERY_DOMICILIO,
-                    'agency'   => ShippingRequest::DELIVERY_AGENCIA,
-                    default    => (($geo['district_id'] ?? null) && \App\Services\Tenant\StoreShipping::isLima($geo['district_id'])
-                        ? ShippingRequest::DELIVERY_DOMICILIO
-                        : ShippingRequest::DELIVERY_AGENCIA),
-                };
+                : (($geo['district_id'] ?? null) && \App\Services\Tenant\StoreShipping::isLima($geo['district_id'])
+                    ? ShippingRequest::DELIVERY_DOMICILIO
+                    : ShippingRequest::DELIVERY_AGENCIA);
 
             $address = $pickup ? null : $this->firstFilled([$dest['address'] ?? null]);
             if ($address !== null && mb_strtolower(trim($address)) === 'sin dirección') {
@@ -134,29 +125,10 @@ class OrderShipmentLinker
                 'destination_city'     => $geo['district_name'] ?? null,
             ], fn ($v) => $v !== null);
 
-            // Tipo de documento EXPLÍCITO cuando el checkout lo manda. CE y
-            // pasaporte conservan sus letras; solo DNI/RUC se reducen a dígitos.
-            // Sin tipo (tienda online, pedidos antiguos) se sigue deduciendo por
-            // la longitud: 11 dígitos = RUC.
-            $docType = self::documentTypeOf($dest['document_type'] ?? null);
-            $doc = $this->cleanDocument((string) ($dest['document'] ?? ''), $docType);
+            $doc = preg_replace('/\D+/', '', (string) ($dest['document'] ?? ''));
             if ($doc !== '') {
                 $over['dni']           = $doc;
-                $over['document_type'] = $docType ?? (strlen($doc) === 11 ? 'ruc' : 'dni');
-            }
-
-            // Oficina de Shalom elegida en el checkout (ya validada contra el
-            // catálogo por el marketplace): se registra igual que desde el
-            // formulario público del cliente.
-            $office = $dest['agency_office'] ?? null;
-            if ($type === ShippingRequest::DELIVERY_AGENCIA && !empty($office['id'])) {
-                $over['shipping_agency'] = 'Shalom';
-                $over['reference'] = $office['name'] ?? ($over['reference'] ?? null);
-                if (ShippingRequest::hasAgencyOffice()) {
-                    $over['agency_office_id']      = (int) $office['id'];
-                    $over['agency_office_name']    = $office['name'] ?? null;
-                    $over['agency_office_address'] = isset($office['address']) ? mb_substr((string) $office['address'], 0, 500) : null;
-                }
+                $over['document_type'] = strlen($doc) === 11 ? 'ruc' : 'dni';
             }
 
             $data = array_merge($this->prefill($order), $over);
@@ -181,27 +153,6 @@ class OrderShipmentLinker
             ]);
             return null;
         }
-    }
-
-    /** 'dni' | 'ruc' | 'ce' | 'pasaporte' a partir de lo que escriba el origen (DNI, CE, Pasaporte…), o null. */
-    public static function documentTypeOf($type): ?string
-    {
-        $t = mb_strtolower(trim((string) $type));
-
-        return in_array($t, ['dni', 'ruc', 'ce', 'pasaporte'], true) ? $t : null;
-    }
-
-    /**
-     * Número de documento limpio: dígitos para DNI/RUC (o tipo desconocido);
-     * letras y números en mayúscula para CE y pasaporte.
-     */
-    private function cleanDocument(string $raw, ?string $type): string
-    {
-        if ($type === 'ce' || $type === 'pasaporte') {
-            return mb_strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $raw));
-        }
-
-        return preg_replace('/\D+/', '', $raw);
     }
 
     /**
@@ -503,12 +454,7 @@ class OrderShipmentLinker
             data_get($customer, 'document'),
             data_get($customer, 'number'),
         ]);
-        // CE y pasaporte llevan letras: el `\D+` de antes las borraba. Solo se
-        // respeta el tipo cuando el pedido dice CE o pasaporte; DNI/RUC siguen
-        // deduciéndose por la longitud, como siempre.
-        $explicit = self::documentTypeOf(data_get($customer, 'tipo_documento') ?? data_get($customer, 'document_type'));
-        $explicit = in_array($explicit, ['ce', 'pasaporte'], true) ? $explicit : null;
-        $document = $this->cleanDocument((string) $document, $explicit);
+        $document = preg_replace('/\D+/', '', (string) $document);
 
         $address = $this->firstFilled([
             data_get($this->marketplaceShipping($order), 'address'),
@@ -527,7 +473,7 @@ class OrderShipmentLinker
         return [
             'full_name'            => $this->customerName($order, $customer),
             'dni'                  => $document !== '' ? $document : null,
-            'document_type'        => $document !== '' ? ($explicit ?? (strlen($document) === 11 ? 'ruc' : 'dni')) : null,
+            'document_type'        => $document !== '' ? (strlen($document) === 11 ? 'ruc' : 'dni') : null,
             'phone'                => $this->firstFilled([
                 data_get($customer, 'telefono'),
                 data_get($customer, 'phone'),

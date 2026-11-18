@@ -27,13 +27,12 @@ class MarketplaceUser extends Model implements AuthenticatableContract
         'email', 'name', 'phone', 'password_hash',
         'email_verified_at', 'phone_verified_at',
         'locale', 'timezone', 'status',
-        'last_login_at', 'last_seen_at', 'checkout_profile',
+        'last_login_at', 'last_seen_at',
     ];
 
     protected $hidden = ['password_hash'];
 
     protected $casts = [
-        'checkout_profile'  => 'array',
         'email_verified_at' => 'datetime',
         'phone_verified_at' => 'datetime',
         'last_login_at'     => 'datetime',

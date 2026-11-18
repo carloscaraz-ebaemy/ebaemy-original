@@ -200,23 +200,14 @@ input.mp-co-invalid, select.mp-co-invalid, textarea.mp-co-invalid {
 
     <div class="mp-co-grid">
         <div>
-            {{-- Dos pasos. 1: quién eres (el documento va primero porque
-                 autocompleta el nombre). 2: ¿Cómo lo recibes? — el distrito
-                 es UN buscador (los tres <select> siguen ocultos como almacén,
-                 con los mismos name= que espera el servidor) y, por cada tienda
-                 del carrito, tarjetas de recojo / delivery Lima / agencia con su
-                 costo y plazo. Con cuenta, todo viene precargado ($prefill). --}}
-            @php
-                $pf = $prefill ?? [];
-                $selDoc = old('customer_doc_type', $pf['doc_type'] ?? 'DNI');
-                $moreOpen = old('customer_email', $pf['email'] ?? '') !== '' || old('delivery_notes', $pf['notes'] ?? '') !== '' || $errors->has('customer_email');
-            @endphp
+            {{-- Rediseño 2026-10-27: dos pasos en vez de cuatro tarjetas.
+                 El documento va primero porque autocompleta el nombre; el
+                 distrito es UN buscador (los tres <select> siguen ocultos como
+                 almacen, con los mismos name= que espera el servidor). --}}
             <section class="mp-co-card mp-co-step">
                 <h3><span class="mp-co-step__n">1</span> Tus datos</h3>
-                @if(!empty($pf['name']))
-                    <p class="mp-co-hint" style="margin:0 0 4px">Datos de tu cuenta ya cargados. Revísalos y sigue.</p>
-                @endif
                 <div class="mp-co-doc">
+                    @php $selDoc = old('customer_doc_type', 'DNI'); @endphp
                     <div>
                         <label for="coDocType">Documento</label>
                         <select id="coDocType" name="customer_doc_type">
@@ -226,72 +217,57 @@ input.mp-co-invalid, select.mp-co-invalid, textarea.mp-co-invalid {
                         </select>
                     </div>
                     <div>
-                        <label for="coDocNum">Número <span class="mp-co-opt" data-doc-hint>· completa tu nombre solo</span></label>
-                        <input id="coDocNum" type="text" name="customer_doc_number" maxlength="20" inputmode="numeric" autocomplete="off" value="{{ old('customer_doc_number', $pf['doc_number'] ?? '') }}">
+                        <label for="coDocNum">Número <span class="mp-co-opt">· completa tu nombre solo</span></label>
+                        <input id="coDocNum" type="text" name="customer_doc_number" maxlength="20" inputmode="numeric" autocomplete="off" value="{{ old('customer_doc_number') }}">
                         <div class="mp-co-doc-status" data-doc-status aria-live="polite"></div>
-                        @error('customer_doc_number')<div class="mp-co-field-err is-server">{{ $message }}</div>@enderror
                     </div>
                 </div>
 
                 <label for="coName">Nombre completo o razón social *</label>
-                <input id="coName" type="text" name="customer_name" required maxlength="180" autocomplete="name" value="{{ old('customer_name', $pf['name'] ?? '') }}">
-                @error('customer_name')<div class="mp-co-field-err is-server">{{ $message }}</div>@enderror
+                <input id="coName" type="text" name="customer_name" required maxlength="180" autocomplete="name" value="{{ old('customer_name') }}">
 
-                <label for="coPhone">WhatsApp * <span class="mp-co-opt">· aquí te confirman</span></label>
-                <input id="coPhone" type="tel" name="customer_phone" required maxlength="40" inputmode="numeric" autocomplete="tel" placeholder="9XX XXX XXX" value="{{ old('customer_phone', $pf['phone'] ?? '') }}">
-                @error('customer_phone')<div class="mp-co-field-err is-server">{{ $message }}</div>@enderror
+                <div class="mp-co-row">
+                    <div>
+                        <label for="coPhone">WhatsApp * <span class="mp-co-opt">· aquí te confirman</span></label>
+                        <input id="coPhone" type="tel" name="customer_phone" required maxlength="40" inputmode="numeric" autocomplete="tel" placeholder="9XX XXX XXX" value="{{ old('customer_phone') }}">
+                    </div>
+                    <div>
+                        <label for="coEmail">Email <span class="mp-co-opt">(opcional)</span></label>
+                        <input id="coEmail" type="email" name="customer_email" maxlength="180" autocomplete="email" placeholder="Para tu comprobante" value="{{ old('customer_email') }}">
+                    </div>
+                </div>
             </section>
 
             <section class="mp-co-card mp-co-step">
-                <h3><span class="mp-co-step__n">2</span> ¿Cómo lo recibes?</h3>
+                <h3><span class="mp-co-step__n">2</span> ¿Dónde lo entregamos?</h3>
 
-                <label for="coPlace">¿A qué distrito va? <span class="mp-co-opt" data-place-opt hidden>(no hace falta si recoges)</span></label>
+                <label for="coPlace">Distrito *</label>
                 <div class="mp-co-place">
                     <input id="coPlace" type="text" autocomplete="off" placeholder="Escribe tu distrito, p. ej. Miraflores o Talara"
                            role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="coPlaceList" data-place-input>
                     <ul id="coPlaceList" class="mp-co-place__list" role="listbox" hidden data-place-list></ul>
                 </div>
-                @error('delivery_district')<div class="mp-co-field-err is-server">{{ $message }}</div>@enderror
                 {{-- Almacen del ubigeo: ocultos pero vivos (los usa el envio por
-                     zona y el autocompletado del RUC). El código de 6 cifras lo
-                     pone la cotización; el servidor lo vuelve a resolver. --}}
+                     zona y el autocompletado del RUC). --}}
                 <div class="mp-co-ubigeo-store" aria-hidden="true">
-                    <select name="delivery_department" data-ubigeo="dep" data-old="{{ old('delivery_department', $pf['department'] ?? '') }}" tabindex="-1"><option value="">—</option></select>
-                    <select name="delivery_province" data-ubigeo="prov" data-old="{{ old('delivery_province', $pf['province'] ?? '') }}" tabindex="-1" disabled><option value="">—</option></select>
-                    <select name="delivery_district" data-ubigeo="dist" data-old="{{ old('delivery_district', $pf['district'] ?? '') }}" tabindex="-1" disabled><option value="">—</option></select>
-                    <input type="hidden" name="delivery_ubigeo" value="{{ old('delivery_ubigeo') }}" data-ubigeo-code>
+                    <select name="delivery_department" data-ubigeo="dep" data-old="{{ old('delivery_department') }}" tabindex="-1"><option value="">—</option></select>
+                    <select name="delivery_province" data-ubigeo="prov" data-old="{{ old('delivery_province') }}" tabindex="-1" disabled><option value="">—</option></select>
+                    <select name="delivery_district" data-ubigeo="dist" data-old="{{ old('delivery_district') }}" tabindex="-1" disabled><option value="">—</option></select>
                 </div>
 
-                {{-- Una tarjeta de opciones por tienda del carrito (las pinta la
-                     cotización). Sin JS no hay cómo elegir: el checkout lo exige. --}}
-                <div class="mp-co-ship" data-ship-root aria-live="polite">
-                    <p class="mp-co-hint">Escribe tu distrito para ver cómo te llega cada pedido.</p>
-                </div>
+                <label for="coAddr">Dirección *</label>
+                <input id="coAddr" type="text" name="delivery_address" required maxlength="500" autocomplete="street-address"
+                       placeholder="Ej. Av. Arequipa 123, dpto 4B"
+                       value="{{ old('delivery_address') }}">
 
-                <div data-address-wrap hidden>
-                    <label for="coAddr">Dirección de entrega *</label>
-                    <input id="coAddr" type="text" name="delivery_address" maxlength="500" autocomplete="street-address"
-                           placeholder="Ej. Av. Arequipa 123, dpto 4B"
-                           value="{{ old('delivery_address', $pf['address'] ?? '') }}">
-                    @error('delivery_address')<div class="mp-co-field-err is-server">{{ $message }}</div>@enderror
-                </div>
-
-                <details class="mp-co-notes" {{ $moreOpen ? 'open' : '' }}>
-                    <summary>+ Más opciones (email, referencia)</summary>
-                    <label for="coEmail">Email <span class="mp-co-opt">(opcional)</span></label>
-                    <input id="coEmail" type="email" name="customer_email" maxlength="180" autocomplete="email" placeholder="Para tu comprobante" value="{{ old('customer_email', $pf['email'] ?? '') }}">
-                    @error('customer_email')<div class="mp-co-field-err is-server">{{ $message }}</div>@enderror
-                    <label for="coNotes">Referencia o indicaciones <span class="mp-co-opt">(opcional)</span></label>
-                    <textarea id="coNotes" name="delivery_notes" rows="2" maxlength="1000" placeholder="Frente al parque, tocar el timbre 2, horario…">{{ old('delivery_notes', $pf['notes'] ?? '') }}</textarea>
+                <details class="mp-co-notes" {{ old('delivery_notes') ? 'open' : '' }}>
+                    <summary>+ Agregar referencia o indicaciones</summary>
+                    <textarea name="delivery_notes" rows="2" maxlength="1000" placeholder="Frente al parque, tocar el timbre 2, horario…">{{ old('delivery_notes') }}</textarea>
                 </details>
             </section>
 
             <div class="mp-co-foot">
-                @if($paysOnline ?? false)
-                    <p class="mp-co-foot__pay"><span class="mp-co-paytag mp-co-paytag--online">💳 Pago en línea</span> Al confirmar te llevamos a Mercado Pago para pagar con tarjeta, Yape u otros medios.</p>
-                @else
-                    <p class="mp-co-foot__pay"><span class="mp-co-paytag">✓ Sin pago adelantado</span> Pagas a cada tienda cuando te escribe (Yape, Plin, transferencia o contraentrega).</p>
-                @endif
+                <p class="mp-co-foot__pay"><span class="mp-co-paytag">✓ Sin pago adelantado</span> Pagas a cada tienda cuando te escribe (Yape, Plin, transferencia o contraentrega).</p>
                 <label class="mp-co-optin">
                     <input type="checkbox" name="accepts_marketing" value="1" {{ old('accepts_marketing') ? 'checked' : '' }}>
                     <span>Quiero recibir ofertas de ebaemy y sus tiendas por WhatsApp o email. Puedo darme de baja cuando quiera.</span>
@@ -310,7 +286,12 @@ input.mp-co-invalid, select.mp-co-invalid, textarea.mp-co-invalid {
             @endif
 
             @foreach($stores as $store)
-                <div class="mp-co-store-block" data-store-block data-hostname-id="{{ $store['hostname_id'] }}" data-subtotal="{{ $store['subtotal'] }}">
+                @php
+                    $shipLima = \App\Services\Marketplace\ShippingSummaryText::forZone($store['shipping'] ?? null, 'lima', (float) $store['subtotal']);
+                    $shipProv = \App\Services\Marketplace\ShippingSummaryText::forZone($store['shipping'] ?? null, 'province', (float) $store['subtotal']);
+                @endphp
+                <div class="mp-co-store-block" data-store-block data-hostname-id="{{ $store['hostname_id'] }}" data-subtotal="{{ $store['subtotal'] }}"
+                     data-ship-lima='@json($shipLima)' data-ship-province='@json($shipProv)'>
                     <div class="mp-co-pk-head">
                         @if($stores->count() > 1)<span class="mp-co-pk-tag">Paquete {{ $loop->iteration }}</span>@endif
                         <span class="name">Lo envía {{ $store['tenant_name'] }}</span>
@@ -393,7 +374,7 @@ input.mp-co-invalid, select.mp-co-invalid, textarea.mp-co-invalid {
                     @endif
                     <div class="mp-co-pk-ship" data-ship-line>
                         <span>🚚 Envío</span>
-                        <span class="mp-co-pk-ship__v" data-ship-text>Elige cómo lo recibes</span>
+                        <span class="mp-co-pk-ship__v" data-ship-text>Elige tu distrito</span>
                     </div>
                     <div class="mp-co-pk-ship__detail" data-ship-detail></div>
                 </div>
@@ -418,24 +399,20 @@ input.mp-co-invalid, select.mp-co-invalid, textarea.mp-co-invalid {
                 {{-- El envio no se cobra aqui: cada tienda lo cobra al coordinar.
                      Se calcula para el distrito elegido (ver forZone) para que
                      el total estimado no sorprenda. --}}
-                <div class="mp-co-line"><span>Envío</span><span data-ship-total style="color:#6b7280">Elige cómo lo recibes</span></div>
+                <div class="mp-co-line"><span>Envío</span><span data-ship-total style="color:#6b7280">Elige tu distrito</span></div>
                 <div class="total"><span><strong>Total estimado</strong></span><span class="v" data-summary-total>S/ {{ number_format($totalAfterPlat, 2) }}</span></div>
-                <p class="mp-co-total-note" data-ship-note>Elige cómo recibes cada pedido para sumar el envío.</p>
+                <p class="mp-co-total-note" data-ship-note>Elige tu distrito arriba para sumar el envío.</p>
             </div>
 
-            <button type="submit" class="mp-co-submit">{{ ($paysOnline ?? false) ? 'Ir a pagar →' : 'Confirmar pedido →' }}</button>
+            <button type="submit" class="mp-co-submit">Confirmar pedido →</button>
 
             {{-- Que pasa despues, en positivo: antes era un recuadro amarillo
                  de «advertencia» que asustaba justo al confirmar. --}}
             <div class="mp-co-next">
                 <p class="mp-co-next__title">Después de confirmar</p>
                 <ol>
-                    <li>{{ $stores->count() > 1 ? 'Cada tienda te escribe' : 'La tienda te escribe' }} por WhatsApp para coordinar {{ ($paysOnline ?? false) ? 'la entrega' : 'el pago y la entrega' }}.</li>
-                    @if($paysOnline ?? false)
-                        <li>Pagas en línea con Mercado Pago; {{ $stores->count() > 1 ? 'las tiendas reciben' : 'la tienda recibe' }} tu pedido cuando se confirma el pago.</li>
-                    @else
-                        <li>Pagas {{ $stores->count() > 1 ? 'a cada tienda' : 'a la tienda' }} con Yape, Plin, transferencia o contraentrega, según acepte.</li>
-                    @endif
+                    <li>{{ $stores->count() > 1 ? 'Cada tienda te escribe' : 'La tienda te escribe' }} por WhatsApp para coordinar el pago y la entrega.</li>
+                    <li>Pagas {{ $stores->count() > 1 ? 'a cada tienda' : 'a la tienda' }} con Yape, Plin, transferencia o contraentrega, según acepte.</li>
                     <li>Recibes tu boleta o factura{{ $stores->count() > 1 ? ' de cada tienda' : '' }} y tu {{ $stores->count() > 1 ? 'paquete' : 'pedido' }}.</li>
                 </ol>
             </div>
@@ -447,11 +424,10 @@ input.mp-co-invalid, select.mp-co-invalid, textarea.mp-co-invalid {
          submitee normalmente. El total se sincroniza desde [data-summary-total]. --}}
     <div class="mp-co-sticky" aria-hidden="false">
         <div class="mp-co-sticky__total">
-            <span class="mp-co-sticky__label">Total con envío</span>
+            <span class="mp-co-sticky__label">Total</span>
             <span class="mp-co-sticky__value" data-summary-total-sticky>S/ {{ number_format($totalAfterPlat, 2) }}</span>
-            <span class="mp-co-sticky__ship" data-sticky-ship>Elige cómo lo recibes</span>
         </div>
-        <button type="submit" class="mp-co-sticky__btn">{{ ($paysOnline ?? false) ? 'Ir a pagar →' : 'Confirmar pedido →' }}</button>
+        <button type="submit" class="mp-co-sticky__btn">Confirmar pedido →</button>
     </div>
 </form>
 
@@ -468,28 +444,6 @@ input.mp-co-invalid, select.mp-co-invalid, textarea.mp-co-invalid {
 .mp-co-pk-ship__detail { font-size: 12px; color: #6b7280; margin: 4px 2px 0; }
 .mp-co-pk-ship__detail:empty { display: none; }
 .mp-co-total-note { font-size: 12px; color: #6b7280; margin: 6px 0 0; }
-/* ¿Cómo lo recibes? — una tarjeta de opciones por tienda */
-.mp-co-paytag--online { background: #eff6ff; border-color: #bfdbfe; color: #1d4ed8; }
-.mp-co-ship { margin-top: 12px; display: grid; gap: 14px; }
-.mp-co-ship fieldset { border: 1px solid #e5e7eb; border-radius: 12px; padding: 10px 14px 14px; margin: 0; min-width: 0; }
-.mp-co-ship legend { padding: 0 6px; font-size: 13px; font-weight: 700; color: #115e59; }
-.mp-co-opts { display: grid; gap: 8px; margin-top: 4px; }
-.mp-co-card label.mp-co-opt { display: flex; gap: 10px; align-items: flex-start; margin: 0; padding: 12px; border: 1.5px solid #e5e7eb; border-radius: 12px; cursor: pointer; background: #fff; font-weight: 400; color: #111827; font-size: 14px; }
-.mp-co-card label.mp-co-opt.is-checked { border-color: var(--mp-primary, #0f8a82); background: #f0fdfa; box-shadow: 0 0 0 3px rgba(15,138,130,.08); }
-.mp-co-opt input { margin-top: 2px; }
-.mp-co-opt__body { flex: 1; min-width: 0; display: grid; gap: 2px; }
-.mp-co-opt__top { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
-.mp-co-opt__title { font-weight: 700; }
-.mp-co-opt__price { font-weight: 800; color: #0c6b65; text-align: right; }
-.mp-co-opt__price.is-pending { color: #b45309; font-size: 13px; }
-.mp-co-opt__meta { font-size: 12.5px; color: #6b7280; line-height: 1.35; }
-.mp-co-office { margin-top: 8px; }
-.mp-co-office label { margin-top: 4px; }
-.mp-co-final { margin-top: 10px; padding: 9px 11px; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 10px; color: #065f46; font-size: 13px; font-weight: 600; line-height: 1.4; overflow-wrap: anywhere; }
-.mp-co-final:empty { display: none; }
-.mp-co-ship-note { margin: 8px 0 0; padding: 8px 10px; background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; color: #92400e; font-size: 12.5px; line-height: 1.4; }
-.mp-co-sticky__ship { font-size: 11px; color: #6b7280; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.mp-co-field-err.is-server { margin-top: 4px; }
 .mp-co-next { margin-top: 14px; border: 1px solid #e5e7eb; background: #f8fafc; border-radius: 10px; padding: 12px 14px; font-size: 13px; color: #374151; }
 .mp-co-next__title { font-weight: 700; margin: 0 0 6px; color: var(--mp-ink, #111827); }
 .mp-co-next ol { margin: 0; padding-left: 18px; }
@@ -651,7 +605,6 @@ input.mp-co-invalid, select.mp-co-invalid, textarea.mp-co-invalid {
 (function(){
     const VALIDATE_URL = @json(route('marketplace.checkout.coupon'));
     const REMOVE_URL_BASE = @json(url('/marketplace/checkout/coupon'));
-    const PAYS_ONLINE = @json((bool) ($paysOnline ?? false));
 
     // Trackea descuento por tienda. Se hidrata desde data-applied-discount al
     // cargar para que el resumen ya refleje los cupones persistidos.
@@ -674,31 +627,29 @@ input.mp-co-invalid, select.mp-co-invalid, textarea.mp-co-invalid {
         const platEl = document.querySelector('[data-plat-discount]');
         const plat = platEl ? parseFloat(platEl.dataset.platDiscount || 0) : 0;
 
-        // Envío elegido por tienda (window.__mpShipSel lo llena «¿Cómo lo recibes?»):
-        // {hostname_id: {option, line}}. Sin elección no se suma nada.
-        const chosen = window.__mpShipSel || {};
+        // Envio del distrito elegido (window.__mpShipZone lo pone el selector).
+        const zone = window.__mpShipZone || null;
         const shipTotalEl = document.querySelector('[data-ship-total]');
         const shipNoteEl  = document.querySelector('[data-ship-note]');
-        const shipStickyEl = document.querySelector('[data-sticky-ship]');
-        let ship = 0, pending = 0, missing = 0;
+        let ship = 0, pending = 0;
         document.querySelectorAll('[data-store-block]').forEach(el => {
             const txt = el.querySelector('[data-ship-text]');
             const det = el.querySelector('[data-ship-detail]');
-            const s = chosen[el.dataset.hostnameId];
-            if (!s || !s.option) {
-                missing++;
-                if (txt) { txt.textContent = 'Elige cómo lo recibes'; txt.className = 'mp-co-pk-ship__v'; }
+            if (!zone) {
+                if (txt) { txt.textContent = 'Elige tu distrito'; txt.className = 'mp-co-pk-ship__v'; }
                 if (det) det.textContent = '';
                 return;
             }
-            const r = s.option;
-            if (txt) { txt.textContent = r.price; txt.className = 'mp-co-pk-ship__v' + (r.free ? ' is-free' : '') + (r.pending ? ' is-pending' : ''); }
-            if (det) det.textContent = s.line || '';
+            let r = null;
+            try { r = JSON.parse(el.dataset[zone === 'lima' ? 'shipLima' : 'shipProvince'] || 'null'); } catch (e) {}
+            if (!r) return;
+            if (txt) { txt.textContent = r.text; txt.className = 'mp-co-pk-ship__v' + (r.free ? ' is-free' : '') + (r.pending ? ' is-pending' : ''); }
+            if (det) det.textContent = r.detail || '';
             if (r.amount !== null && r.amount !== undefined) ship += parseFloat(r.amount);
             if (r.pending) pending++;
         });
 
-        const total = Math.max(0, subtotal - discount - plat) + ship;
+        const total = Math.max(0, subtotal - discount - plat) + (zone ? ship : 0);
 
         const fmt = n => 'S/ ' + n.toFixed(2);
         subtotalEl.textContent = fmt(subtotal);
@@ -708,14 +659,14 @@ input.mp-co-invalid, select.mp-co-invalid, textarea.mp-co-invalid {
         } else {
             discRow.style.display = 'none';
         }
-        const shipText = missing ? 'Elige cómo lo recibes'
-            : (ship > 0 ? fmt(ship) + (pending ? ' + por confirmar' : '') : (pending ? 'Por confirmar' : 'Gratis'));
-        if (shipTotalEl) shipTotalEl.textContent = shipText;
-        if (shipStickyEl) shipStickyEl.textContent = missing ? 'Elige cómo lo recibes' : 'Envío: ' + shipText;
+        if (shipTotalEl) {
+            shipTotalEl.textContent = !zone ? 'Elige tu distrito'
+                : (ship > 0 ? fmt(ship) + (pending ? ' + por confirmar' : '') : (pending ? 'Por confirmar' : 'Gratis'));
+        }
         if (shipNoteEl) {
-            shipNoteEl.textContent = missing ? 'Elige cómo recibes cada pedido para sumar el envío.'
-                : (pending ? 'Parte del envío te lo confirma la tienda por WhatsApp.' + (PAYS_ONLINE ? '' : ' Pagas a cada tienda al coordinar.')
-                           : (PAYS_ONLINE ? 'El envío lo coordinas con cada tienda.' : 'Pagas a cada tienda cuando te escriba para coordinar la entrega.'));
+            shipNoteEl.textContent = !zone ? 'Elige tu distrito arriba para sumar el envío.'
+                : (pending ? 'Parte del envío te lo confirma la tienda por WhatsApp. Pagas a cada tienda al coordinar.'
+                           : 'Pagas a cada tienda cuando te escriba para coordinar la entrega.');
         }
         totalEl.textContent = fmt(total);
     }
@@ -846,216 +797,6 @@ input.mp-co-invalid, select.mp-co-invalid, textarea.mp-co-invalid {
         new MutationObserver(sync).observe(src, { childList: true, characterData: true, subtree: true });
     })();
 
-    // ── ¿Cómo lo recibes?: tarjetas por tienda ─────────────────────────────
-    // Cotiza en el servidor (marketplace.checkout.quote) cada vez que cambia el
-    // distrito y pinta, por tienda: recojo, delivery Lima/Callao o agencia a
-    // provincia, con costo, plazo y oficina de Shalom. Lo elegido queda en
-    // window.__mpShipSel para el resumen y se envía como ship[hostname][mode].
-    (function () {
-        const QUOTE_URL = @json(route('marketplace.checkout.quote'));
-        const root = document.querySelector('[data-ship-root]');
-        if (!root) return;
-        const OLD_SHIP = @json(old('ship', []));
-        const PREFILL_MODE = @json($prefill['mode'] ?? null);
-        const OLD_OFFICE = {};
-        Object.keys(OLD_SHIP || {}).forEach(h => { if (OLD_SHIP[h] && OLD_SHIP[h].office_id) OLD_OFFICE[h] = String(OLD_SHIP[h].office_id); });
-        const sel = window.__mpShipSel = {};
-        const ctxs = {};
-        const addrWrap = document.querySelector('[data-address-wrap]');
-        const addrEl = document.querySelector('[name="delivery_address"]');
-        const ubigeoEl = document.querySelector('[data-ubigeo-code]');
-        const placeOpt = document.querySelector('[data-place-opt]');
-        let data = null, seq = 0, timer = null;
-
-        function el(tag, cls, text) {
-            const n = document.createElement(tag);
-            if (cls) n.className = cls;
-            if (text !== undefined && text !== null) n.textContent = text;
-            return n;
-        }
-        // La frase que se ve ANTES de pagar y que el servidor guarda tal cual.
-        function lineFor(o, officeName) {
-            if (o.mode === 'pickup') return 'Recojo en tienda' + (o.where ? ' · ' + o.where : '');
-            const parts = [];
-            if (o.mode === 'agency') parts.push('Envío a ' + (data.place || 'provincia') + (officeName ? ' · Agencia Shalom ' + officeName : ' por agencia'));
-            else parts.push('Delivery a ' + (data.place || 'Lima/Callao'));
-            parts.push(o.price);
-            if (o.eta) parts.push(o.eta);
-            return parts.filter(Boolean).join(' · ');
-        }
-        function officeNameOf(s) {
-            if (!s || !s.officeId || !data || !data.offices) return null;
-            const all = (data.offices.offices || []).concat(data.offices.others || []);
-            const f = all.find(x => String(x.id) === String(s.officeId));
-            return f ? f.name : null;
-        }
-        function updateAddress() {
-            const modes = Object.values(sel).map(s => s.mode);
-            const anyDelivery = modes.includes('delivery');
-            const allPickup = modes.length > 0 && Object.keys(sel).length === Object.keys(ctxs).length && modes.every(m => m === 'pickup');
-            if (addrWrap) addrWrap.hidden = !anyDelivery;
-            if (placeOpt) placeOpt.hidden = !allPickup;
-        }
-        function refreshLine(hid) {
-            const c = ctxs[hid], s = sel[hid];
-            if (!c) return;
-            if (!s || !s.option) { c.final.textContent = ''; s && (s.line = ''); return; }
-            s.line = lineFor(s.option, officeNameOf(s));
-            c.final.textContent = s.line;
-        }
-        function buildOffice(c, hid, o, s) {
-            const box = c.officeBox;
-            box.innerHTML = '';
-            const offices = (data.offices && data.offices.offices) || [];
-            const others = (data.offices && data.offices.others) || [];
-            const lab = el('label', null, 'Oficina de Shalom donde recoges' + (o.office_required ? ' *' : ' (opcional)'));
-            lab.setAttribute('for', 'coOffice' + hid);
-            const select = document.createElement('select');
-            select.id = 'coOffice' + hid;
-            select.name = 'ship[' + hid + '][office_id]';
-            select.appendChild(new Option(o.office_required ? 'Elige la oficina…' : 'La tienda me confirma la agencia', ''));
-            const scopeLabel = { district: 'En tu distrito', province: 'En tu provincia', department: 'En tu departamento' }[data.offices.scope] || 'Cerca de ti';
-            [[scopeLabel, offices], ['Otras del departamento', others]].forEach(([title, list]) => {
-                if (!list.length) return;
-                const g = document.createElement('optgroup');
-                g.label = title;
-                list.forEach(x => g.appendChild(new Option(x.name + (x.address ? ' — ' + x.address : ''), x.id)));
-                select.appendChild(g);
-            });
-            if (s.officeId) select.value = String(s.officeId);
-            if (select.value !== String(s.officeId || '')) s.officeId = null;
-            select.addEventListener('change', () => {
-                s.officeId = select.value || null;
-                select.classList.remove('mp-co-invalid');
-                c.err.textContent = '';
-                refreshLine(hid);
-                if (window.mpRecalcSummary) window.mpRecalcSummary();
-            });
-            box.appendChild(lab);
-            box.appendChild(select);
-            c.officeSelect = select;
-        }
-        function choose(hid, mode) {
-            const c = ctxs[hid];
-            const o = c.st.options.find(x => x.mode === mode);
-            if (!o) return;
-            const s = (sel[hid] && sel[hid].mode === mode) ? sel[hid] : (sel[hid] = { mode: mode, officeId: OLD_OFFICE[hid] || null });
-            s.option = o;
-            c.labels.forEach(l => l.classList.toggle('is-checked', l.dataset.mode === mode));
-            c.officeBox.innerHTML = '';
-            c.officeSelect = null;
-            if (o.needs_office) buildOffice(c, hid, o, s);
-            c.note.hidden = !(o.mode !== 'pickup' && !c.st.has_policy);
-            c.err.textContent = '';
-            refreshLine(hid);
-            updateAddress();
-            if (window.mpRecalcSummary) window.mpRecalcSummary();
-        }
-        function render() {
-            root.innerHTML = '';
-            Object.keys(ctxs).forEach(k => delete ctxs[k]);
-            if (ubigeoEl) ubigeoEl.value = data.ubigeo || '';
-            data.stores.forEach(st => {
-                const hid = String(st.hostname_id);
-                const fs = el('fieldset');
-                fs.appendChild(el('legend', null, 'Lo envía ' + st.name));
-                const opts = el('div', 'mp-co-opts');
-                fs.appendChild(opts);
-                const c = { st: st, labels: [], officeBox: el('div', 'mp-co-office'), final: el('div', 'mp-co-final'),
-                            note: el('p', 'mp-co-ship-note', data.pending_note + '.'), err: el('div', 'mp-co-field-err'), officeSelect: null };
-                c.note.hidden = true;
-
-                const modes = st.options.map(o => o.mode);
-                // Elección: la que ya tenía → la que quedó tras un error → la de su última compra
-                // → la de envío (más rápido comprar con un toque menos). Recojo solo si lo pide.
-                let cur = sel[hid] && modes.includes(sel[hid].mode) ? sel[hid].mode : null;
-                if (!cur && OLD_SHIP[hid] && modes.includes(OLD_SHIP[hid].mode)) { cur = OLD_SHIP[hid].mode; delete OLD_SHIP[hid].mode; }
-                if (!cur && PREFILL_MODE && modes.includes(PREFILL_MODE)) cur = PREFILL_MODE;
-                if (!cur) { const ship = st.options.find(o => o.mode !== 'pickup'); if (ship) cur = ship.mode; }
-                if (!cur) delete sel[hid];
-
-                st.options.forEach(o => {
-                    const lab = el('label', 'mp-co-opt');
-                    lab.dataset.mode = o.mode;
-                    const r = document.createElement('input');
-                    r.type = 'radio'; r.name = 'ship[' + hid + '][mode]'; r.value = o.mode;
-                    r.addEventListener('change', () => choose(hid, o.mode));
-                    const body = el('span', 'mp-co-opt__body');
-                    const top = el('span', 'mp-co-opt__top');
-                    top.appendChild(el('span', 'mp-co-opt__title', o.title));
-                    top.appendChild(el('span', 'mp-co-opt__price' + (o.pending && (o.amount === null || o.amount === undefined) ? ' is-pending' : ''), o.price));
-                    body.appendChild(top);
-                    const meta = [o.detail, o.eta].filter(Boolean).join(' · ');
-                    if (meta) body.appendChild(el('span', 'mp-co-opt__meta', meta));
-                    lab.appendChild(r); lab.appendChild(body);
-                    opts.appendChild(lab);
-                    c.labels.push(lab);
-                });
-                if (!st.options.some(o => o.mode !== 'pickup')) {
-                    opts.appendChild(el('p', 'mp-co-hint', 'Escribe tu distrito para ver el envío a domicilio o por agencia.'));
-                }
-                fs.appendChild(c.officeBox);
-                fs.appendChild(c.note);
-                fs.appendChild(c.final);
-                fs.appendChild(c.err);
-                root.appendChild(fs);
-                ctxs[hid] = c;
-                if (cur) {
-                    const r = c.labels.find(l => l.dataset.mode === cur).querySelector('input');
-                    r.checked = true;
-                    choose(hid, cur);
-                }
-            });
-            updateAddress();
-            if (window.mpRecalcSummary) window.mpRecalcSummary();
-        }
-        function go() {
-            const v = (k) => ((document.querySelector('[data-ubigeo="' + k + '"]') || {}).value || '');
-            const q = new URLSearchParams({ department: v('dep'), province: v('prov'), district: v('dist') });
-            const my = ++seq;
-            fetch(QUOTE_URL + '?' + q.toString(), { headers: { 'Accept': 'application/json' }, credentials: 'same-origin' })
-                .then(r => r.json())
-                .then(d => {
-                    if (my !== seq) return;   // llegó tarde: ya hay una consulta más nueva
-                    if (!d || !d.ok) { root.innerHTML = ''; root.appendChild(el('p', 'mp-co-hint', (d && d.message) || 'No pudimos cargar las opciones de envío.')); data = null; return; }
-                    data = d;
-                    render();
-                })
-                .catch(() => {
-                    if (my !== seq) return;
-                    data = null;
-                    root.innerHTML = '';
-                    root.appendChild(el('p', 'mp-co-field-err', 'No pudimos cargar las opciones de envío. Revisa tu conexión y recarga la página.'));
-                });
-        }
-        window.__mpShipRefresh = function () { clearTimeout(timer); timer = setTimeout(go, 80); };
-        // Lo que Confirmar necesita saber: ¿falta elegir algo? Pinta el error en la tienda.
-        window.__mpShipCheck = function () {
-            const errs = [];
-            if (!data) { errs.push({ target: root, msg: 'Aún no cargan las opciones de envío.' }); return errs; }
-            Object.keys(ctxs).forEach(hid => {
-                const c = ctxs[hid], s = sel[hid];
-                c.err.textContent = '';
-                if (!s || !s.option) {
-                    c.err.textContent = data.zone ? 'Elige cómo recibes este pedido.' : 'Elige tu distrito arriba para ver el envío, o elige recojo en tienda.';
-                    errs.push({ target: c.labels[0] ? c.labels[0].querySelector('input') : root, msg: c.err.textContent });
-                } else if (s.option.office_required && !s.officeId) {
-                    c.err.textContent = 'Elige la oficina de Shalom donde recogerás tu pedido.';
-                    if (c.officeSelect) c.officeSelect.classList.add('mp-co-invalid');
-                    errs.push({ target: c.officeSelect || root, msg: c.err.textContent });
-                }
-            });
-            return errs;
-        };
-        window.__mpShipMode = function () {
-            const modes = Object.values(sel).map(s => s.mode);
-            return {
-                anyDelivery: modes.includes('delivery'),
-                allPickup: Object.keys(ctxs).length > 0 && modes.length === Object.keys(ctxs).length && modes.every(m => m === 'pickup'),
-            };
-        };
-    })();
-
     // ── Autocompletado DNI/RUC → nombre + ubigeo ───────────────────────────
     (function () {
         const LOOKUP_URL = @json(route('marketplace.lookup.document'));
@@ -1177,12 +918,16 @@ input.mp-co-invalid, select.mp-co-invalid, textarea.mp-co-invalid {
             }
         }
 
-        // Cambió el destino: se vuelve a cotizar en el servidor (zona Lima/provincia,
-        // costo, plazo y oficinas). La zona ya no se deduce aquí: la decide
-        // StoreShipping::isLima sobre el ubigeo de 6 cifras.
+        // Zona de envio: Lima Metropolitana (provincia Lima) y Callao son
+        // «Lima»; el resto, «provincias». Mismo criterio que StoreShipping.
+        function zoneNow() {
+            const d = norm(depSel.value), p = norm(provSel.value);
+            if (!d || !p) return null;
+            return (p === 'LIMA' || d === 'CALLAO' || p === 'CALLAO') ? 'lima' : 'province';
+        }
         function onZone() {
-            if (window.__mpShipRefresh) window.__mpShipRefresh();
-            else if (window.mpRecalcSummary) window.mpRecalcSummary();
+            window.__mpShipZone = zoneNow();
+            if (window.mpRecalcSummary) window.mpRecalcSummary();
         }
 
         depSel.addEventListener('change', onDep);
@@ -1304,7 +1049,7 @@ input.mp-co-invalid, select.mp-co-invalid, textarea.mp-co-invalid {
                 onZone();
                 syncPlace();
             })
-            .catch(() => { onZone(); /* sin lista de distritos: solo recojo hasta que cargue */ });
+            .catch(() => { /* sin ubigeo: el envío igual funciona (campos vacíos) */ });
     })();
 
     // ── Validación inline antes de enviar ──────────────────────────────────
@@ -1324,52 +1069,17 @@ input.mp-co-invalid, select.mp-co-invalid, textarea.mp-co-invalid {
             boxes.set(input, box);
             return box;
         }
-        // El error de servidor (tras un POST rechazado) vive pegado al campo; al
-        // corregir se quita para que no conviva con el del navegador.
-        function dropServer(input) {
-            const anchor = input.closest('.mp-co-place') || input;
-            let n = anchor.nextElementSibling;
-            while (n && n.classList.contains('mp-co-field-err')) {
-                const next = n.nextElementSibling;
-                if (n.classList.contains('is-server')) n.remove();
-                n = next;
-            }
-        }
         function setErr(input, msg) {
             if (!input) return;
-            dropServer(input);
             input.classList.add('mp-co-invalid');
             errBox(input).textContent = msg;
         }
         function clearErr(input) {
             if (!input) return;
-            dropServer(input);
             input.classList.remove('mp-co-invalid');
             if (boxes.has(input)) boxes.get(input).textContent = '';
         }
         window.__mpClearErr = clearErr;
-
-        // Mismas reglas que el servidor (MarketplaceCheckoutRules): el documento
-        // es opcional salvo con RUC; CE y pasaporte llevan letras.
-        function docError(type, raw) {
-            const t = (type || '').toUpperCase();
-            const n = (t === 'CE' || t === 'PASAPORTE') ? raw.replace(/[^A-Za-z0-9]/g, '').toUpperCase() : raw.replace(/\D+/g, '');
-            if (!n) return t === 'RUC' ? 'Ingresa el RUC de 11 dígitos.' : null;
-            if (t === 'DNI') return /^\d{8}$/.test(n) ? null : 'El DNI debe tener 8 dígitos.';
-            if (t === 'RUC') return /^\d{11}$/.test(n) ? null : 'El RUC debe tener 11 dígitos.';
-            if (t === 'CE') return /^[A-Z0-9]{9,12}$/.test(n) ? null : 'El carné de extranjería debe tener entre 9 y 12 letras o números.';
-            if (t === 'PASAPORTE') return /^[A-Z0-9]{6,12}$/.test(n) ? null : 'El pasaporte debe tener entre 6 y 12 letras o números.';
-            return null;
-        }
-
-        // El teclado numérico solo sirve para DNI y RUC; CE y pasaporte llevan letras.
-        (function () {
-            const t = $('[name="customer_doc_type"]'), n = $('[name="customer_doc_number"]');
-            if (!t || !n) return;
-            const sync = () => { n.inputMode = (t.value === 'DNI' || t.value === 'RUC') ? 'numeric' : 'text'; n.maxLength = (t.value === 'DNI' || t.value === 'RUC') ? 11 : 20; };
-            t.addEventListener('change', () => { sync(); clearErr(n); });
-            sync();
-        })();
 
         function validate() {
             const errors = [];
@@ -1379,45 +1089,47 @@ input.mp-co-invalid, select.mp-co-invalid, textarea.mp-co-invalid {
             const phone = $('[name="customer_phone"]');
             const email = $('[name="customer_email"]');
             const addr  = $('[name="delivery_address"]');
-            const place = $('[data-place-input]');
-            const dist  = $('[name="delivery_district"]');
 
-            [name, dnum, phone, email, addr, place].forEach(clearErr);
+            [name, dnum, phone, email, addr].forEach(clearErr);
 
             if (!name.value.trim() || name.value.trim().length < 3) {
                 setErr(name, 'Ingresa el nombre completo o razón social.');
                 errors.push(name);
             }
 
-            const de = docError(dtype && dtype.value, dnum.value || '');
-            if (de) { setErr(dnum, de); errors.push(dnum); }
+            // Documento: opcional, pero si se llena debe cuadrar con el tipo.
+            const dv = (dnum.value || '').replace(/\D+/g, '');
+            const dt = (dtype && dtype.value || '').toUpperCase();
+            if (dnum.value.trim()) {
+                if (dt === 'DNI' && dv.length !== 8) { setErr(dnum, 'El DNI debe tener 8 dígitos.'); errors.push(dnum); }
+                else if (dt === 'RUC' && dv.length !== 11) { setErr(dnum, 'El RUC debe tener 11 dígitos.'); errors.push(dnum); }
+            }
 
             // Teléfono: requerido, celular peruano 9 dígitos (acepta prefijo 51).
             let pv = (phone.value || '').replace(/\D+/g, '');
             if (pv.length === 11 && pv.startsWith('51')) pv = pv.slice(2);
-            if (!pv) { setErr(phone, 'Ingresa tu celular o WhatsApp.'); errors.push(phone); }
-            else if (!/^9\d{8}$/.test(pv)) { setErr(phone, 'Debe ser un celular de 9 dígitos que empiece en 9 (con o sin +51).'); errors.push(phone); }
+            if (!pv) { setErr(phone, 'Ingresa tu teléfono / WhatsApp.'); errors.push(phone); }
+            else if (!/^9\d{8}$/.test(pv)) { setErr(phone, 'Debe ser un celular válido de 9 dígitos (empieza en 9).'); errors.push(phone); }
 
             // Email: opcional, pero válido si se llena.
             if (email.value.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value.trim())) {
-                const det = email.closest('details'); if (det) det.open = true;
                 setErr(email, 'Revisa el formato del correo.');
                 errors.push(email);
             }
 
-            // ¿Cómo lo recibes? Una elección por tienda. Si TODO se recoge no hace
-            // falta distrito; con delivery sí hace falta la dirección de calle.
-            const shipErrs = window.__mpShipCheck ? window.__mpShipCheck() : [];
-            const mode = window.__mpShipMode ? window.__mpShipMode() : { anyDelivery: true, allPickup: false };
-            if (place && !mode.allPickup && (!dist || !dist.value)) {
-                setErr(place, 'Escribe tu distrito y elígelo de la lista: así sabemos a dónde va y cuánto cuesta.');
-                errors.push(place);
+            // Distrito: hace falta para calcular el envio y para que la tienda
+            // sepa a donde mandar. Se elige de la lista del buscador.
+            const place = $('[data-place-input]');
+            const dist  = $('[name="delivery_district"]');
+            if (place) {
+                clearErr(place);
+                if (!dist || !dist.value) { setErr(place, 'Escribe tu distrito y elígelo de la lista.'); errors.push(place); }
             }
-            if (mode.anyDelivery && (!addr.value.trim() || addr.value.trim().length < 5)) {
-                setErr(addr, 'Ingresa la dirección de entrega (calle, número y distrito).');
+
+            if (!addr.value.trim() || addr.value.trim().length < 5) {
+                setErr(addr, 'Ingresa la dirección de entrega.');
                 errors.push(addr);
             }
-            shipErrs.forEach(e => { if (e.target) errors.push(e.target); });
 
             return errors;
         }

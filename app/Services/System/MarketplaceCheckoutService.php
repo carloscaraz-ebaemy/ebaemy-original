@@ -46,39 +46,6 @@ class MarketplaceCheckoutService
     }
 
     /**
-     * ¿El checkout cobra en línea (Mercado Pago)? La vista lo usa para no
-     * prometer «Sin pago adelantado» cuando en realidad redirige a la pasarela.
-     */
-    public function paysOnline(): bool
-    {
-        return $this->mercadopagoEnabled();
-    }
-
-    /** Guarda lo último que dio el comprador con cuenta para precargarlo la próxima vez. */
-    private function rememberBuyer(array $customer): void
-    {
-        $user = \Illuminate\Support\Facades\Auth::guard('marketplace')->user();
-        if (!$user) {
-            return;
-        }
-        $plans = (array) ($customer['shipping'] ?? []);
-        $first = $plans ? reset($plans) : null;
-        app(MarketplaceCheckoutShipping::class)->rememberProfile($user, [
-            'phone'      => $customer['phone'] ?? null,
-            'doc_type'   => $customer['doc_type'] ?? null,
-            'doc_number' => $customer['doc_number'] ?? null,
-            // «Sin dirección» es el marcador de «no hay», no una dirección que recordar.
-            'address'    => ($customer['address'] ?? null) && mb_strtolower((string) $customer['address']) !== 'sin dirección' ? $customer['address'] : null,
-            'notes'      => $customer['notes'] ?? null,
-            'department' => $customer['department'] ?? null,
-            'province'   => $customer['province'] ?? null,
-            'district'   => $customer['district'] ?? null,
-            'ubigeo'     => $customer['ubigeo'] ?? null,
-            'mode'       => $first['mode'] ?? null,
-        ]);
-    }
-
-    /**
      * Para cada tienda del cart, valida el cupón provisto (si hay) contra
      * el tenant correspondiente vía PromotionEngine en modo preview (sin
      * incrementar contadores). Devuelve un array {hostname_id => {code,
@@ -200,12 +167,6 @@ class MarketplaceCheckoutService
                 $totalAll      = 0.0;
                 $itemsAll      = 0;
                 $discountTotal = 0.0;
-                // Envío elegido por el comprador, por tienda (ver
-                // MarketplaceCheckoutShipping::resolveSelection). Lo que vio
-                // antes de pagar es lo que se guarda; nada se recalcula luego.
-                $shipPlans     = (array) ($customer['shipping'] ?? []);
-                $shipTotal     = 0.0;
-                $shipPending   = false;
 
                 $order = MarketplaceOrder::create([
                     'order_number'         => MarketplaceOrder::generateOrderNumber(),
@@ -222,7 +183,6 @@ class MarketplaceCheckoutService
                     'delivery_department'  => $customer['department']  ?? null,
                     'delivery_province'    => $customer['province']    ?? null,
                     'delivery_district'    => $customer['district']    ?? null,
-                    'delivery_ubigeo'      => $customer['ubigeo']      ?? null,
                     'delivery_notes'       => $customer['notes']       ?? null,
                     'status'               => MarketplaceOrder::STATUS_PENDING,
                     'payment_status'       => 'unpaid',
@@ -286,22 +246,7 @@ class MarketplaceCheckoutService
 
                     $discountTotal += $storeDiscount + $platDiscount;
 
-                    $plan = $shipPlans[$store['hostname_id']] ?? null;
-                    if ($plan) {
-                        $shipTotal   += (float) ($plan['cost'] ?? 0);
-                        $shipPending  = $shipPending || !empty($plan['pending']);
-                    }
-
                     $sub = TenantMarketplaceOrder::create([
-                        'shipping_mode'                  => $plan['mode'] ?? null,
-                        'shipping_cost'                  => $plan ? ($plan['cost'] !== null ? round((float) $plan['cost'], 2) : null) : null,
-                        'shipping_pending'               => (bool) ($plan['pending'] ?? false),
-                        'shipping_has_policy'            => (bool) ($plan['has_policy'] ?? false),
-                        'shipping_eta'                   => $plan['eta'] ?? null,
-                        'shipping_label'                 => isset($plan['label']) ? Str::limit($plan['label'], 250, '') : null,
-                        'agency_office_id'               => $plan['office_id'] ?? null,
-                        'agency_office_name'             => $plan['office_name'] ?? null,
-                        'agency_office_address'          => isset($plan['office_address']) ? Str::limit((string) $plan['office_address'], 480, '') : null,
                         'marketplace_order_id'           => $order->id,
                         'hostname_id'                    => $store['hostname_id'],
                         'tenant_fqdn'                    => $store['tenant_fqdn'],
@@ -343,10 +288,6 @@ class MarketplaceCheckoutService
                 $order->update([
                     'subtotal'       => round($totalAll, 2),
                     'discount_total' => round($discountTotal, 2),
-                    // `total` sigue siendo solo productos menos descuentos (lo usan
-                    // reportes y la pasarela); el envío va en su propia columna.
-                    'shipping_total'   => $shipPlans ? round($shipTotal, 2) : null,
-                    'shipping_pending' => $shipPending,
                     'total'          => round(max(0, $totalAll - $discountTotal), 2),
                     'items_count'    => $itemsAll,
                 ]);
@@ -399,8 +340,6 @@ class MarketplaceCheckoutService
             //  MarketplaceCouponService::releaseAllForOrder.)
 
             $order->refresh();
-
-            $this->rememberBuyer($customer);
 
             // Email de confirmación al comprador. Best-effort — el pedido
             // ya está persistido (y dispatchado o pendiente de pago).
