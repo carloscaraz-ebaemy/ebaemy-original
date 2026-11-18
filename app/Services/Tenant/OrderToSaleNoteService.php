@@ -336,7 +336,33 @@ class OrderToSaleNoteService
         $c['telephone'] = $c['telephone'] ?? $c['telefono'] ?? ($person->telephone ?? null);
         $c['email'] = $c['email'] ?? $c['correo_electronico'] ?? ($person->email ?? null);
 
-        return $c;
+        // Base con la MISMA estructura que la pantalla de notas (PersonInput):
+        // las plantillas del PDF leen `identity_document_type`, `district`,
+        // `province`… como objetos y sin ellos fallaba todo PDF con «Undefined
+        // property». Encima van los datos del pedido (quien compra/recibe).
+        $base = [];
+        if ($person) {
+            try {
+                $base = \App\CoreFacturalo\Requests\Inputs\Common\PersonInput::set($person->id) ?: [];
+            } catch (\Throwable $e) {
+                $base = [];
+            }
+        }
+        $out = array_merge($base, array_filter($c, fn ($v) => $v !== null && $v !== ''));
+
+        $tipoId = (string) ($out['identity_document_type_id'] ?? '1');
+        $out['identity_document_type'] = [
+            'id'          => $tipoId,
+            'description' => optional(\App\Models\Tenant\Catalogs\IdentityDocumentType::find($tipoId))->description
+                ?? ($tipoId === '6' ? 'RUC' : 'DNI'),
+        ];
+        foreach (['country', 'department', 'province', 'district'] as $geo) {
+            if (!isset($out[$geo]) || !is_array($out[$geo])) {
+                $out[$geo] = ['id' => $out[$geo . '_id'] ?? null, 'description' => null];
+            }
+        }
+
+        return $out;
     }
 
     protected function copyPaymentsToSaleNote(Order $order, SaleNote $saleNote): void
