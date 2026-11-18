@@ -47,6 +47,8 @@ A16 migraciones → A01 catálogo → A02 inventario → A03 pedidos
 columna, diálogo, regla de precio/stock/oferta): su propuesta de guía/NUEVO/textos se
 pregunta al usuario antes de QA. Un cambio visible sin ese paso no se despliega.
 
+**A23 responsive** (`.claude/agents/responsive.md`) se invoca tras todo cambio visual (Blade, Vue, CSS, temas) y antes de A18: mide en 360-1366 px con la skill `ebaemy-responsive` y puede vetar el cierre.
+
 ### 4. Arbitrar
 - **Mismo archivo:** se serializan; el dueño va primero. Si es `routes/web.php`, una migración o `tests/`, lo edita su dueño transversal con ambos cambios juntos.
 - **Misma tabla:** sólo escribe el dueño; el otro presenta solicitud.
