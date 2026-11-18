@@ -147,6 +147,59 @@ class ShalomGuide
     /** Lo que Shalom acepta como declaración jurada en envíos aéreos. */
     public const AIR_DECLARATIONS = ['Artículos de uso personal', 'Documentos', 'Ropa', 'Electrodomésticos'];
 
+    /**
+     * Declaración jurada sugerida según las categorías de los productos.
+     * Shalom solo acepta sus 4 opciones (AIR_DECLARATIONS): la categoría de
+     * la tienda se muestra al vendedor y la categoría oficial raíz decide la
+     * opción (Moda → Ropa, Tecnología → Electrodomésticos, el resto →
+     * Artículos de uso personal). Desde 2026-11-18 Shalom la exige también en
+     * terrestre.
+     *
+     * @param  array<int,int> $itemIds
+     * @return array{categorias: array<int,string>, declaracion: string}
+     */
+    public static function suggestDeclaration(array $itemIds): array
+    {
+        $porRaiz = [28 => 'Ropa', 60 => 'Electrodomésticos'];
+        $general = 'Artículos de uso personal';
+
+        $items = \App\Models\Tenant\Item::whereIn('id', array_filter(array_map('intval', $itemIds)))
+            ->get(['id', 'category_id', 'marketplace_category_id']);
+
+        $categorias = \Modules\Item\Models\Category::whereIn('id', $items->pluck('category_id')->filter())
+            ->pluck('name')->filter()->unique()->values()->all();
+
+        $votos = [];
+        foreach ($items as $it) {
+            $raiz = self::officialRoot($it->marketplace_category_id);
+            $op = $porRaiz[$raiz] ?? $general;
+            $votos[$op] = ($votos[$op] ?? 0) + 1;
+        }
+        arsort($votos);
+        $declaracion = $votos ? array_key_first($votos) : $general;
+        // Empate entre opciones distintas: la general, que abarca a todas.
+        if (count($votos) > 1 && count(array_unique(array_values($votos))) === 1) {
+            $declaracion = $general;
+        }
+
+        return ['categorias' => $categorias, 'declaracion' => $declaracion];
+    }
+
+    private static function officialRoot($categoryId): ?int
+    {
+        $id = (int) $categoryId;
+        for ($i = 0; $id && $i < 8; $i++) {
+            $parent = \Illuminate\Support\Facades\DB::connection('system')
+                ->table('marketplace_categories')->where('id', $id)->value('parent_id');
+            if (!$parent) {
+                return $id;
+            }
+            $id = (int) $parent;
+        }
+
+        return $id ?: null;
+    }
+
     public function create(ShippingRequest $s, string $content, ?string $clave = null, ?string $declaracion = null): array
     {
         // Doble clic o dos operadores a la vez: una sola creación por envío.

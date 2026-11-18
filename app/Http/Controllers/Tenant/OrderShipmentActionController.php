@@ -131,6 +131,25 @@ class OrderShipmentActionController extends Controller
             app(ShipmentController::class)->createShalomGuide($request, $envio));
     }
 
+    /**
+     * Declaración jurada sugerida para la guía de Shalom, según las
+     * categorías de los productos del pedido (solo lectura).
+     */
+    public function shalomDeclaracion(Order $order)
+    {
+        $items = $order->items;
+        $items = is_string($items) ? json_decode($items, true) : json_decode(json_encode($items ?: []), true);
+        $ids = collect($items ?: [])->map(fn ($i) => $i['item_id'] ?? $i['id'] ?? null)->filter()->unique()->values()->all();
+
+        // El detalle que la tienda escribió para el paquete (el del rótulo):
+        // es lo que se muestra; la opción de Shalom se deduce de las categorías.
+        $detalle = trim((string) optional($order->shipment)->package_content);
+        $detalle = $detalle !== '' ? preg_replace('/\s*\R\s*/u', ', ', $detalle) : null;
+
+        return response()->json(['success' => true, 'detalle' => $detalle]
+            + \App\Services\Tenant\ShalomGuide::suggestDeclaration($ids));
+    }
+
     /** Poner el pedido en espera (acumulando productos) o listo para enviar. */
     public function espera(Request $request, Order $order)
     {

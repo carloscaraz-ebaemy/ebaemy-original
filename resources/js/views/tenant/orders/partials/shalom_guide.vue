@@ -218,18 +218,19 @@
             <div class="shg-field">
                 <label>
                     {{ aereo ? 'Envío aéreo: ¿qué contiene?' : '¿Qué contiene el paquete? (declaración jurada)' }}
-                    <span v-if="aereo || pideDeclaracion" class="shg-req">*</span>
-                    <small v-else class="shg-opt-l">(si Shalom la pide)</small>
+                    <span class="shg-req">*</span>
                 </label>
-                <el-select v-model="declaracion" clearable placeholder="Declaración jurada" style="width:100%">
+                <div v-if="detallePaquete || categoriasPedido.length" class="shg-okline" style="margin-bottom:8px">
+                    Contiene: <strong>{{ detallePaquete || categoriasPedido.join(', ') }}</strong>.
+                    Shalom solo acepta estas 4 opciones; ya marcamos la que corresponde.
+                </div>
+                <el-select v-model="declaracion" placeholder="Declaración jurada" style="width:100%">
                     <el-option v-for="d in declaraciones" :key="d" :label="d" :value="d"></el-option>
                 </el-select>
                 <small class="shg-sub">
                     {{ aereo
                         ? 'El cliente eligió vía aérea; Shalom pide declarar el contenido.'
-                        : (pideDeclaracion
-                            ? 'Shalom pide declarar el contenido para este destino. Elige la opción más cercana y vuelve a crear la guía.'
-                            : 'Algunos destinos la exigen. Si la eliges, se envía a Shalom con la guía.') }}
+                        : 'Shalom la exige en todas las guías. Puedes cambiarla si el paquete lleva otra cosa.' }}
                 </small>
             </div>
 
@@ -247,7 +248,7 @@
             <div v-if="error" class="shg-alert shg-alert--foot">{{ error }}</div>
             <el-button @click="cerrar">{{ hecho || (conGuia && !modo) ? 'Cerrar' : 'Cancelar' }}</el-button>
             <el-button v-if="!conGuia && !hecho" type="primary" :loading="cargando"
-                       :disabled="!content || !sh.ready || ((aereo || pideDeclaracion) && !declaracion)" @click="crear">
+                       :disabled="!content || !sh.ready || !declaracion" @click="crear">
                 Crear guía
             </el-button>
             <el-button v-else-if="modo && accionTxt" :type="modo === 'quitar' ? 'danger' : 'primary'" :loading="cargando" @click="accion">
@@ -291,6 +292,10 @@ export default {
             declaraciones: ["Artículos de uso personal", "Documentos", "Ropa", "Electrodomésticos"],
             // Shalom rechazó la guía terrestre pidiendo la declaración jurada.
             pideDeclaracion: false,
+            // Categorías de los productos del pedido (las de la tienda).
+            categoriasPedido: [],
+            // Detalle del paquete que la tienda escribió en el envío.
+            detallePaquete: null,
             cargando: false,
             error: null,
             aviso: null,
@@ -334,7 +339,22 @@ export default {
             this.clave = "";
             this.declaracion = "";
             this.pideDeclaracion = false;
+            this.categoriasPedido = [];
+            this.detallePaquete = null;
             this.error = null;
+            // Declaración sugerida por las categorías de los productos.
+            if (this.orderId && !this.conGuia) {
+                this.$http.get(`/orders/${this.orderId}/envio/shalom-declaracion`)
+                    .then(r => {
+                        const d = r.data || {};
+                        this.categoriasPedido = d.categorias || [];
+                        this.detallePaquete = d.detalle || null;
+                        if (!this.declaracion && this.declaraciones.includes(d.declaracion)) {
+                            this.declaracion = d.declaracion;
+                        }
+                    })
+                    .catch(() => {});
+            }
             this.aviso = null;
             this.hecho = null;
             this.quitada = false;

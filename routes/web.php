@@ -582,6 +582,9 @@ if ($hostname) {
             // cuenta de la tienda y bajar su rótulo oficial.
             Route::post('orders/{order}/envio/shalom-guia', [\App\Http\Controllers\Tenant\OrderShipmentActionController::class, 'shalomGuia'])
                  ->whereNumber('order')->name('orders.shipping.shalom_guide')->middleware('throttle:10,1');
+            // Declaración jurada sugerida por las categorías del pedido (solo lectura).
+            Route::get('orders/{order}/envio/shalom-declaracion', [\App\Http\Controllers\Tenant\OrderShipmentActionController::class, 'shalomDeclaracion'])
+                 ->whereNumber('order')->name('orders.shipping.shalom_declaration')->middleware('throttle:30,1');
             // Cambios sobre la guía ya creada (autogestiones de Shalom).
             Route::post('orders/{order}/envio/shalom-clave', [\App\Http\Controllers\Tenant\OrderShipmentActionController::class, 'shalomClave'])
                  ->whereNumber('order')->name('orders.shipping.shalom_clave')->middleware('throttle:10,1');
