@@ -1017,7 +1017,10 @@ class MarketplaceController extends Controller
      *  - Variante sin foto (habiendo otras con foto) usa la foto del PRODUCTO.
      *  - Título «<producto> — <variante>»; precio, oferta y stock son los de
      *    la variante que publica el sync (ItemVariant::offerFor).
-     *  - Sin búsqueda: como mucho 6 por producto.
+     *  - Sin búsqueda NO se expande: el catálogo (inicio, categorías, página
+     *    de tienda) muestra una tarjeta por producto. Decisión del dueño
+     *    2026-11-18: expandido, un solo producto llenaba el catálogo con sus
+     *    variantes. Las variantes como tarjetas son solo para la búsqueda.
      *  - Con búsqueda (`$q`): si alguna variante casa con lo buscado por
      *    nombre o SKU («polo rojo» → la variante Rojo) salen SOLO esas; si
      *    ninguna casa (se buscó el producto: «colgantes») salen TODAS las
@@ -1030,6 +1033,9 @@ class MarketplaceController extends Controller
     private function explodeVariantsIntoCards($listings, ?string $q = null): void
     {
         if (!$listings instanceof \Illuminate\Contracts\Pagination\Paginator) {
+            return;
+        }
+        if (trim((string) $q) === '') {
             return;
         }
         $items = collect($listings->items());
