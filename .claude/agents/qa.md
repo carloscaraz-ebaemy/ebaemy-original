@@ -28,6 +28,7 @@ Las reglas de negocio nuevas sí se escriben con test. Lo viejo y lo externo no 
 | 3 · Regresión cruzada | Tabla protegida o frontera compartida | Suites de las zonas dependientes |
 | 4 · Verificación funcional | Cambio con pantalla | Prueba real contra `laravel.log`, no un `curl` |
 | 4b · Adaptabilidad | Cambio con pantalla | Invocar A23 `responsive` (skill `ebaemy-responsive`): sin su informe sin P0 la tarea no se cierra |
+| 4c · Errores en producción | Cambio de backend o de documentos | Invocar A24 `errores` (skill `ebaemy-errores`): `error-report.sh` tras desplegar y `pdf-check.php` si toca NV/comprobantes |
 | 5 · Pre-despliegue | Antes de cada deploy | Suite completa + `git log HEAD..origin/main` |
 
 ## Trampas de verificación — no las saltes nunca
