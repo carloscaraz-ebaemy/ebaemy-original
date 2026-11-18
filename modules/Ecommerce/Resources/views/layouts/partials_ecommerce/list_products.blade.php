@@ -89,7 +89,21 @@
     $defaultPath  = $defaultImage === 'imagen-no-disponible.jpg'
         ? asset('logo/imagen-no-disponible.jpg')
         : asset('storage/defaults/' . $defaultImage);
-    $hasRealImage = $item->image && $item->image !== 'imagen-no-disponible.jpg';
+    // Tarjeta de variante (solo al buscar, ver StorefrontCatalog::
+    // explodeVariantsIntoCards): foto, precio, oferta, título y enlace son
+    // los de esa variante. Sin variante, un producto sin foto propia usa la
+    // de una de sus variantes (storefront_image).
+    $vCard        = $item->variant_card ?? null;
+    $cardTitle    = $vCard ? $vCard['title'] : $item->description;
+    $cardFile     = $vCard
+        ? $vCard['image']
+        : (($item->image && $item->image !== 'imagen-no-disponible.jpg') ? $item->image : ($item->storefront_image ?? null));
+    $hasRealImage = $cardFile && $cardFile !== 'imagen-no-disponible.jpg';
+    if ($vCard) {
+        $totalStock = (float) $vCard['stock'];
+        $outOfStock = $totalStock <= 0;
+        $isLowStock = !$outOfStock && $totalStock > 0 && $totalStock <= 5;
+    }
 
     // La rejilla pinta la foto a ~200-400 px, pero servia el ORIGINAL. La
     // variante reducida ya existe en `items.image_medium` —la genera el
@@ -99,17 +113,18 @@
     //
     // Con respaldo al original por si algun producto viejo no la tiene: mejor
     // una foto pesada que un hueco.
-    $imagenReducida = ($item->image_medium ?? null);
+    $imagenReducida = ($cardFile === $item->image) ? ($item->image_medium ?? null) : null;
     $imagenReducida = ($imagenReducida && $imagenReducida !== 'imagen-no-disponible.jpg')
         ? $imagenReducida
         : null;
 
     $imagePath    = $hasRealImage
-        ? asset('storage/uploads/items/' . ($imagenReducida ?: $item->image))
+        ? asset('storage/uploads/items/' . ($imagenReducida ?: $cardFile))
         : $defaultPath;
     // Segunda imagen para hover swap
     $hoverImage = null;
-    if ($item->relationLoaded('images') && $item->images->isNotEmpty()) {
+    // La galería es del producto: en la tarjeta de una variante no se mezcla.
+    if (!$vCard && $item->relationLoaded('images') && $item->images->isNotEmpty()) {
         $firstGallery = $item->images->first();
         if ($firstGallery && $firstGallery->image && $firstGallery->image !== 'imagen-no-disponible.jpg') {
             $hoverImage = asset('storage/uploads/items/' . $firstGallery->image);
@@ -131,7 +146,11 @@
     $cardPriority = $hasRealImage && $conFoto === 1;
 
     $productUrl   = route('tenant.ecommerce.item', ['slug' => $item->slug ?: $item->id]);
-    $altText      = $item->description . ($item->category ? ' — ' . $item->category->name : '');
+    if ($vCard) {
+        // La ficha preselecciona la variante con ?variant=<item_variants.id>.
+        $productUrl .= '?variant=' . $vCard['id'];
+    }
+    $altText      = $cardTitle . ($item->category ? ' — ' . $item->category->name : '');
     $symbol       = $item->currency_type['symbol'] ?? 'S/';
     // Precio efectivo: flash sale, pack u oferta vigente. Una sola
     // definicion, compartida con las tarjetas de los themes de nicho.
@@ -151,6 +170,14 @@
     $hasDiscount   = $pricing->hasDiscount;
     $discountPct   = $pricing->discountPct;
     $price         = $pricing->formatted();
+    if ($vCard) {
+        // Precio y oferta de la variante: regla única ItemVariant::offerFor().
+        $displayPrice  = (float) $vCard['price'];
+        $originalPrice = (float) $vCard['original'];
+        $hasDiscount   = $originalPrice > 0 && $originalPrice > $displayPrice;
+        $discountPct   = $hasDiscount ? (int) round((1 - $displayPrice / $originalPrice) * 100) : 0;
+        $price         = number_format($displayPrice, 2);
+    }
     $rating        = $__ratings[$item->id] ?? null;
     // Stagger delay (1-based position in the page)
     $loop_i       = $loop->iteration;
@@ -185,7 +212,7 @@
                     <span class="pbadge pbadge--discount">-{{ $discountPct }}%</span>
                     @endcardOption
                 @endif
-                @if($item->has_variants)
+                @if($item->has_variants && !$vCard)
                     @cardOption('badge_variants')
                     <span class="pbadge pbadge--variants">Variantes</span>
                     @endcardOption
@@ -199,7 +226,7 @@
                     data-wishlist-id="{{ $item->id }}"
                     aria-pressed="false"
                     title="Guardar en favoritos"
-                    aria-label="Guardar {{ $item->description }} en favoritos">
+                    aria-label="Guardar {{ $cardTitle }} en favoritos">
                 <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24"
                      fill="none" stroke="currentColor" stroke-width="2.5"
                      stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -323,7 +350,7 @@
 
             {{-- Title --}}
             <h2 class="pcard__title" itemprop="name">
-                <a href="{{ $productUrl }}">{{ $item->description }}</a>
+                <a href="{{ $productUrl }}">{{ $cardTitle }}</a>
             </h2>
 
             {{-- Rating: solo si el producto tiene resenas aprobadas. Sin
@@ -369,7 +396,7 @@
             {{-- Price --}}
             <div class="pcard__price" itemprop="offers" itemscope itemtype="https://schema.org/Offer">
                 <meta itemprop="priceCurrency" content="{{ $item->currency_type_id ?? 'PEN' }}">
-                <meta itemprop="price"         content="{{ $item->sale_unit_price }}">
+                <meta itemprop="price"         content="{{ $vCard ? $displayPrice : $item->sale_unit_price }}">
                 <link  itemprop="url"           href="{{ $productUrl }}">
                 @if($outOfStock)
                     <link itemprop="availability" href="https://schema.org/OutOfStock">
@@ -388,15 +415,15 @@
             @if($item->has_variants && !$outOfStock)
                 <a href="{{ $productUrl }}"
                    class="pcard__cta pcard__cta--variants"
-                   aria-label="Ver opciones de {{ $item->description }}"
-                   title="Elegir variante">
+                   aria-label="{{ $vCard ? 'Ver ' . $cardTitle : 'Ver opciones de ' . $item->description }}"
+                   title="{{ $vCard ? 'Ver este modelo' : 'Elegir variante' }}">
                     <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24"
                          fill="none" stroke="currentColor" stroke-width="2.5"
                          stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                         <circle cx="12" cy="12" r="10"/>
                         <polyline points="12 8 16 12 12 16"/><line x1="8" y1="12" x2="16" y2="12"/>
                     </svg>
-                    <span class="pcard__cta-text">Elegir opciones</span>
+                    <span class="pcard__cta-text">{{ $vCard ? 'Ver modelo' : 'Elegir opciones' }}</span>
                 </a>
             @elseif(!$outOfStock && !\App\Services\EcommerceCardOptions::enabled('add_to_cart'))
                 {{-- Sin carrito rapido: la tarjeta lleva a la ficha, donde el

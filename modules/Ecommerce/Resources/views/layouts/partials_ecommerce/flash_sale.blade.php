@@ -61,7 +61,9 @@
                 : 0;
             $imgUrl = ($item->image && $item->image !== 'imagen-no-disponible.jpg')
                 ? asset('storage/uploads/items/'. $item->image)
-                : asset('porto-ecommerce/assets/images/no-image.png');
+                : (!empty($item->storefront_image)
+                    ? asset('storage/uploads/items/' . $item->storefront_image)
+                    : asset('porto-ecommerce/assets/images/no-image.png'));
             $itemUrl = route('tenant.ecommerce.item', ['slug' => $item->slug]);
         @endphp
         <a href="{{ $itemUrl }}" class="ec-flash-card">

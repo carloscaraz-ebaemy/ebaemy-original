@@ -24,6 +24,8 @@ class FeaturedProductsViewComposer
         $query = Item::with(['currency_type', 'warehouses', 'tags', 'tags.tag'])
             ->where('apply_store', 1)
             ->where('internal_id', '!=', null);
+        // Sin foto (ni propia ni de una variante activa) no se destaca.
+        \Modules\Ecommerce\Services\StorefrontCatalog::whereHasImage($query);
 
         // Si existe el tag "Destacado" y tiene productos asignados → filtrar por él
         if ($featuredTag) {
@@ -40,6 +42,8 @@ class FeaturedProductsViewComposer
             $items = $this->fallbackItems($query);
         }
 
+        \Modules\Ecommerce\Services\StorefrontCatalog::attachVariantImageFallback($items);
+
         $view->items = $items->transform(function ($row) use ($exchange_rate_sale) {
             $sale_unit_price = ($row->has_igv) ? $row->sale_unit_price : $row->sale_unit_price * 1.18;
 
@@ -55,7 +59,9 @@ class FeaturedProductsViewComposer
                 'has_igv'                      => (bool) $row->has_igv,
                 'sale_affectation_igv_type_id' => $row->sale_affectation_igv_type_id,
                 'currency_type_symbol'         => $row->currency_type->symbol,
-                'image'                        => $row->image,
+                'image'                        => \Modules\Ecommerce\Services\StorefrontCatalog::isRealImage($row->image)
+                    ? $row->image
+                    : ($row->storefront_image ?? $row->image),
                 'image_medium'                 => $row->image_medium,
                 'image_small'                  => $row->image_small,
                 'stock'                        => $row->warehouses->sum('stock'),

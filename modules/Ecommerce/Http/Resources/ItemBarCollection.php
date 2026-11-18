@@ -68,7 +68,13 @@ class ItemBarCollection extends ResourceCollection
                 'apply_store' => (bool)$row->apply_store,
                 'slug' => $row->slug ?: $row->id,
                 'category' => $row->category ? $row->category->name : null,
-                'image_url' => ($row->image && $row->image !== 'imagen-no-disponible.jpg') ? asset('storage/uploads/items/' . $row->image) : asset('logo/imagen-no-disponible.jpg'),
+                // Sin foto propia: la de una variante (EcommerceController::itemsBar
+                // la deja en storefront_image), como en la tarjeta del listado.
+                'image_url' => ($row->image && $row->image !== 'imagen-no-disponible.jpg')
+                    ? asset('storage/uploads/items/' . $row->image)
+                    : ($row->storefront_image
+                        ? asset('storage/uploads/items/' . $row->storefront_image)
+                        : asset('logo/imagen-no-disponible.jpg')),
                 'image_url_medium' => ($row->image_medium && $row->image_medium !== 'imagen-no-disponible.jpg') ? asset('storage/uploads/items/' . $row->image_medium) : null,
                 'image_url_small' => ($row->image_small && $row->image_small !== 'imagen-no-disponible.jpg') ? asset('storage/uploads/items/' . $row->image_small) : null,
                 'tags' => $row->tags,

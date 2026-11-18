@@ -1578,8 +1578,14 @@
             var grid = document.getElementById('ec-fbt-grid');
             var section = document.getElementById('ec-fbt-section');
             if (!grid || !section) return;
+            // Producto sin imagen no se muestra en el escaparate (dueño,
+            // 2026-11-18): la recomendación solo trae image_small.
+            items = items.filter(function(item){
+                return item.image_small && item.image_small !== 'imagen-no-disponible.jpg';
+            });
+            if (!items.length) return;
             items.forEach(function(item){
-                var img = item.image_small ? '/storage/uploads/items/' + item.image_small : '/logo/imagen-no-disponible.jpg';
+                var img = '/storage/uploads/items/' + item.image_small;
                 grid.insertAdjacentHTML('beforeend',
                     '<div class="col-6 col-md-3 mb-3">' +
                     '<div style="background:#fff;border-radius:12px;padding:12px;box-shadow:0 1px 4px rgba(0,0,0,.08);text-align:center">' +

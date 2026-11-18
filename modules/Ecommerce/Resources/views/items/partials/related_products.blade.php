@@ -33,7 +33,9 @@
                     : asset('storage/defaults/' . $defaultImage);
                 $imagePath    = ($item->image && $item->image !== 'imagen-no-disponible.jpg')
                     ? asset('storage/uploads/items/' . $item->image)
-                    : $defaultPath;
+                    : (!empty($item->storefront_image)
+                        ? asset('storage/uploads/items/' . $item->storefront_image)
+                        : $defaultPath);
                 $productUrl   = route('tenant.ecommerce.item', ['slug' => $item->slug ?: $item->id]);
             @endphp
 

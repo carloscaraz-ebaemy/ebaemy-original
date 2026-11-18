@@ -117,7 +117,9 @@
         "@type": "ItemList",
         "numberOfItems": {{ $dataPaginate->total() }},
         "itemListElement": [
-            @foreach($dataPaginate->take(20) as $i => $_p)
+            {{-- unique: al buscar, una variante sale como tarjeta propia
+                 (clon del producto) y el ItemList no debe repetir la URL. --}}
+            @foreach(collect($dataPaginate->items())->unique('id')->values()->take(20) as $i => $_p)
             {
                 "@type": "ListItem",
                 "position": {{ $i + 1 }},

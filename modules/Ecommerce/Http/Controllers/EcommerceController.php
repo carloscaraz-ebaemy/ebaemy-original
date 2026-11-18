@@ -2,6 +2,8 @@
 
 namespace Modules\Ecommerce\Http\Controllers;
 
+use Modules\Ecommerce\Services\StorefrontCatalog;
+
 use App\Http\Controllers\Tenant\EmailController;
 use App\Models\Tenant\Configuration;
 use Illuminate\Http\Request;
@@ -122,9 +124,33 @@ class EcommerceController extends Controller
                 'variants' => fn($q) => $q->select(['id','item_id','stock']),
             ]);
 
-        // Búsqueda por nombre
+        // Producto sin imagen no se muestra en el escaparate (decisión del
+        // dueño 2026-11-18): ni foto propia ni de una variante activa. La
+        // ficha por URL sigue abierta y el panel lo sigue listando.
+        StorefrontCatalog::whereHasImage($query);
+
+        // Búsqueda por nombre. También casa el nombre o el SKU de una variante
+        // activa («rojo», «POL-RJ-M»): la búsqueda saca esas variantes como
+        // tarjetas propias (ver explodeVariantsIntoCards más abajo).
         if ($searchQ) {
-            $this->applyToleranteTextSearch($query, $searchQ, ['description', 'name']);
+            $frase = trim(preg_replace('/\s+/', ' ', (string) $searchQ));
+            $query->where(function ($w) use ($searchQ, $frase) {
+                $w->where(function ($texto) use ($searchQ) {
+                    $this->applyToleranteTextSearch($texto, $searchQ, ['description', 'name']);
+                });
+                if ($frase !== '') {
+                    $w->orWhereExists(function ($sub) use ($frase) {
+                        $sub->select(\DB::raw(1))
+                            ->from('item_variants as ivq')
+                            ->whereColumn('ivq.item_id', 'items.id')
+                            ->where('ivq.is_active', 1)
+                            ->where(function ($m) use ($frase) {
+                                $m->where('ivq.display_name', 'like', '%' . $frase . '%')
+                                  ->orWhere('ivq.sku', 'like', '%' . $frase . '%');
+                            });
+                    });
+                }
+            });
         }
 
         // Filtrar solo productos disponibles (config o parámetro URL)
@@ -179,12 +205,21 @@ class EcommerceController extends Controller
             ->paginate(24)
             ->appends(request()->query());
 
+        // Productos cuya única foto es la de una variante: la tarjeta usa esa.
+        StorefrontCatalog::attachVariantImageFallback($dataPaginate);
+        // Con texto de búsqueda, cada variante con foto propia y stock sale
+        // como tarjeta propia (igual que el marketplace). Tras paginar: el
+        // total, el orden y las páginas siguen siendo de productos.
+        StorefrontCatalog::explodeVariantsIntoCards($dataPaginate, $searchQ);
+
         $configuration = InventoryConfiguration::first() ?? new InventoryConfiguration(['stock_control' => false]);
 
         // Solo categorías que tienen al menos 1 producto en tienda
-        $categories = Cache::remember($cachePrefix . 'categories_with_items', 1800, function () {
+        // `_img`: solo cuentan los productos que el escaparate muestra (con foto).
+        $categories = Cache::remember($cachePrefix . 'categories_with_items_img', 1800, function () {
             return Category::whereHas('items', function ($q) {
                 $q->where('apply_store', 1)->whereNotNull('internal_id');
+                StorefrontCatalog::whereHasImage($q);
             })->get();
         });
 
@@ -250,10 +285,10 @@ class EcommerceController extends Controller
         });
 
         // Paquetes/bundles visibles en tienda
-        $bundles = Cache::remember($cachePrefix . 'bundles', 1800, function () {
-            return Item::where('apply_store', 1)
+        $bundles = Cache::remember($cachePrefix . 'bundles_img', 1800, function () {
+            return StorefrontCatalog::whereHasImage(Item::where('apply_store', 1)
                 ->where('is_set', true)
-                ->whereNotNull('internal_id')
+                ->whereNotNull('internal_id'))
                 ->with(['sets.individual_item.warehouses', 'warehouses'])
                 ->select(['id', 'slug', 'description', 'image', 'sale_unit_price',
                           'sale_unit_price_set', 'currency_type_id', 'stock', 'created_at'])
@@ -264,8 +299,13 @@ class EcommerceController extends Controller
         // Flash sale activa
         try {
             $flashSale = FlashSale::active()->with(['items' => function ($q) {
-                $q->where('apply_store', 1)->whereNotNull('internal_id')->limit(12);
+                $q->where('apply_store', 1)->whereNotNull('internal_id');
+                StorefrontCatalog::whereHasImage($q);
+                $q->limit(12);
             }])->first();
+            if ($flashSale) {
+                StorefrontCatalog::attachVariantImageFallback($flashSale->items);
+            }
         } catch (\Exception $e) {
             $flashSale = null;
         }
@@ -681,15 +721,16 @@ class EcommerceController extends Controller
         $relatedProducts = collect();
         try {
             if ($row->category_id) {
-                $relatedProducts = Item::where('apply_store', 1)
+                $relatedProducts = StorefrontCatalog::whereHasImage(Item::where('apply_store', 1)
                     ->where('category_id', $row->category_id)
-                    ->where('id', '!=', $row->id)
+                    ->where('id', '!=', $row->id))
                     ->with(['category', 'warehouses'])
                     ->select(['id', 'slug', 'description', 'name', 'image', 'sale_unit_price',
-                              'currency_type_id', 'stock', 'created_at'])
+                              'currency_type_id', 'stock', 'created_at', 'has_variants'])
                     ->inRandomOrder()
                     ->limit(8)
                     ->get();
+                StorefrontCatalog::attachVariantImageFallback($relatedProducts);
             }
         } catch (\Exception $e) {}
 
@@ -714,7 +755,9 @@ class EcommerceController extends Controller
 
     public function items()
     {
-        $records = Item::with(['currency_type', 'category', 'images', 'warehouses'])->where('apply_store', 1)->orderBy('description')->limit(200)->get();
+        $records = StorefrontCatalog::whereHasImage(
+            Item::with(['currency_type', 'category', 'images', 'warehouses'])->where('apply_store', 1)
+        )->orderBy('description')->limit(200)->get();
         return view('ecommerce::items.index', compact('records'));
     }
 
@@ -766,7 +809,12 @@ class EcommerceController extends Controller
 
     public function itemsBar()
     {
-        $records = Item::with(['currency_type', 'warehouses'])->where('apply_store', 1)->limit(500)->get();
+        // Alimenta el autocompletado del buscador y «Vistos recientemente»:
+        // sin foto (ni propia ni de variante) no se ofrece.
+        $records = StorefrontCatalog::whereHasImage(
+            Item::with(['currency_type', 'warehouses'])->where('apply_store', 1)
+        )->limit(500)->get();
+        StorefrontCatalog::attachVariantImageFallback($records);
         // return new ItemCollection($records);
         return new ItemBarCollection($records);
 
@@ -2059,6 +2107,7 @@ class EcommerceController extends Controller
     {
         $query = Item::with(['currency_type', 'category', 'brand', 'images'])
             ->where('apply_store', 1);
+        StorefrontCatalog::whereHasImage($query);
 
         // Busqueda por texto
         if ($request->filled('q')) {
@@ -2107,6 +2156,7 @@ class EcommerceController extends Controller
         };
 
         $items = $query->paginate($request->input('per_page', 24));
+        StorefrontCatalog::attachVariantImageFallback($items);
 
         // Transformar para frontend
         $items->getCollection()->transform(function ($item) {
@@ -2121,7 +2171,9 @@ class EcommerceController extends Controller
                 'brand'       => $item->brand->name ?? null,
                 'image'       => $item->image && $item->image !== 'imagen-no-disponible.jpg'
                     ? url("storage/uploads/items/{$item->image}")
-                    : url('logo/imagen-no-disponible.jpg'),
+                    : ($item->storefront_image
+                        ? url("storage/uploads/items/{$item->storefront_image}")
+                        : url('logo/imagen-no-disponible.jpg')),
                 'has_variants' => $item->has_variants,
             ];
         });
