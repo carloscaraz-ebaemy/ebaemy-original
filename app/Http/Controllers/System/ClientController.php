@@ -880,6 +880,18 @@ use App\Models\System\PlanPeriod;
             // que normalmente invalidaría el cache).
             \App\Models\Tenant\Configuration::flushCache();
 
+            // El marketplace no miraba el bloqueo: la tienda bloqueada seguía
+            // vendiendo ahí. Al bloquear se pausan sus productos en el acto; al
+            // desbloquear vuelven con el sync de esa tienda (en la cola).
+            $tenancy->tenant(null);
+            if ($client->locked_tenant) {
+                \App\Models\System\MarketplaceListing::where('hostname_id', $client->hostname_id)
+                    ->where('is_active', true)
+                    ->update(['is_active' => false, 'status' => 'paused', 'synced_at' => now()]);
+            } else {
+                \Illuminate\Support\Facades\Artisan::queue('ebaemy-marketplace:sync', ['--client' => $client->id]);
+            }
+
             return [
                 'success' => true,
                 'message' => ($client->locked_tenant) ? 'Cuenta bloqueada' : 'Cuenta desbloqueada'

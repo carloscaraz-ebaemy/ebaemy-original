@@ -55,7 +55,13 @@ class SyncMarketplaceListings extends Command
             try {
                 $tenancy->tenant($hostname->website);
 
-                $items = DB::connection('tenant')->table('items')
+                // Tienda bloqueada: no publica nada; el paso de «desactivar lo
+                // no visto» de abajo pausa todos sus productos.
+                if ($client->locked_tenant) {
+                    $this->line('  · tienda bloqueada: se pausan sus productos');
+                }
+
+                $items = $client->locked_tenant ? collect() : DB::connection('tenant')->table('items')
                     ->where('marketplace_publishable', true)
                     ->where(function ($q) {
                         $q->whereNull('mp_status')->orWhere('mp_status', '!=', 'rejected');
