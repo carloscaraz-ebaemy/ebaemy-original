@@ -215,15 +215,21 @@
                 </small>
             </div>
 
-            <div v-if="aereo || pideDeclaracion" class="shg-field">
-                <label>{{ aereo ? 'Envío aéreo: ¿qué contiene?' : '¿Qué contiene el paquete?' }} <span class="shg-req">*</span></label>
-                <el-select v-model="declaracion" placeholder="Declaración jurada" style="width:100%">
+            <div class="shg-field">
+                <label>
+                    {{ aereo ? 'Envío aéreo: ¿qué contiene?' : '¿Qué contiene el paquete? (declaración jurada)' }}
+                    <span v-if="aereo || pideDeclaracion" class="shg-req">*</span>
+                    <small v-else class="shg-opt-l">(si Shalom la pide)</small>
+                </label>
+                <el-select v-model="declaracion" clearable placeholder="Declaración jurada" style="width:100%">
                     <el-option v-for="d in declaraciones" :key="d" :label="d" :value="d"></el-option>
                 </el-select>
                 <small class="shg-sub">
                     {{ aereo
                         ? 'El cliente eligió vía aérea; Shalom pide declarar el contenido.'
-                        : 'Shalom pide declarar el contenido para este destino. Elige la opción más cercana y vuelve a crear la guía.' }}
+                        : (pideDeclaracion
+                            ? 'Shalom pide declarar el contenido para este destino. Elige la opción más cercana y vuelve a crear la guía.'
+                            : 'Algunos destinos la exigen. Si la eliges, se envía a Shalom con la guía.') }}
                 </small>
             </div>
 
@@ -465,7 +471,7 @@ export default {
                 content: this.content,
                 bultos: this.bultos,
                 clave: this.clave || null,
-                declaracion: (this.aereo || this.pideDeclaracion) ? this.declaracion : null,
+                declaracion: this.declaracion || null,
             })
                 .then(d => {
                     this.hecho = d;

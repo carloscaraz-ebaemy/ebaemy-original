@@ -256,6 +256,13 @@ class ShalomGuide
             $codigo = (int) $e->getCode();
             if ($codigo >= 400 && $codigo < 500 && !in_array($codigo, [408, 429], true)) {
                 // Rechazo claro: no se creó nada. Se puede corregir y reintentar ya.
+                // Se registra qué se mandó (sin datos personales) para poder
+                // diagnosticar rechazos nuevos de Shalom.
+                \Illuminate\Support\Facades\Log::warning('[ShalomGuide] rechazo', [
+                    'shipment_id' => $s->id, 'status' => $codigo, 'message' => $e->getMessage(),
+                    'destino' => $aereo ? '0' . (int) $s->agency_office_id : (int) $s->agency_office_id,
+                    'campos' => array_keys($extra), 'declaracion' => $declaracion, 'content' => $content,
+                ]);
                 $this->clearAttempt($s);
                 throw new RuntimeException('Shalom rechazó la guía: ' . preg_replace('/^Shalom API \d+:\s*/', '', $e->getMessage()));
             }
