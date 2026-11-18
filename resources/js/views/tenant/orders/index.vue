@@ -1640,7 +1640,7 @@
         <nota-venta-revision
             :showDialog.sync="showNvRevision"
             :row="nvRevisionRow"
-            @emitted="refrescarTrasEnvio"
+            @emitted="onNotaVentaEmitida"
         ></nota-venta-revision>
 
         <!-- Emitir boleta o factura. Es EL MISMO componente de Notas de Venta,
@@ -5779,7 +5779,7 @@ export default {
                 .then(() =>
                     this.$http.post(`/orders/${row.id}/nota-venta`).then(r => {
                         this.$message.success(r.data.message);
-                        this.refrescarTrasEnvio(row.id);
+                        this.onNotaVentaEmitida(row.id, r.data.sale_note_id);
                     })
                 )
                 .catch(e => {
@@ -6411,6 +6411,16 @@ export default {
                     // Silencio a proposito: el cobro SI se guardo, y un fallo
                     // aqui solo significa que la fila no se refresco.
                 });
+        },
+        /**
+         * Tras emitir la nota de venta desde el pedido se abre el modal de
+         * imprimir/descargar (el mismo de Notas de Venta), como pasa al
+         * emitirla desde esa pantalla. Antes solo salía el mensaje y había que
+         * ir a buscarla.
+         */
+        onNotaVentaEmitida(orderId, saleNoteId) {
+            this.refrescarTrasEnvio(orderId);
+            if (saleNoteId) this.clickOptions(saleNoteId);
         },
         clickOptions(recordId) {
             this.documentNewId = recordId;

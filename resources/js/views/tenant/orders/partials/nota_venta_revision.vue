@@ -194,7 +194,8 @@ export default {
                 })
                 .then(r => {
                     this.$message.success(r.data.message);
-                    this.$emit("emitted", this.row.id);
+                    // El id de la nota va al padre para abrir el modal de imprimir.
+                    this.$emit("emitted", this.row.id, r.data.sale_note_id);
                     this.cerrar();
                 })
                 .catch(e => {
