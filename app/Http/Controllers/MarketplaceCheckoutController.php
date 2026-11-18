@@ -234,6 +234,31 @@ class MarketplaceCheckoutController extends Controller
             'coupons.*'            => 'nullable|string|max:60',
         ]);
 
+        // Mismas reglas que el navegador, ahora también en el servidor (el
+        // front se puede saltar): teléfono celular, documento según su tipo y
+        // distrito. Los mensajes salen en el mismo cuadro «Revisa estos puntos».
+        $phone = MarketplaceCheckoutRules::normalizePhone($data['customer_phone']);
+        $docError = MarketplaceCheckoutRules::docError($data['customer_doc_type'] ?? null, $data['customer_doc_number'] ?? null);
+        $problems = [];
+        if ($phone === null) {
+            $problems['customer_phone'] = 'El teléfono debe ser un celular válido de 9 dígitos (empieza en 9).';
+        }
+        if ($docError !== null) {
+            $problems['customer_doc_number'] = $docError;
+        }
+        if (trim((string) ($data['delivery_district'] ?? '')) === '') {
+            $problems['delivery_district'] = 'Escribe tu distrito y elígelo de la lista.';
+        }
+        if ($problems) {
+            throw \Illuminate\Validation\ValidationException::withMessages($problems);
+        }
+        $data['customer_phone'] = $phone;
+        if (trim((string) ($data['customer_doc_number'] ?? '')) !== '') {
+            $data['customer_doc_number'] = MarketplaceCheckoutRules::normalizeDocNumber(
+                $data['customer_doc_type'] ?? null, $data['customer_doc_number']
+            );
+        }
+
         // Captura opt-in marketing — sólo si el comprador marcó el checkbox.
         // Sin este consent NO entra a marketing_contacts con flag activo.
         if (!empty($data['accepts_marketing'])) {

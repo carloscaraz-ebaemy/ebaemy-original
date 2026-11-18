@@ -228,7 +228,16 @@ class MarketplaceMultiOrderDispatcher
 
             // Destino que el comprador dio en el checkout central -> envio
             // vigente del pedido hijo (best-effort: nunca tumba el despacho).
+            // El ubigeo se resuelve aquí (con el catálogo de la propia tienda) a
+            // partir de los nombres elegidos, tolerando tildes y mayúsculas; si
+            // el distrito es de Lima o Callao nunca queda como agencia.
+            [$geoUbigeo, $geoMode] = $this->resolveCheckoutGeo(
+                $order->delivery_department, $order->delivery_province, $order->delivery_district
+            );
             app(\App\Services\Tenant\OrderShipmentLinker::class)->ensureFromCheckout($tenantOrder, [
+                'ubigeo'        => $geoUbigeo,
+                'mode'          => $geoMode,
+                'document_type' => in_array(mb_strtolower((string) $order->customer_doc_type), ['ce', 'pasaporte'], true) ? $order->customer_doc_type : null,
                 'department' => $order->delivery_department,
                 'province'   => $order->delivery_province,
                 'district'   => $order->delivery_district,
@@ -438,6 +447,47 @@ class MarketplaceMultiOrderDispatcher
 
             return ['success' => false, 'error' => $e->getMessage()];
         }
+    }
+
+    /**
+     * Ubigeo de 6 cifras de los nombres del checkout (comparación sin tildes ni
+     * mayúsculas, contra el catálogo de la conexión tenant activa) y, si no se
+     * resuelve pero el destino es Lima o Callao, modalidad 'delivery' para que
+     * el pedido no se marque como agencia. Nunca lanza.
+     *
+     * @return array{0:?string,1:?string} [ubigeo, mode]
+     */
+    private function resolveCheckoutGeo(?string $dep, ?string $prov, ?string $dist): array
+    {
+        $fold = static fn ($v) => mb_strtoupper(trim((string) preg_replace('/\s+/u', ' ',
+            strtr(\Illuminate\Support\Str::ascii((string) $v), ["'" => '']))));
+        $d = $fold($dep); $p = $fold($prov); $t = $fold($dist);
+        $ubigeo = null;
+        if ($t !== '') {
+            try {
+                $rows = DB::connection('tenant')->table('districts as d')
+                    ->join('provinces as p', 'p.id', '=', 'd.province_id')
+                    ->join('departments as dep', 'dep.id', '=', 'p.department_id')
+                    ->get(['d.id as code', 'd.description as dist', 'p.description as prov', 'dep.description as dep']);
+                $hits = [];
+                foreach ($rows as $r) {
+                    if ($fold($r->dist) !== $t) continue;
+                    if ($p !== '' && $fold($r->prov) !== $p) continue;
+                    if ($d !== '' && $fold($r->dep) !== $d) continue;
+                    $hits[] = str_pad((string) $r->code, 6, '0', STR_PAD_LEFT);
+                }
+                $hits = array_values(array_unique($hits));
+                $ubigeo = count($hits) === 1 ? $hits[0] : null;   // ambiguo = no se adivina
+            } catch (\Throwable $e) {
+                Log::info('[Dispatcher] ubigeo del checkout no resuelto', ['error' => $e->getMessage()]);
+            }
+        }
+        $mode = null;
+        if ($ubigeo === null && ($p === 'LIMA' || $p === 'CALLAO' || $d === 'CALLAO')) {
+            $mode = 'delivery';
+        }
+
+        return [$ubigeo, $mode];
     }
 
     /**
