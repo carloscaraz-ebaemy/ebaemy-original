@@ -751,7 +751,11 @@
                                                 <span>Principal</span>
                                                 <span v-if="form.image_url" class="ie-image-card__ok-pill">✓</span>
                                             </div>
-                                            <el-upload :action="`/${resource}/upload`"
+                                            <!-- Igual que en Variantes: con foto, tocarla la cambia;
+                                                 sin foto, se eligen VARIAS de una vez y la primera
+                                                 queda de principal (el resto, a la galería). -->
+                                            <el-upload v-if="hasPrimaryImage"
+                                                    :action="`/${resource}/upload`"
                                                     :data="{'type': 'items', 'skip_preview': 1}"
                                                     :headers="headers"
                                                     :on-success="onSuccess"
@@ -760,14 +764,26 @@
                                                     :on-change="onFileChange"
                                                     :show-file-list="false"
                                                     accept="image/jpeg,image/jpg,image/png,image/gif,image/webp,image/bmp,image/heic,image/heif"
-                                                    capture="environment"
-                                                    class="ie-primary-upload">
-                                                <img v-if="form.image_url"
-                                                    :src="form.image_url"
+                                                    class="ie-primary-upload"
+                                                    title="Cambiar la foto principal">
+                                                <img :src="form.image_url"
                                                     class="ie-primary-upload__img">
-                                                <div v-else class="ie-primary-upload__empty">
-                                                    <i class="el-icon-plus"></i>
-                                                    <span>Subir</span>
+                                            </el-upload>
+                                            <el-upload v-else
+                                                    :action="`/${resource}/upload`"
+                                                    :data="{'type': 'items', 'skip_preview': 1}"
+                                                    :headers="headers"
+                                                    multiple
+                                                    :show-file-list="false"
+                                                    :before-upload="beforeGalleryUpload"
+                                                    :on-success="onGallerySuccess"
+                                                    :on-error="onGalleryError"
+                                                    accept="image/jpeg,image/jpg,image/png,image/gif,image/webp,image/bmp,image/heic,image/heif"
+                                                    class="ie-primary-upload"
+                                                    title="Subir fotos del producto (puedes elegir varias)">
+                                                <div class="ie-primary-upload__empty">
+                                                    <i :class="galleryUploading ? 'el-icon-loading' : 'el-icon-camera'"></i>
+                                                    <span>Fotos</span>
                                                 </div>
                                             </el-upload>
                                             <quitar-fondo :temp-path="form.temp_path"
@@ -804,22 +820,15 @@
                                                  + form.multi_images (pendientes). Pendientes con borde ámbar
                                                  + ⏳. Click en cualquier thumb o en "+" abre el dialog. -->
                                             <div class="ie-image-card__strip">
-                                                <div v-for="(img, i) in allGalleryImages" :key="img._key || i"
-                                                     class="ie-image-card__thumb"
-                                                     :class="{ 'is-pending': img._pending }"
-                                                     :title="img._pending ? 'Pendiente de guardar' : ''">
-                                                    <img :src="img.url" :alt="'Foto ' + (i + 1)">
-                                                    <button v-if="img._kind !== 'original'"
-                                                            type="button"
-                                                            class="ie-thumb-btn ie-thumb-btn--del"
-                                                            title="Quitar foto"
-                                                            @click.stop="removeGalleryImage(img)">×</button>
-                                                    <button type="button"
-                                                            class="ie-thumb-btn ie-thumb-btn--star"
-                                                            title="Usar como imagen principal"
-                                                            :disabled="uploadingImage"
-                                                            @click.stop="promoteToPrimary(img)">★ Principal</button>
-                                                </div>
+                                                <!-- Tocar una foto muestra sus acciones debajo (como en Variantes). -->
+                                                <button v-for="(img, i) in allGalleryImages" :key="img._key || i"
+                                                        type="button"
+                                                        class="ie-image-card__thumb"
+                                                        :class="{ 'is-pending': img._pending, 'is-picked': pickedGalleryKey === img._key }"
+                                                        :aria-label="'Foto ' + (i + 2) + (img._pending ? ' (pendiente de guardar)' : '')"
+                                                        @click="pickedGalleryKey = (pickedGalleryKey === img._key ? null : img._key)">
+                                                    <img :src="img.url" alt="">
+                                                </button>
                                                 <div v-for="n in galleryUploading" :key="'up_' + n"
                                                      class="ie-image-card__thumb is-uploading">
                                                     <i class="el-icon-loading"></i>
@@ -844,8 +853,16 @@
                                                     </div>
                                                 </el-upload>
                                             </div>
-                                            <small class="ie-image-card__hint">
-                                                Puedes elegir varias fotos a la vez. Con <strong>★ Principal</strong> eliges la que sale en el catálogo.
+                                            <div v-if="pickedGalleryImage" class="ie-pick-bar">
+                                                <button type="button" class="ie-pick-btn ie-pick-btn--star"
+                                                        :disabled="uploadingImage"
+                                                        @click="promoteToPrimary(pickedGalleryImage); pickedGalleryKey = null">★ Principal</button>
+                                                <button v-if="pickedGalleryImage._kind !== 'original'"
+                                                        type="button" class="ie-pick-btn ie-pick-btn--del"
+                                                        @click="removeGalleryImage(pickedGalleryImage); pickedGalleryKey = null">Quitar</button>
+                                            </div>
+                                            <small v-else class="ie-image-card__hint">
+                                                Puedes elegir varias fotos a la vez. Toca una foto para hacerla principal o quitarla.
                                             </small>
                                         </div>
 
@@ -2132,6 +2149,8 @@ export default {
             // vistas previas locales por uid del archivo.
             galleryUploading: 0,
             galleryPreviews: {},
+            // Foto de la galería tocada: muestra «★ Principal» y «Quitar».
+            pickedGalleryKey: null,
             // URL de la principal guardada, para mostrarla en la galería si
             // el vendedor elige otra con ★ Principal.
             primaryOriginalUrl: null,
@@ -2260,6 +2279,10 @@ export default {
                 _pending: true,
             }))
             return [...persisted, ...original, ...pending]
+        },
+        pickedGalleryImage() {
+            if (!this.pickedGalleryKey) return null
+            return this.allGalleryImages.find(img => img._key === this.pickedGalleryKey) || null
         },
         hasPrimaryImage() {
             const url = this.form.image_url

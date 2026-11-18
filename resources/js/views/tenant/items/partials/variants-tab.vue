@@ -347,9 +347,7 @@
                                         @click="removeVariantGalleryImage(v, pickedImage(v))">Quitar</button>
                             </div>
                             <div v-else-if="v.image_url" class="vt-media__hint">
-                                Toca una foto para hacerla principal, moverla o quitarla.
-                                <button type="button" class="vt-link-btn"
-                                        @click="deleteVariantImage(v)">Quitar la principal</button>
+                                Toca la principal para cambiarla; toca otra foto para hacerla principal, moverla o quitarla.
                             </div>
 
                             <div v-if="useParentImage" class="vt-img-overridden">
