@@ -212,7 +212,13 @@ class ShalomGuide
         if ($aereo && !in_array($declaracion, self::AIR_DECLARATIONS, true)) {
             throw new RuntimeException('El envío es aéreo: elige qué contiene el paquete (declaración jurada).');
         }
-        $extra = $aereo ? ['aereo' => 1, 'declaracion_jurada' => $declaracion] : [];
+        // Terrestre: Shalom a veces también exige declarar el contenido (p. ej.
+        // Nazca, 2026-11-18: «debe seleccionar una opción de declaración
+        // jurada»). Si la tienda la eligió tras ese rechazo, se envía sin aereo.
+        $declaracionTerrestre = !$aereo && in_array($declaracion, self::AIR_DECLARATIONS, true);
+        $extra = $aereo
+            ? ['aereo' => 1, 'declaracion_jurada' => $declaracion]
+            : ($declaracionTerrestre ? ['declaracion_jurada' => $declaracion] : []);
 
         // Marca del intento ANTES de llamar: si se corta, no se reintenta a ciegas.
         $s->forceFill(['carrier_events' => array_merge($s->carrier_events ?? [], ['create_attempt_at' => now()->toDateTimeString()])])->saveQuietly();

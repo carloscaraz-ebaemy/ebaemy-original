@@ -215,12 +215,16 @@
                 </small>
             </div>
 
-            <div v-if="aereo" class="shg-field">
-                <label>Envío aéreo: ¿qué contiene? <span class="shg-req">*</span></label>
+            <div v-if="aereo || pideDeclaracion" class="shg-field">
+                <label>{{ aereo ? 'Envío aéreo: ¿qué contiene?' : '¿Qué contiene el paquete?' }} <span class="shg-req">*</span></label>
                 <el-select v-model="declaracion" placeholder="Declaración jurada" style="width:100%">
                     <el-option v-for="d in declaraciones" :key="d" :label="d" :value="d"></el-option>
                 </el-select>
-                <small class="shg-sub">El cliente eligió vía aérea; Shalom pide declarar el contenido.</small>
+                <small class="shg-sub">
+                    {{ aereo
+                        ? 'El cliente eligió vía aérea; Shalom pide declarar el contenido.'
+                        : 'Shalom pide declarar el contenido para este destino. Elige la opción más cercana y vuelve a crear la guía.' }}
+                </small>
             </div>
 
             <div class="shg-field">
@@ -237,7 +241,7 @@
             <div v-if="error" class="shg-alert shg-alert--foot">{{ error }}</div>
             <el-button @click="cerrar">{{ hecho || (conGuia && !modo) ? 'Cerrar' : 'Cancelar' }}</el-button>
             <el-button v-if="!conGuia && !hecho" type="primary" :loading="cargando"
-                       :disabled="!content || !sh.ready || (aereo && !declaracion)" @click="crear">
+                       :disabled="!content || !sh.ready || ((aereo || pideDeclaracion) && !declaracion)" @click="crear">
                 Crear guía
             </el-button>
             <el-button v-else-if="modo && accionTxt" :type="modo === 'quitar' ? 'danger' : 'primary'" :loading="cargando" @click="accion">
@@ -279,6 +283,8 @@ export default {
             clave: "",
             declaracion: "",
             declaraciones: ["Artículos de uso personal", "Documentos", "Ropa", "Electrodomésticos"],
+            // Shalom rechazó la guía terrestre pidiendo la declaración jurada.
+            pideDeclaracion: false,
             cargando: false,
             error: null,
             aviso: null,
@@ -321,6 +327,7 @@ export default {
             this.bultos = this.packageCount || 1;
             this.clave = "";
             this.declaracion = "";
+            this.pideDeclaracion = false;
             this.error = null;
             this.aviso = null;
             this.hecho = null;
@@ -458,7 +465,7 @@ export default {
                 content: this.content,
                 bultos: this.bultos,
                 clave: this.clave || null,
-                declaracion: this.aereo ? this.declaracion : null,
+                declaracion: (this.aereo || this.pideDeclaracion) ? this.declaracion : null,
             })
                 .then(d => {
                     this.hecho = d;
@@ -466,7 +473,15 @@ export default {
                     this.$message.success(d.message || "Guía creada.");
                     this.$emit("saved");
                 })
-                .catch(e => this.fallo(e, "Shalom no creó la guía."));
+                .catch(e => {
+                    this.fallo(e, "Shalom no creó la guía.");
+                    // Shalom pidió la declaración jurada en un envío terrestre:
+                    // se muestra el selector para reintentar con ella.
+                    const msg = String((e && e.response && e.response.data && e.response.data.message) || this.error || "");
+                    if (!this.aereo && /declaraci[oó]n\s+jurada/i.test(msg)) {
+                        this.pideDeclaracion = true;
+                    }
+                });
         },
     },
 };
