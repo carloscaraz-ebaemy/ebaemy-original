@@ -96,6 +96,11 @@ trait MultiUserTrait
                         ->where('origin_user_id', $origin_user_id)
                         ->with(['destination_client'])
                         ->get()
+                        // Una empresa dada de baja deja la fila huérfana: se
+                        // omite en vez de romper la lista (2026-11-19, los
+                        // clientes 7 y 8 ya no existen).
+                        ->filter(fn ($row) => $row->destination_client && $row->destination_client->hostname)
+                        ->values()
                         ->transform(function($row){
                             return [
                                 'id' => $row->id,
@@ -139,7 +144,12 @@ trait MultiUserTrait
         if($current_user->is_multi_user)
         {
             // se obtiene registro de usuario origen del admin
-            $origin_multi_user = MultiUser::with(['origin_client'])->findOrFail($current_user->multi_user_id);
+            $origin_multi_user = MultiUser::with(['origin_client'])->find($current_user->multi_user_id);
+
+            // Enlace borrado o empresa origen dada de baja: no hay a dónde volver.
+            if (!$origin_multi_user || !$origin_multi_user->origin_client || !$origin_multi_user->origin_client->hostname) {
+                return;
+            }
 
             // se agregan datos de la empresa y usuario origen 
             // is_destination = false, para controlar el acceso a fk de cliente origen o destino (redireccion al usuario/cliente principal - origen)
