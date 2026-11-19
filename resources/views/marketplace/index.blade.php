@@ -1109,6 +1109,14 @@
     var nextUrl = sentinel.dataset.nextUrl || null;
     var loading = false;
 
+    // Mientras queden páginas, el sentinel reserva una pantalla de alto: así
+    // el pie no llega a verse y luego salta hacia abajo con cada tanda nueva
+    // (medido 2026-11-19: CLS 1,54 en móvil al bajar hasta el final). Cuando
+    // ya no hay más, la reserva se quita y el pie entra desde fuera de la
+    // pantalla, lo que no cuenta como desplazamiento.
+    function reservar(on) { sentinel.style.minHeight = on ? '100vh' : ''; }
+    reservar(!!nextUrl);
+
     function setLoader(on) { if (loader) loader.hidden = !on; }
 
     async function loadMore() {
@@ -1130,11 +1138,12 @@
             // La URL de la siguiente página la trae el nuevo sentinel.
             var ns = doc.getElementById('mpInfiniteSentinel');
             nextUrl = ns ? (ns.dataset.nextUrl || null) : null;
-            if (!nextUrl) observer.disconnect();
+            if (!nextUrl) { observer.disconnect(); reservar(false); }
         } catch (e) {
             // Falla de red → restaurar paginación como fallback y parar.
             if (pag) pag.style.display = '';
             observer.disconnect();
+            reservar(false);
         } finally {
             loading = false;
             setLoader(false);
