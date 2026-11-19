@@ -2177,6 +2177,9 @@ if ($hostname) {
                 Route::post('publicidad/{id}',        'System\MarketplaceAdRequestController@update')->name('ads.update')->whereNumber('id');
                 Route::get('seo',                     'System\MarketplaceAdminController@seo')->name('seo');
                 Route::post('seo',                    'System\MarketplaceAdminController@seoUpdate')->name('seo.update');
+                // Portada de temporada del inicio (fase 2 del rediseño).
+                Route::get('portada',                 'System\MarketplaceAdminController@hero')->name('hero');
+                Route::post('portada',                'System\MarketplaceAdminController@heroUpdate')->name('hero.update');
                 Route::get('leads',                   'System\MarketplaceAdminController@leads')->name('leads');
                 Route::get('leads/export',            'System\MarketplaceAdminController@exportLeads')->name('leads.export');
                 Route::post('leads/{id}/retry',       'System\MarketplaceAdminController@retryLead')->name('leads.retry');

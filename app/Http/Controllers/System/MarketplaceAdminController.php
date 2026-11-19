@@ -589,6 +589,76 @@ class MarketplaceAdminController extends Controller
      * Si falla (timeout, network, FB cambió el endpoint), devolvemos false
      * para que el caller muestre el fallback manual. No tiramos exception.
      */
+    // ── Portada de temporada del inicio ───────────────────────────────────────
+    //
+    // El banner de arriba del inicio de ebaemy.com/marketplace («Navidad en
+    // casa → Ver Navidad»). Se guarda como JSON en configurations.marketplace_hero
+    // y lo pinta partials/home-hero vía HomeShowcase::hero().
+
+    public function hero()
+    {
+        $config = \App\Models\System\Configuration::firstCached();
+        $hero   = \App\Services\Marketplace\HomeShowcase::heroConfig($config);
+        $hasColumn = \Illuminate\Support\Facades\Schema::connection('system')->hasColumn('configurations', 'marketplace_hero');
+
+        // Raíces y sus hijas directas, para elegir el destino y las fotos.
+        $categories = \App\Models\System\MarketplaceCategory::query()->active()
+            ->orderByRaw('COALESCE(parent_id, id), parent_id IS NOT NULL, sort_order')
+            ->whereRaw("(parent_id IS NULL OR depth_path NOT LIKE '/%/%/')")
+            ->get(['id', 'parent_id', 'name', 'full_slug', 'is_visible_in_marketplace']);
+
+        $current = $categories->firstWhere('full_slug', $hero['category']);
+        $preview = app(\App\Services\Marketplace\HomeShowcase::class)->hero();
+
+        return view('system.marketplace.hero', compact('hero', 'categories', 'current', 'preview', 'hasColumn'));
+    }
+
+    public function heroUpdate(Request $request)
+    {
+        $data = $request->validate([
+            'enabled'     => 'nullable|boolean',
+            'title'       => 'required_if:enabled,1|nullable|string|max:80',
+            'subtitle'    => 'nullable|string|max:160',
+            'cta_text'    => 'nullable|string|max:40',
+            'cta_type'    => 'required|in:category,url',
+            'cta_url'     => ['nullable', 'required_if:cta_type,url', 'string', 'max:500', 'regex:#^(https?://|/)#i'],
+            'category'    => 'nullable|string|max:191|exists:system.marketplace_categories,full_slug',
+            'listing_ids' => ['nullable', 'string', 'max:200', 'regex:/^[\d,\s]*$/'],
+            'starts_at'   => 'nullable|date_format:Y-m-d',
+            'ends_at'     => 'nullable|date_format:Y-m-d|after_or_equal:starts_at',
+        ], [
+            'title.required_if'   => 'Con la portada activa hace falta un título.',
+            'cta_url.required_if' => 'Si el botón lleva a una dirección, escríbela.',
+            'cta_url.regex'       => 'La dirección debe empezar por https:// o por / (una ruta de ebaemy.com).',
+            'listing_ids.regex'   => 'Los productos van como números separados por comas (ej. 120, 340).',
+            'ends_at.after_or_equal' => 'La fecha de fin no puede ser anterior a la de inicio.',
+        ]);
+
+        if ($data['cta_type'] === 'category' && empty($data['category'])) {
+            return back()->withInput()->withErrors(['category' => 'Elige la categoría a la que lleva el botón.']);
+        }
+
+        $ids = array_values(array_unique(array_filter(array_map('intval', preg_split('/[\s,]+/', (string) ($data['listing_ids'] ?? '')) ?: []))));
+
+        $config = \App\Models\System\Configuration::firstOrCreate(['id' => 1]);
+        $config->marketplace_hero = [
+            'enabled'     => $request->boolean('enabled'),
+            'title'       => trim((string) ($data['title'] ?? '')),
+            'subtitle'    => trim((string) ($data['subtitle'] ?? '')) ?: null,
+            'cta_text'    => trim((string) ($data['cta_text'] ?? '')) ?: 'Ver más',
+            'cta_type'    => $data['cta_type'],
+            'cta_url'     => $data['cta_type'] === 'url' ? trim((string) $data['cta_url']) : null,
+            'category'    => $data['category'] ?? null,
+            'listing_ids' => array_slice($ids, 0, 2),
+            'starts_at'   => ($data['starts_at'] ?? null) ?: null,
+            'ends_at'     => ($data['ends_at'] ?? null) ?: null,
+        ];
+        $config->save();   // el modelo ya olvida 'system_config' al guardar
+
+        return redirect()->route('system.marketplace.hero')
+            ->with('mp_hero_message', '✓ Portada guardada. El inicio del marketplace la muestra ya (las fotos pueden tardar hasta 10 min en cambiar).');
+    }
+
     /**
      * Expresión SQL que agrupa una columna de fecha en buckets según la
      * granularidad. WEEKDAY()=0 es lunes, así que restarlo lleva la fecha al

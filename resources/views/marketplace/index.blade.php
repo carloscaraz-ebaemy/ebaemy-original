@@ -41,11 +41,13 @@
         'in_stock'  => !empty($inStockOnly) ? 1 : null,
         'packs'     => !empty($packsOnly) ? 1 : null,
         'brand'     => $brand ?? null,
+        'official_category_id' => $officialCatId ?? null,
     ], fn($v) => $v !== null && $v !== '');
 
     $hasBooleanFilter = !empty($onOfferOnly) || !empty($verifiedOnly) || !empty($inStockOnly) || !empty($packsOnly);
-    $hasFilters = !empty($q) || !empty($category) || $priceMin !== null || $priceMax !== null || !empty($shopSubdomain) || $hasBooleanFilter;
-    $isHome = empty($q) && empty($category) && $priceMin === null && $priceMax === null && empty($shopSubdomain) && !$hasBooleanFilter;
+    $hasFilters = !empty($q) || !empty($category) || !empty($officialCatId) || !empty($brand) || $priceMin !== null || $priceMax !== null || !empty($shopSubdomain) || $hasBooleanFilter;
+    $isHome = empty($q) && empty($category) && empty($officialCatId) && $priceMin === null && $priceMax === null && empty($shopSubdomain) && !$hasBooleanFilter;
+    $isShowcaseHome = !empty($isShowcaseHome);
 
     // Helper para alternar un filtro booleano en el query string actual.
     // Si el filtro está activo lo quita, si no lo agrega.
@@ -526,6 +528,18 @@
      Ocultar cuando el visitante ya esta filtrando por ofertas (?on_offer=1) —
      el listado de abajo ya muestra los mismos productos, evitar duplicado.
      El carrusel + modal viven en el partial compartido con la página de tienda. --}}
+{{-- ═══════════════════════ VITRINA DEL INICIO (fase 2 del rediseño) ═══════════════════════
+     Portada de temporada (configurable en /admin/marketplace/portada),
+     «Compra por categoría» con foto real y un carrusel de productos por cada
+     categoría con más productos. Solo en el inicio limpio, página 1: al
+     buscar o filtrar el comprador ya sabe lo que quiere. Los datos salen de
+     App\Services\Marketplace\HomeShowcase (cache de 10 min). --}}
+@if($isShowcaseHome)
+    @include('marketplace.partials.home-hero', ['hero' => $hero ?? null])
+    @include('marketplace.partials.home-categories', ['tiles' => $categoryTiles ?? collect(), 'eagerTiles' => empty($hero) ? 3 : 0])
+    @include('marketplace.partials.category-reels', ['reels' => $categoryReels ?? collect()])
+@endif
+
 @php
     $mpOffersRail = isset($dailyOffers) && $dailyOffers->count() >= 4 && empty($onOfferOnly);
 @endphp
@@ -538,6 +552,9 @@
         'seeAllUrl'    => route('marketplace.index', ['on_offer' => 1]),
         'modalSeenKey' => 'mp_offers_modal_seen',
         'offersSub'    => 'Descuentos vigentes de ' . $offerTenantsCount . ' tienda' . ($offerTenantsCount === 1 ? '' : 's') . ' verificada' . ($offerTenantsCount === 1 ? '' : 's') . '. Aprovecha mientras duren.',
+        // Con la vitrina encima, el carril de ofertas queda bajo el primer
+        // pliegue: sus fotos ya no corren prisa.
+        'offersEager'  => $isShowcaseHome ? 0 : 3,
     ])
 @endif
 
@@ -570,6 +587,7 @@
         <form method="GET" action="{{ route('marketplace.index') }}" class="mp-mobile-topbar__sort">
             @if($q)        <input type="hidden" name="q"        value="{{ $q }}">        @endif
             @if($category) <input type="hidden" name="category" value="{{ $category }}"> @endif
+            @if(!empty($officialCatId)) <input type="hidden" name="official_category_id" value="{{ $officialCatId }}"> @endif
             @if($priceMin !== null) <input type="hidden" name="price_min" value="{{ $priceMin }}"> @endif
             @if($priceMax !== null) <input type="hidden" name="price_max" value="{{ $priceMax }}"> @endif
             @if($shopSubdomain)        <input type="hidden" name="shop"     value="{{ $shopSubdomain }}"> @endif
@@ -645,14 +663,90 @@
 
         {{-- (filtro de tiendas movido al final del panel) --}}
 
+        {{-- Categoría: las raíces OFICIALES con su número (fase 2). Sin otros
+             filtros, cada una lleva a su página de categoría (la URL que
+             posiciona, ver project_decision_seo_marketplace_gana); con una
+             búsqueda o filtros activos, filtra ESOS resultados con
+             ?official_category_id= y conserva lo demás. Siempre <a href>:
+             rastreable y sin JS. --}}
+        @if(!empty($categoryFacet) && $categoryFacet->count() > 0)
+            @php
+                $catFacetQs   = array_diff_key($baseQs, ['official_category_id' => null, 'sort' => null]);
+                $catFacetPage = empty($catFacetQs);   // nada más que filtrar → página de categoría
+                $catFacetBase = array_diff_key($baseQs, ['official_category_id' => null]);
+                if (($catFacetBase['sort'] ?? null) === 'relevance') unset($catFacetBase['sort']);   // es el orden por defecto
+            @endphp
+            <div class="mp-filter-group">
+                <div class="mp-filter-label">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+                    Categoría
+                </div>
+                <ul class="mp-facet-list" id="mpCatFacet">
+                    @if(!empty($officialCatId))
+                        <li>
+                            <a href="{{ route('marketplace.index', $catFacetBase) }}" class="mp-facet-link">
+                                <span class="mp-facet-link__name">‹ Todas las categorías</span>
+                            </a>
+                        </li>
+                    @endif
+                    @foreach($categoryFacet as $cf)
+                        @php
+                            $cfHref = $catFacetPage
+                                ? route('marketplace.category_official', ['fullSlug' => $cf->full_slug])
+                                : route('marketplace.index', array_merge($catFacetBase, ['official_category_id' => $cf->id]));
+                        @endphp
+                        <li @if($loop->index >= 8 && (int) ($officialCatId ?? 0) !== (int) $cf->id) class="mp-facet-more" hidden @endif>
+                            <a href="{{ $cfHref }}"
+                               class="mp-facet-link {{ (int) ($officialCatId ?? 0) === (int) $cf->id ? 'is-active' : '' }}"
+                               @if((int) ($officialCatId ?? 0) === (int) $cf->id) aria-current="true" @endif>
+                                <span class="mp-facet-link__name">{{ $cf->name }}</span>
+                                <span class="mp-facet-link__count">{{ $cf->count }}</span>
+                            </a>
+                        </li>
+                    @endforeach
+                </ul>
+                @if($categoryFacet->count() > 8)
+                    <button type="button" class="mp-facet-toggle" aria-controls="mpCatFacet" aria-expanded="false"
+                            onclick="var x=this.getAttribute('aria-expanded')==='true';document.querySelectorAll('#mpCatFacet .mp-facet-more').forEach(function(li){li.hidden=x;});this.setAttribute('aria-expanded',x?'false':'true');this.textContent=x?'Ver todas ({{ $categoryFacet->count() }})':'Ver menos';">
+                        Ver todas ({{ $categoryFacet->count() }})
+                    </button>
+                @endif
+            </div>
+        @endif
+
         <div class="mp-filter-group">
             <div class="mp-filter-label">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
                 Precio (S/)
             </div>
+            {{-- Rangos rápidos (fase 2): los mismos price_min/price_max del
+                 Desde/Hasta de abajo, a un toque. Tocar el rango activo lo quita. --}}
+            @php
+                $priceChipBase = array_diff_key($baseQs, ['price_min' => null, 'price_max' => null]);
+                if (($priceChipBase['sort'] ?? null) === 'relevance') unset($priceChipBase['sort']);   // es el orden por defecto
+                $priceChips = [
+                    ['label' => 'Hasta S/ 30',  'min' => null, 'max' => 30],
+                    ['label' => 'S/ 30–100',    'min' => 30,   'max' => 100],
+                    ['label' => 'S/ 100–300',   'min' => 100,  'max' => 300],
+                    ['label' => '+ S/ 300',     'min' => 300,  'max' => null],
+                ];
+            @endphp
+            <div class="mp-price-chips">
+                @foreach($priceChips as $pc)
+                    @php
+                        $pcActive = (float) ($priceMin ?? -1) === (float) ($pc['min'] ?? -1)
+                                 && (float) ($priceMax ?? -1) === (float) ($pc['max'] ?? -1);
+                        $pcQs = $pcActive ? $priceChipBase : array_merge($priceChipBase, array_filter(['price_min' => $pc['min'], 'price_max' => $pc['max']], fn ($v) => $v !== null));
+                    @endphp
+                    <a href="{{ route('marketplace.index', $pcQs) }}" rel="nofollow"
+                       class="mp-price-chip {{ $pcActive ? 'is-active' : '' }}"
+                       @if($pcActive) aria-current="true" @endif>{{ $pc['label'] }}</a>
+                @endforeach
+            </div>
             <form method="GET" action="{{ route('marketplace.index') }}">
                 @if($q)             <input type="hidden" name="q"        value="{{ $q }}">             @endif
                 @if($category)      <input type="hidden" name="category" value="{{ $category }}">      @endif
+                @if(!empty($officialCatId)) <input type="hidden" name="official_category_id" value="{{ $officialCatId }}"> @endif
                 @if($sort && $sort !== 'relevance') <input type="hidden" name="sort" value="{{ $sort }}"> @endif
                 @if($shopSubdomain) <input type="hidden" name="shop"     value="{{ $shopSubdomain }}"> @endif
                 {{-- Preservar filtros booleanos al aplicar precio --}}
@@ -679,6 +773,7 @@
             <form method="GET" action="{{ route('marketplace.index') }}">
                 @if($q)             <input type="hidden" name="q"        value="{{ $q }}">             @endif
                 @if($category)      <input type="hidden" name="category" value="{{ $category }}">      @endif
+                @if(!empty($officialCatId)) <input type="hidden" name="official_category_id" value="{{ $officialCatId }}"> @endif
                 @if($sort && $sort !== 'relevance') <input type="hidden" name="sort" value="{{ $sort }}"> @endif
                 @if($shopSubdomain) <input type="hidden" name="shop"     value="{{ $shopSubdomain }}"> @endif
                 @if($priceMin !== null) <input type="hidden" name="price_min" value="{{ $priceMin }}"> @endif
@@ -767,6 +862,7 @@
             <form method="GET" action="{{ route('marketplace.index') }}" style="margin:0">
                 @if($q)        <input type="hidden" name="q"        value="{{ $q }}">        @endif
                 @if($category) <input type="hidden" name="category" value="{{ $category }}"> @endif
+                @if(!empty($officialCatId)) <input type="hidden" name="official_category_id" value="{{ $officialCatId }}"> @endif
                 @if($priceMin !== null) <input type="hidden" name="price_min" value="{{ $priceMin }}"> @endif
                 @if($priceMax !== null) <input type="hidden" name="price_max" value="{{ $priceMax }}"> @endif
                 @if($shopSubdomain)        <input type="hidden" name="shop"     value="{{ $shopSubdomain }}"> @endif
@@ -923,15 +1019,22 @@
                  lo que cuenta es el tamano pintado y no el orden. Precargar
                  la del carrusel dejaba el LCP con 1,47 s de «Load Delay»:
                  adelantabamos una foto que no era la que se medía. --}}
-            @include('marketplace.partials.listing-preload', [
-                'items'      => $listings,
-                'withSrcset' => true,
-            ])
+            {{-- En el inicio con vitrina la rejilla queda muy por debajo del
+                 primer pliegue: lo que se ve al abrir es la portada y las
+                 categorias, y el preload va a la foto de la portada (la
+                 pone partials/home-hero). Adelantar aqui fotos que nadie ve
+                 aun solo le robaria ancho de banda a esa. --}}
+            @if(!$isShowcaseHome)
+                @include('marketplace.partials.listing-preload', [
+                    'items'      => $listings,
+                    'withSrcset' => true,
+                ])
+            @endif
             @php
                 // Cuantas tarjetas se cargan sin diferir. Dos filas de movil
                 // (2 columnas) y la primera de escritorio caben de sobra en 6;
                 // el resto sigue siendo lazy. Lo lee partials/listing-card.
-                $cardEagerCount = 6;
+                $cardEagerCount = $isShowcaseHome ? 0 : 6;
             @endphp
             <div class="mp-grid">
                 @foreach($listings as $idx => $listing)

@@ -58,6 +58,9 @@ class Configuration extends Model
         'marketplace_instagram_url',
         'marketplace_whatsapp_url',
         'marketplace_tiktok_url',
+        // Portada de temporada del inicio del marketplace (JSON). Se edita en
+        // /admin/marketplace/portada; ver App\Services\Marketplace\HomeShowcase.
+        'marketplace_hero',
         // Shalom API (shalom-api.lat): una llave de ebaemy para todas las
         // tiendas. Editable desde /admin/shalom. Ver ShalomApi.
         'shalom_api_key',
@@ -81,6 +84,7 @@ class Configuration extends Model
         'seller_default_plan_id' => 'integer',
         'seller_requires_active_ruc' => 'boolean',
         'marketplace_ads_enabled' => 'boolean',
+        'marketplace_hero' => 'array',
         'shalom_api_key' => 'encrypted',
         'shalom_webhook_secret' => 'encrypted',
         'shalom_synced_at' => 'datetime',

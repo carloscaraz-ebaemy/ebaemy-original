@@ -61,7 +61,7 @@
                                  la prioridad y el preload. Pedir prioridad
                                  alta para las dos es no pedirla para
                                  ninguna. --}}
-                            @php $offerEager = $loop->index < 3; @endphp
+                            @php $offerEager = $loop->index < ($offersEager ?? 3); @endphp
                             <img src="{{ $offer->thumb_image_url ?? $offer->image_url }}"
                                  alt="{{ $offer->title }}"
                                  loading="{{ $offerEager ? 'eager' : 'lazy' }}"

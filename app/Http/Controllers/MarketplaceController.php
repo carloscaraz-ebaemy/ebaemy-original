@@ -84,13 +84,16 @@ class MarketplaceController extends Controller
         // `$term` busca otro termino con los mismos filtros (comprobar una
         // correccion de errata) y `$loose` usa la busqueda FLEXIBLE en vez de
         // la exacta (ver MarketplaceListing::scopeSearchLoose).
-        $applyFilters = function ($qb, bool $includeShop = true, ?string $term = null, bool $loose = false) use (
+        // `$includeOfficialCat=false` omite el filtro de categoria oficial: lo
+        // usa la faceta «Categoría» del panel, que muestra todas las raices
+        // con su numero para poder cambiar de una a otra (igual que tiendas).
+        $applyFilters = function ($qb, bool $includeShop = true, ?string $term = null, bool $loose = false, bool $includeOfficialCat = true) use (
             $q, $category, $officialCatId, $shopHostnameId, $priceMin, $priceMax,
             $onOfferOnly, $verifiedOnly, $inStockOnly, $packsOnly, $brand
         ) {
             $term = $term ?? $q;
             ($loose ? $qb->searchLoose($term) : $qb->search($term))
-                ->category($category)->inOfficialCategory($officialCatId);
+                ->category($category)->inOfficialCategory($includeOfficialCat ? $officialCatId : null);
             if ($includeShop && $shopHostnameId) $qb->where('hostname_id', $shopHostnameId);
             // COALESCE(mp_price, price) → precio efectivo mostrado al usuario
             if ($priceMin !== null) $qb->whereRaw('COALESCE(mp_price, price) >= ?', [$priceMin]);
@@ -259,10 +262,35 @@ class MarketplaceController extends Controller
         // color, thumbs de variantes con imagen, imagen primaria heredada
         // de la variante is_primary, y color activo. Reusable por todas
         // las acciones que renderizan grids de cards.
-        $this->decorateListingsWithVariantData($listings);
+        //
+        // Las tarjetas de los carruseles por categoría del inicio (vitrina,
+        // ver más abajo) se cargan AQUÍ para decorarlas en la misma pasada
+        // que la rejilla: mismas consultas de variantes/«también en», una
+        // sola vez para los dos conjuntos.
+        $showcase  = app(\App\Services\Marketplace\HomeShowcase::class);
+        $rootStats = $showcase->roots();
+        $isShowcaseHome = !$q && !$category && !$officialCatId && $priceMin === null && $priceMax === null
+            && !$onOfferOnly && !$verifiedOnly && !$inStockOnly && !$packsOnly && !$shopSubdomain && !$brand
+            && !$looseSearch && ($sort ?: 'relevance') === 'relevance' && $listings->currentPage() === 1;
+        $reelRoots = collect();
+        $reelItems = collect();
+        if ($isShowcaseHome) {
+            $reelRoots = $rootStats
+                ->filter(fn ($r) => count($r->reel_ids) >= \App\Services\Marketplace\HomeShowcase::REEL_MIN)
+                ->take(5);
+            $reelIds = $reelRoots->pluck('reel_ids')->flatten()->unique()->values()->all();
+            if ($reelIds) {
+                // published() otra vez: en los 10 min de cache un producto pudo
+                // quedarse sin stock o ser pausado.
+                $reelItems = MarketplaceListing::published()->whereIn('id', $reelIds)->get();
+            }
+        }
+        $toDecorate = $reelItems->isEmpty() ? $listings : collect($listings->items())->concat($reelItems);
+
+        $this->decorateListingsWithVariantData($toDecorate);
         $this->explodeVariantsIntoCards($listings, $q);
-        $this->decorateListingsWithAlsoIn($listings);
-        $this->decorateListingsWithPersonalCoupon($listings);
+        $this->decorateListingsWithAlsoIn($toDecorate);
+        $this->decorateListingsWithPersonalCoupon($toDecorate);
 
         // Facetas del sidebar — cacheadas 30min, igual que el resto de
         // agregados de esta pantalla. Son dos GROUP BY sobre toda la tabla y
@@ -435,6 +463,52 @@ class MarketplaceController extends Controller
             }
         }
 
+        // ── Vitrina del inicio (fase 2 del rediseño) ─────────────────────
+        // Portada de temporada, «Compra por categoría» y carruseles por
+        // categoría: solo en el inicio limpio y en su primera página. Todo
+        // sale del cálculo cacheado de HomeShowcase (10 min); por petición
+        // solo se cargan por id las tarjetas de los carruseles.
+        // (los carruseles ya se cargaron y decoraron junto a la rejilla, arriba)
+        $hero = null;
+        $categoryTiles = collect();
+        $categoryReels = collect();
+        if ($isShowcaseHome) {
+            $hero          = $showcase->hero();
+            $categoryTiles = $rootStats->filter(fn ($r) => $r->image)->values();
+
+            if ($reelItems->isNotEmpty()) {
+                $reelById = $reelItems->keyBy('id');
+                $categoryReels = $reelRoots->map(fn ($r) => (object) [
+                    'root'  => $r,
+                    'items' => collect($r->reel_ids)->map(fn ($id) => $reelById[$id] ?? null)->filter()->values(),
+                ])->filter(fn ($reel) => $reel->items->count() >= \App\Services\Marketplace\HomeShowcase::REEL_MIN)->values();
+            }
+        }
+
+        // Faceta «Categoría» del panel: raíces visibles con su número. Sin
+        // filtros, el número global (cacheado); con búsqueda o filtros, el de
+        // ESOS resultados (sin el propio filtro de categoría), para que cuadre
+        // con lo que se ve — una consulta agrupada, solo cuando se filtra.
+        if ($hasFilters) {
+            $rootOf = $showcase->rootOfMap();
+            $byCat  = $applyFilters(MarketplaceListing::published(), true, null, $looseSearch, false)
+                ->whereNotNull('marketplace_category_id')
+                ->selectRaw('marketplace_category_id, COUNT(*) as c')
+                ->groupBy('marketplace_category_id')
+                ->pluck('c', 'marketplace_category_id');
+            $perRoot = [];
+            foreach ($byCat as $catId => $c) {
+                $root = $rootOf[$catId] ?? null;
+                if ($root) $perRoot[$root] = ($perRoot[$root] ?? 0) + (int) $c;
+            }
+            $categoryFacet = $rootStats
+                ->map(fn ($r) => (object) ['id' => $r->id, 'name' => $r->name, 'full_slug' => $r->full_slug, 'count' => $perRoot[$r->id] ?? 0])
+                ->filter(fn ($r) => $r->count > 0 || $r->id === $officialCatId)
+                ->sortByDesc('count')->values();
+        } else {
+            $categoryFacet = $rootStats;
+        }
+
         return view('marketplace.index', compact(
             'listings', 'categories', 'officialRoots', 'dailyOffers',
             'q', 'category', 'officialCatId',
@@ -443,7 +517,8 @@ class MarketplaceController extends Controller
             'onOfferOnly', 'verifiedOnly', 'inStockOnly', 'packsOnly',
             'brand', 'brands',
             'recentlyViewed', 'expiringCoupons', 'recommendedForYou',
-            'looseSearch'
+            'looseSearch',
+            'isShowcaseHome', 'hero', 'categoryTiles', 'categoryReels', 'categoryFacet'
         ));
     }
 
