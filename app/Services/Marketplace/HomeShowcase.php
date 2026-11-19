@@ -35,7 +35,7 @@ class HomeShowcase
      */
     public const REEL_RENDER = 6;
     /** Por debajo de esto no se pinta el carrusel de esa categoria. */
-    public const REEL_MIN  = 1; // TEMP-LOCAL
+    public const REEL_MIN  = 4;
 
     /** Portada por defecto: la que deja la migracion. */
     public const HERO_DEFAULTS = [

@@ -1699,7 +1699,8 @@
         .mp-ship__returns { font-size: 12.5px; color: #374151; margin: 8px 0 0; padding-top: 8px; border-top: 1px solid #f3f4f6; }
         .mp-ship__returns a { color: var(--mp-primary, #0c7c75); }
         .mp-ship__seller { font-size: 12.5px; color: #6b7280; margin: 10px 0 0; padding-top: 8px; border-top: 1px dashed #e5e7eb; }
-        .mp-ship__seller a { color: var(--mp-primary, #0c7c75); }
+        /* Subrayado: el color solo no lo distingue del texto (axe link-in-text-block). */
+        .mp-ship__seller a { color: var(--mp-primary, #0c7c75); text-decoration: underline; text-underline-offset: 2px; }
         </style>
         @endpush
 
@@ -2048,7 +2049,7 @@
     .mp-related__card:hover .mp-related__card-img img { transform: scale(1.05); }
     .mp-related__card-noimg {
         display: flex; align-items: center; justify-content: center;
-        height: 100%; color: #9ca3af; font-size: 12px;
+        height: 100%; color: #5f7085; font-size: 12px;
     }
     .mp-related__card-pct {
         position: absolute; top: 8px; left: 8px;
@@ -2078,7 +2079,7 @@
     }
     .mp-related__card-old {
         font-size: 12px;
-        color: #9ca3af;
+        color: #5f7085;   /* #9ca3af daba 2,53 (axe, 2026-11-19) */
         text-decoration: line-through;
     }
     .mp-related__card-consult { font-size: 13px; font-weight: 500; color: #6b7280; }

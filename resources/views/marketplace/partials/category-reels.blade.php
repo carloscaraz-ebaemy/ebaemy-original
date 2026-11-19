@@ -16,8 +16,9 @@
     entrada, su reajuste cuenta como scroll y Chrome deja de medir el LCP.
 
     LCP (medido 2026-11-19): con portada, el elemento LCP es la PRIMERA
-    tarjeta del PRIMER carrusel (y ≈ 593 px a 390 de ancho), no la foto de la
-    portada (84 px). Por eso las 3 primeras de esa fila van sin diferir y la
+    tarjeta del PRIMER carrusel en móvil (y ≈ 593 px a 390 de ancho), no la
+    foto de la portada (84 px); en escritorio salió la 4.ª de esa fila (se ven
+    5,3 y todas miden igual). Por eso TODA la primera fila va sin diferir y la
     primera lleva preload + fetchpriority alto, con el mismo src/srcset que
     pinta la tarjeta (partials/listing-preload). Las filas 2-5 quedan bajo
     el pliegue: lazy y con content-visibility:auto (.mp-cv-reel).
@@ -57,7 +58,7 @@
                     <div class="mp-reel__item">
                         @include('marketplace.partials.listing-card', [
                             'listing'           => $listing,
-                            'cardEagerCount'    => $reelFirst ? 3 : 0,
+                            'cardEagerCount'    => $reelFirst ? \App\Services\Marketplace\HomeShowcase::REEL_RENDER : 0,
                             'cardPriorityCount' => 1,
                             'showTopBadge'      => false,
                             'showBestBadge'     => false,

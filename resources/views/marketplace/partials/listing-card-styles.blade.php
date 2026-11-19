@@ -181,7 +181,7 @@
 
     /* Color dots en cards (estilo Falabella) */
     .mp-card-colors {
-        display: flex; gap: 5px;
+        display: flex; gap: 6px;
         margin-top: 6px;
         flex-wrap: wrap;
         align-items: center;
@@ -230,7 +230,7 @@
 
     /* Variant dots/thumbs en cards (legacy fallback) */
     .mp-card-variants {
-        display: flex; gap: 4px;
+        display: flex; gap: 6px;   /* centros a >=24 px */
         margin-top: 6px;
         flex-wrap: wrap;
     }
@@ -238,7 +238,10 @@
         /* Resets para <button> — ver .mp-card-color-dot. */
         padding: 0; margin: 0; font: inherit;
         -webkit-appearance: none; appearance: none;
-        width: 22px; height: 22px;
+        /* 24 px: el mínimo de WCAG 2.2 (axe target-size). La card entera es
+           un role=link, así que el espacio alrededor no cuenta: el botón
+           mismo tiene que medir 24 (antes 20-22). */
+        width: 24px; height: 24px;
         border-radius: 6px;
         position: relative;   /* sin overflow:hidden: ver el ::after de abajo */
         border: 1.5px solid #e5e7eb;
@@ -260,9 +263,6 @@
         border-color: var(--mp-primary, #0c7c75);
         transform: scale(1.12);
     }
-    @media (max-width: 640px) {
-        .mp-card-variant-dot { width: 20px; height: 20px; }
-    }
 
     /* Área táctil de 44x44 en los puntos de color y de variante sin agrandar
        el dibujo (regla 2 de ebaemy-responsive; 2026-11-19): un ::after
@@ -275,6 +275,30 @@
         left: 50%; top: 50%;
         width: 44px; height: 44px;
         transform: translate(-50%, -50%);
+    }
+
+    /* Punto de color: el BOTÓN mide 24x24 (mínimo WCAG 2.2; la card es un
+       role=link y axe no cuenta el espacio de alrededor), pero el círculo
+       dibujado sigue de 16 px (14 en móvil): el color se pinta solo en la
+       caja de contenido y el aro va en un ::before. */
+    .mp-card-color-dot {
+        width: 24px; height: 24px; padding: 4px;
+        border: 0 !important;
+        background-clip: content-box !important;   /* el style="background:#hex" en línea lo reiniciaría */
+        box-shadow: none !important;
+        transform: none !important;
+    }
+    .mp-card-color-dot::before {
+        content: ""; position: absolute; inset: 4px;
+        border-radius: 999px; border: 1.5px solid #e5e7eb;
+        pointer-events: none;
+        transition: transform .12s, border-color .15s, box-shadow .15s;
+    }
+    .mp-card-color-dot:hover::before { border-color: #0a0e1a; transform: scale(1.18); box-shadow: 0 2px 6px -2px rgba(0,0,0,.18); }
+    .mp-card-color-dot.is-active::before { border-color: #10b981; box-shadow: 0 0 0 2px rgba(16,185,129,.32); transform: scale(1.12); }
+    @media (max-width: 480px) {
+        .mp-card-color-dot { width: 24px; height: 24px; padding: 5px; }
+        .mp-card-color-dot::before { inset: 5px; }
     }
 
     .mp-card-body { padding: 12px 12px 14px; }

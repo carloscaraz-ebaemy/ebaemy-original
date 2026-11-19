@@ -133,7 +133,7 @@
     flex: 1; padding: 9px 10px;
     background: transparent; border: 0; cursor: pointer;
     border-radius: 7px; font-size: 13.5px; font-weight: 600;
-    color: #64748b;
+    color: #4b5a6e;   /* #64748b sobre el gris de la pestaña daba 4,34 (axe) */
     transition: background .15s, color .15s;
 }
 .mp-auth-tab:hover { color: #0f172a; }

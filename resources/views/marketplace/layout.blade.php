@@ -106,8 +106,10 @@
     <meta name="google-adsense-account" content="{{ $mpCfg->marketplace_adsense_client }}">
     {{-- El script NO va en el <head>: son ~250 KB y 430-570 ms de hilo
          principal bloqueado en móvil, justo mientras se pinta el primer
-         pliegue (Lighthouse 2026-11-19, TBT 1.680 ms). Se inyecta tras la
-         primera interacción o 4 s después de `load`, lo que llegue antes.
+         pliegue (Lighthouse 2026-11-19, TBT 1.680 ms). Se inyecta SOLO tras la
+         primera interacción real (toque, tecla, scroll). Con un temporizador
+         de 4 s tras `load` seguía cayendo dentro de la medición de Lighthouse
+         (335-560 ms de bloqueo medidos en producción el mismo día).
          Solo hay anuncios automáticos (ningún <ins class="adsbygoogle">),
          así que no hay hueco que se quede esperando. La verificación del
          sitio la hace el <meta> de arriba y /ads.txt. --}}
@@ -126,9 +128,6 @@
             document.head.appendChild(s);
         }
         evs.forEach(function (ev) { window.addEventListener(ev, cargar, { capture: true, passive: true, once: true }); });
-        function trasLoad() { setTimeout(cargar, 4000); }
-        if (document.readyState === 'complete') trasLoad();
-        else window.addEventListener('load', trasLoad, { once: true });
     })();
     </script>
     @endif
