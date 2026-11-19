@@ -643,68 +643,7 @@
              con la taxonomía oficial del marketplace de los chips de arriba.
              La taxonomía oficial sigue activa vía /marketplace/c/{slug}. --}}
 
-        @if(!empty($shops) && $shops->count() > 0)
-            <div class="mp-filter-group">
-                <div class="mp-filter-label mp-filter-label--with-action">
-                    <span class="d-flex align-items-center gap-1">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9h18"/><path d="m3 9 1.5-6h15L21 9"/><path d="M3 9v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9"/></svg>
-                        Tiendas <small class="text-muted">({{ $shops->count() }})</small>
-                    </span>
-                </div>
-                @php
-                    // Para los links del sidebar "Tiendas" descartamos el query
-                    // de búsqueda (q): el seller suele teclear el nombre de la
-                    // tienda en el buscador y luego filtrar — si preservamos q
-                    // queda doble filtro y muestra 0 resultados aunque la tienda
-                    // tenga productos. También quitamos 'shop' para que los
-                    // links nuevos sobrescriban el actual sin acumular.
-                    $shopBaseQs = array_diff_key($baseQs, ['shop' => null, 'q' => null]);
-                @endphp
-
-                {{-- Buscador inline (filtra client-side las tiendas visibles).
-                     Solo aparece si hay >5 tiendas para no saturar. --}}
-                @if($shops->count() > 5)
-                    <input type="search"
-                           id="mpShopFilterInput"
-                           class="mp-shop-search"
-                           placeholder="🔍 Buscar tienda…"
-                           autocomplete="off">
-                @endif
-
-                <ul class="mp-filter-list mp-shop-list">
-                    <li>
-                        <a href="{{ route('marketplace.index', $shopBaseQs) }}"
-                           class="mp-filter-item mp-shop-item {{ empty($shopSubdomain) ? 'is-active' : '' }}">
-                            <span class="mp-shop-logo mp-shop-logo--all">🏬</span>
-                            <span class="mp-shop-name">Todas las tiendas</span>
-                            <span class="mp-filter-count">{{ $shops->sum('products_count') }}</span>
-                        </a>
-                    </li>
-                    @foreach($shops as $shop)
-                        <li data-shop-name="{{ mb_strtolower($shop->name) }}">
-                            <a href="{{ route('marketplace.index', array_merge($shopBaseQs, ['shop' => $shop->subdomain])) }}"
-                               class="mp-filter-item mp-shop-item {{ $shopSubdomain === $shop->subdomain ? 'is-active' : '' }}"
-                               title="Ver productos de {{ $shop->name }}">
-                                @if($shop->logo_url)
-                                    <img class="mp-shop-logo" src="{{ $shop->logo_url }}" alt="" loading="lazy">
-                                @else
-                                    <span class="mp-shop-logo mp-shop-logo--initial">{{ mb_strtoupper(mb_substr($shop->name, 0, 1)) }}</span>
-                                @endif
-                                <span class="mp-shop-name">
-                                    {{ $shop->name }}
-                                    @if($shop->verified)
-                                        <span class="mp-shop-verified" title="Tienda verificada por ebaemy">✓</span>
-                                    @endif
-                                </span>
-                                <span class="mp-filter-count">{{ $shop->products_count }}</span>
-                            </a>
-                        </li>
-                    @endforeach
-                </ul>
-                <a href="{{ route('marketplace.index', array_merge($shopBaseQs, ['view' => 'shops'])) }}"
-                   class="mp-shop-see-all">Ver todas las tiendas →</a>
-            </div>
-        @endif
+        {{-- (filtro de tiendas movido al final del panel) --}}
 
         <div class="mp-filter-group">
             <div class="mp-filter-label">
@@ -793,6 +732,24 @@
                 Con stock disponible
             </a>
         </div>
+        {{-- Tienda: selector compacto AL FINAL de los filtros (fase 1 del rediseño).
+             Antes era una lista con todas las tiendas arriba, que crecía con cada
+             tienda nueva. Es opcional: el marketplace se recorre por producto. --}}
+        @if(!empty($shops) && $shops->count() > 0)
+            @php $shopBaseQs = array_diff_key($baseQs, ['shop' => null, 'q' => null]); @endphp
+            <div class="mp-filter-group">
+                <label class="mp-filter-label" for="mpShopSelect">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9h18"/><path d="m3 9 1.5-6h15L21 9"/><path d="M3 9v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9"/></svg>
+                    Tienda
+                </label>
+                <select id="mpShopSelect" class="mp-shop-select" onchange="if (this.value) window.location.href = this.value;">
+                    <option value="{{ route('marketplace.index', $shopBaseQs) }}" @selected(empty($shopSubdomain))>Todas las tiendas</option>
+                    @foreach($shops->sortByDesc('products_count') as $shop)
+                        <option value="{{ route('marketplace.index', array_merge($shopBaseQs, ['shop' => $shop->subdomain])) }}" @selected($shopSubdomain === $shop->subdomain)>{{ $shop->name }} ({{ $shop->products_count }})</option>
+                    @endforeach
+                </select>
+            </div>
+        @endif
     </aside>
 
     <div class="mp-main-col">
@@ -1080,45 +1037,9 @@
 })();
 </script>
 
-{{-- ═══════════════════════ TIENDAS DESTACADAS (después de productos) ═══════════════════════ --}}
-@if($featuredShops->count() >= 3)
-    <section class="mp-section">
-        <div class="mp-section-head">
-            <div>
-                <h2 class="mp-section-title">
-                    <span class="mp-section-title-emoji">🏪</span>
-                    Tiendas destacadas
-                </h2>
-                <p class="mp-section-subtitle">Empresas peruanas reales con RUC verificado vendiendo en ebaemy.</p>
-            </div>
-            <a href="{{ route('marketplace.stores') }}" style="font-weight:700;font-size:14px;color:var(--mp-primary,#0f8a82);white-space:nowrap;align-self:center">Ver todas las tiendas →</a>
-        </div>
-        <div class="mp-shops-row">
-            @foreach($featuredShops as $shop)
-                <a href="https://{{ $shop->tenant_fqdn }}" target="_blank" rel="noopener" class="mp-shop-card">
-                    <div class="mp-shop-card-logo">
-                        @if(!empty($shop->tenant_logo_url))
-                            <img src="{{ $shop->tenant_logo_url }}" alt="{{ $shop->seller_display }}" loading="lazy">
-                        @else
-                            <span class="mp-shop-card-logo-fallback">{{ mb_strtoupper(mb_substr($shop->seller_display, 0, 2)) }}</span>
-                        @endif
-                    </div>
-                    <h3 class="mp-shop-card-name">{{ \Illuminate\Support\Str::limit($shop->seller_display, 34) }}</h3>
-                    @if(!empty($shop->tenant_verified))
-                        <span class="mp-shop-card-meta">
-                            <svg width="10" height="10" viewBox="0 0 24 24" fill="#2563eb"><path d="M12 2l2.39 5.42L20 8.27l-4 4.15.94 5.58L12 15.77l-4.94 2.23L8 12.42 4 8.27l5.61-.85L12 2z"/></svg>
-                            Verificada
-                        </span>
-                    @endif
-                    <span class="mp-shop-card-cta">
-                        Ver tienda
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
-                    </span>
-                </a>
-            @endforeach
-        </div>
-    </section>
-@endif
+{{-- «Tiendas destacadas» se quitó del final del inicio (fase 1 del rediseño:
+     solo productos). Las tiendas siguen en /marketplace/tiendas, en el menú y el pie. --}}
+
 
 {{-- Estilos de cards/grid/paginador del marketplace viven en
      marketplace.partials.listing-card-styles, incluido por el layout
@@ -1127,6 +1048,19 @@
 
 @push('styles')
 <style>
+    /* Filtro «Tienda» compacto (fase 1): un select nativo; 16px para que iOS
+       no haga zoom y 44px de alto para el dedo. */
+    .mp-shop-select {
+        width: 100%;
+        min-height: 44px;
+        padding: 8px 10px;
+        font-size: 16px;
+        border: 1px solid var(--mp-border, #e5e7eb);
+        border-radius: 10px;
+        background: var(--mp-surface, #fff);
+        color: inherit;
+    }
+
     /* Aviso de busqueda corregida por errata */
     .mp-rescued {
         margin: 0 0 12px;

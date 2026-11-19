@@ -1822,7 +1822,7 @@
 @if(isset($boughtTogether) && $boughtTogether->isNotEmpty())
     <section class="mp-related" aria-label="Comprados juntos">
         <div class="mp-related__head">
-            <h3 class="mp-related__title">Quienes compraron esto también llevaron</h3>
+            <h3 class="mp-related__title">Completa tu compra</h3>
         </div>
         <div class="mp-related__rail">
             @foreach($boughtTogether as $r)
@@ -1861,9 +1861,9 @@
 @endif
 
 @if($related->isNotEmpty())
-    <section class="mp-related" aria-label="También te puede interesar">
+    <section class="mp-related" aria-label="Productos parecidos">
         <div class="mp-related__head">
-            <h3 class="mp-related__title">También te puede interesar</h3>
+            <h3 class="mp-related__title">Productos parecidos</h3>
             <div class="mp-related__nav" role="group" aria-label="Navegar carrusel">
                 <button type="button" class="mp-related__nav-btn" data-rel-prev aria-label="Anterior">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
@@ -2072,20 +2072,31 @@
     </script>
 @endif
 
-{{-- ════════════ Ofertas contextuales ════════════
-     2 secciones cuando ambas tienen contenido:
-     (a) Más ofertas en [tienda actual] — cross-sell intra-tienda
-     (b) Ofertas en otras tiendas — descubrimiento del marketplace --}}
+{{-- ════════════ Ofertas para ti ════════════
+     Un solo carrusel con las ofertas de la misma tienda y de las demás,
+     mezcladas por mayor descuento. Antes eran dos («Más ofertas en
+     [tienda]» y «Ofertas en otras tiendas»): el dueño pidió que al final
+     de la ficha se vean productos, no tiendas (fase 1 del rediseño). --}}
+@php
+    $mpMoreOffers = collect($sameStoreOffers ?? [])
+        ->merge($otherStoreOffers ?? [])
+        ->unique('id')
+        // Lo que ya sale en «Productos parecidos» no se repite aquí.
+        ->reject(fn ($o) => isset($related) && $related->contains('id', $o->id))
+        ->sortByDesc(fn ($o) => (float) ($o->discount_pct ?? 0))
+        ->take(12)
+        ->values();
+@endphp
 
-@if(!empty($sameStoreOffers) && $sameStoreOffers->count() > 0)
-    <section class="mp-show-offers" aria-label="Más ofertas en esta tienda">
+@if($mpMoreOffers->isNotEmpty())
+    <section class="mp-show-offers" aria-label="Ofertas para ti">
         <div class="mp-show-offers__head">
-            <h2 class="mp-show-offers__title">{{ $sameStoreLabel ?? '🔥 Más ofertas de esta tienda' }}</h2>
-            <a href="{{ route('marketplace.tenant', ['subdomain' => $listing->subdomain]) }}?on_offer=1"
+            <h2 class="mp-show-offers__title">🔥 Ofertas para ti</h2>
+            <a href="{{ route('marketplace.index', ['on_offer' => 1]) }}"
                class="mp-show-offers__see-all">Ver todas →</a>
         </div>
         <div class="mp-show-offers__scroll">
-            @foreach($sameStoreOffers as $offer)
+            @foreach($mpMoreOffers as $offer)
                 <div class="mp-show-offers__item">
                     @include('marketplace.partials.listing-card', ['listing' => $offer])
                 </div>
@@ -2094,24 +2105,7 @@
     </section>
 @endif
 
-@if(!empty($otherStoreOffers) && $otherStoreOffers->count() > 0)
-    <section class="mp-show-offers mp-show-offers--other" aria-label="Ofertas en otras tiendas">
-        <div class="mp-show-offers__head">
-            <h2 class="mp-show-offers__title">{{ $otherStoreLabel ?? '🔥 Ofertas en otras tiendas' }}</h2>
-            <a href="{{ route('marketplace.index', ['on_offer' => 1]) }}"
-               class="mp-show-offers__see-all">Ver todas →</a>
-        </div>
-        <div class="mp-show-offers__scroll">
-            @foreach($otherStoreOffers as $offer)
-                <div class="mp-show-offers__item">
-                    @include('marketplace.partials.listing-card', ['listing' => $offer, 'showShopName' => true])
-                </div>
-            @endforeach
-        </div>
-    </section>
-@endif
-
-@if((!empty($sameStoreOffers) && $sameStoreOffers->count() > 0) || (!empty($otherStoreOffers) && $otherStoreOffers->count() > 0))
+@if($mpMoreOffers->isNotEmpty())
     @push('styles')
     <style>
     .mp-show-offers {
