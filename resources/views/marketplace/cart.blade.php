@@ -8,7 +8,7 @@
 @push('styles')
 <style>
 .mp-cart-pk-intro { background: #f0fdfa; border: 1px solid #99f6e4; color: #115e59; border-radius: 12px; padding: 10px 14px; font-size: 14px; margin: 0 0 12px; }
-.mp-cart-pk-tag { display: inline-block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; background: #0f8a82; color: #fff; border-radius: 6px; padding: 2px 7px; margin-bottom: 8px; }
+.mp-cart-pk-tag { display: inline-block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; background: #0c7c75; color: #fff; border-radius: 6px; padding: 2px 7px; margin-bottom: 8px; }
 .mp-cart-wrapper {
     display: grid;
     grid-template-columns: 1fr 340px;
@@ -128,7 +128,7 @@
 .mp-cart-summary-total .value { font-size: 22px; font-weight: 800; color: var(--mp-primary-dark, #0c6b65); }
 .mp-cart-checkout-btn {
     display: block; width: 100%; padding: 14px;
-    background: var(--mp-primary, #0f8a82); color: #fff; border: none;
+    background: var(--mp-primary, #0c7c75); color: #fff; border: none;
     border-radius: 10px; font-size: 15px; font-weight: 700;
     text-decoration: none; text-align: center; cursor: pointer;
     transition: background .15s; margin-top: 14px;
@@ -148,7 +148,7 @@
 .mp-cart-empty h3 { color: var(--mp-ink, #111827); }
 .mp-cart-empty .btn-cta {
     display: inline-block; margin-top: 16px;
-    padding: 12px 28px; background: var(--mp-primary, #0f8a82); color: #fff;
+    padding: 12px 28px; background: var(--mp-primary, #0c7c75); color: #fff;
     border-radius: 10px; text-decoration: none; font-weight: 600;
 }
 </style>

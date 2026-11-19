@@ -15,7 +15,7 @@
     margin-bottom: 14px;
 }
 .mp-legal__breadcrumb a {
-    color: var(--mp-primary, #0f8a82);
+    color: var(--mp-primary, #0c7c75);
     text-decoration: none;
 }
 .mp-legal__breadcrumb a:hover { text-decoration: underline; }
@@ -69,7 +69,7 @@
     margin-bottom: 6px;
 }
 .mp-legal a {
-    color: var(--mp-primary, #0f8a82);
+    color: var(--mp-primary, #0c7c75);
     text-decoration: underline;
 }
 .mp-legal a:hover { color: var(--mp-primary-dark, #0c6b65); }
@@ -77,7 +77,7 @@
     margin-top: 36px;
     padding: 18px 20px;
     background: linear-gradient(135deg, #f0fdfa 0%, #ecfdf5 100%);
-    border-left: 3px solid var(--mp-primary, #0f8a82);
+    border-left: 3px solid var(--mp-primary, #0c7c75);
     border-radius: 8px;
 }
 .mp-legal__contact strong { color: var(--mp-primary-dark, #0c6b65); }

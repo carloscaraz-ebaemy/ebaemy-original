@@ -7,7 +7,12 @@
 
 :root {
     /* Paleta marketplace */
-    --mp-primary:        var(--eb-brand,      #0f8a82);
+    /* Oscurecido de #0f8a82 (el --eb-brand del ERP) el 2026-11-19: el blanco
+       encima daba 4,21:1 y axe lo marcaba como grave en todas las páginas.
+       #0c7c75 es el mismo turquesa un punto más oscuro: 5,05 sobre blanco y
+       4,67 como texto sobre el fondo #f4f6f9. Fijo aquí, sin tocar el token
+       del ERP (design-tokens.css), que comparte el panel. */
+    --mp-primary:        #0c7c75;
     --mp-primary-dark:   var(--eb-brand-dark, #0a6f68);
     --mp-primary-light:  var(--eb-brand-light,#1fb1a6);
     --mp-primary-soft:   var(--eb-brand-soft, #e8f6f5);
@@ -1413,7 +1418,9 @@ button { font-family: inherit; cursor: pointer; }
     justify-content: center;
     gap: 8px;
     background: #25d366;
-    color: #fff;
+    /* Texto oscuro: el blanco sobre el verde WhatsApp daba 1,98:1 (axe,
+       2026-11-19). #06301a sobre #25d366 da >9:1 y el verde se mantiene. */
+    color: #06301a;
     padding: 13px 22px;
     border-radius: var(--mp-radius);
     font-weight: 700;
@@ -1427,8 +1434,8 @@ button { font-family: inherit; cursor: pointer; }
     transition: background .18s var(--mp-ease), transform .15s var(--mp-ease), box-shadow .15s var(--mp-ease);
 }
 .mp-cta-whatsapp:hover {
-    background: #1da851;
-    color: #fff;
+    background: #1fbe5a;
+    color: #06301a;
     text-decoration: none;
     transform: translateY(-1px);
     box-shadow: 0 10px 24px -4px rgba(37,211,102,.5);
@@ -3140,3 +3147,67 @@ html.mp-vmodal-open, html.mp-vmodal-open body { overflow: hidden; }
 @media (prefers-reduced-motion: reduce) {
     .mp-vreel__media img, .mp-vplay { transition: none; }
 }
+
+
+/* ───── Rendimiento y accesibilidad del inicio (2026-11-19) ─────────────
+   Lighthouse móvil bajó de 98 a 46 con la fase 2 (portada, categorías y
+   carruseles). Ver project_pagespeed_lcp_marketplace. */
+
+/* Secciones bajo el pliegue: el navegador no calcula su layout ni las pinta
+   hasta que se acercan. contain-intrinsic-size reserva un alto aproximado
+   para que la barra de scroll no salte; con `auto` recuerda el alto real
+   después de pintarla una vez. */
+.mp-cv-reel {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 440px;
+}
+.mp-cv-block {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 380px;
+}
+.mp-cv-grid {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 2400px;
+}
+
+/* Última casilla de cada carrusel: «Ver todo en <categoría>». */
+.mp-reel__item--more { align-items: stretch; }
+.mp-reel__more {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 8px; width: 100%; min-height: 200px; padding: 16px; text-align: center;
+    border: 1.5px dashed var(--mp-line); border-radius: var(--mp-radius);
+    background: var(--mp-surface); color: var(--mp-ink); font-size: 14px; line-height: 1.35;
+    transition: border-color .15s, background-color .15s;
+}
+.mp-reel__more:hover { border-color: var(--mp-primary); background: var(--mp-primary-soft); color: var(--mp-primary-dark); }
+.mp-reel__more-icon {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 44px; height: 44px; border-radius: 999px;
+    background: var(--mp-primary-soft); color: var(--mp-primary-dark); font-size: 20px; font-weight: 700;
+}
+.mp-reel__more-count { font-size: 12.5px; color: var(--mp-muted); }
+
+/* Aviso visual breve de acciones («Añadido al carrito»). El anuncio para
+   lector de pantalla va aparte, en #mpLiveRegion (aria-live). */
+.mp-action-toast {
+    position: fixed; left: 50%; bottom: calc(88px + env(safe-area-inset-bottom)); z-index: 1250;
+    max-width: min(92vw, 420px); padding: 10px 16px; border-radius: 999px;
+    background: #0f172a; color: #fff; font-size: 14px; font-weight: 600; line-height: 1.35;
+    box-shadow: 0 10px 28px -8px rgba(15,23,42,.45);
+    opacity: 0; pointer-events: none;
+    transform: translate(-50%, 8px);
+    transition: opacity .18s ease, transform .18s ease;
+}
+.mp-action-toast.is-visible { opacity: 1; transform: translate(-50%, 0); }
+@media (prefers-reduced-motion: reduce) { .mp-action-toast { transition: none; } }
+
+/* Ficha: el botón fijo «Elige un modelo ↑» lleva al selector y lo resalta. */
+.mp-options.is-attention {
+    border-radius: 12px;
+    box-shadow: 0 0 0 3px var(--mp-primary-soft), 0 0 0 5px var(--mp-primary);
+    transition: box-shadow .2s ease;
+}
+
+/* Enlace «Vendido por» de la ficha: subrayado para distinguirlo del texto
+   que lo rodea sin depender solo del color (axe link-in-text-block). */
+.mp-shop-link strong { text-decoration: underline; text-underline-offset: 2px; text-decoration-thickness: 1px; }

@@ -1,7 +1,7 @@
 {{-- ═══════════════════════ OFERTAS DEL DÍA (carrusel + modal de bienvenida) ═══════════════════════
      Partial compartido entre la home (/marketplace) y la página de tienda
-     (/marketplace/tienda/{sub}). El modal se auto-abre 1× por sesión en móvil
-     Y escritorio. El bloque inline (carrusel) queda visible en escritorio.
+     (/marketplace/tienda/{sub}). El modal NO se abre solo (2026-11-19): se abre
+     con el botón «🔥 Ofertas». El bloque inline (carrusel) queda visible en escritorio.
 
      Variables esperadas:
        $offers       Collection de ofertas (el includer ya garantiza count >= 4)
@@ -15,7 +15,9 @@
     $offersSub   = $offersSub ?? '';
 @endphp
 
-<section class="mp-section mp-offers-block" id="mpOffersBlock" aria-label="Ofertas del día">
+{{-- Bajo la vitrina del inicio ($offersEager = 0) queda bajo el pliegue:
+     content-visibility:auto (.mp-cv-block) le ahorra el layout al cargar. --}}
+<section class="mp-section mp-offers-block {{ ($offersEager ?? 3) === 0 ? 'mp-cv-block' : '' }}" id="mpOffersBlock" aria-label="Ofertas del día">
     <div class="mp-offers-head">
         <div class="mp-offers-head__title-wrap">
             <h2 class="mp-offers-title">{{ $offersTitle }}</h2>
@@ -425,51 +427,12 @@ window.mpOffersEnsureClone = function () {
     modal.querySelectorAll('[data-offers-close]').forEach(function (el) { el.addEventListener('click', close); });
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); });
 
-    // Auto-abrir una sola vez por sesión (no molesta en cada navegación).
-    // La clave es única por contexto (home vs cada tienda).
-    //
-    // Se espera a que la pagina haya TERMINADO de pintar, no 700 ms desde que
-    // empieza. Con los 700 ms de antes el modal tapaba el contenido mientras
-    // el navegador todavia estaba decidiendo cual era su mayor elemento
-    // pintado: en escritorio, donde todo va rapido, Chrome no llegaba a
-    // registrar ninguno y Lighthouse devolvia `NO_LCP` — con el LCP sin medir
-    // la puntuacion de rendimiento entera sale nula. Medido el 2026-10-08:
-    // la misma pagina sin este modal daba 93 con LCP de 1,5 s.
-    //
-    // De paso es mejor para quien mira: un interstitial encima de un
-    // escaparate a medio pintar es justo lo que Google penaliza.
-    function autoAbrir() {
-        // En móvil (< 768 px) NO se abre solo: a 360 px la hoja con su fondo oscuro
-        // tapaba logo, buscador y Categorías nada más cargar, que es un intersticial
-        // justo cuando la persona busca dónde tocar. En su lugar queda el botón
-        // flotante «🔥 Ofertas», que abre la hoja a petición. No se consume la clave
-        // de sesión: si gira a tablet/escritorio, se abrirá una vez como siempre.
-        if (window.matchMedia && window.matchMedia('(max-width: 767px)').matches) return;
-        try {
-            var KEY = @json($modalSeenKey);
-            if (sessionStorage.getItem(KEY)) return;
-            sessionStorage.setItem(KEY, '1');
-        } catch (e) { return; }
-
-        // Si la persona ya empezó a usar la página (abrió Categorías, tocó el
-        // buscador, hizo scroll…), el modal NO se abre solo: aparecía encima
-        // de lo que estaba haciendo y su fondo oscuro bloqueaba los clics.
-        var interactuo = false;
-        var marcar = function () { interactuo = true; };
-        ['pointerdown', 'keydown', 'touchstart', 'wheel'].forEach(function (ev) {
-            document.addEventListener(ev, marcar, { once: true, passive: true, capture: true });
-        });
-        var abrirSiLibre = function () {
-            if (interactuo) return;
-            if (document.querySelector('.mp-cat-drawer.is-open, [aria-modal="true"][aria-hidden="false"]')) return;
-            open();
-        };
-
-        // `load` ya implica que las imagenes del primer pliegue entraron.
-        var tras = function () { setTimeout(abrirSiLibre, 1500); };
-        if (document.readyState === 'complete') tras();
-        else window.addEventListener('load', tras, { once: true });
-    }
-    autoAbrir();
+    // NO se abre solo, en ningún ancho (2026-11-19). En escritorio se abría
+    // 1,5 s después de `load` encima de la portada recién pintada: tapaba la
+    // vitrina, era un intersticial justo cuando la persona empieza a mirar y
+    // empeoraba el LCP. En móvil ya no se abría desde 2026-11. Queda el botón
+    // «🔥 Ofertas» (y el carril inline en escritorio) para abrirlo a petición.
+    // `modalSeenKey` ya no se usa: se conserva en la firma del partial para
+    // no tocar a quien lo incluye.
 })();
 </script>

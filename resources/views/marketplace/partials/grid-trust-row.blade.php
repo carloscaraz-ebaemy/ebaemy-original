@@ -64,7 +64,7 @@
         border-radius: 50%;
         display: flex; align-items: center; justify-content: center;
         background: var(--mp-primary-soft, #ecfdf5);
-        color: var(--mp-primary, #0f8a82);
+        color: var(--mp-primary, #0c7c75);
     }
     .mp-grid-trust__icon svg { width: 20px; height: 20px; }
     .mp-grid-trust__txt { display: flex; flex-direction: column; line-height: 1.3; min-width: 0; }

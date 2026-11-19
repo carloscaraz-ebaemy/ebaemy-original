@@ -315,6 +315,12 @@ window.mpBindGallery = mpBindGallery;
             btn.classList.add('is-added');
             btn.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
             if (window.mpCartBadgeUpdate) window.mpCartBadgeUpdate(data.summary);
+            // Aviso para lector de pantalla (aria-live) y visual breve: el
+            // '+' solo cambiaba a un check, sin texto (2026-11-19).
+            if (window.mpAnnounce) {
+                var tituloA = (data.line && data.line.title) || '';
+                window.mpAnnounce('Añadido al carrito' + (tituloA ? ': ' + tituloA : ''), { toast: true });
+            }
 
             /* AddToCart del quick-add. El payload sale de data.line, que es la
                linea que acaba de confirmar el servidor: asi el precio medido es

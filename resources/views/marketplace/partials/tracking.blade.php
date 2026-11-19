@@ -209,6 +209,7 @@
 
         var bar = document.getElementById('mpConsentBar');
         if (bar) bar.remove();
+        document.documentElement.classList.remove('mp-consent-open');
 
         if (granted) {
             loadAll();
@@ -225,13 +226,15 @@
 @unless($adsDecided)
 {{-- Banner de consentimiento. Hasta que el comprador decida, no se ha cargado
      ningún píxel: el marketplace es público y de cara a consumidores peruanos
-     (Ley 29733). Mobile-first: el aviso es una barra inferior que no tapa el
-     contenido y con botones de 44px de alto mínimo. --}}
+     (Ley 29733). Mobile-first: barra inferior COMPACTA (texto y botones en
+     una fila cuando cabe; 2026-11-19) con botones de 44px de alto mínimo.
+     Mientras está visible, la clase `mp-consent-open` en <html> esconde el
+     botón flotante «🔥 Ofertas», que se le montaba encima en móvil. --}}
 <div id="mpConsentBar" class="mp-consent" role="dialog" aria-live="polite"
      aria-label="Aviso de cookies de medición">
     <p class="mp-consent__text">
-        Usamos cookies para medir qué productos interesan y mejorar la tienda.
-        <a href="{{ route('marketplace.privacy') }}" rel="nofollow">Más información</a>.
+        Usamos cookies para medir y mejorar la tienda.
+        <a href="{{ route('marketplace.privacy') }}" rel="nofollow">Más información</a>
     </p>
     <div class="mp-consent__actions">
         <button type="button" class="mp-consent__btn mp-consent__btn--ghost"
@@ -240,29 +243,30 @@
                 onclick="window.mpTrackConsent(true)">Aceptar</button>
     </div>
 </div>
+<script>document.documentElement.classList.add('mp-consent-open');</script>
 <style>
 .mp-consent{
     position:fixed; left:0; right:0; bottom:0; z-index:1080;
-    display:flex; flex-direction:column; gap:10px;
-    padding:14px 16px calc(14px + env(safe-area-inset-bottom));
+    display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px;
+    padding:10px 12px calc(10px + env(safe-area-inset-bottom));
     background:#11211f; color:#eef6f5;
     box-shadow:0 -6px 24px rgba(0,0,0,.28);
-    font-size:13.5px; line-height:1.45;
+    font-size:13px; line-height:1.4;
 }
-.mp-consent__text{ margin:0; }
+.mp-consent__text{ margin:0; flex:1 1 200px; min-width:0; }
 .mp-consent__text a{ color:#6fd3c9; text-decoration:underline; }
-.mp-consent__actions{ display:flex; gap:10px; }
+.mp-consent__actions{ display:flex; gap:8px; flex:0 0 auto; margin-left:auto; }
 .mp-consent__btn{
-    flex:1 1 0; min-width:0; min-height:44px;
+    flex:0 0 auto; min-height:44px; padding:0 14px;
     border-radius:10px; border:0; cursor:pointer;
-    font-size:14.5px; font-weight:600;
+    font-size:14px; font-weight:600;
 }
 .mp-consent__btn--ghost{ background:transparent; color:#cfe3e1; border:1px solid #3c5b57; }
-.mp-consent__btn--primary{ background:#0f8a82; color:#fff; }
+.mp-consent__btn--primary{ background:#0c7c75; color:#fff; }   /* #0f8a82 daba 4,21 con blanco */
+.mp-consent-open .mp-offers-fab{ display:none !important; }
 @media (min-width:600px){
-    .mp-consent{ flex-direction:row; align-items:center; justify-content:space-between; gap:18px; }
-    .mp-consent__actions{ flex:0 0 auto; }
-    .mp-consent__btn{ flex:0 0 auto; padding:0 20px; }
+    .mp-consent{ flex-wrap:nowrap; justify-content:space-between; gap:18px; padding-left:16px; padding-right:16px; }
+    .mp-consent__btn{ padding:0 20px; }
 }
 </style>
 @endunless

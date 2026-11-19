@@ -63,7 +63,7 @@
 .mp-fav-empty__cta {
     display: inline-block;
     padding: 11px 22px;
-    background: var(--mp-primary, #0f8a82);
+    background: var(--mp-primary, #0c7c75);
     color: #fff;
     text-decoration: none;
     border-radius: 8px;

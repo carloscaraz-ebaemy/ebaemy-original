@@ -69,7 +69,7 @@
 
 .mp-orders-empty { padding: 40px 24px; text-align: center; background: #fff; border: 1px dashed #e5e7eb; border-radius: 12px; color: #64748b; }
 .mp-orders-empty p { margin: 0 0 14px; font-size: 14.5px; }
-.mp-orders-cta { display: inline-block; padding: 10px 18px; background: linear-gradient(135deg,#0f8a82,#0a6f68); color: #fff; text-decoration: none; border-radius: 8px; font-size: 14px; font-weight: 600; }
+.mp-orders-cta { display: inline-block; padding: 10px 18px; background: linear-gradient(135deg,#0c7c75,#0a6f68); color: #fff; text-decoration: none; border-radius: 8px; font-size: 14px; font-weight: 600; }
 
 .mp-orders-list { display: flex; flex-direction: column; gap: 12px; }
 .mp-order-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px 18px; }

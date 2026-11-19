@@ -96,7 +96,7 @@
 .mp-cpn-name { margin: 2px 0 0; font-size: 13px; color: #64748b; font-weight: 600; }
 .mp-cpn-value { text-align: right; }
 .mp-cpn-value strong { display: block; font-size: 22px; font-weight: 800; color: #0f172a; line-height: 1; }
-.mp-cpn-value span { font-size: 11px; color: #94a3b8; text-transform: uppercase; letter-spacing: .05em; }
+.mp-cpn-value span { font-size: 11px; color: #5f7085; text-transform: uppercase; letter-spacing: .05em; }
 
 .mp-cpn-desc { margin: 6px 0 8px; font-size: 13.5px; color: #475569; line-height: 1.5; }
 .mp-cpn-meta { display: flex; gap: 4px; flex-wrap: wrap; font-size: 12px; color: #64748b; margin-top: 8px; }

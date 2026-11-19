@@ -270,7 +270,23 @@
                      siguen usando el cuadrado _mp para grilla uniforme. --}}
                 {{-- Es el LCP de la ficha: se pide primero. El 1:1 lo fija el
                      contenedor (aspect-ratio), asi que no mueve el diseno. --}}
-                <img id="mpGalleryMain" src="{{ $listing->image_url ? $listing->image_full_url : $mpHeroImage }}" alt="{{ $listing->title }}"
+                {{-- srcset con las reducidas de ESA misma foto (`_medium` 512,
+                     `_mobile` 640) cuando existen: en un móvil de densidad baja
+                     no hace falta el original. Al cambiar de foto, showMain()
+                     quita el srcset (con srcset el navegador ignora src). --}}
+                @php
+                    $mpMainSrc    = $listing->image_url ? $listing->image_full_url : $mpHeroImage;
+                    $mpMainSrcset = collect([
+                        [\App\Services\Marketplace\ImageVariantUrl::sibling($mpMainSrc, ['_medium']), 512],
+                        [\App\Services\Marketplace\ImageVariantUrl::sibling($mpMainSrc, ['_mobile']), 640],
+                    ])->filter(fn ($c) => $c[0] && $c[0] !== $mpMainSrc)
+                      ->map(fn ($c) => $c[0] . ' ' . $c[1] . 'w')->values();
+                @endphp
+                <img id="mpGalleryMain" src="{{ $mpMainSrc }}" alt="{{ $listing->title }}"
+                     @if($mpMainSrcset->isNotEmpty())
+                         srcset="{{ $mpMainSrcset->push($mpMainSrc . ' 1200w')->implode(', ') }}"
+                         sizes="(max-width: 900px) 100vw, 600px"
+                     @endif
                      width="1080" height="1080" fetchpriority="high">
             @else
                 <div style="display:flex;height:100%;align-items:center;justify-content:center;color:var(--mp-muted);font-size:14px;font-weight:500">Sin imagen disponible</div>
@@ -321,6 +337,7 @@
     <script>
     (function () {
         var mainImgEl = document.getElementById('mpGalleryMain');
+        var mainSrcset = mainImgEl ? mainImgEl.getAttribute('srcset') : null;
         var galleryEl = document.querySelector('.mp-gallery');
         // Las miniaturas se leen del DOM cada vez: al elegir una variante se
         // reemplazan por las de esa variante (window.mpSetGallery).
@@ -335,6 +352,13 @@
             mainImgEl.style.transform = 'scale(1)';
             mainImgEl.style.transformOrigin = 'center center';
             setTimeout(function () {
+                // Con srcset el navegador ignora `src`: se quita para otra
+                // foto y se repone al volver a la del producto.
+                if (mainSrcset && url === productMainSrc) {
+                    mainImgEl.setAttribute('srcset', mainSrcset);
+                } else {
+                    mainImgEl.removeAttribute('srcset');
+                }
                 mainImgEl.src = url;
                 if (mainImgEl.dataset.zoomImage !== undefined) mainImgEl.dataset.zoomImage = url;
                 mainImgEl.style.opacity = '1';
@@ -827,7 +851,7 @@
                 }
                 .mp-opt-value--color .mp-opt-value__hex { border: 1px solid rgba(0,0,0,.06); }
                 .mp-opt-value--color:hover {
-                    border-color: var(--mp-primary, #0f8a82);
+                    border-color: var(--mp-primary, #0c7c75);
                     transform: translateY(-1px);
                 }
                 .mp-opt-value--color.is-selected {
@@ -850,7 +874,7 @@
                     transition: border-color .15s, background .15s, color .15s;
                 }
                 .mp-opt-value--pill:hover {
-                    border-color: var(--mp-primary, #0f8a82);
+                    border-color: var(--mp-primary, #0c7c75);
                 }
                 .mp-opt-value--pill.is-selected {
                     background: #0a0e1a;
@@ -978,7 +1002,7 @@
                     if (!lab) return;
                     if (choosing) {
                         btnEl.dataset.choosing = '1';
-                        lab.textContent = 'Elige un modelo';
+                        lab.textContent = arguments[3] || 'Elige un modelo';
                     } else if (btnEl.dataset.choosing === '1') {
                         btnEl.dataset.choosing = '';
                         lab.textContent = readyText;
@@ -1004,9 +1028,14 @@
                     }
                     var stickyBtn = document.getElementById('mpMobileStickyBtn');
                     if (stickyBtn) {
-                        stickyBtn.disabled = !ok;
-                        stickyBtn.style.opacity = ok ? '' : '.55';
-                        setBuyLabel(stickyBtn, choosing, 'Añadir');
+                        // Mientras falta elegir, el botón fijo NO se desactiva:
+                        // «Elige un modelo ↑» lleva al selector (antes quedaba
+                        // gris y no respondía, 2026-11-19). Sin combinación
+                        // válida o sin stock sí se desactiva: nunca añade.
+                        stickyBtn.disabled = !ok && !choosing;
+                        stickyBtn.style.opacity = (ok || choosing) ? '' : '.55';
+                        setBuyLabel(stickyBtn, choosing, 'Añadir', 'Elige un modelo ↑');
+                        stickyBtn.setAttribute('aria-label', choosing ? 'Elige un modelo' : 'Añadir al carrito');
                     }
                     var msg = document.getElementById('mpComboMsg');
                     if (msg) msg.style.display = (v || choosing) ? 'none' : '';
@@ -1230,7 +1259,7 @@
                 {{-- Comprar ahora: misma llamada AJAX que «Añadir al carrito»
                      (variante y validaciones incluidas) y salta al checkout. --}}
                 <button type="button" class="mp-cta-secondary" id="mpBuyNowBtn"
-                        style="flex:1 1 190px;min-width:0;min-height:48px;margin:0;cursor:pointer;font-weight:700;border:1.5px solid var(--mp-primary, #0f8a82)">
+                        style="flex:1 1 190px;min-width:0;min-height:48px;margin:0;cursor:pointer;font-weight:700;border:1.5px solid var(--mp-primary, #0c7c75)">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
                     Comprar ahora
                 </button>
@@ -1416,6 +1445,9 @@
                     btn.innerHTML = '✓ Añadido — ir al carrito';
                     btn.onclick = function () { window.location = @json(route('marketplace.cart')); };
                     btn.disabled = false;
+                    // Anuncio para lector de pantalla (aria-live) + aviso
+                    // visual breve, útil sobre todo desde la barra fija.
+                    if (window.mpAnnounce) window.mpAnnounce('Añadido al carrito: ' + @json($listing->title), { toast: true });
                     /* Producto de otra tienda que ya hay en el carrito: llega aparte. */
                     if (data.package_note && !document.getElementById('mpPackageNote')) {
                         var pn = document.createElement('p');
@@ -1464,7 +1496,30 @@
                 }, { rootMargin: '0px 0px -40px 0px', threshold: 0.01 });
                 observer.observe(btn);
 
+                // «Elige un modelo ↑»: lleva al selector de variantes, lo
+                // resalta un momento y pone el foco en la primera opción del
+                // primer grupo sin elegir. NUNCA añade sin combinación válida.
+                function irAlSelector() {
+                    var box = document.getElementById('mpOptions');
+                    if (!box) return;
+                    var grupos = box.querySelectorAll('.mp-option-group');
+                    var grupo = null;
+                    for (var i = 0; i < grupos.length; i++) {
+                        if (!grupos[i].querySelector('.mp-opt-value.is-selected')) { grupo = grupos[i]; break; }
+                    }
+                    grupo = grupo || grupos[0] || box;
+                    var opcion = grupo.querySelector('.mp-opt-value:not(.is-out):not(.is-na)') || grupo.querySelector('.mp-opt-value');
+                    var reducido = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+                    box.scrollIntoView({ behavior: reducido ? 'auto' : 'smooth', block: 'center' });
+                    box.classList.add('is-attention');
+                    setTimeout(function () { box.classList.remove('is-attention'); }, 1600);
+                    if (opcion) {
+                        try { opcion.focus({ preventScroll: true }); } catch (_) { opcion.focus(); }
+                    }
+                }
+
                 stickyBtnEl.addEventListener('click', function () {
+                    if (stickyBtnEl.dataset.choosing === '1') { irAlSelector(); return; }
                     // Si el botón principal está deshabilitado (sin stock o ya
                     // añadido), reflejamos el estado y no hacemos nada.
                     if (btn.disabled) return;
@@ -1556,7 +1611,7 @@
             background: #fff;
             transition: border-color .15s ease;
         }
-        .mp-ask-seller[open] { border-color: var(--mp-primary, #0f8a82); }
+        .mp-ask-seller[open] { border-color: var(--mp-primary, #0c7c75); }
         .mp-ask-seller__summary {
             display: flex; align-items: center; gap: 12px;
             padding: 13px 16px;
@@ -1571,7 +1626,7 @@
             border-radius: 50%;
             display: flex; align-items: center; justify-content: center;
             background: #f0fdfa;
-            color: var(--mp-primary, #0f8a82);
+            color: var(--mp-primary, #0c7c75);
         }
         .mp-ask-seller__txt { flex: 1; display: flex; flex-direction: column; line-height: 1.3; }
         .mp-ask-seller__txt strong { font-size: 14px; color: #111827; }
@@ -1631,7 +1686,7 @@
         <style>
         .mp-ship { border: 1px solid #e5e7eb; border-radius: 12px; padding: 12px 14px; margin: 12px 0; background: #fff; }
         .mp-ship__t { display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 700; color: #111827; margin: 0 0 8px; }
-        .mp-ship__t svg { color: var(--mp-primary, #0f8a82); }
+        .mp-ship__t svg { color: var(--mp-primary, #0c7c75); }
         .mp-ship__list { list-style: none; margin: 0; padding: 0; }
         .mp-ship__row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; padding: 6px 0; border-top: 1px solid #f3f4f6; }
         .mp-ship__row:first-child { border-top: 0; }
@@ -1642,9 +1697,9 @@
         .mp-ship__note { font-size: 12.5px; color: #0f766e; margin: 6px 0 0; }
         .mp-ship__pending { font-size: 13px; color: #6b7280; margin: 0; }
         .mp-ship__returns { font-size: 12.5px; color: #374151; margin: 8px 0 0; padding-top: 8px; border-top: 1px solid #f3f4f6; }
-        .mp-ship__returns a { color: var(--mp-primary, #0f8a82); }
+        .mp-ship__returns a { color: var(--mp-primary, #0c7c75); }
         .mp-ship__seller { font-size: 12.5px; color: #6b7280; margin: 10px 0 0; padding-top: 8px; border-top: 1px dashed #e5e7eb; }
-        .mp-ship__seller a { color: var(--mp-primary, #0f8a82); }
+        .mp-ship__seller a { color: var(--mp-primary, #0c7c75); }
         </style>
         @endpush
 
@@ -1939,7 +1994,7 @@
         transition: border-color .15s, color .15s, background .15s, transform .12s;
     }
     .mp-related__nav-btn:hover {
-        border-color: var(--mp-primary, #0f8a82);
+        border-color: var(--mp-primary, #0c7c75);
         color: var(--mp-primary-dark, #0c6b65);
     }
     .mp-related__nav-btn:active { transform: scale(.94); }
@@ -1951,7 +2006,9 @@
         grid-auto-columns: minmax(200px, 1fr);
         gap: 14px;
         overflow-x: auto;
-        scroll-snap-type: x mandatory;
+        /* El snap se enciende tras `load` (.is-snappy, script al final de la
+           ficha): activo de entrada, su reajuste cuenta como scroll y Chrome
+           deja de medir el LCP (NO_LCP intermitente, 2026-11-19). */
         scroll-behavior: smooth;
         scrollbar-width: thin;
         -webkit-mask-image: linear-gradient(to right, #000 94%, transparent);
@@ -1974,7 +2031,7 @@
     }
     .mp-related__card:hover {
         transform: translateY(-3px);
-        border-color: var(--mp-primary, #0f8a82);
+        border-color: var(--mp-primary, #0c7c75);
         box-shadow: 0 10px 22px -12px rgba(15, 138, 130, .25);
     }
     .mp-related__card-img {
@@ -2162,7 +2219,7 @@
         grid-auto-columns: minmax(170px, 46vw);
         gap: 12px;
         overflow-x: auto;
-        scroll-snap-type: x mandatory;
+        /* snap tras `load`: ver .mp-related__rail */
         scrollbar-width: none;            /* Firefox */
         -ms-overflow-style: none;         /* IE/Edge antiguo */
         -webkit-mask-image: linear-gradient(to right, #000 94%, transparent);
@@ -2192,6 +2249,25 @@
      la cola del partial y se emite en cuanto acepte. --}}
 <script>
 if (window.mpTrack) window.mpTrack({!! json_encode($adsViewPayload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP) !!});
+</script>
+
+{{-- Snap de los carriles (relacionados, ofertas de la tienda) DESPUÉS de
+     `load`: con `scroll-snap-type` activo desde el inicio, el reajuste del
+     snap al asentarse el contenido cuenta como scroll y Chrome deja de
+     registrar candidatos a LCP (NO_LCP intermitente en la ficha,
+     2026-11-19). Igual que .mp-reel__rail.is-snappy del inicio. --}}
+<style>
+    .mp-related__rail.is-snappy,
+    .mp-show-offers__scroll.is-snappy { scroll-snap-type: x mandatory; }
+</style>
+<script>
+(function () {
+    function snap() {
+        document.querySelectorAll('.mp-related__rail, .mp-show-offers__scroll').forEach(function (r) { r.classList.add('is-snappy'); });
+    }
+    if (document.readyState === 'complete') setTimeout(snap, 200);
+    else window.addEventListener('load', function () { setTimeout(snap, 200); }, { once: true });
+})();
 </script>
 
 @endsection

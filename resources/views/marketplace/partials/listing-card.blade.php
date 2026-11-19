@@ -31,6 +31,12 @@
     $cardThumbImg = (!empty($listing->thumb_image_url) && $cardPrimaryImg === $listing->image_url)
         ? $listing->thumb_image_url
         : null;
+    // Cuando pinta la foto de una VARIANTE, su propia reducida de 512 px
+    // (primary_thumb_url, la arma decorateListingsWithVariantData solo si el
+    // archivo existe). Es la misma foto, asi que el srcset no mezcla productos.
+    if (!$cardThumbImg && !empty($listing->primary_thumb_url) && $cardPrimaryImg === ($listing->primary_image_url ?? null)) {
+        $cardThumbImg = $listing->primary_thumb_url;
+    }
 
     // Carga diferida: SI para casi todo, NO para las primeras cards.
     // Hasta 2026-10-08 todas las imagenes llevaban loading="lazy", incluida la
@@ -46,8 +52,11 @@
     $cardEagerCount = $cardEagerCount ?? 0;
     $cardEager      = $cardIdx !== null && $cardIdx < $cardEagerCount;
     // La pista de prioridad solo para las dos primeras: marcarlas todas como
-    // "high" es lo mismo que no marcar ninguna, compiten entre ellas.
-    $cardPriority   = $cardEager && $cardIdx < 2;
+    // "high" es lo mismo que no marcar ninguna, compiten entre ellas. El
+    // primer carrusel del inicio la pide solo para UNA ($cardPriorityCount=1):
+    // es la que lleva el preload.
+    $cardPriorityCount = $cardPriorityCount ?? 2;
+    $cardPriority   = $cardEager && $cardIdx < $cardPriorityCount;
 
     // Enlace de la card. Si es la card de una variante concreta
     // (explodeVariantsIntoCards), la ficha se abre con esa variante elegida:
@@ -109,9 +118,9 @@
                 data-listing-id="{{ $listing->id }}"
                 aria-label="Guardar en favoritos"
                 aria-pressed="false">
-            <svg class="mp-card-fav-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
-            </svg>
+            {{-- Iconos de la card con <use>: el dibujo vive UNA vez en el
+                 sprite del layout (#mpi-*), no repetido en cada tarjeta. --}}
+            <svg class="mp-card-fav-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#mpi-heart"/></svg>
         </button>
 
         @php
@@ -244,10 +253,7 @@
                         data-detail-url="{{ $cardUrl }}"
                         data-has-variants="{{ $cardHasVariants ? '1' : '0' }}"
                         aria-label="{{ $cardCanQuickAdd ? 'Añadir al carrito' : 'Ver detalles' }}">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" aria-hidden="true">
-                        <line x1="12" y1="5" x2="12" y2="19"/>
-                        <line x1="5" y1="12" x2="19" y2="12"/>
-                    </svg>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" aria-hidden="true"><use href="#mpi-plus"/></svg>
                 </button>
             @endif
         </div>
@@ -274,9 +280,7 @@
                   role="link" tabindex="0"
                   data-href="{{ $alsoInUrl }}"
                   title="Comparar este producto en otras tiendas">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <path d="M3 9h18"/><path d="m3 9 1.5-6h15L21 9"/><path d="M3 9v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9"/>
-                </svg>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#mpi-store"/></svg>
                 <span>
                     @if($alsoIsCheaper)
                         También en {{ $alsoLabel }} · desde
@@ -293,7 +297,7 @@
         @php $cardShipBadge = \App\Services\Marketplace\ShippingSummaryText::badge(is_array($listing->shipping ?? null) ? $listing->shipping : null); @endphp
         @if($cardShipBadge)
             <span class="mp-card-ship">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="13" height="10" rx="2"/><path d="M15 9h5l2 4v4h-7V9z"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/></svg>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#mpi-truck"/></svg>
                 {{ $cardShipBadge }}
             </span>
         @endif
@@ -304,7 +308,7 @@
              $showShopName=true al render del partial. --}}
         @if(!empty($showShopName))
             <div class="mp-card-shop">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9h18"/><path d="m3 9 1.5-6h15L21 9"/><path d="M3 9v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9"/></svg>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#mpi-store"/></svg>
                 @if($listing->subdomain)
                     <span class="mp-card-shop-name mp-card-shop-link js-shop-link"
                           data-href="{{ route('marketplace.tenant', ['subdomain' => $listing->subdomain]) }}"
@@ -343,11 +347,14 @@
         @if((empty($listing->color_dots) || !count($listing->color_dots)) && !empty($listing->variant_thumbs) && count($listing->variant_thumbs))
             <div class="mp-card-variants" aria-label="Variantes disponibles">
                 @foreach($listing->variant_thumbs as $vt)
+                    {{-- data-img sigue siendo la foto completa: es la que pasa a
+                         la imagen grande de la card al elegir la variante. El
+                         <img> del botón (20 px) usa la `_small` si existe. --}}
                     <button type="button" class="mp-card-variant-dot"
                             data-img="{{ $vt->image_url }}"
                             title="{{ $vt->display_name }}"
                             aria-label="Ver {{ $vt->display_name }}">
-                        <img src="{{ $vt->image_url }}" alt="{{ $vt->display_name }}" loading="lazy">
+                        <img src="{{ $vt->thumb_url ?? $vt->image_url }}" alt="" width="20" height="20" loading="lazy" decoding="async">
                     </button>
                 @endforeach
             </div>

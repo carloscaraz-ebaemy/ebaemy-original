@@ -74,19 +74,19 @@
 .mp-auth-social { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; padding: 12px 16px; background: #fff; border: 1.5px solid #e5e7eb; border-radius: 10px; font-size: 14.5px; font-weight: 600; color: #1f2937; text-decoration: none; transition: border-color .12s, background .12s; margin-bottom: 14px; }
 .mp-auth-social:hover { border-color: #cbd5e1; background: #f9fafb; color: #1f2937; text-decoration: none; }
 .mp-auth-social svg { flex-shrink: 0; }
-.mp-auth-divider { text-align: center; margin: 14px 0; position: relative; color: #94a3b8; font-size: 12px; }
+.mp-auth-divider { text-align: center; margin: 14px 0; position: relative; color: #5f7085; font-size: 12px; }
 .mp-auth-divider::before, .mp-auth-divider::after { content: ''; position: absolute; top: 50%; width: calc(50% - 80px); height: 1px; background: #e5e7eb; }
 .mp-auth-divider::before { left: 0; }
 .mp-auth-divider::after  { right: 0; }
 .mp-auth-divider span { background: #fff; padding: 0 10px; }
 .mp-auth-label { display: block; font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 6px; margin-top: 14px; }
 .mp-auth-label:first-of-type { margin-top: 0; }
-.mp-auth-input { width: 100%; box-sizing: border-box; padding: 12px 14px; font-size: 15px; border: 1.5px solid #e5e7eb; border-radius: 10px; background: #fff; transition: border-color .12s, box-shadow .12s; }
-.mp-auth-input:focus { outline: none; border-color: #0f8a82; box-shadow: 0 0 0 3px rgba(15,138,130,.12); }
-.mp-auth-hint { margin: 4px 0 0; font-size: 12px; color: #94a3b8; }
+.mp-auth-input { width: 100%; box-sizing: border-box; padding: 12px 14px; font-size: 16px; /* <16px: zoom en iOS */ border: 1.5px solid #e5e7eb; border-radius: 10px; background: #fff; transition: border-color .12s, box-shadow .12s; }
+.mp-auth-input:focus { outline: none; border-color: #0c7c75; box-shadow: 0 0 0 3px rgba(15,138,130,.12); }
+.mp-auth-hint { margin: 4px 0 0; font-size: 12px; color: #5f7085; }
 .mp-auth-check { display: flex; gap: 8px; align-items: flex-start; margin: 14px 0 16px; font-size: 13px; color: #475569; cursor: pointer; user-select: none; }
 .mp-auth-check input { margin-top: 2px; }
-.mp-auth-submit { width: 100%; padding: 13px 20px; background: linear-gradient(135deg, #0f8a82, #0a6f68); color: #fff; border: 0; border-radius: 10px; font-size: 15px; font-weight: 600; cursor: pointer; transition: filter .12s; }
+.mp-auth-submit { width: 100%; padding: 13px 20px; background: linear-gradient(135deg, #0c7c75, #0a6f68); color: #fff; border: 0; border-radius: 10px; font-size: 15px; font-weight: 600; cursor: pointer; transition: filter .12s; }
 .mp-auth-submit:hover { filter: brightness(1.05); }
 .mp-auth-helper { margin: 12px 0 0; font-size: 13px; color: #64748b; text-align: center; }
 .mp-auth-helper a { color: #0c6b65; font-weight: 600; text-decoration: none; }

@@ -114,7 +114,7 @@
 
 .mp-auth-divider {
     text-align: center; margin: 14px 0;
-    position: relative; color: #94a3b8; font-size: 12px;
+    position: relative; color: #5f7085; font-size: 12px;
 }
 .mp-auth-divider::before, .mp-auth-divider::after {
     content: ''; position: absolute; top: 50%;
@@ -146,12 +146,12 @@
 .mp-auth-label:first-of-type { margin-top: 0; }
 .mp-auth-input {
     width: 100%; box-sizing: border-box;
-    padding: 12px 14px; font-size: 15px;
+    padding: 12px 14px; font-size: 16px;   /* <16px: iOS hace zoom al enfocar */
     border: 1.5px solid #e5e7eb; border-radius: 10px; background: #fff;
     transition: border-color .12s, box-shadow .12s;
 }
 .mp-auth-input:focus {
-    outline: none; border-color: #0f8a82;
+    outline: none; border-color: #0c7c75;
     box-shadow: 0 0 0 3px rgba(15,138,130,.12);
 }
 .mp-auth-check {
@@ -163,7 +163,7 @@
 .mp-auth-check input { margin-top: 2px; }
 .mp-auth-submit {
     width: 100%; padding: 13px 20px;
-    background: linear-gradient(135deg, #0f8a82, #0a6f68); color: #fff;
+    background: linear-gradient(135deg, #0c7c75, #0a6f68); color: #fff;
     border: 0; border-radius: 10px;
     font-size: 15px; font-weight: 600; cursor: pointer;
     transition: filter .12s;

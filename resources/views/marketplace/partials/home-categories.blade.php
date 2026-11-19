@@ -24,11 +24,20 @@
         </div>
         <ul class="mp-shopcats__rail">
             @foreach($tiles as $tile)
-                @php $tileEager = $loop->index < $eagerTiles; @endphp
+                @php
+                    $tileEager = $loop->index < $eagerTiles;
+                    // ~110 px en móvil y ~180 en escritorio: con la de 256 px
+                    // basta salvo pantallas densas (HomeShowcase::roots()).
+                    $tileSmall = $tile->image_small ?? null;
+                @endphp
                 <li class="mp-shopcats__item">
                     <a href="{{ route('marketplace.category_official', ['fullSlug' => $tile->full_slug]) }}" class="mp-shopcat">
                         <span class="mp-shopcat__img">
-                            <img src="{{ $tile->image }}" alt="" width="512" height="512"
+                            <img src="{{ $tileSmall ?: $tile->image }}" alt="" width="256" height="256"
+                                 @if($tileSmall && $tileSmall !== $tile->image)
+                                     srcset="{{ $tileSmall }} 256w, {{ $tile->image }} 512w"
+                                     sizes="(max-width: 640px) 31vw, (max-width: 900px) 23vw, 180px"
+                                 @endif
                                  loading="{{ $tileEager ? 'eager' : 'lazy' }}" decoding="async">
                         </span>
                         <span class="mp-shopcat__name">{{ $tile->name }}</span>

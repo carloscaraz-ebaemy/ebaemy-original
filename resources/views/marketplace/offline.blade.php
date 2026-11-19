@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Sin conexión — ebaemy Marketplace</title>
-    <meta name="theme-color" content="#0f8a82">
+    <meta name="theme-color" content="#0c7c75">
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
@@ -13,7 +13,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            background: linear-gradient(135deg, #0f8a82 0%, #0a6b64 100%);
+            background: linear-gradient(135deg, #0c7c75 0%, #0a6b64 100%);
             color: #fff;
             padding: 24px;
             text-align: center;
@@ -36,7 +36,7 @@
         p { font-size: 15px; line-height: 1.5; opacity: .9; margin-bottom: 28px; }
         button {
             background: #fff;
-            color: #0f8a82;
+            color: #0c7c75;
             border: none;
             border-radius: 10px;
             padding: 13px 28px;

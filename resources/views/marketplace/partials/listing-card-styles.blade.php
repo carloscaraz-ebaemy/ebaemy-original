@@ -27,13 +27,13 @@
     }
     .mp-pag .page-item .page-link:hover {
         background: #f0fdfa;
-        border-color: var(--mp-primary, #0f8a82);
+        border-color: var(--mp-primary, #0c7c75);
         color: var(--mp-primary-dark, #0a6f68);
         transform: translateY(-1px);
     }
     .mp-pag .page-item.active .page-link,
     .mp-pag .page-item.active span.page-link {
-        background: linear-gradient(135deg, #0f8a82, #0a6f68);
+        background: linear-gradient(135deg, #0c7c75, #0a6f68);
         border-color: transparent;
         color: #fff;
         box-shadow: 0 4px 10px -4px rgba(15,138,130,.45);
@@ -199,7 +199,8 @@
         flex-shrink: 0;
         display: inline-block;
         position: relative;
-        overflow: hidden;
+        /* Sin overflow:hidden: recortaba también el ::after de 44x44 que
+           agranda el área táctil (2026-11-19). */
         /* Bloquear el "tap highlight" gris/azul de iOS/Android para que
            el feedback visual lo controle nuestro :active/.is-active. */
         -webkit-tap-highlight-color: transparent;
@@ -239,7 +240,7 @@
         -webkit-appearance: none; appearance: none;
         width: 22px; height: 22px;
         border-radius: 6px;
-        overflow: hidden;
+        position: relative;   /* sin overflow:hidden: ver el ::after de abajo */
         border: 1.5px solid #e5e7eb;
         background: #f9fafb;
         cursor: pointer;
@@ -253,13 +254,27 @@
         object-fit: cover;
         display: block;
         transition: transform .15s;
+        border-radius: 4.5px;   /* el botón ya no recorta la foto */
     }
     .mp-card-variant-dot:hover {
-        border-color: var(--mp-primary, #0f8a82);
+        border-color: var(--mp-primary, #0c7c75);
         transform: scale(1.12);
     }
     @media (max-width: 640px) {
         .mp-card-variant-dot { width: 20px; height: 20px; }
+    }
+
+    /* Área táctil de 44x44 en los puntos de color y de variante sin agrandar
+       el dibujo (regla 2 de ebaemy-responsive; 2026-11-19): un ::after
+       invisible centrado recibe el toque. Los vecinos se solapan a medias y
+       gana el que va después en el DOM. */
+    .mp-card-color-dot::after,
+    .mp-card-variant-dot::after {
+        content: "";
+        position: absolute;
+        left: 50%; top: 50%;
+        width: 44px; height: 44px;
+        transform: translate(-50%, -50%);
     }
 
     .mp-card-body { padding: 12px 12px 14px; }

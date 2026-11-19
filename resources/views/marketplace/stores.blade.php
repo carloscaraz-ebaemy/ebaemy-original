@@ -60,7 +60,7 @@
 .mp-stores-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr)); gap: 16px; margin-bottom: 32px; }
 .mp-store { background: #fff; border: 1px solid var(--mp-line, #e5e7eb); border-radius: 16px; overflow: hidden; display: flex; flex-direction: column; text-decoration: none; color: inherit; transition: box-shadow .15s, transform .15s, border-color .15s; }
 .mp-store:hover { box-shadow: 0 10px 28px rgba(15,23,42,.10); transform: translateY(-2px); border-color: #cbd5e1; text-decoration: none; color: inherit; }
-.mp-store:focus-visible { outline: 3px solid var(--mp-primary, #0f8a82); outline-offset: 2px; }
+.mp-store:focus-visible { outline: 3px solid var(--mp-primary, #0c7c75); outline-offset: 2px; }
 /* Cuatro cuadrados iguales: la foto entera (contain, nunca recortada) sobre blanco. */
 .mp-store__photos { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px; background: #f1f5f9; }
 .mp-store__photos > * { aspect-ratio: 1 / 1; width: 100%; height: auto; min-width: 0; background: #fff; display: block; }
@@ -68,13 +68,13 @@
 .mp-store__body { padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 10px; flex: 1; }
 .mp-store__who { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .mp-store__logo { width: 48px; height: 48px; border-radius: 12px; border: 1px solid var(--mp-line, #e5e7eb); background: #fff; object-fit: contain; flex: none; }
-.mp-store__logo--txt { display: grid; place-items: center; font-weight: 800; font-size: 20px; color: #fff; background: linear-gradient(135deg, var(--mp-primary, #0f8a82), #22c3b6); border: 0; }
+.mp-store__logo--txt { display: grid; place-items: center; font-weight: 800; font-size: 20px; color: #fff; background: linear-gradient(135deg, var(--mp-primary, #0c7c75), #22c3b6); border: 0; }
 .mp-store__name { font-size: 16px; font-weight: 700; margin: 0; line-height: 1.25; color: var(--mp-ink, #0f172a); overflow-wrap: anywhere; }
 .mp-store__meta { font-size: 12.5px; color: var(--mp-muted, #64748b); margin-top: 2px; display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; }
 .mp-store__ok { color: #047857; font-weight: 600; }
 .mp-store__cats { display: flex; flex-wrap: wrap; gap: 6px; }
 .mp-store__cat { font-size: 12px; background: #f1f5f9; color: #334155; border-radius: 999px; padding: 3px 10px; }
-.mp-store__go { margin-top: auto; font-size: 13.5px; font-weight: 700; color: var(--mp-primary, #0f8a82); }
+.mp-store__go { margin-top: auto; font-size: 13.5px; font-weight: 700; color: var(--mp-primary, #0c7c75); }
 .mp-stores-sell { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px; background: linear-gradient(135deg, #0a6f68, #1fb1a6); color: #fff; border-radius: 16px; padding: 20px 22px; margin-bottom: 40px; }
 .mp-stores-sell h2 { margin: 0 0 4px; font-size: 18px; color: #fff; }
 .mp-stores-sell p { margin: 0; font-size: 14px; opacity: .9; }

@@ -35,7 +35,7 @@
 .mp-ok-hero p { margin: 0; color: #475569; font-size: 14.5px; }
 .mp-ok-num { display: inline-flex; align-items: center; gap: 8px; margin-top: 10px; background: #fff; border: 1px solid #d1fae5; border-radius: 999px; padding: 5px 6px 5px 12px; font-size: 13px; color: #334155; }
 .mp-ok-num b { font-family: ui-monospace, Consolas, monospace; color: var(--mp-primary-dark, #0c6b65); font-size: 14px; }
-.mp-ok-num button { border: 0; background: #f0fdfa; color: var(--mp-primary, #0f8a82); font-weight: 700; font-size: 12px; border-radius: 999px; padding: 4px 10px; cursor: pointer; }
+.mp-ok-num button { border: 0; background: #f0fdfa; color: var(--mp-primary, #0c7c75); font-weight: 700; font-size: 12px; border-radius: 999px; padding: 4px 10px; cursor: pointer; }
 .mp-ok-pay { display: inline-block; margin-top: 12px; background: #0ea5e9; color: #fff; font-weight: 700; padding: 11px 20px; border-radius: 10px; text-decoration: none; }
 .mp-ok-pay:hover { color: #fff; background: #0284c7; text-decoration: none; }
 
@@ -55,7 +55,7 @@
 .mp-ok-pk:last-child { margin-bottom: 0; }
 .mp-ok-pk__head { display: flex; align-items: center; gap: 10px; padding: 12px 14px; background: #f8fafc; border-bottom: 1px solid #e5e7eb; flex-wrap: wrap; }
 .mp-ok-pk__logo { width: 34px; height: 34px; border-radius: 9px; border: 1px solid #e5e7eb; background: #fff; object-fit: contain; flex: none; }
-.mp-ok-pk__logo--txt { display: grid; place-items: center; font-weight: 800; color: #fff; background: linear-gradient(135deg, #0f8a82, #22c3b6); border: 0; }
+.mp-ok-pk__logo--txt { display: grid; place-items: center; font-weight: 800; color: #fff; background: linear-gradient(135deg, #0c7c75, #22c3b6); border: 0; }
 .mp-ok-pk__who { flex: 1; min-width: 160px; }
 .mp-ok-pk__tag { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: #0f766e; }
 .mp-ok-pk__name { font-weight: 700; font-size: 14.5px; color: var(--mp-ink, #0f172a); }
@@ -88,7 +88,7 @@
 .mp-ok-dl dd { margin: 1px 0 0; }
 .mp-ok-actions { display: grid; gap: 8px; }
 .mp-ok-btn { display: block; text-align: center; border-radius: 10px; padding: 11px 14px; font-weight: 700; font-size: 14px; text-decoration: none; }
-.mp-ok-btn--primary { background: var(--mp-primary, #0f8a82); color: #fff; }
+.mp-ok-btn--primary { background: var(--mp-primary, #0c7c75); color: #fff; }
 .mp-ok-btn--primary:hover { background: var(--mp-primary-dark, #0c6b65); color: #fff; text-decoration: none; }
 .mp-ok-btn--ghost { background: #fff; border: 1px solid #e5e7eb; color: var(--mp-ink, #0f172a); }
 .mp-ok-btn--ghost:hover { border-color: #94a3b8; color: var(--mp-ink, #0f172a); text-decoration: none; }

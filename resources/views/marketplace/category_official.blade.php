@@ -76,13 +76,18 @@
 <style>
 /* ───── Icono decorativo del hero (sale del campo category.icon) ───── */
 .mp-cat-hero { position: relative; overflow: hidden; }
+/* El emoji va como IMAGEN DE FONDO (SVG en data:), no como texto: como texto
+   de 200 px era el elemento LCP de la categoría (Navidad, 2026-11-19), y en un
+   ::after también cuenta. Una imagen de fondo de tan pocos bytes por píxel
+   Chrome la descarta como candidata a LCP (baja entropía); medido. */
 .mp-cat-hero__icon {
     position: absolute;
     right: -10px;
     top: 50%;
     transform: translateY(-50%) rotate(-12deg);
-    font-size: clamp(160px, 26vw, 280px);
-    line-height: 1;
+    width: clamp(160px, 26vw, 280px);
+    height: clamp(160px, 26vw, 280px);
+    background: var(--mp-cat-icon) center / contain no-repeat;
     opacity: .14;
     pointer-events: none;
     user-select: none;
@@ -91,7 +96,7 @@
 @media (max-width: 640px) {
     .mp-cat-hero__icon {
         right: -30px;
-        font-size: 200px;
+        width: 200px; height: 200px;
         opacity: .18;
     }
 }
@@ -104,7 +109,8 @@
     padding: 4px 16px 12px;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
-    scroll-snap-type: x mandatory;
+    /* Snap solo tras `load` (.is-snappy): activo de entrada, su reajuste
+       cuenta como scroll y Chrome deja de medir el LCP (2026-11-19). */
     scroll-padding-left: 16px;
     /* Scrollbar discreta — el rail se nota como scrollable sin ser invasivo */
     scrollbar-width: thin;
@@ -115,6 +121,7 @@
     margin-left: calc(-1 * clamp(12px, 3vw, 24px));
     margin-right: calc(-1 * clamp(12px, 3vw, 24px));
 }
+.mp-subcats-rail.is-snappy { scroll-snap-type: x mandatory; }
 .mp-subcats-rail::-webkit-scrollbar { height: 4px; }
 .mp-subcats-rail::-webkit-scrollbar-track { background: transparent; }
 .mp-subcats-rail::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 2px; }
@@ -190,7 +197,12 @@
     overflow: hidden;
 ">
     @if($category->icon)
-        <div class="mp-cat-hero__icon" aria-hidden="true">{{ $category->icon }}</div>
+        @php
+            $catIconSvg = "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text x='50' y='86' font-size='88' text-anchor='middle'>"
+                . htmlspecialchars($category->icon, ENT_XML1 | ENT_QUOTES, 'UTF-8') . '</text></svg>';
+        @endphp
+        <div class="mp-cat-hero__icon" aria-hidden="true"
+             style="--mp-cat-icon:url('data:image/svg+xml,{{ rawurlencode($catIconSvg) }}')"></div>
     @endif
     <div style="position:relative; z-index:2">
         <span class="mp-hero-eyebrow">{{ $category->icon ? $category->icon . ' ' : '' }}Categoría oficial</span>
@@ -214,6 +226,15 @@
             </a>
         @endforeach
     </div>
+    <script>
+    (function () {
+        var r = document.querySelector('.mp-subcats-rail');
+        if (!r) return;
+        function snap() { r.classList.add('is-snappy'); }
+        if (document.readyState === 'complete') setTimeout(snap, 200);
+        else window.addEventListener('load', function () { setTimeout(snap, 200); }, { once: true });
+    })();
+    </script>
 @endif
 
 <div class="mp-list-layout">

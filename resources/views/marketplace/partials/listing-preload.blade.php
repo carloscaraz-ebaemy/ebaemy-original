@@ -75,6 +75,10 @@
         $plThumb = (! empty($plItem->thumb_image_url) && $plPrimary === $plItem->image_url)
             ? $plItem->thumb_image_url
             : null;
+        // ...o la reducida de la foto de variante, igual que la tarjeta.
+        if (! $plThumb && ! empty($plItem->primary_thumb_url) && $plPrimary === ($plItem->primary_image_url ?? null)) {
+            $plThumb = $plItem->primary_thumb_url;
+        }
 
         $plSrc = $plThumb ?: $plPrimary;
 
@@ -92,7 +96,9 @@
 
 @push('preload')
     @foreach(array_slice($plOrigins, 0, 4) as $plOrigin)
-        <link rel="preconnect" href="{{ $plOrigin }}" crossorigin>
+        {{-- Sin `crossorigin`: las <img> se piden en modo no-CORS y van por
+             OTRA conexión; con el atributo se abría una que las fotos no usaban. --}}
+        <link rel="preconnect" href="{{ $plOrigin }}">
     @endforeach
     @if($plLcp)
         <link rel="preload" as="image" fetchpriority="high"

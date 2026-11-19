@@ -87,7 +87,7 @@
     <meta name="description" content="@yield('description', $mpOgDesc)">
     <meta name="keywords"    content="@yield('keywords', $mpKeywords)">
     <meta name="robots"      content="@yield('robots', 'index, follow')">
-    <meta name="theme-color" content="#0f8a82">
+    <meta name="theme-color" content="#0c7c75">
     {{-- Verificación de dominio (Meta / Google / TikTok), pegada en /admin/marketplace/seo.
          El código ya viene saneado por MarketplaceAdminController::verificationCode(). --}}
     @if(!empty($mpCfg->marketplace_fb_domain_verification))
@@ -104,7 +104,33 @@
     @if(!empty($mpCfg->marketplace_adsense_client))
     {{-- Verificación del sitio en AdSense (la otra vía, además del script y ads.txt). --}}
     <meta name="google-adsense-account" content="{{ $mpCfg->marketplace_adsense_client }}">
-    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client={{ $mpCfg->marketplace_adsense_client }}" crossorigin="anonymous"></script>
+    {{-- El script NO va en el <head>: son ~250 KB y 430-570 ms de hilo
+         principal bloqueado en móvil, justo mientras se pinta el primer
+         pliegue (Lighthouse 2026-11-19, TBT 1.680 ms). Se inyecta tras la
+         primera interacción o 4 s después de `load`, lo que llegue antes.
+         Solo hay anuncios automáticos (ningún <ins class="adsbygoogle">),
+         así que no hay hueco que se quede esperando. La verificación del
+         sitio la hace el <meta> de arriba y /ads.txt. --}}
+    <script>
+    (function () {
+        var hecho = false;
+        var evs = ['pointerdown', 'keydown', 'touchstart', 'scroll'];
+        function cargar() {
+            if (hecho) return;
+            hecho = true;
+            evs.forEach(function (ev) { window.removeEventListener(ev, cargar, true); });
+            var s = document.createElement('script');
+            s.async = true;
+            s.crossOrigin = 'anonymous';
+            s.src = 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=' + encodeURIComponent(@json($mpCfg->marketplace_adsense_client));
+            document.head.appendChild(s);
+        }
+        evs.forEach(function (ev) { window.addEventListener(ev, cargar, { capture: true, passive: true, once: true }); });
+        function trasLoad() { setTimeout(cargar, 4000); }
+        if (document.readyState === 'complete') trasLoad();
+        else window.addEventListener('load', trasLoad, { once: true });
+    })();
+    </script>
     @endif
 
     {{-- PWA — instalable como app del marketplace (scope /marketplace).
@@ -308,6 +334,43 @@
     </script>
 </head>
 <body class="{{ $isEmbed ? 'is-embed' : '' }}">
+
+{{-- Iconos repetidos en cada tarjeta (partials/listing-card): se dibujan una
+     vez aquí y las cards los usan con <use href="#mpi-…">. Con ~90 tarjetas
+     en el inicio eran cientos de nodos SVG iguales (2026-11-19). --}}
+<svg width="0" height="0" style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true" focusable="false">
+    <symbol id="mpi-heart" viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></symbol>
+    <symbol id="mpi-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="mpi-store" viewBox="0 0 24 24"><path d="M3 9h18"/><path d="m3 9 1.5-6h15L21 9"/><path d="M3 9v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9"/></symbol>
+    <symbol id="mpi-truck" viewBox="0 0 24 24"><rect x="2" y="7" width="13" height="10" rx="2"/><path d="M15 9h5l2 4v4h-7V9z"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/></symbol>
+</svg>
+
+{{-- Avisos para lector de pantalla y aviso visual breve («Añadido al
+     carrito»…). Se usan con window.mpAnnounce(texto[, {toast:true}]). --}}
+<div id="mpLiveRegion" class="mp-sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
+<div id="mpActionToast" class="mp-action-toast" aria-hidden="true"></div>
+<script>
+(function () {
+    var timer = null;
+    window.mpAnnounce = function (texto, opts) {
+        var live = document.getElementById('mpLiveRegion');
+        if (live) {
+            // Vaciar y volver a escribir: un mismo texto dos veces seguidas
+            // (añadir dos productos) se anuncia las dos veces.
+            live.textContent = '';
+            setTimeout(function () { live.textContent = texto; }, 60);
+        }
+        if (opts && opts.toast) {
+            var t = document.getElementById('mpActionToast');
+            if (!t) return;
+            t.textContent = texto;
+            t.classList.add('is-visible');
+            clearTimeout(timer);
+            timer = setTimeout(function () { t.classList.remove('is-visible'); }, 2600);
+        }
+    };
+})();
+</script>
 
 {{-- ═══════════════════════ TOP BAR (desktop) ═══════════════════════ --}}
 <div class="mp-topbar">
@@ -755,42 +818,31 @@
     {{-- ── Métodos de pago + sellos de confianza ── --}}
     <div class="mp-footer-trust">
         <div class="mp-footer-trust__inner">
+            {{-- Solo los medios REALES: el marketplace no cobra con tarjeta;
+                 el pago se coordina con cada tienda. Antes salían Visa,
+                 Mastercard y MercadoPago, que nadie podía usar aquí. --}}
             <div class="mp-footer-trust__block">
-                <div class="mp-footer-trust__label">💳 Métodos de pago</div>
+                <div class="mp-footer-trust__label">💳 Pagas directo a cada tienda</div>
                 <div class="mp-footer-trust__items">
-                    <span class="mp-footer-trust__pay" title="MercadoPago">
-                        <svg width="40" height="20" viewBox="0 0 100 50" fill="none">
-                            <rect width="100" height="50" rx="6" fill="#009ee3"/>
-                            <text x="50" y="32" text-anchor="middle" fill="#fff" font-family="Arial" font-weight="bold" font-size="14">MP</text>
-                        </svg>
-                    </span>
-                    <span class="mp-footer-trust__pay" title="Yape">
-                        <svg width="36" height="20" viewBox="0 0 100 50" fill="none">
+                    <span class="mp-footer-trust__pay" role="img" aria-label="Yape" title="Yape">
+                        <svg width="36" height="20" viewBox="0 0 100 50" fill="none" aria-hidden="true">
                             <rect width="100" height="50" rx="6" fill="#7c3aed"/>
                             <text x="50" y="32" text-anchor="middle" fill="#fff" font-family="Arial" font-weight="bold" font-size="13">Yape</text>
                         </svg>
                     </span>
-                    <span class="mp-footer-trust__pay" title="Plin">
-                        <svg width="36" height="20" viewBox="0 0 100 50" fill="none">
-                            <rect width="100" height="50" rx="6" fill="#0ea5e9"/>
+                    <span class="mp-footer-trust__pay" role="img" aria-label="Plin" title="Plin">
+                        <svg width="36" height="20" viewBox="0 0 100 50" fill="none" aria-hidden="true">
+                            <rect width="100" height="50" rx="6" fill="#0369a1"/>
                             <text x="50" y="32" text-anchor="middle" fill="#fff" font-family="Arial" font-weight="bold" font-size="13">Plin</text>
                         </svg>
                     </span>
-                    <span class="mp-footer-trust__pay" title="Visa">
-                        <svg width="36" height="20" viewBox="0 0 100 50" fill="none">
-                            <rect width="100" height="50" rx="6" fill="#1a1f71"/>
-                            <text x="50" y="32" text-anchor="middle" fill="#fff" font-family="Arial" font-weight="bold" font-size="14">VISA</text>
-                        </svg>
+                    <span class="mp-footer-trust__badge">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#475569" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="2" y="6" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+                        <span>Transferencia</span>
                     </span>
-                    <span class="mp-footer-trust__pay" title="Mastercard">
-                        <svg width="36" height="20" viewBox="0 0 100 50" fill="none">
-                            <rect width="100" height="50" rx="6" fill="#ffffff" stroke="#ddd"/>
-                            <circle cx="42" cy="25" r="13" fill="#eb001b"/>
-                            <circle cx="58" cy="25" r="13" fill="#f79e1b" fill-opacity=".9"/>
-                        </svg>
-                    </span>
-                    <span class="mp-footer-trust__pay" title="Transferencia bancaria">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#475569" stroke-width="2" stroke-linecap="round"><rect x="2" y="6" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+                    <span class="mp-footer-trust__badge">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#475569" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/></svg>
+                        <span>Contraentrega</span>
                     </span>
                 </div>
             </div>

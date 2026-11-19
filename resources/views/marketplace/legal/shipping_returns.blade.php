@@ -87,7 +87,7 @@
 .mp-sr__name a { color: inherit; text-decoration: none; }
 .mp-sr__line { font-size: 13px; color: #374151; margin: 0 0 4px; }
 .mp-sr__links { font-size: 12.5px; margin: 8px 0 0; }
-.mp-sr__links a { color: var(--mp-primary, #0f8a82); }
+.mp-sr__links a { color: var(--mp-primary, #0c7c75); }
 </style>
 @endpush
 @endsection

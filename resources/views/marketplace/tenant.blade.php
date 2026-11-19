@@ -119,14 +119,14 @@
     text-decoration: none; transition: all .15s;
 }
 .mp-store-btn--primary {
-    background: var(--mp-primary, #0f8a82); color: #fff;
+    background: var(--mp-primary, #0c7c75); color: #fff;
 }
 .mp-store-btn--primary:hover { background: var(--mp-primary-dark, #0c6b65); }
 .mp-store-btn--ghost {
     background: #fff; color: var(--mp-ink, #111827);
     border: 1px solid var(--mp-border, #e5e7eb);
 }
-.mp-store-btn--ghost:hover { border-color: var(--mp-primary, #0f8a82); color: var(--mp-primary-dark, #0c6b65); }
+.mp-store-btn--ghost:hover { border-color: var(--mp-primary, #0c7c75); color: var(--mp-primary-dark, #0c6b65); }
 </style>
 @endpush
 

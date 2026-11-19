@@ -14,7 +14,7 @@
     Vars: $videos Collection de object{video: PromoVideo, listing: MarketplaceListing}
 --}}
 @if(!empty($videos) && $videos->count() > 0)
-    <section class="mp-reel mp-vreel" aria-labelledby="mpVreelTitle" data-vreel>
+    <section class="mp-reel mp-vreel mp-cv-reel" aria-labelledby="mpVreelTitle" data-vreel>
         <div class="mp-section-head">
             <h2 class="mp-section-title" id="mpVreelTitle">Míralo en video</h2>
             <div class="mp-section-head__actions">
@@ -111,12 +111,15 @@
             return Math.max(w, rail.clientWidth - w);
         }
         function sync() {
+            // Fila aún sin pintar (content-visibility:auto): se recalcula al entrar.
+            if (!rail.clientWidth) return;
             prev.disabled = rail.scrollLeft <= 4;
             next.disabled = rail.scrollLeft + rail.clientWidth >= rail.scrollWidth - 4;
         }
         prev.addEventListener('click', function () { rail.scrollBy({ left: -step(), behavior: 'smooth' }); });
         next.addEventListener('click', function () { rail.scrollBy({ left: step(), behavior: 'smooth' }); });
         rail.addEventListener('scroll', function () { window.requestAnimationFrame(sync); }, { passive: true });
+        section.addEventListener('contentvisibilityautostatechange', sync);
         window.addEventListener('resize', sync);
         sync();
 

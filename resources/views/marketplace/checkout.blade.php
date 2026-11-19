@@ -17,7 +17,7 @@
 /* Formulario en dos pasos, compacto */
 .mp-co-step { padding: 20px 22px 22px; }
 .mp-co-step h3 { display: flex; align-items: center; gap: 10px; font-size: 17px; margin-bottom: 6px; }
-.mp-co-step__n { width: 26px; height: 26px; border-radius: 50%; background: var(--mp-primary, #0f8a82); color: #fff; font-size: 13px; font-weight: 800; display: grid; place-items: center; flex: none; }
+.mp-co-step__n { width: 26px; height: 26px; border-radius: 50%; background: var(--mp-primary, #0c7c75); color: #fff; font-size: 13px; font-weight: 800; display: grid; place-items: center; flex: none; }
 .mp-co-step label { margin: 12px 0 5px; font-weight: 600; color: #374151; }
 .mp-co-opt { color: #9ca3af; font-weight: 400; }
 .mp-co-doc { display: grid; grid-template-columns: 130px 1fr; gap: 12px; }
@@ -30,7 +30,7 @@
 .mp-co-place__list .is-empty { color: #6b7280; cursor: default; background: none !important; }
 .mp-co-ubigeo-store { display: none; }
 .mp-co-notes { margin-top: 10px; }
-.mp-co-notes summary { cursor: pointer; font-size: 13.5px; font-weight: 600; color: var(--mp-primary, #0f8a82); list-style: none; padding: 4px 0; }
+.mp-co-notes summary { cursor: pointer; font-size: 13.5px; font-weight: 600; color: var(--mp-primary, #0c7c75); list-style: none; padding: 4px 0; }
 .mp-co-notes summary::-webkit-details-marker { display: none; }
 .mp-co-notes[open] summary { margin-bottom: 6px; }
 .mp-co-foot { padding: 4px 4px 0; display: grid; gap: 12px; }
@@ -50,12 +50,12 @@
 }
 .mp-co-card input, .mp-co-card select, .mp-co-card textarea {
     width: 100%; padding: 10px 12px; border: 1px solid #e5e7eb; border-radius: 8px;
-    font-size: 14px; font-family: inherit;
+    font-size: 16px; font-family: inherit;   /* con 14px iOS hacía zoom al enfocar (2026-11-19) */
 }
 /* La regla de arriba ponia width:100% tambien a la casilla de promociones,
    que se quedaba flotando en medio de la tarjeta. */
 .mp-co-card input[type=checkbox], .mp-co-card input[type=radio] {
-    width: 18px; height: 18px; padding: 0; flex: none; accent-color: var(--mp-primary, #0f8a82);
+    width: 18px; height: 18px; padding: 0; flex: none; accent-color: var(--mp-primary, #0c7c75);
 }
 .mp-co-optin { display: flex !important; gap: 12px; align-items: flex-start; cursor: pointer; margin: 0 !important; font-size: 14px; line-height: 1.5; }
 .mp-co-optin input { margin-top: 2px; }
@@ -69,7 +69,7 @@
 }
 .mp-co-card select:disabled { background-color: #f9fafb; color: #9ca3af; cursor: not-allowed; }
 .mp-co-card input:focus, .mp-co-card select:focus, .mp-co-card textarea:focus {
-    outline: none; border-color: var(--mp-primary, #0f8a82);
+    outline: none; border-color: var(--mp-primary, #0c7c75);
     box-shadow: 0 0 0 3px rgba(15,138,130,.1);
 }
 .mp-co-summary {
@@ -95,7 +95,7 @@
 }
 .mp-co-submit {
     display: block; width: 100%; padding: 14px;
-    background: var(--mp-primary, #0f8a82); color: #fff; border: none;
+    background: var(--mp-primary, #0c7c75); color: #fff; border: none;
     border-radius: 10px; font-size: 15px; font-weight: 700;
     text-align: center; cursor: pointer; margin-top: 14px;
 }
@@ -158,7 +158,7 @@ input.mp-co-invalid, select.mp-co-invalid, textarea.mp-co-invalid {
     .mp-co-sticky__btn {
         flex: 1;
         padding: 14px;
-        background: var(--mp-primary, #0f8a82); color: #fff; border: none;
+        background: var(--mp-primary, #0c7c75); color: #fff; border: none;
         border-radius: 10px; font-size: 15px; font-weight: 700; cursor: pointer;
     }
     .mp-co-sticky__btn:active { background: var(--mp-primary-dark, #0c6b65); }
@@ -436,7 +436,7 @@ input.mp-co-invalid, select.mp-co-invalid, textarea.mp-co-invalid {
 /* Paquetes y envio por destino */
 .mp-co-pk-intro { background: #f0fdfa; border: 1px solid #99f6e4; color: #115e59; border-radius: 10px; padding: 10px 12px; font-size: 13px; margin: 0 0 4px; }
 .mp-co-pk-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
-.mp-co-pk-tag { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; background: #0f8a82; color: #fff; border-radius: 6px; padding: 2px 7px; }
+.mp-co-pk-tag { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; background: #0c7c75; color: #fff; border-radius: 6px; padding: 2px 7px; }
 .mp-co-pk-ship { display: flex; justify-content: space-between; gap: 12px; margin-top: 10px; padding: 8px 10px; background: #f8fafc; border-radius: 8px; font-size: 13px; }
 .mp-co-pk-ship__v { font-weight: 700; color: #6b7280; text-align: right; }
 .mp-co-pk-ship__v.is-free { color: #15803d; }

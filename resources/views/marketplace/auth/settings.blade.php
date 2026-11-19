@@ -115,18 +115,18 @@
 .mp-settings-label { display: block; font-size: 13px; font-weight: 600; color: #475569; margin: 12px 0 6px; }
 .mp-settings-input {
     width: 100%; box-sizing: border-box;
-    padding: 11px 13px; font-size: 14.5px;
+    padding: 11px 13px; font-size: 16px;   /* <16px: zoom en iOS */
     border: 1.5px solid #e5e7eb; border-radius: 8px; background: #fff;
     transition: border-color .12s, box-shadow .12s;
 }
-.mp-settings-input:focus { outline: none; border-color: #0f8a82; box-shadow: 0 0 0 3px rgba(15,138,130,.12); }
+.mp-settings-input:focus { outline: none; border-color: #0c7c75; box-shadow: 0 0 0 3px rgba(15,138,130,.12); }
 .mp-settings-input--readonly { background: #f9fafb; color: #64748b; }
 .mp-settings-opts { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; }
 .mp-settings-check { display: flex; gap: 10px; align-items: flex-start; font-size: 13.5px; color: #475569; cursor: pointer; user-select: none; }
 .mp-settings-check input { margin-top: 3px; }
 .mp-settings-submit {
     width: 100%; padding: 14px 20px;
-    background: linear-gradient(135deg,#0f8a82,#0a6f68); color: #fff;
+    background: linear-gradient(135deg,#0c7c75,#0a6f68); color: #fff;
     border: 0; border-radius: 10px;
     font-size: 15px; font-weight: 700; cursor: pointer;
 }

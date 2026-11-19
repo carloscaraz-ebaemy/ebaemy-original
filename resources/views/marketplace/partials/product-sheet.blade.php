@@ -149,7 +149,7 @@
     width: 32px;
     height: 32px;
     border: 3px solid #e2e8f0;
-    border-top-color: #0f8a82;
+    border-top-color: #0c7c75;
     border-radius: 50%;
     animation: mpSheetSpin 0.8s linear infinite;
 }
@@ -233,7 +233,7 @@ body.mp-sheet-open { overflow: hidden; }
             content.innerHTML = '<div style="padding:40px 20px;text-align:center;color:#64748b">' +
                 '<div style="font-size:32px;margin-bottom:10px"></div>' +
                 'No se pudo cargar el producto.<br>' +
-                '<a href="' + url + '" style="color:#0f8a82;text-decoration:underline">Abrir en pgina completa</a></div>';
+                '<a href="' + url + '" style="color:#0c7c75;text-decoration:underline">Abrir en pgina completa</a></div>';
             hideLoader();
         }
     }

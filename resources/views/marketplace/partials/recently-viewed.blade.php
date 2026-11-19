@@ -67,7 +67,7 @@
     align-items: center;
     gap: 8px;
 }
-.mp-recent-title svg { color: var(--mp-primary, #0f8a82); }
+.mp-recent-title svg { color: var(--mp-primary, #0c7c75); }
 .mp-recent-count {
     font-size: 11px;
     font-weight: 700;

@@ -28,8 +28,14 @@ class HomeShowcase
 
     /** Productos por carrusel. */
     public const REEL_SIZE = 12;
+    /**
+     * Tarjetas que van en el HTML inicial de cada carrusel; el resto, en
+     * «Ver todo». Cinco filas de 12 eran 60 tarjetas y >3.000 nodos: el DOM
+     * y el TBT bajaron el inicio de 98 a 46 en móvil (2026-11-19).
+     */
+    public const REEL_RENDER = 6;
     /** Por debajo de esto no se pinta el carrusel de esa categoria. */
-    public const REEL_MIN  = 4;
+    public const REEL_MIN  = 1; // TEMP-LOCAL
 
     /** Portada por defecto: la que deja la migracion. */
     public const HERO_DEFAULTS = [
@@ -211,6 +217,8 @@ class HomeShowcase
                 'icon'      => $root->icon,
                 'count'     => count($items),
                 'image'     => $photo['image'] ?? null,
+                // «Compra por categoría» pinta la foto a ~110 px en móvil.
+                'image_small' => ImageVariantUrl::sibling($photo['image'] ?? null, ['_small']),
                 'image_alt' => $photo['title'] ?? null,
                 'reel_ids'  => $this->diversify(array_filter($items, fn ($i) => $i['image']), self::REEL_SIZE),
             ];
@@ -320,7 +328,7 @@ class HomeShowcase
     private function heroPhotos(array $h, $category): Collection
     {
         $ids = array_values(array_filter(array_map('intval', (array) ($h['listing_ids'] ?? []))));
-        $key = 'mp_hero_photos_v1_' . md5(json_encode([$ids, $category->id ?? null]));
+        $key = 'mp_hero_photos_v2_' . md5(json_encode([$ids, $category->id ?? null]));
 
         $chosen = Cache::remember($key, self::CACHE_TTL, function () use ($ids, $category) {
             $q = MarketplaceListing::published()->whereNotNull('image_url')
@@ -334,11 +342,17 @@ class HomeShowcase
                 return [];
             }
             return $q->limit(2)->get(['id', 'slug', 'title', 'image_url', 'thumb_image_url', 'hostname_id'])
-                ->map(fn ($l) => [
-                    'slug'  => $l->slug,
-                    'title' => $l->title,
-                    'image' => $this->realImage($l->thumb_image_url) ?: $l->image_url,
-                ])->all();
+                ->map(function ($l) {
+                    $image = $this->realImage($l->thumb_image_url) ?: $l->image_url;
+                    return [
+                        'slug'  => $l->slug,
+                        'title' => $l->title,
+                        'image' => $image,
+                        // La portada pinta la foto a 84-150 px: con la de 256
+                        // basta (la de 512 pesaba 50 KB para eso).
+                        'image_small' => ImageVariantUrl::sibling($image, ['_small']),
+                    ];
+                })->all();
         });
 
         return collect($chosen)->map(fn ($p) => (object) $p);

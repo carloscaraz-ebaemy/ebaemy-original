@@ -304,7 +304,7 @@
         display: inline-flex; align-items: center; gap: 8px;
         padding: 9px 16px;
         background: #fff;
-        border: 1.5px solid var(--mp-primary, #0f8a82);
+        border: 1.5px solid var(--mp-primary, #0c7c75);
         color: var(--mp-primary-dark, #0c6b65);
         border-radius: 999px;
         font-size: 13.5px; font-weight: 700;
@@ -313,7 +313,7 @@
     }
     .mp-bulk-toggle:hover { background: var(--mp-primary-soft, #e6f7f5); }
     .mp-bulk-toggle[aria-pressed="true"] {
-        background: var(--mp-primary, #0f8a82); color: #fff;
+        background: var(--mp-primary, #0c7c75); color: #fff;
     }
     .mp-bulk-toggle-hint { font-size: 12.5px; color: #6b7280; }
     @media (max-width: 600px) { .mp-bulk-toggle-hint { display: none; } }
@@ -331,8 +331,8 @@
         transition: background .15s, border-color .15s;
     }
     .mp-bulk-mode .mp-card.is-bulk-selected::before {
-        background: var(--mp-primary, #0f8a82);
-        border-color: var(--mp-primary, #0f8a82);
+        background: var(--mp-primary, #0c7c75);
+        border-color: var(--mp-primary, #0c7c75);
     }
     .mp-bulk-mode .mp-card.is-bulk-selected::after {
         content: '';
@@ -344,7 +344,7 @@
         z-index: 6;
     }
     .mp-bulk-mode .mp-card.is-bulk-selected {
-        border-color: var(--mp-primary, #0f8a82);
+        border-color: var(--mp-primary, #0c7c75);
         box-shadow: 0 0 0 2px var(--mp-primary-soft, #e6f7f5);
     }
     /* En modo seleccion, click en el card NO navega — selecciona/deselecciona */
@@ -379,7 +379,7 @@
     .mp-bulk-bar__add {
         display: inline-flex; align-items: center; gap: 6px;
         padding: 12px 22px;
-        background: var(--mp-primary, #0f8a82); color: #fff;
+        background: var(--mp-primary, #0c7c75); color: #fff;
         border: 0; border-radius: 10px;
         font-weight: 700; font-size: 14px;
         cursor: pointer;
@@ -1022,10 +1022,10 @@
                  la del carrusel dejaba el LCP con 1,47 s de «Load Delay»:
                  adelantabamos una foto que no era la que se medía. --}}
             {{-- En el inicio con vitrina la rejilla queda muy por debajo del
-                 primer pliegue: lo que se ve al abrir es la portada y las
-                 categorias, y el preload va a la foto de la portada (la
-                 pone partials/home-hero). Adelantar aqui fotos que nadie ve
-                 aun solo le robaria ancho de banda a esa. --}}
+                 primer pliegue: el LCP es la primera tarjeta del primer
+                 carrusel y su preload lo pone partials/category-reels
+                 (2026-11-19). Adelantar aqui fotos que nadie ve aun solo le
+                 robaria ancho de banda a esa. --}}
             @if(!$isShowcaseHome)
                 @include('marketplace.partials.listing-preload', [
                     'items'      => $listings,
@@ -1038,7 +1038,10 @@
                 // el resto sigue siendo lazy. Lo lee partials/listing-card.
                 $cardEagerCount = $isShowcaseHome ? 0 : 6;
             @endphp
-            <div class="mp-grid">
+            {{-- En el inicio con vitrina la rejilla queda muy abajo: con
+                 content-visibility:auto (.mp-cv-grid) no se maqueta ni pinta
+                 hasta acercarse (TBT y «Style & Layout», 2026-11-19). --}}
+            <div class="mp-grid {{ $isShowcaseHome ? 'mp-cv-grid' : '' }}">
                 @foreach($listings as $idx => $listing)
                     @php
                         // Badges del loop — solo en home en la primera página.
@@ -1172,7 +1175,7 @@
         padding: 10px 14px;
         background: #f0fdfa;
         border: 1px solid #99f6e4;
-        border-left: 3px solid var(--mp-primary, #0f8a82);
+        border-left: 3px solid var(--mp-primary, #0c7c75);
         border-radius: 10px;
         font-size: 13.5px;
         line-height: 1.5;
@@ -1207,7 +1210,7 @@
     .mp-infinite-spinner {
         width: 18px; height: 18px;
         border: 2.5px solid #e5e7eb;
-        border-top-color: var(--mp-primary, #0f8a82);
+        border-top-color: var(--mp-primary, #0c7c75);
         border-radius: 50%;
         animation: mpInfiniteSpin .7s linear infinite;
     }
@@ -1311,7 +1314,7 @@
         background: #fff; color: #1f2937;
     }
     .mp-mobile-actionbar .mp-mab-btn--primary {
-        background: linear-gradient(135deg, #0f8a82, #0a6f68);
+        background: linear-gradient(135deg, #0c7c75, #0a6f68);
         color: #fff; border-color: transparent;
     }
     /* Botn full-width cuando es el nico del sticky (Carrito solo) */
@@ -1414,7 +1417,7 @@ if (window.matchMedia('(max-width: 899px)').matches) {
     color: var(--mp-muted);
     overflow: hidden;
 }
-.mp-shop-logo--all { background: linear-gradient(135deg, #0f8a82, #0a6f68); color: #fff; font-size: 12px; }
+.mp-shop-logo--all { background: linear-gradient(135deg, #0c7c75, #0a6f68); color: #fff; font-size: 12px; }
 .mp-shop-logo--initial { background: linear-gradient(135deg, #6366f1, #8b5cf6); color: #fff; }
 .mp-shop-name {
     flex: 1; font-size: 12.5px;
@@ -1481,7 +1484,7 @@ if (window.matchMedia('(max-width: 899px)').matches) {
     gap: 6px;
     padding: 6px 11px;
     background: #fff;
-    border: 1.5px solid var(--mp-primary, #0f8a82);
+    border: 1.5px solid var(--mp-primary, #0c7c75);
     color: var(--mp-primary-dark, #0c6b65);
     border-radius: 999px;
     text-decoration: none;

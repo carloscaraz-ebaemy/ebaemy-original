@@ -278,7 +278,13 @@ class MarketplaceController extends Controller
             $reelRoots = $rootStats
                 ->filter(fn ($r) => count($r->reel_ids) >= \App\Services\Marketplace\HomeShowcase::REEL_MIN)
                 ->take(5);
-            $reelIds = $reelRoots->pluck('reel_ids')->flatten()->unique()->values()->all();
+            // Solo las primeras de cada carrusel: el HTML inicial lleva
+            // REEL_RENDER tarjetas por fila y el resto queda en «Ver todo».
+            // Con 12 por fila el inicio pasaba de 3.300 nodos (2026-11-19).
+            // Se piden unas pocas de más por si alguna dejó de estar publicada.
+            $reelIds = $reelRoots
+                ->map(fn ($r) => array_slice($r->reel_ids, 0, \App\Services\Marketplace\HomeShowcase::REEL_RENDER + 3))
+                ->flatten()->unique()->values()->all();
             if ($reelIds) {
                 // published() otra vez: en los 10 min de cache un producto pudo
                 // quedarse sin stock o ser pausado.
@@ -483,7 +489,8 @@ class MarketplaceController extends Controller
                 $reelById = $reelItems->keyBy('id');
                 $categoryReels = $reelRoots->map(fn ($r) => (object) [
                     'root'  => $r,
-                    'items' => collect($r->reel_ids)->map(fn ($id) => $reelById[$id] ?? null)->filter()->values(),
+                    'items' => collect($r->reel_ids)->map(fn ($id) => $reelById[$id] ?? null)->filter()
+                        ->take(\App\Services\Marketplace\HomeShowcase::REEL_RENDER)->values(),
                 ])->filter(fn ($reel) => $reel->items->count() >= \App\Services\Marketplace\HomeShowcase::REEL_MIN)->values();
             }
         }
@@ -1099,11 +1106,24 @@ class MarketplaceController extends Controller
             ->map(fn($rows) => $rows->first());
 
         foreach ($listings as $l) {
-            $l->variant_thumbs = $variantImages->get($l->id, collect())->take(4);
+            // Los puntos de variante son botones de 20 px: con la foto completa
+            // (hasta 195 KB cada una) el inicio descargaba ~1,1 MB que nadie
+            // veia (Lighthouse, 2026-11-19). Van con la `_small` (256 px), o la
+            // `_medium` si no hay; `thumb_url` null = se pinta la completa.
+            $l->variant_thumbs = $variantImages->get($l->id, collect())->take(4)
+                ->each(function ($vt) {
+                    $vt->thumb_url = \App\Services\Marketplace\ImageVariantUrl::sibling($vt->image_url, ['_small', '_medium']);
+                });
             $l->color_dots     = $colorValuesByListing->get($l->id, collect())->take(5);
 
             $primary = $primaryByListing->get($l->id);
             $l->primary_image_url   = $primary->image_url   ?? null;
+            // Miniatura de 512 px de ESA foto de variante para el srcset de la
+            // card: thumb_image_url es la del padre y no vale para otra foto
+            // (feedback_srcset_ignora_src). Sin ella la card bajaba el original.
+            $l->primary_thumb_url   = $l->primary_image_url
+                ? \App\Services\Marketplace\ImageVariantUrl::sibling($l->primary_image_url, ['_medium'])
+                : null;
             $l->active_color_hex    = $primary->active_color_hex ?? null;
             $l->active_color_value  = $primary->active_color_value ?? null;
         }
@@ -1281,6 +1301,8 @@ class MarketplaceController extends Controller
                 // cuando primary_image_url == image_url (aquí siempre), así que
                 // heredada mostraba la foto general en cada tarjeta de variante.
                 $card->thumb_image_url     = null;
+                // La reducida de la foto que SÍ pinta esta card (la de la variante).
+                $card->primary_thumb_url   = \App\Services\Marketplace\ImageVariantUrl::sibling($cardImg, ['_medium']);
                 $card->gallery_image_urls  = [];                           // la galería del padre no es de esta variante
                 // display_price es accessor (lee mp_price/price) → seteamos
                 // las columnas para que muestre el precio de la variante.

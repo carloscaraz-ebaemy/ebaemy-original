@@ -55,10 +55,10 @@
 .mp-auth-subtitle { margin: 8px 0 24px; font-size: 14.5px; color: #64748b; line-height: 1.5; }
 .mp-auth-error { padding: 12px 14px; background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; border-radius: 10px; font-size: 13.5px; margin-bottom: 16px; }
 .mp-auth-label { display: block; font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 6px; }
-.mp-auth-input { width: 100%; box-sizing: border-box; padding: 12px 14px; font-size: 15px; border: 1.5px solid #e5e7eb; border-radius: 10px; }
-.mp-auth-input:focus { outline: none; border-color: #0f8a82; box-shadow: 0 0 0 3px rgba(15,138,130,.12); }
+.mp-auth-input { width: 100%; box-sizing: border-box; padding: 12px 14px; font-size: 16px; /* <16px: zoom en iOS */ border: 1.5px solid #e5e7eb; border-radius: 10px; }
+.mp-auth-input:focus { outline: none; border-color: #0c7c75; box-shadow: 0 0 0 3px rgba(15,138,130,.12); }
 .mp-auth-input--code { font-family: 'SF Mono',Menlo,Consolas,monospace; font-size: 22px; letter-spacing: .3em; text-align: center; margin-bottom: 18px; }
-.mp-auth-submit { width: 100%; padding: 13px 20px; background: linear-gradient(135deg,#0f8a82,#0a6f68); color: #fff; border: 0; border-radius: 10px; font-size: 15px; font-weight: 600; cursor: pointer; }
+.mp-auth-submit { width: 100%; padding: 13px 20px; background: linear-gradient(135deg,#0c7c75,#0a6f68); color: #fff; border: 0; border-radius: 10px; font-size: 15px; font-weight: 600; cursor: pointer; }
 .mp-auth-submit:hover { filter: brightness(1.05); }
 .mp-auth-footer { margin: 18px 0 0; font-size: 13px; color: #64748b; line-height: 1.5; }
 </style>
