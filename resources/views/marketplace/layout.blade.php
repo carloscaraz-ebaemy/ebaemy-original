@@ -116,18 +116,25 @@
     <script>
     (function () {
         var hecho = false;
-        var evs = ['pointerdown', 'keydown', 'touchstart', 'scroll'];
+        // Sin 'scroll' en captura: así recibía también el scroll INTERNO de
+        // los carruseles (que se re-encajan solos al cargar) y AdSense se
+        // cargaba sin que nadie tocara la página. El scroll de la página se
+        // escucha aparte, sin captura, y solo si de verdad se desplazó.
+        var evs = ['pointerdown', 'keydown', 'touchstart'];
         function cargar() {
             if (hecho) return;
             hecho = true;
             evs.forEach(function (ev) { window.removeEventListener(ev, cargar, true); });
+            window.removeEventListener('scroll', alDesplazar);
             var s = document.createElement('script');
             s.async = true;
             s.crossOrigin = 'anonymous';
             s.src = 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=' + encodeURIComponent(@json($mpCfg->marketplace_adsense_client));
             document.head.appendChild(s);
         }
+        function alDesplazar() { if (window.scrollY > 200) cargar(); }
         evs.forEach(function (ev) { window.addEventListener(ev, cargar, { capture: true, passive: true, once: true }); });
+        window.addEventListener('scroll', alDesplazar, { passive: true });
     })();
     </script>
     @endif
