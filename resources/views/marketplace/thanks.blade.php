@@ -57,7 +57,7 @@
          no emite nada. Mismo event_id que el envio server-side. --}}
     @isset($adsLeadPayload)
     <script>
-    if (window.mpTrack) window.mpTrack({!! json_encode($adsLeadPayload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!});
+    if (window.mpTrack) window.mpTrack({!! json_encode($adsLeadPayload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP) !!});
     </script>
     @endisset
 @endsection

@@ -206,10 +206,10 @@
 
 @push('styles')
 <script type="application/ld+json">
-{!! json_encode($product, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}
+{!! json_encode($product, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP) !!}
 </script>
 <script type="application/ld+json">
-{!! json_encode($breadcrumb, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}
+{!! json_encode($breadcrumb, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP) !!}
 </script>
 @if($promoVideo)
 {{-- Video del producto: VideoObject propio para que Google pueda mostrarlo
@@ -777,9 +777,9 @@
             </div>
 
             {{-- Datos para JS resolver la combinación elegida --}}
-            <script type="application/json" id="mpVariantMapData">{!! json_encode($variantMap) !!}</script>
+            <script type="application/json" id="mpVariantMapData">{!! json_encode($variantMap, JSON_HEX_TAG | JSON_HEX_AMP) !!}</script>
             {{-- tenant_variant_id → SKU de la variante (solo las que tienen) --}}
-            <script type="application/json" id="mpVariantSkuData">{!! json_encode((object) $mpVariantSkus) !!}</script>
+            <script type="application/json" id="mpVariantSkuData">{!! json_encode((object) $mpVariantSkus, JSON_HEX_TAG | JSON_HEX_AMP) !!}</script>
             {{-- Aviso cuando la combinación elegida no existe --}}
             <p id="mpChooseMsg" role="status" style="margin:10px 0 0;font-size:13px;color:#6b7280">
                 Elige {{ mb_strtolower($options->pluck('name')->filter()->implode(' y ')) ?: 'un modelo' }} para comprar.
@@ -1385,7 +1385,7 @@
                     if (window.mpCartBadgeUpdate) window.mpCartBadgeUpdate(data.summary);
                     /* AddToCart: solo tras confirmar el servidor. Emitirlo al
                        pulsar contaria carritos que nunca existieron. */
-                    if (window.mpTrack) window.mpTrack({!! json_encode($adsCartPayload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!});
+                    if (window.mpTrack) window.mpTrack({!! json_encode($adsCartPayload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP) !!});
                     return { ok: true, data: data };
                 })
                 .catch(function () {
@@ -1712,11 +1712,10 @@
                 // enlaces, etc.) que produce el editor del form, y descarta
                 // todo lo demás. Después limpia event handlers y javascript:
                 // urls para mitigar XSS si el seller pega HTML manipulado.
-                $allowedTags = '<p><br><strong><em><b><i><u><ul><ol><li><a><h2><h3><h4><blockquote><span>';
-                $cleanDesc = strip_tags($listing->description, $allowedTags);
-                $cleanDesc = preg_replace('/\sjavascript\s*:/i', ':', $cleanDesc);
-                $cleanDesc = preg_replace('/\son[a-z]+\s*=\s*"[^"]*"/i', '', $cleanDesc);
-                $cleanDesc = preg_replace("/\son[a-z]+\s*=\s*'[^']*'/i", '', $cleanDesc);
+                // Lista blanca con HTMLPurifier (App\Support\SafeHtml): el filtro
+                // anterior (strip_tags + regex) se saltaba con javascript: y con
+                // atributos on* sin comillas — XSS en el origen del SuperAdmin.
+                $cleanDesc = \App\Support\SafeHtml::clean($listing->description);
                 // Si el contenido NO trae ningún tag (texto plano con saltos
                 // de línea), aplicamos nl2br + escape para preservar el
                 // comportamiento legacy de descripciones viejas.
@@ -2188,7 +2187,7 @@
      comprador acepto las cookies; mientras no la haya, el evento se queda en
      la cola del partial y se emite en cuanto acepte. --}}
 <script>
-if (window.mpTrack) window.mpTrack({!! json_encode($adsViewPayload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!});
+if (window.mpTrack) window.mpTrack({!! json_encode($adsViewPayload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP) !!});
 </script>
 
 @endsection

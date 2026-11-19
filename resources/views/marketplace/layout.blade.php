@@ -157,7 +157,7 @@
          reales, no en el iframe embed. Identifica "ebaemy" como entidad
          propia ante Google/Bing y habilita el cuadro de búsqueda de sitelinks. --}}
     @unless($isEmbed)
-    <script type="application/ld+json">{!! json_encode($mpJsonLd, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}</script>
+    <script type="application/ld+json">{!! json_encode($mpJsonLd, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP) !!}</script>
     @endunless
 
     {{-- Inter, alojada aqui. El <link> a fonts.googleapis.com bloqueaba el

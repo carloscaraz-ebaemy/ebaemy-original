@@ -15,11 +15,34 @@ class MarketplaceAuthController extends Controller
         private MarketplaceUserMergeService $merge,
     ) {}
 
+    /**
+     * Destino tras entrar: solo rutas INTERNAS («/marketplace/…»). Antes
+     * `?next=https://otro-sitio` redirigía a cualquier dominio desde un enlace
+     * legítimo de ebaemy (phishing).
+     */
+    private static function safeNext(?string $next): string
+    {
+        $next = trim((string) $next);
+        // Dirección completa del PROPIO dominio (enlaces viejos): se queda la ruta.
+        if (preg_match('#^https?://#i', $next)) {
+            $p = parse_url($next);
+            $next = (($p['host'] ?? '') === request()->getHost())
+                ? (($p['path'] ?? '/') . (isset($p['query']) ? '?' . $p['query'] : ''))
+                : '';
+        }
+        if ($next === '' || $next[0] !== '/' || str_starts_with($next, '//') || str_starts_with($next, '/\\')
+            || preg_match('/[\r\n]/', $next)) {
+            return route('marketplace.account');
+        }
+
+        return $next;
+    }
+
     /** GET /marketplace/login — form de email. */
     public function showLogin(Request $request)
     {
         if (Auth::guard('marketplace')->check()) {
-            return redirect($request->input('next', route('marketplace.account')));
+            return redirect(self::safeNext($request->input('next')));
         }
         return view('marketplace.auth.login', [
             'next' => $request->input('next'),
@@ -93,7 +116,7 @@ class MarketplaceAuthController extends Controller
         $request->session()->regenerate();
         $this->flashCouponsAvailable($user, $request);
 
-        return redirect(($data['next'] ?? null) ?: route('marketplace.account'))
+        return redirect(self::safeNext($data['next'] ?? null))
             ->with('mkt_login_ok', 'Bienvenido a ebaemy.');
     }
 
@@ -175,7 +198,7 @@ class MarketplaceAuthController extends Controller
         $this->merge->mergeFromSession($user, $anonSessionId);
         $request->session()->regenerate();
         $this->flashCouponsAvailable($user, $request);
-        return redirect(($data['next'] ?? null) ?: route('marketplace.account'))
+        return redirect(self::safeNext($data['next'] ?? null))
             ->with('mkt_login_ok', 'Bienvenido de vuelta, ' . $user->name . '.');
     }
 
@@ -210,7 +233,7 @@ class MarketplaceAuthController extends Controller
         Auth::guard('marketplace')->login($user, true);
         $this->merge->mergeFromSession($user, $anonSessionId);
         $request->session()->regenerate();
-        return redirect(($data['next'] ?? null) ?: route('marketplace.account'))
+        return redirect(self::safeNext($data['next'] ?? null))
             ->with('mkt_login_ok', 'Cuenta creada. Bienvenido a ebaemy, ' . $user->name . '.');
     }
 
@@ -407,7 +430,7 @@ class MarketplaceAuthController extends Controller
         $next = $request->session()->pull('mkt_google_next');
         $request->session()->regenerate();
 
-        return redirect($next ?: route('marketplace.account'))
+        return redirect(self::safeNext($next))
             ->with('mkt_login_ok', 'Bienvenido, ' . $user->name . '.');
     }
 

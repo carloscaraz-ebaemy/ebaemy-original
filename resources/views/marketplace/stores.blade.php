@@ -45,10 +45,10 @@
 
 @push('styles')
 <script type="application/ld+json">
-{!! json_encode($bc, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}
+{!! json_encode($bc, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP) !!}
 </script>
 <script type="application/ld+json">
-{!! json_encode($itemList, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}
+{!! json_encode($itemList, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP) !!}
 </script>
 <style>
 .mp-stores-head { margin: 4px 0 22px; }

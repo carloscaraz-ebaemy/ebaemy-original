@@ -250,15 +250,26 @@ class MarketplaceAuthService
     {
         $email = strtolower(trim($data['email']));
         $existing = MarketplaceUser::where('email', $email)->first();
-        if ($existing && $existing->password_hash) {
+        if ($existing) {
+            // SEGURIDAD (2026-11-19): antes, si la cuenta existía SIN contraseña
+            // (entró por enlace mágico o Google), este registro le fijaba la
+            // contraseña que quisiera quien lo pidiera y abría su sesión: robo
+            // de cualquier cuenta conociendo solo el correo. Ahora nunca se toca
+            // una cuenta existente: se manda el enlace de acceso al dueño del
+            // correo y la respuesta es la misma exista o no la cuenta.
+            try {
+                $this->requestMagicLink($email, $request);
+            } catch (\Throwable $e) {
+                // Throttle o correo caído: no se revela nada distinto.
+            }
             throw ValidationException::withMessages([
-                'email' => 'Ya tienes cuenta. Inicia sesion con tu contraseña.',
+                'email' => 'Si ese correo ya tiene cuenta, te enviamos un enlace para entrar. Revisa tu bandeja.',
             ]);
         }
 
         self::assertPasswordStrong((string) $data['password']);
 
-        $user = $existing ?: new MarketplaceUser();
+        $user = new MarketplaceUser();
         $user->fill([
             'email'             => $email,
             'name'              => trim($data['name']),

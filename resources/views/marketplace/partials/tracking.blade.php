@@ -53,7 +53,7 @@
        Y ojo: Blade compila sus directivas y sus llaves tambien aqui dentro,
        en un comentario de un <script>. Por eso este texto no escribe ninguna
        de las dos formas. */
-    var CFG     = {!! json_encode($adsBootstrap, JSON_UNESCAPED_SLASHES) !!};
+    var CFG     = {!! json_encode($adsBootstrap, JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP) !!};
     var CONSENT = {!! $adsConsent ? 'true' : 'false' !!};
     var loaded  = false;
     var queue   = [];
@@ -199,7 +199,7 @@
             'Accept': 'application/json'
         })
         .then(function (h) {
-            return fetch({!! json_encode($adsConsentUrl) !!}, {
+            return fetch({!! json_encode($adsConsentUrl, JSON_HEX_TAG | JSON_HEX_AMP) !!}, {
                 method: 'POST',
                 headers: h,
                 credentials: 'same-origin',
