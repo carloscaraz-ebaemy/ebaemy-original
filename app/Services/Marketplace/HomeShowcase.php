@@ -65,6 +65,33 @@ class HomeShowcase
         return collect($rows)->map(fn ($r) => (object) $r);
     }
 
+    /** Carruseles del inicio, como mucho. */
+    public const REEL_ROWS = 5;
+
+    /**
+     * Las raíces que tienen carrusel en el inicio, en su orden: las
+     * REEL_ROWS con más productos que llegan a REEL_MIN. La primera va en el
+     * HTML; las demás las sirve MarketplaceController::showcaseSection, que
+     * solo acepta raíces de esta lista.
+     */
+    public function reelRoots(): Collection
+    {
+        return $this->roots()
+            ->filter(fn ($r) => count($r->reel_ids) >= self::REEL_MIN)
+            ->take(self::REEL_ROWS)
+            ->values();
+    }
+
+    /**
+     * ¿Hay fila «Míralo en video»? Solo mira la lista cacheada de pares
+     * (video, producto), sin cargar videos ni productos: el inicio lo usa
+     * para decidir si deja el hueco de la sección diferida.
+     */
+    public function hasVideos(): bool
+    {
+        return (bool) Cache::remember(self::VIDEO_CACHE_KEY, self::CACHE_TTL, fn () => $this->computeVideoPairs());
+    }
+
     public static function forget(): void
     {
         Cache::forget(self::CACHE_KEY);

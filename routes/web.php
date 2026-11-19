@@ -1805,6 +1805,15 @@ if ($hostname) {
         // recientemente". Ver MarketplaceController::personalization.
         Route::get('marketplace/personalizacion', 'MarketplaceController@personalization')
              ->middleware('throttle:120,1')->name('marketplace.personalization');
+        // Secciones de la vitrina del inicio que van bajo el pliegue
+        // (carruseles 2-5, videos, ofertas): el inicio las pide al acercarse
+        // con el scroll. Ver MarketplaceController::showcaseSection.
+        Route::get('marketplace/_vitrina/{seccion}', 'MarketplaceController@showcaseSection')
+             ->where('seccion', 'reel-[0-9]+|videos|ofertas')
+             ->middleware('throttle:180,1')->name('marketplace.showcase_section');
+        // El drawer «Categorías», pedido al primer toque (ver categoryMenu).
+        Route::get('marketplace/_menu/categorias', 'MarketplaceController@categoryMenu')
+             ->middleware('throttle:120,1')->name('marketplace.category_menu');
         // Token CSRF fuera del HTML — lo que permite que las paginas del
         // marketplace sean identicas para todos los visitantes y por tanto
         // cacheables. Ver MarketplaceController::csrf.

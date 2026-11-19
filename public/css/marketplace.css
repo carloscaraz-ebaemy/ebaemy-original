@@ -3211,3 +3211,25 @@ html.mp-vmodal-open, html.mp-vmodal-open body { overflow: hidden; }
 /* Enlace «Vendido por» de la ficha: subrayado para distinguirlo del texto
    que lo rodea sin depender solo del color (axe link-in-text-block). */
 .mp-shop-link strong { text-decoration: underline; text-underline-offset: 2px; text-decoration-thickness: 1px; }
+
+/* ───── Secciones diferidas de la vitrina (2026-11-19) ──────────────────
+   Hueco de carruseles 2-5, «Míralo en video» y «Ofertas del día» hasta que
+   llega su fragmento (partials/showcase-deferred). El alto reservado imita
+   el de la sección ya pintada para que, al insertarla, no se mueva nada. */
+.mp-defer { display: block; margin: 0 0 clamp(20px, 3.4vw, 32px); }
+.mp-defer__body {
+    border-radius: var(--mp-radius);
+    background: linear-gradient(90deg, var(--mp-line-soft) 0%, #f8fafc 50%, var(--mp-line-soft) 100%);
+    opacity: .6;
+}
+.mp-defer.is-failed .mp-defer__body { display: none; }
+.mp-defer--reel .mp-defer__body   { height: var(--mp-defer-reel, 300px); }
+.mp-defer--videos .mp-defer__body { height: var(--mp-defer-videos, 330px); }
+.mp-defer--offers .mp-defer__body { height: var(--mp-defer-offers, 300px); }
+/* Altos medidos con la sección ya pintada (2026-11-19, 390/768/1366). */
+.mp-defer { --mp-defer-reel: 264px; }
+@media (min-width: 640px) { .mp-defer { --mp-defer-reel: 392px; --mp-defer-offers: 358px; } }
+@media (min-width: 900px) { .mp-defer { --mp-defer-reel: 394px; } }
+/* En ≤700 px el carril de ofertas no se muestra (solo el botón «🔥 Ofertas»
+   y su modal): el hueco tampoco, y el fragmento se pide al tocar el botón. */
+@media (max-width: 700px) { .mp-defer--offers { display: none; } }

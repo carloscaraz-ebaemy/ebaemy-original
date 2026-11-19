@@ -16,7 +16,17 @@ class MarketplaceLayoutComposer
             return;
         }
 
-        $view->marketplaceNavCategories = Cache::remember(
+        $view->marketplaceNavCategories = self::navCategories();
+    }
+
+    /**
+     * Raíces visibles con sus hijas, para el drawer «Categorías». Cacheado
+     * 30 min. Lo usan el layout (para saber si pinta el botón) y
+     * MarketplaceController::categoryMenu (el drawer en sí, pedido aparte).
+     */
+    public static function navCategories()
+    {
+        return Cache::remember(
             'marketplace_nav_roots_with_children_v1',
             1800,
             function () {

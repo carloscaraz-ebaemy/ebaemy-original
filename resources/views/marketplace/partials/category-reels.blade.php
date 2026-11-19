@@ -23,20 +23,31 @@
     pinta la tarjeta (partials/listing-preload). Las filas 2-5 quedan bajo
     el pliegue: lazy y con content-visibility:auto (.mp-cv-reel).
 
+    Diferidos (2026-11-19): el HTML inicial del inicio solo lleva el PRIMER
+    carrusel; los demás llegan como fragmento de
+    MarketplaceController::showcaseSection ($reelsDeferred = true): sin
+    preload, todo lazy, y el script se vuelve a ejecutar al insertarlo
+    (partials/showcase-deferred), por eso cada fila se marca al iniciarse y
+    no se engancha dos veces.
+
     Vars: $reels Collection de object{root, items}
+          $reelsDeferred bool (opcional) — fragmento cargado aparte
 --}}
 @if(!empty($reels) && $reels->count() > 0)
-    @include('marketplace.partials.listing-preload', [
-        'items'      => $reels->first()->items->take(6),
-        'withSrcset' => true,
-    ])
+    @php $reelsDeferred = !empty($reelsDeferred); @endphp
+    @unless($reelsDeferred)
+        @include('marketplace.partials.listing-preload', [
+            'items'      => $reels->first()->items->take(6),
+            'withSrcset' => true,
+        ])
+    @endunless
     @foreach($reels as $reel)
         @php
             $reelId    = 'mpReel' . $reel->root->id;
-            $reelFirst = $loop->first;
+            $reelFirst = $loop->first && !$reelsDeferred;
             $reelUrl   = route('marketplace.category_official', ['fullSlug' => $reel->root->full_slug]);
         @endphp
-        <section class="mp-reel {{ $reelFirst ? '' : 'mp-cv-reel' }}" aria-labelledby="{{ $reelId }}Title" data-reel>
+        <section class="mp-reel {{ ($reelFirst || $reelsDeferred) ? '' : 'mp-cv-reel' }}" aria-labelledby="{{ $reelId }}Title" data-reel>
             <div class="mp-section-head">
                 <h2 class="mp-section-title" id="{{ $reelId }}Title">
                     <a href="{{ $reelUrl }}">{{ $reel->root->name }}</a>
@@ -87,6 +98,10 @@
         else window.addEventListener('load', function () { setTimeout(snap, 200); }, { once: true });
 
         reels.forEach(function (reel) {
+            // Este script corre otra vez con cada carrusel diferido que llega:
+            // las filas ya iniciadas no se vuelven a enganchar.
+            if (reel.getAttribute('data-reel-ready')) return;
+            reel.setAttribute('data-reel-ready', '1');
             var rail = reel.querySelector('[data-reel-rail]');
             var prev = reel.querySelector('[data-reel-prev]');
             var next = reel.querySelector('[data-reel-next]');

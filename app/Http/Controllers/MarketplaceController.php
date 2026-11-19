@@ -18,6 +18,9 @@ use Illuminate\Support\Facades\Cache;
  */
 class MarketplaceController extends Controller
 {
+    /** Tarjetas por página de la rejilla del inicio limpio (ver index()). */
+    public const HOME_GRID_PER_PAGE = 12;
+
     public function index(Request $request)
     {
         // Canonicalización: si solo viene ?shop=X (sin otros filtros) redirigimos
@@ -176,7 +179,15 @@ class MarketplaceController extends Controller
         $applyFilters($query);
         $applySort($query);
 
-        $listings   = $query->paginate(24)->withQueryString();
+        // El inicio limpio (sin búsqueda, filtros ni otro orden) pagina de
+        // HOME_GRID_PER_PAGE en HOME_GRID_PER_PAGE: encima de su rejilla va la
+        // vitrina, y 24 tarjetas más eran ~1.100 nodos en el HTML inicial
+        // que nadie ve al abrir. Se aplica a TODAS sus páginas (no solo a la
+        // 1), para que ?page=N y el «cargar más» sigan siendo coherentes.
+        $isHomeGrid = !$q && !$category && !$officialCatId && $priceMin === null && $priceMax === null
+            && !$onOfferOnly && !$verifiedOnly && !$inStockOnly && !$packsOnly && !$shopSubdomain && !$brand
+            && ($sort ?: 'relevance') === 'relevance';
+        $listings   = $query->paginate($isHomeGrid ? self::HOME_GRID_PER_PAGE : 24)->withQueryString();
 
         // Busqueda flexible: true si lo que se muestra NO es la busqueda
         // exacta sino «parecidos» (la vista lo avisa).
@@ -275,20 +286,14 @@ class MarketplaceController extends Controller
         $reelRoots = collect();
         $reelItems = collect();
         if ($isShowcaseHome) {
-            $reelRoots = $rootStats
-                ->filter(fn ($r) => count($r->reel_ids) >= \App\Services\Marketplace\HomeShowcase::REEL_MIN)
-                ->take(5);
-            // Solo las primeras de cada carrusel: el HTML inicial lleva
-            // REEL_RENDER tarjetas por fila y el resto queda en «Ver todo».
-            // Con 12 por fila el inicio pasaba de 3.300 nodos (2026-11-19).
-            // Se piden unas pocas de más por si alguna dejó de estar publicada.
-            $reelIds = $reelRoots
-                ->map(fn ($r) => array_slice($r->reel_ids, 0, \App\Services\Marketplace\HomeShowcase::REEL_RENDER + 3))
-                ->flatten()->unique()->values()->all();
-            if ($reelIds) {
-                // published() otra vez: en los 10 min de cache un producto pudo
-                // quedarse sin stock o ser pausado.
-                $reelItems = MarketplaceListing::published()->whereIn('id', $reelIds)->get();
+            $reelRoots = $showcase->reelRoots();
+            // Solo el PRIMER carrusel va en el HTML inicial (es el primer
+            // pliegue y su primera tarjeta, el LCP en movil). Los demas, los
+            // videos y las ofertas los trae el navegador al acercarse con el
+            // scroll (showcaseSection). Con todo dentro el inicio pesaba
+            // ~580 KB de HTML y ~1,8 s de Style & Layout en movil (2026-11-19).
+            if ($reelRoots->isNotEmpty()) {
+                $reelItems = $this->loadReelItems($reelRoots->take(1));
             }
         }
         $toDecorate = $reelItems->isEmpty() ? $listings : collect($listings->items())->concat($reelItems);
@@ -478,20 +483,35 @@ class MarketplaceController extends Controller
         $hero = null;
         $categoryTiles = collect();
         $categoryReels = collect();
-        $videoRow = collect();
+        $deferredSections = [];
         if ($isShowcaseHome) {
             $hero          = $showcase->hero();
-            // «Míralo en video»: videos aprobados (★ destacados primero).
-            $videoRow      = $showcase->videoRow();
             $categoryTiles = $rootStats->filter(fn ($r) => $r->image)->values();
+            $categoryReels = $this->buildReels($reelRoots->take(1), $reelItems);
 
-            if ($reelItems->isNotEmpty()) {
-                $reelById = $reelItems->keyBy('id');
-                $categoryReels = $reelRoots->map(fn ($r) => (object) [
-                    'root'  => $r,
-                    'items' => collect($r->reel_ids)->map(fn ($id) => $reelById[$id] ?? null)->filter()
-                        ->take(\App\Services\Marketplace\HomeShowcase::REEL_RENDER)->values(),
-                ])->filter(fn ($reel) => $reel->items->count() >= \App\Services\Marketplace\HomeShowcase::REEL_MIN)->values();
+            // Lo que va bajo el pliegue: un hueco con alto reservado por
+            // seccion que el navegador rellena al acercarse (partials/
+            // showcase-deferred). Solo se anuncia lo que tiene contenido: los
+            // carruseles 2-5 ya se sabe por la cache de HomeShowcase, los
+            // videos y las ofertas por sus caches (lectura, sin cargar nada).
+            foreach ($reelRoots->slice(1) as $r) {
+                $deferredSections[] = (object) [
+                    'key'   => 'reel-' . $r->id,
+                    'kind'  => 'reel',
+                    'title' => $r->name,
+                    'url'   => route('marketplace.category_official', ['fullSlug' => $r->full_slug]),
+                ];
+            }
+            if ($showcase->hasVideos()) {
+                $deferredSections[] = (object) ['key' => 'videos', 'kind' => 'videos', 'title' => 'Míralo en video', 'url' => null];
+            }
+            if ($dailyOffers->count() >= 4) {
+                $deferredSections[] = (object) [
+                    'key'   => 'ofertas',
+                    'kind'  => 'offers',
+                    'title' => '🔥 Ofertas del día',
+                    'url'   => route('marketplace.index', ['on_offer' => 1]),
+                ];
             }
         }
 
@@ -529,7 +549,7 @@ class MarketplaceController extends Controller
             'recentlyViewed', 'expiringCoupons', 'recommendedForYou',
             'looseSearch',
             'isShowcaseHome', 'hero', 'categoryTiles', 'categoryReels', 'categoryFacet',
-            'videoRow'
+            'deferredSections'
         ));
     }
 
@@ -558,6 +578,98 @@ class MarketplaceController extends Controller
      * impide cachearla. Lo hace el navegador con el orden que le da
      * MarketplaceController::personalization.
      */
+    /**
+     * Una sección de la vitrina del inicio que va bajo el pliegue, como
+     * fragmento HTML: `reel-{idRaiz}` (carruseles 2-5), `videos` («Míralo en
+     * video») u `ofertas` (Ofertas del día). El inicio deja en su lugar un
+     * hueco con alto reservado y la pide al acercarse con el scroll
+     * (partials/showcase-deferred); sin JS queda un enlace rastreable.
+     *
+     * El fragmento es igual para todos (nada del visitante: ni cupones
+     * personales ni el orden de afinidad, que aplica el navegador), así que se
+     * cachea en público unos minutos. Lo pesado ya viene de la cache de 10 min
+     * de HomeShowcase / dailyOffersBase; aquí solo se cargan por id las
+     * tarjetas. 204 si la sección se quedó sin contenido.
+     */
+    public function showcaseSection(Request $request, string $seccion)
+    {
+        $showcase = app(\App\Services\Marketplace\HomeShowcase::class);
+        $html = '';
+
+        if (preg_match('/^reel-(\d+)$/', $seccion, $m)) {
+            $roots = $showcase->reelRoots()->filter(fn ($r) => (int) $r->id === (int) $m[1])->values();
+            if ($roots->isNotEmpty()) {
+                $items = $this->loadReelItems($roots);
+                $this->decorateListingsWithVariantData($items);
+                $this->decorateListingsWithAlsoIn($items);
+                $reels = $this->buildReels($roots, $items);
+                if ($reels->isNotEmpty()) {
+                    $html = view('marketplace.partials.showcase-fragment', ['section' => 'reel', 'reels' => $reels])->render();
+                }
+            }
+        } elseif ($seccion === 'videos') {
+            $videos = $showcase->videoRow();
+            if ($videos->isNotEmpty()) {
+                $html = view('marketplace.partials.showcase-fragment', ['section' => 'videos', 'videos' => $videos])->render();
+            }
+        } else { // ofertas
+            $offers = $this->dailyOffersBase();
+            if ($offers->count() >= 4) {
+                $html = view('marketplace.partials.showcase-fragment', ['section' => 'offers', 'offers' => $offers])->render();
+            }
+        }
+
+        $res = $html === '' ? response('', 204) : response($html, 200, ['Content-Type' => 'text/html; charset=UTF-8']);
+        return $res->header('Cache-Control', 'public, max-age=300')
+                   ->header('X-Robots-Tag', 'noindex');
+    }
+
+    /**
+     * El drawer «Categorías» (partials/category-drawer) del marketplace
+     * central, pedido por el navegador al acercarse al botón en vez de viajar
+     * oculto en el HTML de cada página. Igual para todos: cache pública.
+     */
+    public function categoryMenu()
+    {
+        $html = view('marketplace.partials.category-drawer', [
+            'marketplaceNavCategories' => \App\Http\ViewComposers\MarketplaceLayoutComposer::navCategories(),
+            'navScopedToSubdomain'     => null,
+        ])->render();
+
+        return response($html, 200, ['Content-Type' => 'text/html; charset=UTF-8'])
+            ->header('Cache-Control', 'public, max-age=600')
+            ->header('X-Robots-Tag', 'noindex');
+    }
+
+    /**
+     * Tarjetas de los carruseles de esas raíces: las primeras REEL_RENDER (+3
+     * de margen por si alguna dejó de estar publicada) de su selección
+     * cacheada. published() otra vez: en los 10 min de cache un producto pudo
+     * quedarse sin stock o ser pausado.
+     */
+    private function loadReelItems(\Illuminate\Support\Collection $roots): \Illuminate\Support\Collection
+    {
+        $ids = $roots
+            ->map(fn ($r) => array_slice($r->reel_ids, 0, \App\Services\Marketplace\HomeShowcase::REEL_RENDER + 3))
+            ->flatten()->unique()->values()->all();
+
+        return $ids ? MarketplaceListing::published()->whereIn('id', $ids)->get() : collect();
+    }
+
+    /** Arma los carruseles (raíz + tarjetas en el orden de la selección). */
+    private function buildReels(\Illuminate\Support\Collection $roots, \Illuminate\Support\Collection $items): \Illuminate\Support\Collection
+    {
+        if ($items->isEmpty()) {
+            return collect();
+        }
+        $byId = $items->keyBy('id');
+        return $roots->map(fn ($r) => (object) [
+            'root'  => $r,
+            'items' => collect($r->reel_ids)->map(fn ($id) => $byId[$id] ?? null)->filter()
+                ->take(\App\Services\Marketplace\HomeShowcase::REEL_RENDER)->values(),
+        ])->filter(fn ($reel) => $reel->items->count() >= \App\Services\Marketplace\HomeShowcase::REEL_MIN)->values();
+    }
+
     private function dailyOffersBase()
     {
         // v5: 'diversity-first' + ROTACION por franja de 6h. El reparto por

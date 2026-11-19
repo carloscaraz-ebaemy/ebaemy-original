@@ -24,7 +24,11 @@
 (function () {
     var rail   = document.getElementById('mpOffersRail');
     var recent = document.querySelector('[data-mp-recent]');
-    if (!rail && !recent) return;
+    // En el inicio el carril de ofertas llega DESPUÉS, como fragmento
+    // (partials/showcase-deferred): se pide igual y el orden se guarda para
+    // aplicarlo cuando llegue (window.mpApplyOffersOrder).
+    var offersLater = !!document.querySelector('[data-showcase-defer="ofertas"]');
+    if (!rail && !recent && !offersLater) return;
 
     var url = '{{ route('marketplace.personalization') }}'
         @isset($excluirListingId) + '?excluir={{ (int) $excluirListingId }}' @endisset;
@@ -59,18 +63,26 @@
         });
     }
 
+    // Lo llama tambien showcase-deferred al insertar el carril de ofertas.
+    window.mpApplyOffersOrder = function () {
+        var ids = window.mpOffersOrder || [];
+        if (!ids.length) return;
+        reordenar(document.getElementById('mpOffersRail'), ids);
+        var modal = document.getElementById('mpOffersModalBody');
+        if (modal) reordenar(modal.querySelector('.mp-offers-rail'), ids);
+    };
+
     fetch(url, { credentials: 'same-origin', headers: { 'Accept': 'application/json' } })
         .then(function (r) { return r.ok ? r.json() : null; })
         .then(function (d) {
             if (!d) return;
 
             var ids = Array.isArray(d.offers_order) ? d.offers_order : [];
-            reordenar(rail, ids);
-            // El modal clona el carril al cargar la pagina, asi que su copia
-            // ya existe y hay que reordenarla tambien: si no, carrusel y modal
-            // ensenarian ordenes distintos.
-            var modal = document.getElementById('mpOffersModalBody');
-            if (modal) reordenar(modal.querySelector('.mp-offers-rail'), ids);
+            // El modal clona el carril al abrirse; si ya existe su copia hay
+            // que reordenarla tambien (lo hace mpApplyOffersOrder). El carril
+            // se busca AHORA: en el inicio pudo llegar despues de pedir esto.
+            window.mpOffersOrder = ids;
+            window.mpApplyOffersOrder();
 
             if (recent && d.recently_viewed) {
                 var scroll = recent.querySelector('[data-mp-recent-scroll]');

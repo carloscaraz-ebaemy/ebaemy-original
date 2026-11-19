@@ -537,13 +537,16 @@
 @if($isShowcaseHome)
     @include('marketplace.partials.home-hero', ['hero' => $hero ?? null])
     @include('marketplace.partials.home-categories', ['tiles' => $categoryTiles ?? collect(), 'eagerTiles' => empty($hero) ? 3 : 0])
+    {{-- Solo el PRIMER carrusel va en el HTML: el resto de carruseles,
+         «Míralo en video» y «Ofertas del día» llegan al acercarse con el
+         scroll (partials/showcase-deferred, 2026-11-19). --}}
     @include('marketplace.partials.category-reels', ['reels' => $categoryReels ?? collect()])
-    {{-- «Míralo en video»: videos de producto aprobados (★ destacados primero). --}}
-    @include('marketplace.partials.video-reels', ['videos' => $videoRow ?? collect()])
+    @include('marketplace.partials.showcase-deferred', ['sections' => $deferredSections ?? []])
 @endif
 
 @php
-    $mpOffersRail = isset($dailyOffers) && $dailyOffers->count() >= 4 && empty($onOfferOnly);
+    // En el inicio con vitrina las ofertas van diferidas (arriba).
+    $mpOffersRail = !$isShowcaseHome && isset($dailyOffers) && $dailyOffers->count() >= 4 && empty($onOfferOnly);
 @endphp
 @if($mpOffersRail)
     @php
