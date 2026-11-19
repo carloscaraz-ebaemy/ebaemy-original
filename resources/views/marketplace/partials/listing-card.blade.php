@@ -338,7 +338,9 @@
 
         {{-- Thumbs de variantes con imagen propia (cuando NO hay opción "color"
              pero sí imágenes por variante). --}}
-        @if(empty($listing->color_dots) && !empty($listing->variant_thumbs) && $listing->variant_thumbs->count())
+        {{-- `color_dots` es una Collection: empty() de una colección VACÍA es
+             false, así que la condición vieja nunca dejaba ver estas fotos. --}}
+        @if((empty($listing->color_dots) || !count($listing->color_dots)) && !empty($listing->variant_thumbs) && count($listing->variant_thumbs))
             <div class="mp-card-variants" aria-label="Variantes disponibles">
                 @foreach($listing->variant_thumbs as $vt)
                     <button type="button" class="mp-card-variant-dot"
