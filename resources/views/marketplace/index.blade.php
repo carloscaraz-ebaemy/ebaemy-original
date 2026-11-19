@@ -538,6 +538,8 @@
     @include('marketplace.partials.home-hero', ['hero' => $hero ?? null])
     @include('marketplace.partials.home-categories', ['tiles' => $categoryTiles ?? collect(), 'eagerTiles' => empty($hero) ? 3 : 0])
     @include('marketplace.partials.category-reels', ['reels' => $categoryReels ?? collect()])
+    {{-- «Míralo en video»: videos de producto aprobados (★ destacados primero). --}}
+    @include('marketplace.partials.video-reels', ['videos' => $videoRow ?? collect()])
 @endif
 
 @php

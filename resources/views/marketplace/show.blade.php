@@ -213,10 +213,15 @@
 </script>
 @if($promoVideo)
 {{-- Video del producto: VideoObject propio para que Google pueda mostrarlo
-     en resultados, y og:video para la vista previa al compartir. --}}
+     en resultados, y og:video para la vista previa al compartir. En los de
+     enlace (TikTok/YouTube/Instagram) embedUrl es su reproductor y, si el
+     proveedor no dio miniatura, thumbnailUrl es la foto del producto. --}}
+@php $promoVideoLd = $promoVideo->schemaOrg($listing->title, $canonical, $mpHeroImage ?: $listing->image_url); @endphp
+@if(!empty($promoVideoLd['thumbnailUrl']) && (!empty($promoVideoLd['embedUrl']) || !empty($promoVideoLd['contentUrl'])))
 <script type="application/ld+json">
-{!! json_encode(['@context' => 'https://schema.org'] + $promoVideo->schemaOrg($listing->title, $canonical), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG) !!}
+{!! json_encode(['@context' => 'https://schema.org'] + $promoVideoLd, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG) !!}
 </script>
+@endif
 @if($promoVideo->mp4_url)
 <meta property="og:video" content="{{ $promoVideo->mp4_url }}">
 <meta property="og:video:type" content="video/mp4">
@@ -295,20 +300,19 @@
                 </button>
             </div>
         @endif
-    </div>
 
-    {{-- Video promocional. Va DEBAJO de la galería y con preload="none": la
-         foto sigue siendo el LCP de la ficha y el video no se descarga hasta
-         que el comprador lo reproduce. --}}
-    @if($promoVideo && $promoVideo->mp4_url)
-        <div class="mp-promo-video" style="margin:12px 0 4px">
-            <video controls playsinline preload="none"
-                   poster="{{ $promoVideo->thumbnail_url }}"
-                   src="{{ $promoVideo->mp4_url }}"
-                   aria-label="Video de {{ $listing->title }}"
-                   style="width:100%;max-height:520px;border-radius:12px;background:#0f172a;display:block"></video>
-        </div>
-    @endif
+        {{-- Video del producto (por enlace o archivo propio). Va DENTRO de la
+             galería, debajo de la foto: como hijo de .mp-detail ocupaba la
+             columna de la información en escritorio. Miniatura pequeña y el
+             reproductor se carga solo al tocar: la foto sigue siendo el LCP. --}}
+        @if($promoVideo)
+            @include('marketplace.partials.product-video', [
+                'video'          => $promoVideo,
+                'title'          => $listing->title,
+                'posterFallback' => $mpHeroImage ?: $listing->image_url,
+            ])
+        @endif
+    </div>
 
     {{-- Galería: thumbs clickeables + zoom hover. Vive FUERA del bloque de
          variantes (mp-options) porque los productos SIN variantes también

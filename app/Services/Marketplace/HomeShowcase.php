@@ -5,6 +5,7 @@ namespace App\Services\Marketplace;
 use App\Models\System\Configuration;
 use App\Models\System\MarketplaceCategory;
 use App\Models\System\MarketplaceListing;
+use App\Models\System\PromoVideo;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
@@ -62,6 +63,80 @@ class HomeShowcase
     {
         Cache::forget(self::CACHE_KEY);
         Cache::forget(self::CACHE_KEY . '_rootmap');
+        self::forgetVideos();
+    }
+
+    // ── «Míralo en video» ────────────────────────────────────────────────
+
+    public const VIDEO_CACHE_KEY = 'mp_home_videos_v1';
+    /** Videos en la fila del inicio. */
+    public const VIDEO_ROW_SIZE = 12;
+
+    /** Al aprobar, destacar, quitar o cambiar un video. */
+    public static function forgetVideos(): void
+    {
+        Cache::forget(self::VIDEO_CACHE_KEY);
+    }
+
+    /**
+     * La fila «Míralo en video»: videos publicados cuyo producto sigue
+     * publicado en el marketplace. Primero los ★ destacados vigentes, luego
+     * los aprobados más recientes. Vacía si no hay ninguno (la fila no sale).
+     *
+     * Cacheado 10 min como el resto de la vitrina: lo cacheado son solo los
+     * pares (video, listing); por petición se cargan por id para respetar un
+     * producto que se quedó sin stock o un extra que venció en esos minutos.
+     *
+     * @return Collection<int, object{video: PromoVideo, listing: MarketplaceListing}>
+     */
+    public function videoRow(): Collection
+    {
+        $pairs = Cache::remember(self::VIDEO_CACHE_KEY, self::CACHE_TTL, fn () => $this->computeVideoPairs());
+        if (!$pairs) {
+            return collect();
+        }
+
+        $videos = PromoVideo::publico()->whereIn('id', array_column($pairs, 'video'))->get()->keyBy('id');
+        $listings = MarketplaceListing::published()->whereIn('id', array_column($pairs, 'listing'))->get()->keyBy('id');
+
+        return collect($pairs)
+            ->map(fn ($p) => isset($videos[$p['video']], $listings[$p['listing']])
+                ? (object) ['video' => $videos[$p['video']], 'listing' => $listings[$p['listing']]]
+                : null)
+            ->filter(fn ($row) => $row && $row->video->embedSrc())
+            ->values();
+    }
+
+    private function computeVideoPairs(): array
+    {
+        $today = now()->toDateString();
+        $videos = PromoVideo::publico()
+            ->orderByRaw('(is_featured = 1 AND (featured_until IS NULL OR featured_until >= ?)) DESC', [$today])
+            ->orderByDesc('published_at')
+            ->orderByDesc('id')
+            ->limit(self::VIDEO_ROW_SIZE * 3)
+            ->get(['id', 'client_id', 'remote_item_id']);
+        if ($videos->isEmpty()) {
+            return [];
+        }
+
+        $listings = MarketplaceListing::published()
+            ->whereIn('client_id', $videos->pluck('client_id')->unique()->all())
+            ->whereIn('remote_item_id', $videos->pluck('remote_item_id')->unique()->all())
+            ->get(['id', 'client_id', 'remote_item_id'])
+            ->keyBy(fn ($l) => $l->client_id . '-' . $l->remote_item_id);
+
+        $out = [];
+        foreach ($videos as $v) {
+            $l = $listings->get($v->client_id . '-' . $v->remote_item_id);
+            if ($l) {
+                $out[] = ['video' => (int) $v->id, 'listing' => (int) $l->id];
+            }
+            if (count($out) >= self::VIDEO_ROW_SIZE) {
+                break;
+            }
+        }
+        return $out;
     }
 
     /**

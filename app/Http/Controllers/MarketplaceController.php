@@ -472,8 +472,11 @@ class MarketplaceController extends Controller
         $hero = null;
         $categoryTiles = collect();
         $categoryReels = collect();
+        $videoRow = collect();
         if ($isShowcaseHome) {
             $hero          = $showcase->hero();
+            // «Míralo en video»: videos aprobados (★ destacados primero).
+            $videoRow      = $showcase->videoRow();
             $categoryTiles = $rootStats->filter(fn ($r) => $r->image)->values();
 
             if ($reelItems->isNotEmpty()) {
@@ -518,7 +521,8 @@ class MarketplaceController extends Controller
             'brand', 'brands',
             'recentlyViewed', 'expiringCoupons', 'recommendedForYou',
             'looseSearch',
-            'isShowcaseHome', 'hero', 'categoryTiles', 'categoryReels', 'categoryFacet'
+            'isShowcaseHome', 'hero', 'categoryTiles', 'categoryReels', 'categoryFacet',
+            'videoRow'
         ));
     }
 
@@ -1273,14 +1277,14 @@ class MarketplaceController extends Controller
                 $card->primary_image_url   = $cardImg;
                 $card->image_url           = $v->image_url ?: $l->image_url;
                 $card->secondary_image_url = null;
-                $card->gallery_image_urls  = [];                           // la galería del padre no es de esta variante
-                // display_price es accessor (lee mp_price/price) → seteamos
-                // las columnas para que muestre el precio de la variante.
-                $card->price               = $unit;
                 // La miniatura de 512px es la del PRODUCTO: la tarjeta la usa
                 // cuando primary_image_url == image_url (aquí siempre), así que
                 // heredada mostraba la foto general en cada tarjeta de variante.
                 $card->thumb_image_url     = null;
+                $card->gallery_image_urls  = [];                           // la galería del padre no es de esta variante
+                // display_price es accessor (lee mp_price/price) → seteamos
+                // las columnas para que muestre el precio de la variante.
+                $card->price               = $unit;
                 $card->mp_price            = null;
                 $card->original_price      = $ofertaVigente ? $v->original_price : null;
                 $card->is_on_offer         = $ofertaVigente;
@@ -2566,8 +2570,9 @@ class MarketplaceController extends Controller
         // Videos promocionales publicados, por (tienda, producto): una sola
         // consulta para todo el sitemap. Google pide miniatura, titulo,
         // descripcion y el archivo o el reproductor.
+        // Sin miniatura propia (un Reel sin oEmbed) vale la foto del
+        // producto: Google exige thumbnail_loc.
         $videos = \App\Models\System\PromoVideo::publico()
-            ->whereNotNull('thumbnail_url')
             ->get()
             ->keyBy(fn ($v) => $v->client_id . '-' . $v->remote_item_id);
 
@@ -2680,19 +2685,25 @@ class MarketplaceController extends Controller
                 $xml .= "  </image:image>\n";
             }
             $video = $videos->get($l->client_id . '-' . $l->remote_item_id);
-            if ($video && ($video->mp4_url || $video->playback_url)) {
+            $videoPlayer = $video ? $video->embedSrc() : null;
+            $videoThumb  = $video ? $video->posterUrl($l->image_url) : null;
+            if ($video && ($video->mp4_url || $videoPlayer) && $videoThumb) {
                 $e = fn ($t) => htmlspecialchars((string) $t, ENT_XML1);
                 $xml .= "  <video:video>\n";
-                $xml .= '    <video:thumbnail_loc>' . $e($video->thumbnail_url) . "</video:thumbnail_loc>\n";
+                $xml .= '    <video:thumbnail_loc>' . $e($videoThumb) . "</video:thumbnail_loc>\n";
                 $xml .= '    <video:title>' . $e($video->title ?: $l->title) . "</video:title>\n";
                 $xml .= '    <video:description>' . $e($video->description ?: 'Video de ' . $l->title) . "</video:description>\n";
                 if ($video->mp4_url) {
                     $xml .= '    <video:content_loc>' . $e($video->mp4_url) . "</video:content_loc>\n";
                 }
-                if ($video->playback_url) {
-                    $xml .= '    <video:player_loc>' . $e($video->playback_url) . "</video:player_loc>\n";
+                if ($videoPlayer) {
+                    // De un enlace (YouTube/TikTok/Instagram): su reproductor
+                    // embebible, armado desde el id validado.
+                    $xml .= '    <video:player_loc>' . $e($videoPlayer) . "</video:player_loc>\n";
                 }
-                $xml .= '    <video:duration>' . (int) $video->duration_seconds . "</video:duration>\n";
+                if ($video->duration_seconds) {
+                    $xml .= '    <video:duration>' . (int) $video->duration_seconds . "</video:duration>\n";
+                }
                 if ($video->published_at) {
                     $xml .= '    <video:publication_date>' . $video->published_at->toIso8601String() . "</video:publication_date>\n";
                 }

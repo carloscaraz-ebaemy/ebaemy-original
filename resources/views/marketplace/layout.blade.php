@@ -1085,6 +1085,11 @@ window.mpCouponTenantIds = []; // hostname_ids donde el user tiene cupn
      NO duplicar este markup en vistas individuales. --}}
 @include('marketplace.partials.product-sheet')
 
+{{-- Videos de producto por enlace (TikTok / YouTube / Instagram): el iframe
+     se carga SOLO al tocar la miniatura. Delegado en document para que
+     funcione en la ficha, dentro del bottom sheet y en el modal del inicio. --}}
+@include('marketplace.partials.video-embed-script')
+
 {{-- Medición de publicidad (píxeles de Meta/TikTok/GA4) + banner de cookies.
      Único sitio del marketplace que carga píxeles: las vistas sólo llaman a
      window.mpTrack(). No duplicar en vistas individuales. --}}

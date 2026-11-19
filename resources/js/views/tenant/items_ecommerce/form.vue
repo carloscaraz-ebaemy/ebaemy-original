@@ -1176,6 +1176,14 @@
                         </details>
                     </div>
 
+                    <!-- ════════════ VIDEO DEL PRODUCTO (extra de pago) ════════════
+                         Enlace a un video de TikTok / YouTube / Instagram que,
+                         aprobado por ebaemy, sale en el marketplace. Sin el
+                         extra activo muestra solo un aviso. -->
+                    <div class="col-md-12 mt-3">
+                        <product-video-section :item-id="form.id || null"></product-video-section>
+                    </div>
+
                     <!-- Sticky bottom bar: el botón Guardar/Cancelar sigue al scroll
                          para que el seller no tenga que bajar hasta el final del form.
                          Position sticky + backdrop blur sobre el contenido detrás.
@@ -2104,12 +2112,14 @@ import ClassicEditor from '@ckeditor/ckeditor5-build-classic';
 import VueCkeditor from 'vue-ckeditor5';
 import { imageCompressor } from '../../../mixins/imageCompressor';
 import QuitarFondo from '../items/partials/QuitarFondo.vue';
+import ProductVideoSection from './partials/ProductVideoSection.vue';
 
 export default {
     mixins: [imageCompressor],
     props: ['showDialog', 'recordId', 'external', 'fromRestaurant'],
     components: {
         QuitarFondo,
+        ProductVideoSection,
         FormImages,
         SuppliesTab,
         ModifiersTab,

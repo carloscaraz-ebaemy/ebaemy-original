@@ -35,6 +35,16 @@
 .pv-video-body{padding:10px 12px;display:flex;flex-direction:column;gap:8px}
 .pv-video-body b{font-size:13.5px}
 .pv-empty{color:var(--mut);font-size:13.5px;padding:18px 0}
+.pv-stage{position:relative;width:100%;background:#0f172a;overflow:hidden}
+.pv-stage.is-vertical{aspect-ratio:9/16;max-height:460px}
+.pv-stage.is-vertical.pv-stage--tiktok,.pv-stage.is-vertical.pv-stage--instagram{aspect-ratio:9/17}
+.pv-stage.is-horizontal{aspect-ratio:16/9}
+.pv-stage iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+.pv-lite{position:absolute;inset:0;width:100%;height:100%;border:0;padding:0;background:#0f172a;cursor:pointer;display:grid;place-items:center}
+.pv-lite img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.pv-play{position:relative;display:grid;place-items:center;width:56px;height:56px;border-radius:999px;background:rgba(15,23,42,.75);color:#fff;font-size:20px;padding-left:4px}
+.pv-lite:hover .pv-play{background:#16a34a}
+.pv-caption{font-style:italic;margin-top:2px;word-break:break-word}
 details.pv-edit summary{cursor:pointer;font-size:12.5px;font-weight:600;color:#0f766e}
 details.pv-edit[open] summary{margin-bottom:8px}
 </style>
@@ -148,7 +158,16 @@ details.pv-edit[open] summary{margin-bottom:8px}
                 <div class="pv-videos">
                     @foreach($videos as $v)
                         <div class="pv-video">
-                            @if($v->mp4_url)
+                            @if($v->isLink() && $v->embedSrc())
+                                {{-- Por enlace: miniatura → iframe al tocar (src armado
+                                     desde el id validado, nunca la URL pegada). --}}
+                                <div class="pv-stage {{ $v->isVertical() ? 'is-vertical' : 'is-horizontal' }} pv-stage--{{ $v->provider }}">
+                                    <button type="button" class="pv-lite" data-pv-embed="{{ $v->embedSrc() }}" aria-label="Reproducir el video de {{ $v->item_title }}">
+                                        @if($v->posterUrl())<img src="{{ $v->posterUrl() }}" alt="" loading="lazy">@endif
+                                        <span class="pv-play" aria-hidden="true">▶</span>
+                                    </button>
+                                </div>
+                            @elseif($v->mp4_url)
                                 <video src="{{ $v->mp4_url }}" poster="{{ $v->thumbnail_url }}" controls preload="none" playsinline></video>
                             @else
                                 <div class="pv-poster">@if($v->thumbnail_url)<img src="{{ $v->thumbnail_url }}" alt="" style="max-width:100%;max-height:100%">@else Sin vista previa @endif</div>
@@ -156,14 +175,27 @@ details.pv-edit[open] summary{margin-bottom:8px}
                             <div class="pv-video-body">
                                 <div>
                                     <b>{{ $v->item_title ?: 'Producto #'.$v->remote_item_id }}</b>
-                                    <div class="pv-sub">{{ $v->client->name ?? '—' }} · {{ $v->duration_seconds }} s · {{ $v->aspect === 'square' ? 'cuadrado' : 'vertical' }}
+                                    <div class="pv-sub">{{ $v->client->name ?? '—' }}
+                                        @if($v->isLink()) · enlace de {{ $v->providerLabel() ?? $v->provider }}@endif
+                                        @if($v->duration_seconds) · {{ $v->duration_seconds }} s @endif
+                                        · {{ ['square' => 'cuadrado', 'horizontal' => 'horizontal'][$v->aspect] ?? 'vertical' }}
                                         @if(!empty($v->template['speed']) && $v->template['speed'] > 1) · acelerado ×{{ rtrim(rtrim(number_format($v->template['speed'], 2), '0'), '.') }}@endif
                                     </div>
+                                    @if($v->source_title)
+                                        <div class="pv-sub pv-caption" title="{{ $v->source_title }}">«{{ \Illuminate\Support\Str::limit($v->source_title, 120) }}»</div>
+                                    @endif
+                                    @if($v->status === 'rejected' && $v->rejection_reason)
+                                        <div class="pv-sub" style="color:var(--bad)">Motivo: {{ $v->rejection_reason }}</div>
+                                    @endif
                                     <div style="margin-top:4px">
                                         <span class="pv-pill {{ $v->status === 'approved' ? 'ok' : ($v->status === 'pending_review' ? 'warn' : '') }}">{{ \App\Models\System\PromoVideo::ESTADOS[$v->status] ?? $v->status }}</span>
                                         @if($v->is_featured)<span class="pv-pill ok">★ Destacado{{ $v->featured_until ? ' hasta '.$v->featured_until->format('d/m') : '' }}</span>@endif
                                     </div>
-                                    @if($v->playback_url)<div class="pv-sub" style="margin-top:4px"><a href="{{ $v->playback_url }}" target="_blank" rel="noopener">Abrir reproductor ↗</a></div>@endif
+                                    @if($v->isLink() && $v->source_url)
+                                        <div class="pv-sub" style="margin-top:4px"><a href="{{ $v->source_url }}" target="_blank" rel="noopener noreferrer nofollow">Abrir en {{ $v->providerLabel() }} ↗</a></div>
+                                    @elseif($v->playback_url)
+                                        <div class="pv-sub" style="margin-top:4px"><a href="{{ $v->playback_url }}" target="_blank" rel="noopener">Abrir reproductor ↗</a></div>
+                                    @endif
                                 </div>
 
                                 @if($v->status === 'pending_review')
@@ -208,4 +240,29 @@ details.pv-edit[open] summary{margin-bottom:8px}
     @endif
 </div>
 </div>
+<script>
+// Videos por enlace: el iframe se crea al tocar la miniatura. Solo se aceptan
+// los tres reproductores permitidos (el src ya viene armado desde el id).
+(function () {
+    var OK = [
+        /^https:\/\/www\.youtube-nocookie\.com\/embed\/[A-Za-z0-9_-]{11}$/,
+        /^https:\/\/www\.tiktok\.com\/embed\/v2\/\d{8,25}$/,
+        /^https:\/\/www\.instagram\.com\/reel\/[A-Za-z0-9_-]{5,40}\/embed$/
+    ];
+    document.addEventListener('click', function (e) {
+        var btn = e.target.closest && e.target.closest('[data-pv-embed]');
+        if (!btn) return;
+        var src = btn.getAttribute('data-pv-embed') || '';
+        if (!OK.some(function (re) { return re.test(src); })) return;
+        if (src.indexOf('youtube-nocookie.com') !== -1) src += '?autoplay=1&playsinline=1&rel=0';
+        var f = document.createElement('iframe');
+        f.src = src;
+        f.title = 'Video del producto';
+        f.setAttribute('allow', 'autoplay; encrypted-media; picture-in-picture; fullscreen');
+        f.setAttribute('allowfullscreen', '');
+        f.setAttribute('referrerpolicy', 'strict-origin-when-cross-origin');
+        btn.replaceWith(f);
+    });
+})();
+</script>
 @endsection

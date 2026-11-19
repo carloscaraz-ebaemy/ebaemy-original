@@ -1009,6 +1009,15 @@ if ($hostname) {
             // Fase 2 rediseño pricing — endpoints en tiempo real para el chip de margen del form
             Route::post('items/calculate-price', 'Tenant\ItemController@calculatePrice');
             Route::get('items/{item}/price-recommendation', 'Tenant\ItemController@priceRecommendation');
+            // Video del producto por enlace (TikTok / YouTube / Instagram), extra de pago.
+            Route::get('items/{item}/promo-video', 'Tenant\ItemPromoVideoController@show')
+                 ->where('item', '[0-9]+')->middleware('throttle:60,1');
+            Route::post('items/{item}/promo-video/preview', 'Tenant\ItemPromoVideoController@preview')
+                 ->where('item', '[0-9]+')->middleware('throttle:20,1');
+            Route::post('items/{item}/promo-video', 'Tenant\ItemPromoVideoController@store')
+                 ->where('item', '[0-9]+')->middleware('throttle:10,1');
+            Route::delete('items/{item}/promo-video', 'Tenant\ItemPromoVideoController@destroy')
+                 ->where('item', '[0-9]+')->middleware('throttle:10,1');
             Route::get('items/without-image', 'Tenant\ItemController@withoutImage');
             Route::get('items/export', 'Tenant\ItemController@export')->name('tenant.items.export');
             Route::get('items/export/wp', 'Tenant\ItemController@exportWp')->name('tenant.items.export.wp');

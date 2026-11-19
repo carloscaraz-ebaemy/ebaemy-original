@@ -2990,3 +2990,153 @@ body:has(#mpConsentBar) { padding-bottom: 96px; }
     .mp-facet-link, .mp-facet-toggle, .mp-price-chip { min-height: 44px; }
     .mp-facet-link { font-size: 14px; }
 }
+
+/* ==========================================================================
+   Videos de producto por enlace (2026-11-19): TikTok, YouTube (Shorts) e
+   Instagram (Reels). Miniatura con play y el iframe se crea SOLO al tocar
+   (partials/video-embed-script). Ficha: partials/product-video (fila
+   compacta para no competir con la foto por el LCP). Inicio: «Míralo en
+   video», partials/video-reels (tarjetas 9:16 + modal).
+   ========================================================================== */
+.mp-vplay {
+    position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    display: grid; place-items: center;
+    width: 40px; height: 40px; border-radius: 999px;
+    background: rgba(15, 23, 42, .72); color: #fff;
+    box-shadow: 0 4px 14px rgba(15, 23, 42, .35);
+    transition: transform .15s var(--mp-ease), background-color .15s;
+    pointer-events: none;
+}
+.mp-vplay svg { margin-left: 2px; }
+.mp-vplay--lg { width: 52px; height: 52px; }
+.mp-vplayer { display: block; width: 100%; height: 100%; border: 0; background: #0f172a; }
+
+/* ── Ficha: fila compacta bajo la galería ─────────────────────────────── */
+.mp-pvideo { margin: 2px 0 0; min-width: 0; }
+.mp-gallery--side .mp-pvideo { grid-column: 2; grid-row: 2; }
+.mp-pvideo__lite {
+    display: flex; align-items: center; gap: 12px; width: 100%;
+    min-height: 44px; padding: 8px; text-align: left;
+    background: var(--mp-surface, #fff); color: var(--mp-ink);
+    border: 1px solid var(--mp-line-soft); border-radius: var(--mp-radius);
+    cursor: pointer; transition: border-color .15s, box-shadow .15s;
+}
+.mp-pvideo__lite:hover { border-color: var(--mp-primary); box-shadow: var(--mp-shadow-md); }
+.mp-pvideo__lite:hover .mp-vplay { transform: translate(-50%, -50%) scale(1.08); background: var(--mp-primary-dark); }
+.mp-pvideo__lite:focus-visible { outline: 3px solid var(--mp-primary); outline-offset: 2px; }
+.mp-pvideo__thumb {
+    position: relative; flex: 0 0 auto; overflow: hidden;
+    border-radius: 10px; background: linear-gradient(160deg, #1e293b, #0f172a);
+}
+.mp-pvideo__lite.is-vertical .mp-pvideo__thumb { width: 72px; aspect-ratio: 9 / 16; }
+.mp-pvideo__lite.is-horizontal .mp-pvideo__thumb { width: 128px; aspect-ratio: 16 / 9; }
+.mp-pvideo__thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.mp-pvideo__text { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.mp-pvideo__text strong { font-size: 15px; font-weight: 800; }
+.mp-pvideo__text span { font-size: 13px; color: var(--mp-muted); line-height: 1.35; }
+/* Reproduciendo: el reproductor ocupa el ancho disponible. */
+.mp-pvideo__stage { margin: 0 auto; border-radius: var(--mp-radius); overflow: hidden; background: #0f172a; }
+.mp-pvideo__stage--horizontal { width: 100%; aspect-ratio: 16 / 9; }
+.mp-pvideo__stage--vertical { width: min(100%, 340px); aspect-ratio: 9 / 16; max-height: 82dvh; }
+/* TikTok e Instagram meten cabecera y pie dentro de su reproductor. */
+.mp-pvideo__stage--tiktok, .mp-pvideo__stage--instagram { aspect-ratio: 9 / 17; }
+
+/* ── Inicio: «Míralo en video» ────────────────────────────────────────── */
+.mp-vreel__rail {
+    --mp-vreel-gap: clamp(10px, 1.4vw, 16px);
+    list-style: none; margin: 0; padding: 2px 2px 10px;
+    display: flex; gap: var(--mp-vreel-gap);
+    overflow-x: auto; overscroll-behavior-x: contain;
+    scrollbar-width: thin; scrollbar-color: var(--mp-line) transparent;
+    -webkit-overflow-scrolling: touch;
+}
+.mp-vreel__rail.is-snappy { scroll-snap-type: x mandatory; }
+.mp-vreel__rail::-webkit-scrollbar { height: 4px; }
+.mp-vreel__rail::-webkit-scrollbar-thumb { background: var(--mp-line); border-radius: 999px; }
+.mp-vreel__item {
+    /* Móvil: 2,6 a la vista (la siguiente asoma); tablet 4,3; escritorio 6,3. */
+    flex: 0 0 calc((100% - 2 * var(--mp-vreel-gap)) / 2.6);
+    min-width: 0; scroll-snap-align: start; display: flex;
+}
+@media (min-width: 640px) { .mp-vreel__item { flex-basis: calc((100% - 4 * var(--mp-vreel-gap)) / 4.3); } }
+@media (min-width: 900px) { .mp-vreel__item { flex-basis: calc((100% - 6 * var(--mp-vreel-gap)) / 6.3); } }
+.mp-vreel__card { display: flex; flex-direction: column; gap: 6px; width: 100%; color: var(--mp-ink); }
+.mp-vreel__card:focus-visible { outline: 3px solid var(--mp-primary); outline-offset: 2px; border-radius: var(--mp-radius); }
+.mp-vreel__media {
+    position: relative; display: block; aspect-ratio: 9 / 16; overflow: hidden;
+    border-radius: var(--mp-radius); background: linear-gradient(160deg, #1e293b, #0f172a);
+    box-shadow: var(--mp-shadow-sm);
+}
+.mp-vreel__media img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .3s var(--mp-ease); }
+.mp-vreel__card:hover .mp-vreel__media img { transform: scale(1.04); }
+.mp-vreel__card:hover .mp-vplay { background: var(--mp-primary-dark); transform: translate(-50%, -50%) scale(1.08); }
+.mp-vreel__brand {
+    position: absolute; left: 8px; top: 8px;
+    padding: 3px 8px; border-radius: 999px;
+    background: rgba(15, 23, 42, .72); color: #fff;
+    font-size: 12px; font-weight: 700; line-height: 1.3;
+}
+.mp-vreel__name {
+    font-size: 13.5px; font-weight: 600; line-height: 1.3;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.mp-vreel__price { font-size: 14px; font-weight: 800; color: var(--mp-ink); }
+.mp-vreel__price s { margin-left: 4px; font-size: 12px; font-weight: 500; color: var(--mp-muted); }
+
+/* ── Modal del video ──────────────────────────────────────────────────── */
+.mp-vmodal {
+    position: fixed; inset: 0; z-index: 1400; /* sobre el botón «Ofertas» (1200) y su modal (1310) */
+    display: flex; align-items: center; justify-content: center;
+}
+.mp-vmodal[hidden] { display: none; }
+html.mp-vmodal-open, html.mp-vmodal-open body { overflow: hidden; }
+.mp-vmodal__backdrop { position: absolute; inset: 0; background: rgba(15, 23, 42, .82); }
+.mp-vmodal__panel {
+    position: relative; display: flex; flex-direction: column;
+    width: min(420px, calc(100vw - 32px)); max-height: calc(100dvh - 32px);
+    background: #0f172a; border-radius: var(--mp-radius-lg, 16px); overflow: hidden;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, .45);
+}
+.mp-vmodal__panel.is-horizontal { width: min(880px, calc(100vw - 32px)); }
+.mp-vmodal__close {
+    position: absolute; top: 8px; right: 8px; z-index: 2;
+    display: grid; place-items: center; width: 44px; height: 44px;
+    border: 0; border-radius: 999px; background: rgba(15, 23, 42, .78); color: #fff; cursor: pointer;
+}
+.mp-vmodal__close:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+.mp-vmodal__stage { flex: 1 1 auto; min-height: 0; width: 100%; background: #000; }
+.mp-vmodal__stage--vertical { aspect-ratio: 9 / 16; max-height: calc(100dvh - 32px - 76px); margin: 0 auto; }
+.mp-vmodal__stage--tiktok, .mp-vmodal__stage--instagram { aspect-ratio: 9 / 17; }
+.mp-vmodal__stage--horizontal { aspect-ratio: 16 / 9; }
+.mp-vmodal__info {
+    display: flex; align-items: center; gap: 12px; padding: 12px 14px;
+    padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    background: #fff;
+}
+.mp-vmodal__text { flex: 1 1 auto; min-width: 0; }
+.mp-vmodal__title {
+    margin: 0; font-size: 14px; font-weight: 700; color: var(--mp-ink); line-height: 1.3;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.mp-vmodal__price { margin: 2px 0 0; font-size: 14px; font-weight: 800; color: var(--mp-primary-dark); }
+.mp-vmodal__cta {
+    flex: 0 0 auto; display: inline-flex; align-items: center; min-height: 44px; padding: 0 16px;
+    border-radius: 999px; background: linear-gradient(135deg, var(--mp-primary-light), var(--mp-primary-dark));
+    color: #fff; font-weight: 700; font-size: 14px; white-space: nowrap;
+}
+.mp-vmodal__cta:hover { color: #fff; filter: brightness(1.05); }
+@media (max-width: 600px) {
+    /* Móvil: pantalla completa; el reproductor llena el alto libre. */
+    .mp-vmodal__panel, .mp-vmodal__panel.is-horizontal {
+        width: 100%; height: 100dvh; max-height: none; border-radius: 0;
+    }
+    .mp-vmodal__stage,
+    .mp-vmodal__stage--vertical, .mp-vmodal__stage--tiktok, .mp-vmodal__stage--instagram {
+        aspect-ratio: auto; max-height: none;
+    }
+    .mp-vmodal__stage--horizontal { display: flex; align-items: center; }
+    .mp-vmodal__stage--horizontal .mp-vplayer { height: auto; aspect-ratio: 16 / 9; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .mp-vreel__media img, .mp-vplay { transition: none; }
+}

@@ -8,6 +8,7 @@ use App\Models\System\Client;
 use App\Models\System\ClientAddon;
 use App\Models\System\PromoVideo;
 use App\Services\FeatureGate;
+use App\Services\Marketplace\HomeShowcase;
 use Illuminate\Http\Request;
 
 /**
@@ -90,6 +91,7 @@ class PromoVideoController extends Controller
         $contrato->fill($data)->save();
 
         FeatureGate::flushHostname((int) $client->hostname_id);
+        HomeShowcase::forgetVideos();
 
         return back()->with('pv_ok', "Videos promocionales de {$client->name}: guardado.");
     }
@@ -102,6 +104,7 @@ class PromoVideoController extends Controller
         $contrato->registrarMesPagado();
 
         FeatureGate::flushHostname((int) $client->hostname_id);
+        HomeShowcase::forgetVideos();
 
         return back()->with('pv_ok', "{$client->name}: pagado hasta el " . $contrato->paid_until->format('d/m/Y') . '.');
     }
@@ -149,6 +152,7 @@ class PromoVideoController extends Controller
         $video->reviewed_by = auth('admin')->id();
         $video->reviewed_at = now();
         $video->save();
+        HomeShowcase::forgetVideos();
 
         return back()->with('pv_ok', 'Video de «' . ($video->item_title ?: 'producto') . '»: ' . strtolower(PromoVideo::ESTADOS[$video->status] ?? $video->status)
             . ($video->is_featured ? ', destacado' : '') . '.');

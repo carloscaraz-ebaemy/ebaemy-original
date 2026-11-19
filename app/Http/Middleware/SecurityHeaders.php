@@ -47,7 +47,9 @@ class SecurityHeaders
                 "img-src 'self' data: https: blob:",
                 "font-src 'self' data: https://fonts.gstatic.com https://unpkg.com https://cdn.jsdelivr.net",
                 "connect-src 'self' https://api.culqi.com https://graph.facebook.com https://www.google-analytics.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://analytics.tiktok.com https://*.tiktokw.us https://social.buho.la https://www.facebook.com https://connect.facebook.net https://www.googletagmanager.com",
-                "frame-src https://www.facebook.com https://connect.facebook.net https://checkout.culqi.com https://www.googletagmanager.com https://analytics.tiktok.com",
+                // Videos de producto por enlace: solo los reproductores que
+                // arma VideoLink::embedUrl (youtube-nocookie, TikTok, Instagram).
+                "frame-src https://www.facebook.com https://connect.facebook.net https://checkout.culqi.com https://www.googletagmanager.com https://analytics.tiktok.com https://www.youtube-nocookie.com https://www.tiktok.com https://www.instagram.com",
                 "frame-ancestors 'self'",
                 "object-src 'none'",
                 "base-uri 'self'",

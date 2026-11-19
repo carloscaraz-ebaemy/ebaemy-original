@@ -116,4 +116,11 @@ return [
         'assistant_model'   => env('MARKETPLACE_ASSISTANT_MODEL', 'claude-haiku-5-5'),
     ],
 
+    // Miniatura de los Reels pegados como «video del producto». Instagram
+    // exige un token de app de Meta (app_id|client_token) para su oEmbed;
+    // sin él se usa la foto del producto como póster. Ver VideoLinkResolver.
+    'instagram_oembed' => [
+        'token' => env('INSTAGRAM_OEMBED_TOKEN'),
+    ],
+
 ];
