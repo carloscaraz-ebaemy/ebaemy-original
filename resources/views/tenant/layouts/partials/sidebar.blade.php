@@ -1103,6 +1103,14 @@ $inventory_configuration = InventoryConfiguration::getSidebarPermissions();
                                         </a>
                                     </li>
                                 @endif
+                                @if(in_array('ecommerce_items', $vc_module_levels))
+                                    <li class="{{ request()->routeIs('tenant.items.completar') ? 'nav-active' : '' }}">
+                                        <a class="nav-link" href="{{ route('tenant.items.completar') }}">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 14l2 2 4-4"/></svg>
+                                            <span>Completar productos</span>
+                                        </a>
+                                    </li>
+                                @endif
                                 <li class="{{ ($secondLevel === 'item-sets') ? 'nav-active' : '' }}">
                                     <a class="nav-link" href="{{route('tenant.ecommerce.item_sets.index')}}">
                                         <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M4 4m0 1a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z" /><path d="M14 4m0 1a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z" /><path d="M4 14m0 1a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z" /><path d="M14 14m0 1a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v4a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z" /></svg>
@@ -1225,6 +1233,18 @@ $inventory_configuration = InventoryConfiguration::getSidebarPermissions();
                                         <span>Productos por Canal</span>
                                     </a>
                                 </li>
+                                @php
+                                    try { $vc_has_saga = \App\Models\Tenant\MarketplaceChannel::where('platform', 'falabella')->exists(); }
+                                    catch (\Throwable $e) { $vc_has_saga = false; }
+                                @endphp
+                                @if($vc_has_saga)
+                                    <li class="{{ request()->routeIs('tenant.saga.links_panel') ? 'nav-active' : '' }}">
+                                        <a class="nav-link" href="{{ route('tenant.saga.links_panel') }}">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                                            <span>Enlazar con Saga</span>
+                                        </a>
+                                    </li>
+                                @endif
                                 <li class="{{ request()->routeIs('tenant.marketplace_coupons.*') ? 'nav-active' : '' }}">
                                     <a class="nav-link" href="{{ route('tenant.marketplace_coupons.index') }}">
                                         <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12V8H4v4"/><path d="M2 8h20v8H2z"/><path d="M8 12h.01"/><path d="M16 12h.01"/></svg>

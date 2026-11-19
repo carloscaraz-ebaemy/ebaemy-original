@@ -759,6 +759,24 @@ class FalabellaService
     protected function sagaStockBySku(): array
     {
         $stock = [];
+        foreach ($this->sagaCatalog() as $sku => $p) {
+            if ($p['stock'] !== null) {
+                $stock[$sku] = $p['stock'];
+            }
+        }
+
+        return $stock;
+    }
+
+    /**
+     * Todo el catálogo del vendedor en Saga, por SellerSku: nombre, stock,
+     * estado e imagen de la unidad de negocio de Falabella (fape). Solo lee.
+     *
+     * @return array<string, array{sku: string, name: string, stock: ?int, status: string, image: string}>
+     */
+    public function sagaCatalog(): array
+    {
+        $out = [];
         $offset = 0;
         $limit = 500;
 
@@ -781,14 +799,20 @@ class FalabellaService
                 }
 
                 $qty = data_get($bu, 'Stock') ?? data_get($p, 'Quantity') ?? data_get($p, 'Stock');
-                if ($qty === null || $qty === '' || !is_numeric($qty)) continue;
+                $image = data_get($p, 'MainImage');
 
-                $stock[$sku] = max(0, (int) $qty);
+                $out[$sku] = [
+                    'sku'    => $sku,
+                    'name'   => trim((string) ($p['Name'] ?? '')),
+                    'stock'  => ($qty !== null && $qty !== '' && is_numeric($qty)) ? max(0, (int) $qty) : null,
+                    'status' => (string) (data_get($bu, 'Status') ?: ($p['Status'] ?? '')),
+                    'image'  => is_string($image) ? $image : '',
+                ];
             }
             $offset += $limit;
         } while (count($page) === $limit);
 
-        return $stock;
+        return $out;
     }
 
     /**
@@ -1037,11 +1061,12 @@ class FalabellaService
     /**
      * SellerSku → producto (y variante) del ERP para los productos enlazados
      * del canal. Un producto con variantes publicó un SKU por variante
-     * (variant->sku o internal_id-V{id}): se indexa cada una.
+     * (variant->sku o internal_id-V{id}): se indexa cada una, salvo las
+     * variantes que tienen su propio enlace, que mandan sobre el del padre.
      *
-     * @return array<string, array{item: Item, variant: ?\App\Models\Tenant\ItemVariant, excluded: bool}>
+     * @return array<string, array{item: Item, variant: ?\App\Models\Tenant\ItemVariant, excluded: bool, mapping_id: int, expanded: bool}>
      */
-    protected function skuIndex(): array
+    public function skuIndex(): array
     {
         if ($this->skuIndex !== null) {
             return $this->skuIndex;
@@ -1053,21 +1078,24 @@ class FalabellaService
             ->with(['item.variants', 'variant'])
             ->get();
 
+        $conEnlacePropio = $mappings->whereNotNull('item_variant_id')->pluck('item_variant_id')->flip();
+
         $index = [];
         foreach ($mappings as $m) {
             if (!$m->item) continue; // enlace a un producto borrado
 
-            $excluded = $m->sync_status === 'excluded';
+            $base = ['item' => $m->item, 'excluded' => $m->sync_status === 'excluded', 'mapping_id' => $m->id];
 
             if ($m->variant) {
-                $index[$m->external_sku] = ['item' => $m->item, 'variant' => $m->variant, 'excluded' => $excluded];
+                $index[$m->external_sku] = $base + ['variant' => $m->variant, 'expanded' => false];
             } elseif ($m->item->has_variants && $m->item->variants->count() > 0) {
                 $fallback = $m->item->internal_id ?: $m->item->item_code;
                 foreach ($m->item->variants as $v) {
-                    $index[$v->sku ?: ($fallback . '-V' . $v->id)] = ['item' => $m->item, 'variant' => $v, 'excluded' => $excluded];
+                    if (isset($conEnlacePropio[$v->id])) continue;
+                    $index[$v->sku ?: ($fallback . '-V' . $v->id)] = $base + ['variant' => $v, 'expanded' => true];
                 }
             } else {
-                $index[$m->external_sku] = ['item' => $m->item, 'variant' => null, 'excluded' => $excluded];
+                $index[$m->external_sku] = $base + ['variant' => null, 'expanded' => false];
             }
         }
 

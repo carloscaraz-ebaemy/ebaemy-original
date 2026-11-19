@@ -766,6 +766,12 @@ export default {
         this.loadItemsCount();
     },
     mounted() {
+        // Viene de «Completar productos» (botón «Subir foto»): abrir la ficha.
+        const editar = parseInt(new URLSearchParams(window.location.search).get('editar'), 10);
+        if (editar > 0) {
+            this.$nextTick(() => this.clickCreate(editar));
+            try { window.history.replaceState(null, '', window.location.pathname); } catch (e) { /* sin historial */ }
+        }
         // Viene del aviso del Inicio: señalar el botón y limpiar la URL para que
         // recargar no vuelva a lanzar la guía.
         if (this.fromInvite) {

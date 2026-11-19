@@ -993,6 +993,16 @@ if ($hostname) {
             // Panel de pedidos del canal externo (pantalla del operador).
             Route::get('marketplace/pedidos', 'Tenant\MarketplaceController@ordersPanel')->name('tenant.saga.orders_panel');
 
+            // Enlazar con Saga: catálogo real de Saga contra el sistema, en los dos sentidos.
+            Route::get('marketplace/enlazar-saga',          'Tenant\SagaLinkController@panel')->name('tenant.saga.links_panel');
+            Route::post('marketplace/enlazar-saga/enlazar', 'Tenant\SagaLinkController@link')->name('tenant.saga.links_link');
+            Route::post('marketplace/enlazar-saga/quitar',  'Tenant\SagaLinkController@unlink')->name('tenant.saga.links_unlink');
+
+            // Completar productos: marca, foto y SKU de cada variante.
+            Route::get('items/completar',        'Tenant\CatalogCompletenessController@panel')->name('tenant.items.completar');
+            Route::post('items/completar/marca', 'Tenant\CatalogCompletenessController@saveBrand')->name('tenant.items.completar.brand');
+            Route::post('items/completar/sku',   'Tenant\CatalogCompletenessController@saveVariantSku')->name('tenant.items.completar.sku');
+
             // Categorías oficiales del marketplace (árbol desde system DB)
             Route::get('marketplace-categories/tree',         'Tenant\MarketplaceCategoryController@tree');
             Route::get('marketplace-categories/flat',         'Tenant\MarketplaceCategoryController@flat');
