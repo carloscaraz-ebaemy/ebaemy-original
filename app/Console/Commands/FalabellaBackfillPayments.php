@@ -96,6 +96,13 @@ class FalabellaBackfillPayments extends Command
                 continue;
             }
 
+            // Cancelado o devuelto en Saga, o anulado aquí: el dinero no se
+            // cobró o se devolvió. Sembrarle un cobro lo daría por pagado.
+            if (in_array($mpOrder->status, ['canceled', 'returned', 'failed'], true) || $order->estaAnulado()) {
+                $saltados[] = [$mpOrder->external_order_id, 'Cancelado, devuelto o anulado: no lleva cobro.'];
+                continue;
+            }
+
             $motivo = null;
             $pago = $seeder->seed($order, $mpOrder, $motivo, !$aplicar);
 
@@ -147,7 +154,7 @@ class FalabellaBackfillPayments extends Command
 
         if ($saltados) {
             $this->newLine();
-            $this->line('Saltados (sin importe, sin referencia, o enlace roto):');
+            $this->line('Saltados (cancelados/devueltos, sin importe, sin referencia, o enlace roto):');
             $this->table(
                 ['Pedido en el canal', 'Motivo'],
                 array_map(fn($c) => [$c[0], substr((string) $c[1], 0, 80)], array_slice($saltados, 0, 20))
