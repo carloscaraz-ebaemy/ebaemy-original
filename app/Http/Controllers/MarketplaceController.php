@@ -1277,6 +1277,10 @@ class MarketplaceController extends Controller
                 // display_price es accessor (lee mp_price/price) → seteamos
                 // las columnas para que muestre el precio de la variante.
                 $card->price               = $unit;
+                // La miniatura de 512px es la del PRODUCTO: la tarjeta la usa
+                // cuando primary_image_url == image_url (aquí siempre), así que
+                // heredada mostraba la foto general en cada tarjeta de variante.
+                $card->thumb_image_url     = null;
                 $card->mp_price            = null;
                 $card->original_price      = $ofertaVigente ? $v->original_price : null;
                 $card->is_on_offer         = $ofertaVigente;
