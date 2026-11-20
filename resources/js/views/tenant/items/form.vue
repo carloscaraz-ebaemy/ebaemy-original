@@ -1537,6 +1537,14 @@
                     />
                 </el-tab-pane>
 
+                <!-- ── Tab Video (extra de pago) ───────────────────────── -->
+                <el-tab-pane v-if="!isService" name="video">
+                    <span slot="label">
+                        <i class="el-icon-video-camera"></i> Video
+                    </span>
+                    <product-video-section :item-id="form.id || null" :start-open="true"></product-video-section>
+                </el-tab-pane>
+
             </el-tabs>
             <div class="form-actions text-end pt-2 mt-2">
                 <template v-if="forOnlyShowAllDetails">
@@ -1606,6 +1614,7 @@ import ClassicEditor from '@ckeditor/ckeditor5-build-classic';
 import VueCkeditor from 'vue-ckeditor5';
 import { imageCompressor } from '../../../mixins/imageCompressor';
 import QuitarFondo from './partials/QuitarFondo.vue';
+import ProductVideoSection from '../items_ecommerce/partials/ProductVideoSection.vue';
 
 
 export default {
@@ -1624,6 +1633,7 @@ export default {
         LotsForm,
         ExtraInfo,
         VariantsTab,
+        ProductVideoSection,
         'vue-ckeditor': VueCkeditor.component,
     },
     computed: {

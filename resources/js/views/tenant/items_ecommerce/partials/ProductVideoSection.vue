@@ -116,10 +116,12 @@ export default {
     name: 'ProductVideoSection',
     props: {
         itemId: { type: [Number, String], default: null },
+        // En la pestaña «Video» de Productos sale ya abierta.
+        startOpen: { type: Boolean, default: false },
     },
     data() {
         return {
-            open: false,
+            open: this.startOpen,
             loading: false,
             enabled: false,
             video: null,
