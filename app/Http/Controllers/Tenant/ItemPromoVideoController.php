@@ -43,7 +43,7 @@ class ItemPromoVideoController extends Controller
 
         return response()->json([
             'enabled' => $enabled,
-            'video'   => $video?->toPanelArray(),
+            'video'   => $video?->toPanelArray($this->itemPoster($itemModel)),
             'quota'   => $enabled ? $this->quotaInfo($client) : null,
         ]);
     }
@@ -51,7 +51,7 @@ class ItemPromoVideoController extends Controller
     /** Vista previa sin guardar: valida el enlace y devuelve el reproductor. */
     public function preview(Request $request, int $item): JsonResponse
     {
-        Item::findOrFail($item);
+        $itemModel = Item::findOrFail($item);
         if (!$this->client() || !app(FeatureGate::class)->has(Addon::PROMO_VIDEOS)) {
             return $this->notEnabled();
         }
@@ -71,7 +71,7 @@ class ItemPromoVideoController extends Controller
                 'provider_label' => $link->label(),
                 'source_url'     => $link->url,
                 'embed_src'      => $link->embed(),
-                'thumbnail'      => $meta['thumbnail'],
+                'thumbnail'      => $meta['thumbnail'] ?: $this->itemPoster($itemModel),
                 'title'          => $meta['title'],
                 'orientation'    => $link->orientation,
             ],
@@ -102,7 +102,7 @@ class ItemPromoVideoController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Es el mismo video que ya tenías.',
-                'video'   => $video->toPanelArray(),
+                'video'   => $video->toPanelArray($this->itemPoster($itemModel)),
             ]);
         }
 
@@ -163,7 +163,7 @@ class ItemPromoVideoController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Video enviado. Lo revisamos y te avisamos aquí: cuando esté aprobado saldrá en el marketplace.',
-            'video'   => $video->toPanelArray(),
+            'video'   => $video->toPanelArray($this->itemPoster($itemModel)),
         ]);
     }
 
@@ -190,6 +190,16 @@ class ItemPromoVideoController extends Controller
     {
         $hostnameId = optional(app(Environment::class)->hostname())->id;
         return $hostnameId ? Client::where('hostname_id', $hostnameId)->first() : null;
+    }
+
+    /** Foto del producto: póster cuando TikTok/Instagram no dan miniatura. */
+    private function itemPoster(Item $item): ?string
+    {
+        $file = $item->image_medium ?: $item->image;
+        if (!$file || $file === 'imagen-no-disponible.jpg') {
+            return null;
+        }
+        return asset('storage/uploads/items/' . $file);
     }
 
     private function videoOf(Client $client, int $itemId): ?PromoVideo

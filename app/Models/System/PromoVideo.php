@@ -159,7 +159,7 @@ class PromoVideo extends Model
     }
 
     /** Lo que ve la tienda en su panel. */
-    public function toPanelArray(): array
+    public function toPanelArray(?string $posterFallback = null): array
     {
         return [
             'id'               => $this->id,
@@ -168,7 +168,7 @@ class PromoVideo extends Model
             'provider_label'   => $this->providerLabel(),
             'source_url'       => $this->source_url,
             'embed_src'        => $this->embedSrc(),
-            'thumbnail'        => $this->posterUrl(),
+            'thumbnail'        => $this->posterUrl($posterFallback),
             'orientation'      => $this->isVertical() ? 'vertical' : 'horizontal',
             'status'           => $this->status,
             'status_label'     => self::ESTADOS[$this->status] ?? $this->status,

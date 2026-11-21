@@ -125,7 +125,7 @@ final class VideoLink
 
         return match ($provider) {
             'youtube'   => 'https://www.youtube-nocookie.com/embed/' . $id,
-            'tiktok'    => 'https://www.tiktok.com/embed/v2/' . $id,
+            'tiktok'    => 'https://www.tiktok.com/player/v1/' . $id,
             'instagram' => 'https://www.instagram.com/reel/' . $id . '/embed',
         };
     }

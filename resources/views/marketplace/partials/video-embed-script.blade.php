@@ -19,7 +19,7 @@
 
     var EMBEDS = [
         /^https:\/\/www\.youtube-nocookie\.com\/embed\/[A-Za-z0-9_-]{11}$/,
-        /^https:\/\/www\.tiktok\.com\/embed\/v2\/\d{8,25}$/,
+        /^https:\/\/www\.tiktok\.com\/player\/v1\/\d{8,25}$/,
         /^https:\/\/www\.instagram\.com\/reel\/[A-Za-z0-9_-]{5,40}\/embed$/
     ];
 
@@ -45,6 +45,8 @@
         // Autoplay solo donde el proveedor lo admite (YouTube); en TikTok e
         // Instagram el comprador toca play dentro del reproductor.
         if (src.indexOf('youtube-nocookie.com') !== -1) src += '?autoplay=1&playsinline=1&rel=0';
+        // TikTok: sin la fila de «más videos» (otros productos) al terminar.
+        else if (src.indexOf('tiktok.com/player') !== -1) src += '?rel=0&description=0&music_info=0&autoplay=1';
         var f = document.createElement('iframe');
         f.src = src;
         f.className = 'mp-vplayer';

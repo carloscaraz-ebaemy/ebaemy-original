@@ -94,7 +94,7 @@ class VideoLinkTest extends TestCase
     public function test_el_src_del_iframe_sale_solo_del_id_validado()
     {
         $this->assertSame('https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ', VideoLink::embedUrl('youtube', 'dQw4w9WgXcQ'));
-        $this->assertSame('https://www.tiktok.com/embed/v2/7301234567890123456', VideoLink::embedUrl('tiktok', '7301234567890123456'));
+        $this->assertSame('https://www.tiktok.com/player/v1/7301234567890123456', VideoLink::embedUrl('tiktok', '7301234567890123456'));
         $this->assertSame('https://www.instagram.com/reel/C1a2B3c4D5e/embed', VideoLink::embedUrl('instagram', 'C1a2B3c4D5e'));
 
         // Una fila manipulada en la base no llega a un iframe.

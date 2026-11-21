@@ -108,7 +108,7 @@
 // desde el id validado; esto es una segunda barrera).
 const EMBEDS = [
     /^https:\/\/www\.youtube-nocookie\.com\/embed\/[A-Za-z0-9_-]{11}$/,
-    /^https:\/\/www\.tiktok\.com\/embed\/v2\/\d{8,25}$/,
+    /^https:\/\/www\.tiktok\.com\/player\/v1\/\d{8,25}$/,
     /^https:\/\/www\.instagram\.com\/reel\/[A-Za-z0-9_-]{5,40}\/embed$/,
 ];
 
@@ -223,7 +223,10 @@ export default {
         },
         safeSrc(src) { return EMBEDS.some((re) => re.test(String(src || ''))); },
         playSrc(src) {
-            return src.indexOf('youtube-nocookie.com') !== -1 ? src + '?autoplay=1&playsinline=1&rel=0' : src;
+            if (src.indexOf('youtube-nocookie.com') !== -1) return src + '?autoplay=1&playsinline=1&rel=0';
+            // TikTok: sin la fila de «más videos» al terminar.
+            if (src.indexOf('tiktok.com/player') !== -1) return src + '?rel=0&description=0&music_info=0&autoplay=1';
+            return src;
         },
         stageClass(v) {
             return [v.orientation === 'horizontal' ? 'is-horizontal' : 'is-vertical', 'pvs__stage--' + v.provider];
