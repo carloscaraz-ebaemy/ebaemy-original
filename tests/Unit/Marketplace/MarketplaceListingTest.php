@@ -158,10 +158,27 @@ class MarketplaceListingTest extends TestCase
         $uno = MarketplaceListing::textRelevanceSql('polo');
         $dos = MarketplaceListing::textRelevanceSql('polo rojo');
 
-        // Tres CASE por token: exactitud, palabra entera y los tramos.
-        $this->assertSame(3, substr_count($uno, '(CASE WHEN'));
-        $this->assertSame(6, substr_count($dos, '(CASE WHEN'));
+        // Tres CASE por token (exactitud, palabra entera y los tramos) más
+        // UNO por consulta: la bonificación de categoría.
+        $this->assertSame(4, substr_count($uno, '(CASE WHEN'));
+        $this->assertSame(7, substr_count($dos, '(CASE WHEN'));
         $this->assertStringContainsString(') + (', $dos);
+    }
+
+    public function test_text_relevance_bonifica_cuando_todas_las_palabras_estan_en_la_categoria()
+    {
+        $sql = MarketplaceListing::textRelevanceSql('árboles navideños');
+
+        // «Árboles de Navidad» (categoría oficial, con su padre) casa las dos
+        // palabras: «arbol» por grafía y «navideño» por su sinónimo «navidad».
+        // Los pinos de esa categoría deben ir antes que una «Canasta de árbol
+        // navideño» que solo las tiene en el título.
+        $this->assertStringContainsString('THEN 4 ELSE 0 END', $sql);
+        $this->assertStringContainsString("marketplace_listings.category_name LIKE 'arbol%'", $sql);
+        $this->assertStringContainsString("CONCAT_WS(' ', mc.name, pc.name) LIKE '% navidad%'", $sql);
+        $this->assertStringContainsString('WHERE mc.id = marketplace_listings.marketplace_category_id', $sql);
+        // Las dos palabras van en AND dentro del mismo CASE.
+        $this->assertMatchesRegularExpression("/\(CASE WHEN \(.*arbol.*\) AND \(.*navidad.*\) THEN 4 ELSE 0 END\)/s", $sql);
     }
 
     public function test_search_tokens_descarta_las_palabras_de_relleno()

@@ -383,6 +383,7 @@ class MarketplaceListing extends Model
         if (empty($tokens)) return null;
 
         $terms = [];
+        $catTokens = [];
         foreach (array_slice($tokens, 0, 5) as $tok) {
             $grafias = static::cleanVariants(static::tokenSpellings($tok));
             $sinonimos = array_values(array_diff(
@@ -391,6 +392,12 @@ class MarketplaceListing extends Model
             ));
             $plain = static::sanitizeSqlLiteral($tok);
             if (empty($grafias)) continue;
+
+            // Para la bonificación de CATEGORÍA (abajo): esta palabra, con
+            // grafías y sinónimos, al inicio de alguna palabra del nombre de
+            // la categoría. LIKE y no REGEXP porque la collation ignora las
+            // tildes («arbol» casa con «Árboles») y las grafías van sin ellas.
+            $catTokens[] = static::categoryMatchSql(array_merge($grafias, $sinonimos));
 
             $titleStart = [];
             $titleWord  = [];
@@ -432,7 +439,40 @@ class MarketplaceListing extends Model
                 . ' ELSE 1 END)';
         }
 
+        // +4 cuando TODAS las palabras buscadas están en el nombre de la
+        // categoría (de la tienda u oficial, con su padre). Buscando «árboles
+        // navideños», los pinos de «Árboles de Navidad» van antes que la
+        // «Canasta de árbol navideño», aunque esta tenga las dos palabras en
+        // el título: la categoría dice QUÉ ES el producto; el título, cómo se
+        // llama. Vale lo que un escalón de título (6 vs 2) para que gane.
+        if ($catTokens) {
+            $terms[] = '(CASE WHEN ' . implode(' AND ', $catTokens) . ' THEN 4 ELSE 0 END)';
+        }
+
         return empty($terms) ? null : '(' . implode(' + ', $terms) . ')';
+    }
+
+    /**
+     * Condición SQL: alguna palabra del nombre de la categoría empieza por
+     * una de $variantes. Mira `category_name` (la de la tienda) y, por
+     * subconsulta, la categoría oficial y su padre. LIKE y no REGEXP porque
+     * la collation ignora tildes y mayúsculas («arbol» casa con «Árboles»)
+     * y las variantes vienen ya sin tildes.
+     *
+     * @param array<int,string> $variantes ya saneadas (cleanVariants)
+     */
+    protected static function categoryMatchSql(array $variantes): string
+    {
+        $likes = fn (string $col) => implode(' OR ', array_merge(...array_map(
+            fn ($v) => ["{$col} LIKE '{$v}%'", "{$col} LIKE '% {$v}%'"],
+            $variantes
+        )));
+
+        return '(' . $likes('marketplace_listings.category_name')
+            . ' OR EXISTS (SELECT 1 FROM marketplace_categories mc'
+            . ' LEFT JOIN marketplace_categories pc ON pc.id = mc.parent_id'
+            . ' WHERE mc.id = marketplace_listings.marketplace_category_id'
+            . ' AND (' . $likes("CONCAT_WS(' ', mc.name, pc.name)") . ')))';
     }
 
     /**

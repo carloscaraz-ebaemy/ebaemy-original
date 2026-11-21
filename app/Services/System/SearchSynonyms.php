@@ -45,6 +45,13 @@ class SearchSynonyms
         'parlante'    => ['altavoz', 'speaker', 'bocina'],
         'casaca'      => ['chaqueta', 'campera', 'abrigo'],
         'chaqueta'    => ['casaca', 'campera', 'abrigo'],
+        // Temporada: el catálogo escribe «Árboles de Navidad» y quien busca
+        // teclea «árboles navideños». Sin esto la segunda palabra no casaba
+        // y el AND entre palabras dejaba fuera a los árboles de verdad.
+        'navidad'     => ['navideno', 'navidena', 'navidenos', 'navidenas', 'christmas'],
+        'navideno'    => ['navidad', 'navidena', 'christmas'],
+        'navidena'    => ['navidad', 'navideno', 'christmas'],
+        'christmas'   => ['navidad', 'navideno', 'navidena'],
         'pantalon'    => ['jean', 'pantalones'],
         'jean'        => ['jeans'],
             ];

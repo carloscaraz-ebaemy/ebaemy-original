@@ -39,6 +39,15 @@ class SearchSynonymsTest extends TestCase
         $this->assertSame('lapiz', SearchSynonyms::singular('lapices'));
     }
 
+    public function test_navideno_y_navidad_se_encuentran_entre_si()
+    {
+        // El catálogo dice «Árboles de Navidad»; quien busca teclea
+        // «árboles navideños». Vale en los dos sentidos y en plural.
+        $this->assertContains('navidad', SearchSynonyms::expand('navideños'));
+        $this->assertContains('navidad', SearchSynonyms::expand('navideñas'));
+        $this->assertContains('navideno', SearchSynonyms::expand('navidad'));
+    }
+
     public function test_no_trae_sinonimos_que_son_otra_cosa()
     {
         $this->assertNotContains('cafe', SearchSynonyms::expand('cafetera'));
