@@ -41,7 +41,20 @@ class WhatsAppDriverFactory
         $ecomConfig = ConfigurationEcommerce::first();
         $preferredDriver = $ecomConfig->whatsapp_driver ?? null;
 
-        // 1. Si el tenant eligió explícitamente un driver, respetarlo si está configurado
+        // 1. El WhatsApp de la tienda conectado por QR (Evolution, como el
+        //    Pro 9). Va ANTES que la preferencia guardada cuando esta es
+        //    «qr_api»: para la tienda las dos cosas son «mi WhatsApp por QR»,
+        //    pero qr_api apunta al gateway viejo de devaemy.com, muerto desde
+        //    2026-08. Alasitas tenía qr_api preferido y el número vinculado
+        //    por Evolution: la conexión decía «conectado» y cada envío daba
+        //    404 (2026-11-20). Una preferencia distinta (meta_cloud) se
+        //    respeta.
+        $evolution = new EvolutionDriver();
+        if ($evolution->isConfigured() && (!$preferredDriver || $preferredDriver === 'qr_api')) {
+            return $evolution;
+        }
+
+        // 2. Si el tenant eligió explícitamente un driver, respetarlo si está configurado
         if ($preferredDriver) {
             $driver = self::buildDriver($preferredDriver);
             if ($driver->isConfigured()) {
@@ -49,10 +62,6 @@ class WhatsAppDriverFactory
             }
         }
 
-        // 2. El WhatsApp de la tienda conectado por QR (Evolution, como el
-        //    Pro 9). Antes que qr_api: ese apunta al gateway viejo de
-        //    devaemy.com, muerto desde 2026-08, y tapaba a cualquier otro.
-        $evolution = new EvolutionDriver();
         if ($evolution->isConfigured()) {
             return $evolution;
         }
