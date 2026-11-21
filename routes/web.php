@@ -22,6 +22,13 @@ if ($hostname) {
             return response()->json(['token' => csrf_token(), 'ok' => true]);
         })->name('csrf.refresh');
 
+        // Mensajes que LLEGAN al WhatsApp de la tienda (Evolution → aquí).
+        // Público, sin login: lo llama Evolution. El token es un HMAC de la
+        // instancia con la APP_KEY (ver WhatsAppInboundController::token).
+        // Hoy solo atiende «BAJA» de campañas; exento de CSRF.
+        Route::post('whatsapp/webhook/evolution/{token}', 'Tenant\WhatsAppInboundController@evolution')
+             ->where('token', '[a-f0-9]{64}')->middleware('throttle:240,1')->name('tenant.whatsapp.webhook.evolution');
+
         // ── Búsqueda de documentos — requiere autenticación ─────────────
         Route::middleware('auth')->group(function () {
             Route::get('search', 'Tenant\SearchController@index')->name('search.index');

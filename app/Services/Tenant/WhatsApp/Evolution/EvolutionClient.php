@@ -138,6 +138,38 @@ class EvolutionClient
             : "/message/sendMedia/{$instance}", $payload)->json() ?: [];
     }
 
+    /**
+     * Registra la URL a la que Evolution avisa de los mensajes que llegan
+     * (MESSAGES_UPSERT). Solo en modo evolution: el proxy de Buho no lo
+     * expone. Devuelve la respuesta cruda para poder registrarla.
+     */
+    public function setWebhook(string $instance, string $url, array $events = ['MESSAGES_UPSERT']): array
+    {
+        if ($this->mode !== 'evolution') {
+            return ['skipped' => 'buho'];
+        }
+        $r = $this->http()->post("/webhook/set/{$instance}", [
+            'webhook' => [
+                'enabled'         => true,
+                'url'             => $url,
+                'webhookByEvents' => false,
+                'webhookBase64'   => false,
+                'events'          => $events,
+            ],
+        ]);
+
+        return ['status' => $r->status()] + ($r->json() ?: []);
+    }
+
+    public function findWebhook(string $instance): array
+    {
+        if ($this->mode !== 'evolution') {
+            return [];
+        }
+
+        return $this->http()->get("/webhook/find/{$instance}")->json() ?: [];
+    }
+
     public function deleteInstance(string $instance): void
     {
         try {

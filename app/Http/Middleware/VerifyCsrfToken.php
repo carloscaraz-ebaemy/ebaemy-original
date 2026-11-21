@@ -22,5 +22,6 @@ class VerifyCsrfToken extends Middleware
         'webhooks/marketing/inbound',
         'marketplace/payment/webhook',
         'webhooks/shalom',
+        'whatsapp/webhook/evolution/*',
     ];
 }

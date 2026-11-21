@@ -74,6 +74,13 @@ class WhatsAppConnectionController extends Controller
             $cli = new EvolutionClient();
             $creada = $cli->createInstance($instancia);
             $qr = EvolutionClient::extractQr($creada) ?: EvolutionClient::extractQr($cli->qr($instancia));
+            // Para recibir las respuestas («BAJA» de campañas). Si falla, la
+            // conexión sigue valiendo para enviar.
+            try {
+                $cli->setWebhook($instancia, WhatsAppInboundController::urlFor($instancia));
+            } catch (\Throwable $e) {
+                Log::warning('[WhatsAppQR] webhook: ' . $e->getMessage());
+            }
         } catch (\Throwable $e) {
             Log::warning('[WhatsAppQR] conectar: ' . $e->getMessage());
 
