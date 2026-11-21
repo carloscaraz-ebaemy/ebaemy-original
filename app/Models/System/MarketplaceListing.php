@@ -439,14 +439,16 @@ class MarketplaceListing extends Model
                 . ' ELSE 1 END)';
         }
 
-        // +4 cuando TODAS las palabras buscadas están en el nombre de la
+        // +10 cuando TODAS las palabras buscadas están en el nombre de la
         // categoría (de la tienda u oficial, con su padre). Buscando «árboles
         // navideños», los pinos de «Árboles de Navidad» van antes que la
         // «Canasta de árbol navideño», aunque esta tenga las dos palabras en
         // el título: la categoría dice QUÉ ES el producto; el título, cómo se
-        // llama. Vale lo que un escalón de título (6 vs 2) para que gane.
+        // llama. Vale más que el máximo de una palabra en el título (6+1+2),
+        // porque la canasta suma eso DOS veces (16) y el pino solo llega por
+        // el índice (12 con +4: seguía detrás).
         if ($catTokens) {
-            $terms[] = '(CASE WHEN ' . implode(' AND ', $catTokens) . ' THEN 4 ELSE 0 END)';
+            $terms[] = '(CASE WHEN ' . implode(' AND ', $catTokens) . ' THEN 10 ELSE 0 END)';
         }
 
         return empty($terms) ? null : '(' . implode(' + ', $terms) . ')';

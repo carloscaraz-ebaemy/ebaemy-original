@@ -173,12 +173,12 @@ class MarketplaceListingTest extends TestCase
         // palabras: «arbol» por grafía y «navideño» por su sinónimo «navidad».
         // Los pinos de esa categoría deben ir antes que una «Canasta de árbol
         // navideño» que solo las tiene en el título.
-        $this->assertStringContainsString('THEN 4 ELSE 0 END', $sql);
+        $this->assertStringContainsString('THEN 10 ELSE 0 END', $sql);
         $this->assertStringContainsString("marketplace_listings.category_name LIKE 'arbol%'", $sql);
         $this->assertStringContainsString("CONCAT_WS(' ', mc.name, pc.name) LIKE '% navidad%'", $sql);
         $this->assertStringContainsString('WHERE mc.id = marketplace_listings.marketplace_category_id', $sql);
         // Las dos palabras van en AND dentro del mismo CASE.
-        $this->assertMatchesRegularExpression("/\(CASE WHEN \(.*arbol.*\) AND \(.*navidad.*\) THEN 4 ELSE 0 END\)/s", $sql);
+        $this->assertMatchesRegularExpression("/\(CASE WHEN \(.*arbol.*\) AND \(.*navidad.*\) THEN 10 ELSE 0 END\)/s", $sql);
     }
 
     public function test_search_tokens_descarta_las_palabras_de_relleno()
