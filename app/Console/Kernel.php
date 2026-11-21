@@ -131,6 +131,13 @@ class Kernel extends ConsoleKernel
                  ->withoutOverlapping()
                  ->appendOutputTo(storage_path('logs/review_requests.log'));
 
+        // Campañas de WhatsApp por productos: programa el lote de hoy de las
+        // que quedaron con clientes pendientes por el tope diario.
+        $schedule->command('whatsapp:campaigns-continue')
+                 ->dailyAt('10:30')
+                 ->withoutOverlapping()
+                 ->appendOutputTo(storage_path('logs/whatsapp_campaigns.log'));
+
         // Recordatorio de carritos abandonados: secuencia de 3 pasos (1h, 24h, 72h)
         $schedule->command('cart:send-reminders')
                  ->hourly()

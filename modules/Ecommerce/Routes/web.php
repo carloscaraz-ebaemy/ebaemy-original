@@ -265,6 +265,12 @@ Route::middleware(['check.permission', 'locked.tenant', 'check.email.verified', 
         Route::get('whatsapp-campaigns/records', 'WhatsAppCampaignController@records');
         Route::get('whatsapp-campaigns/{id}/messages', 'WhatsAppCampaignController@messages');
         Route::post('whatsapp-campaigns/{id}/retry-failed', 'WhatsAppCampaignController@retryFailed');
+        // Campañas por productos (envío espaciado por cola)
+        Route::get('whatsapp-campaigns/audiences', 'WhatsAppCampaignController@audiences');
+        Route::post('whatsapp-campaigns/preview', 'WhatsAppCampaignController@preview');
+        Route::post('whatsapp-campaigns', 'WhatsAppCampaignController@store');
+        Route::post('whatsapp-campaigns/{id}/cancel', 'WhatsAppCampaignController@cancel');
+        Route::post('whatsapp-campaigns/opt-out/{personId}', 'WhatsAppCampaignController@optOut');
 
         // Cupones
         Route::get('coupons', 'CouponController@index')->name('tenant.ecommerce.coupons');

@@ -8,6 +8,7 @@ class WhatsAppOfferCampaign extends ModelTenant
 
     protected $fillable = [
         'name',
+        'kind',
         'flash_sale_id',
         'status',
         'total_customers',

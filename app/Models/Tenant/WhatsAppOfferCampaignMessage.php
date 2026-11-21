@@ -14,11 +14,13 @@ class WhatsAppOfferCampaignMessage extends ModelTenant
         'payload',
         'error_message',
         'sent_at',
+        'scheduled_at',
     ];
 
     protected $casts = [
         'payload' => 'array',
         'sent_at' => 'datetime',
+        'scheduled_at' => 'datetime',
     ];
 
     public function campaign()

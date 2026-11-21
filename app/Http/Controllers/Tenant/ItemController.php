@@ -128,7 +128,7 @@ class ItemController extends Controller
     public function recordsAllSimple()
     {
         $items = Item::where('apply_store', 1)
-            ->select('id', 'internal_id', 'description', 'sale_unit_price', 'stock', 'image', 'image_small')
+            ->select('id', 'internal_id', 'description', 'sale_unit_price', 'stock', 'has_variants', 'image', 'image_small')
             ->orderBy('description')
             ->limit(500)
             ->get();
