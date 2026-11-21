@@ -98,7 +98,19 @@ class Handler extends ExceptionHandler
 
         if ($exception instanceof AuthenticationException)
         {
-            if ($this->isFrontend($request))
+            $this->logLostSession($request);
+
+            // Una peticion XHR del panel (axios manda `Accept: application/json,
+            // text/plain, */*` y X-Requested-With) ACEPTA html, asi que caia en
+            // isFrontend() y recibia un 302 a /login. axios sigue la
+            // redireccion, obtiene el HTML del login con 200 y el formulario
+            // mostraba «undefined» y seguia fallando en cada intento, sin que
+            // nada llevara al usuario a entrar de nuevo (2026-11-21, Nota de
+            // venta en alasitas). El 401 lo atiende el interceptor de
+            // bootstrap.js: avisa y recarga, y el servidor manda al login
+            // guardando a donde volver. Solo las navegaciones normales
+            // (formularios HTML, clicks) siguen con la redireccion.
+            if ($this->isFrontend($request) && ! $request->ajax() && ! $request->wantsJson())
             {
                 return redirect()->guest('login');
             }
@@ -240,6 +252,35 @@ class Handler extends ExceptionHandler
         }
 
         return $this->errorResponse($errors, 422, $e);
+    }
+
+    /**
+     * Deja rastro cuando una peticion del panel llega SIN usuario pero CON
+     * cookie de sesion: es una sesion perdida o caducada, no una visita
+     * anonima. El 2026-11-21 un usuario de alasitas perdio la sesion 75 s
+     * despues de entrar y no quedo ni una linea que dijera por que: ni logout
+     * en login_events, ni cambio en el usuario, ni error en laravel.log.
+     * Se anotan solo nombres de claves de la sesion, nunca valores.
+     */
+    private function logLostSession(Request $request): void
+    {
+        try {
+            if (! $request->hasSession() || ! $request->hasCookie(config('session.cookie'))) {
+                return;
+            }
+            $session = $request->session();
+            \Log::info('auth.lost_session', [
+                'method'       => $request->method(),
+                'path'         => $request->path(),
+                'ajax'         => $request->ajax(),
+                'session_keys' => array_keys($session->all()),
+                'session_new'  => ! $session->has('_previous'),
+                'referer'      => $request->headers->get('referer'),
+                'ip'           => $request->ip(),
+            ]);
+        } catch (Throwable $e) {
+            // El diagnostico nunca debe tapar la respuesta real.
+        }
     }
 
     private function isFrontend(Request $request)
