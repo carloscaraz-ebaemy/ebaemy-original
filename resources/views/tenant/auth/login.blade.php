@@ -42,9 +42,15 @@
             </div>
 
             <div class="auth__forgot-password d-flex justify-content-between align-items-center">
-                <div class="checkbox-custom checkbox-default d-none">
-                    <input name="remember" id="RememberMe" type="checkbox" {{ old('remember') ? 'checked' : '' }}>
-                    <label class="m-0" for="RememberMe">Recordarme</label>
+                {{-- «Recordarme» estaba oculto (d-none): sin la cookie de
+                     recordatorio, cualquier perdida de la cookie de sesion
+                     (cierre del navegador, 120 min sin heartbeat, cookie
+                     pisada) expulsa al usuario al login. Visible y marcado por
+                     defecto: si la sesion se pierde, Laravel vuelve a
+                     autenticar en silencio con la cookie de recordatorio. --}}
+                <div class="checkbox-custom checkbox-default">
+                    <input name="remember" id="RememberMe" type="checkbox" {{ old('remember', '1') ? 'checked' : '' }}>
+                    <label class="m-0" for="RememberMe">Recordarme en este equipo</label>
                 </div>
                 <a class="forgot-password-modern d-none" href="{{ url('password/reset') }}" tabindex="5">¿Olvidaste tu contraseña?</a>
             </div>
