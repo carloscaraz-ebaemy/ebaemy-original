@@ -5844,7 +5844,7 @@ export default {
             if (pedido && !envio) return this.anularPedido(row);
             if (envio && !pedido) return this.anularEnvio(row);
             this.$confirm(
-                "«Anular pedido»: el pedido completo deja de existir y se libera su stock. " +
+                "«Anular pedido»: el pedido completo deja de existir, se libera su stock y se anula su envío si aún no salió. " +
                     "«Solo el envío»: el pedido sigue y se anula su envío para configurarlo de nuevo " +
                     "(por ejemplo, si cambia de motorizado a agencia).",
                 "¿Qué quieres anular del pedido #" + (row.order_id || row.id) + "?",
@@ -5870,7 +5870,7 @@ export default {
                 (pagado
                     ? "Este pedido tiene pagos registrados: revísalos o devuélvelos después de anularlo. "
                     : "El pedido no tiene pagos. ") +
-                    "Se anula el pedido completo y se libera su stock. Se puede restaurar después desde el mismo menú.",
+                    "Se anula el pedido completo, se libera su stock y se anula su envío si aún no salió. Se puede restaurar después desde el mismo menú.",
                 "Anular pedido #" + (row.order_id || row.id),
                 { confirmButtonText: "Anular pedido", cancelButtonText: "Cancelar", type: "warning" }
             );

@@ -3264,6 +3264,52 @@ class OrderController extends Controller
     }
 
     /**
+     * Anular el pedido también anula su envío vigente, si el paquete todavía
+     * no salió. Antes el pedido quedaba anulado y su envío seguía vivo —y en
+     * espera—: el operador lo veía igual en «En espera» y creía que no se
+     * había anulado (alasitas #554, 2026-11-22).
+     *
+     * Si ya salió (despachado, en agencia, en camino…) no se toca: el paquete
+     * existe y hay que resolverlo con la agencia. Se avisa en el mensaje.
+     *
+     * @return string Texto que se suma al mensaje de respuesta.
+     */
+    private function anularEnvioDelPedidoAnulado(Order $order, string $reason): string
+    {
+        if (!ShippingRequest::moduleInstalled()) {
+            return '';
+        }
+
+        $envio = app(\App\Services\Tenant\OrderShipmentLinker::class)->current($order);
+        if (!$envio) {
+            return '';
+        }
+
+        $antesDeSalir = [
+            ShippingRequest::STATUS_RECIBIDO, ShippingRequest::STATUS_CONFIRMADO,
+            ShippingRequest::STATUS_PREPARANDO, ShippingRequest::STATUS_EMBALANDO,
+            ShippingRequest::STATUS_IMPRESO, ShippingRequest::STATUS_ASIGNADO,
+        ];
+        if (!in_array($envio->status, $antesDeSalir, true)) {
+            return '. Su envío ' . $envio->shipment_code . ' ya salió y sigue vigente: resuélvelo con la agencia y anúlalo aparte.';
+        }
+
+        try {
+            $req = Request::create('/', 'POST', [
+                'reason'           => 'Pedido anulado' . ($reason !== '' ? ': ' . $reason : ''),
+                'conservar_pedido' => 1,
+            ]);
+            app(ShipmentController::class)->cancel($req, $envio);
+        } catch (\Throwable $e) {
+            \Log::warning('No se pudo anular el envío del pedido anulado', ['order_id' => $order->id, 'error' => $e->getMessage()]);
+
+            return '. No se pudo anular su envío: anúlalo desde el menú.';
+        }
+
+        return ' y también su envío ' . $envio->shipment_code;
+    }
+
+    /**
      * POST /orders/{order}/restaurar — devuelve a la vida un pedido anulado.
      *
      * Es la UNICA modificacion que admite un pedido anulado, y por eso tiene
@@ -3430,6 +3476,7 @@ class OrderController extends Controller
       if ($statusId === 5) {
         $reason = (string) $request->input('cancel_reason', '');
         $orderService->cancelEcommerceOrder($order, $reason);
+        $avisoEnvio = $this->anularEnvioDelPedidoAnulado($order, $reason);
         $this->logStatusTransition($order->fresh(), $currentStatusId, 5, ['reason' => $reason]);
         $this->sendWhatsAppStatusNotification($order->fresh(), 5);
 
@@ -3440,7 +3487,7 @@ class OrderController extends Controller
             'reason'    => $reason,
         ]);
 
-        return ['message' => 'Pedido cancelado'];
+        return ['message' => 'Pedido anulado' . $avisoEnvio];
       }
 
       // ── 1 → 2  (Pago verificado) ─────────────────────────────────────────

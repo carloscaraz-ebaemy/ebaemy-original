@@ -45,7 +45,7 @@ class OrderShipmentActionController extends Controller
         // entrega en curso que nadie puede cerrar — un estado peor que el que
         // se intenta evitar. Nunca añade actividad: solo la retira.
         return $this->reenviar($order, fn ($envio) =>
-            app(ShipmentController::class)->cancel($request, $envio), false, true);
+            app(ShipmentController::class)->cancel($request, $envio), false, true, true);
     }
 
     /**
@@ -194,7 +194,8 @@ class OrderShipmentActionController extends Controller
         Order $order,
         callable $accion,
         bool $incluirAnulados = false,
-        bool $permitidoEnPedidoAnulado = false
+        bool $permitidoEnPedidoAnulado = false,
+        bool $limpieza = false
     ) {
         // Un pedido anulado no se opera. Se comprueba aqui y no en cada accion
         // porque las cuatro pasan por este metodo, y porque el destino
@@ -204,9 +205,14 @@ class OrderShipmentActionController extends Controller
         // logistica (anular y restaurar el envio): esas solo las detiene el
         // PEDIDO anulado, no un envio anulado — con el envio caido, poder
         // restaurarlo es justo lo que hace falta.
-        $motivo = $permitidoEnPedidoAnulado
+        //
+        // `$limpieza` (solo anular el envío): no la detiene nada. Con el pedido
+        // anulado, motivoBloqueoLogistico() decía justo «está anulado» y el
+        // envío se quedaba vigente y en espera para siempre (alasitas #554,
+        // 2026-11-22), que es lo que el comentario de anular() quería evitar.
+        $motivo = $limpieza ? null : ($permitidoEnPedidoAnulado
             ? $order->motivoBloqueoLogistico()
-            : $order->motivoBloqueoModificacion();
+            : $order->motivoBloqueoModificacion());
 
         if ($motivo) {
             return response()->json(['success' => false, 'message' => $motivo], 422);
