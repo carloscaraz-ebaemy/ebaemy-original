@@ -1417,7 +1417,7 @@
                                         Postergar despacho (hasta nuevo aviso)
                                     </el-dropdown-item>
                                     <el-dropdown-item
-                                        v-if="row.shipment && row.shipment.on_hold"
+                                        v-if="row.shipment && row.shipment.on_hold && !esAnulado(row)"
                                         command="holdOff"
                                     >
                                         <i class="el-icon-circle-check"></i>
@@ -7401,6 +7401,8 @@ export default {
          */
         antiguedad(row) {
             const s = row.shipment;
+            // Anulado manda sobre «en espera»: un pedido cerrado no espera nada.
+            if (this.esAnulado(row)) return null;
             // En espera: el cliente sigue agregando productos; el reloj está
             // detenido y lo que importa es desde cuándo.
             if (s && s.on_hold) {

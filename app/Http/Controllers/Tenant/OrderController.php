@@ -938,6 +938,9 @@ class OrderController extends Controller
             return $query->whereRaw('1 = 0');
         }
 
+        // Anulado manda sobre «en espera»: un pedido anulado está cerrado.
+        $query->where('orders.status_order_id', '!=', Order::ESTADO_ANULADO);
+
         return $this->whereShipment($query, fn ($s) => $s->whereNotNull('on_hold_since'));
     }
 

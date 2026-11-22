@@ -1360,7 +1360,10 @@ class ShippingRequest extends Model
 
     public function isOnHold(): bool
     {
-        return self::hasHoldColumns() && !empty($this->on_hold_since);
+        // Anulado manda sobre «en espera»: un envío cerrado no está esperando
+        // nada. La marca se conserva por si se restaura.
+        return self::hasHoldColumns() && !empty($this->on_hold_since)
+            && $this->status !== self::STATUS_ANULADO && empty($this->cancelled_at);
     }
 
     /** Días de calendario que lleva en espera (para el panel). */
