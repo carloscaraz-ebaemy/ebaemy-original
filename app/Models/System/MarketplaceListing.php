@@ -724,6 +724,12 @@ class MarketplaceListing extends Model
             ->first();
     }
 
+    /** Para la insignia «▶ Video» de la card (consulta cacheada, no una por card). */
+    public function hasPromoVideo(): bool
+    {
+        return PromoVideo::tienePublico($this->client_id ? (int) $this->client_id : null, $this->remote_item_id ? (int) $this->remote_item_id : null);
+    }
+
     /**
      * URL absoluta de la ficha pública del listing.
      */

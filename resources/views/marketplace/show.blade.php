@@ -259,6 +259,18 @@
         $galleryFullUrls = is_array($listing->gallery_full_image_urls) ? $listing->gallery_full_image_urls : [];
         // Si no hay galería sincronizada o solo trae la principal, fallback al thumb único
         $hasGallery = count($galleryUrls) > 1;
+        // Video del producto como UNA MINIATURA MÁS de la galería (2026-11-25),
+        // en segundo lugar: la foto sigue siendo lo primero que se pinta (LCP)
+        // y el video se encuentra donde el comprador lo busca. El reproductor
+        // se crea solo al elegir la miniatura (mp4: silenciado y en bucle;
+        // TikTok/YouTube/Instagram: el iframe del proveedor, nunca antes).
+        $pvSrc = $promoVideo ? ($promoVideo->isLink() ? $promoVideo->embedSrc() : $promoVideo->mp4_url) : null;
+        $pvThumb = $pvSrc ? view('marketplace.partials.gallery-video-thumb', [
+            'video'          => $promoVideo,
+            'src'            => $pvSrc,
+            'title'          => $listing->title,
+            'posterFallback' => $mpHeroImage ?: $listing->image_url,
+        ])->render() : '';
     @endphp
     {{-- --side: las miniaturas van en columna a la IZQUIERDA de la principal
          (desde 600px), también con una sola imagen. Sin imagen no hay thumbs. --}}
@@ -307,6 +319,7 @@
                             aria-label="Vista {{ $idx + 1 }}">
                         <img src="{{ $thumbUrl }}" alt="" data-full-image="{{ $galleryFullUrls[$idx] ?? $thumbUrl }}">
                     </button>
+                    @if($idx === 0){!! $pvThumb !!}@endif
                 @endforeach
             </div>
         @elseif($mpHeroImage)
@@ -314,19 +327,8 @@
                 <button type="button" class="mp-gallery-thumb is-active" aria-label="Vista principal">
                     <img src="{{ $mpHeroImage }}" alt="" data-full-image="{{ $listing->image_url ? $listing->image_full_url : $mpHeroImage }}">
                 </button>
+                {!! $pvThumb !!}
             </div>
-        @endif
-
-        {{-- Video del producto (por enlace o archivo propio). Va DENTRO de la
-             galería, debajo de la foto: como hijo de .mp-detail ocupaba la
-             columna de la información en escritorio. Miniatura pequeña y el
-             reproductor se carga solo al tocar: la foto sigue siendo el LCP. --}}
-        @if($promoVideo)
-            @include('marketplace.partials.product-video', [
-                'video'          => $promoVideo,
-                'title'          => $listing->title,
-                'posterFallback' => $mpHeroImage ?: $listing->image_url,
-            ])
         @endif
     </div>
 
@@ -365,6 +367,41 @@
             }, 80);
         }
 
+        // ── Video como miniatura: se reproduce EN el visor principal ──
+        // El reproductor (iframe del proveedor o <video>) se crea aquí, al
+        // elegir la miniatura; al volver a una foto se destruye (corta el
+        // video y libera memoria). mp4 propio: silenciado y en bucle, como
+        // una foto que se mueve; con enlace manda el proveedor.
+        var mainBox = document.querySelector('.mp-gallery-main');
+        var videoStage = null;
+        function stopVideo() {
+            if (!videoStage) return;
+            videoStage.remove();
+            videoStage = null;
+            if (mainImgEl) mainImgEl.style.visibility = '';
+            if (mainBox) mainBox.classList.remove('is-video');
+        }
+        function playVideo(btn) {
+            if (!mainBox || !window.mpVideoPlayer) return false;
+            var kind = btn.getAttribute('data-mp-video-kind');
+            var player = window.mpVideoPlayer(btn.getAttribute('data-mp-video'), {
+                kind: kind,
+                title: btn.getAttribute('data-mp-video-title'),
+                muted: kind === 'file',
+                loop: kind === 'file'
+            });
+            if (!player) return false;
+            stopVideo();
+            videoStage = document.createElement('div');
+            videoStage.className = 'mp-gallery-video mp-gallery-video--' + (btn.getAttribute('data-mp-video-orientation') === 'horizontal' ? 'horizontal' : 'vertical')
+                + ' mp-gallery-video--' + (btn.getAttribute('data-mp-video-provider') || 'file');
+            videoStage.appendChild(player);
+            if (mainImgEl) mainImgEl.style.visibility = 'hidden';
+            mainBox.classList.add('is-video');
+            mainBox.appendChild(videoStage);
+            return true;
+        }
+
         // ── Thumbs clickeables → cambian la imagen principal ── (delegado)
         if (galleryEl && !galleryEl.dataset.mpBound) {
             galleryEl.dataset.mpBound = '1';
@@ -372,9 +409,14 @@
                 var btn = e.target.closest('.mp-gallery-thumb');
                 if (!btn || !galleryEl.contains(btn)) return;
                 e.preventDefault();
-                var thumbImg = btn.querySelector('img');
-                if (!thumbImg) return;
-                showMain(thumbImg.dataset.fullImage || thumbImg.src);
+                if (btn.hasAttribute('data-mp-video')) {
+                    if (!playVideo(btn)) return;
+                } else {
+                    var thumbImg = btn.querySelector('img');
+                    if (!thumbImg) return;
+                    stopVideo();
+                    showMain(thumbImg.dataset.fullImage || thumbImg.src);
+                }
                 thumbList().forEach(function (b) { b.classList.remove('is-active'); });
                 btn.classList.add('is-active');
             });
@@ -386,6 +428,8 @@
         // variante.
         var thumbsBox = document.querySelector('.mp-gallery .mp-gallery-thumbs');
         var productThumbsHtml = thumbsBox ? thumbsBox.innerHTML : '';
+        var videoThumbEl = thumbsBox ? thumbsBox.querySelector('.mp-gallery-thumb--video') : null;
+        var videoThumbHtml = videoThumbEl ? videoThumbEl.outerHTML : '';
         var productMainSrc = mainImgEl ? mainImgEl.getAttribute('src') : null;
         var currentKey = 'product';
         function esc(s) {
@@ -397,6 +441,7 @@
             if (key === currentKey) return;
             currentKey = key;
             if (!mainImgEl) return;
+            stopVideo();
             if (key === 'product') {
                 if (thumbsBox) thumbsBox.innerHTML = productThumbsHtml;
                 thumbList().forEach(function (b, i) { b.classList.toggle('is-active', i === 0); });
@@ -409,6 +454,12 @@
                         + '<img src="' + esc(it.thumb || it.full) + '" alt="" data-full-image="' + esc(it.full) + '"'
                         + ' onerror="this.onerror=null;this.src=this.dataset.fullImage"></button>';
                 }).join('');
+                // El video es del producto: sigue estando con cualquier variante.
+                if (videoThumbHtml) {
+                    var first = thumbsBox.firstElementChild;
+                    if (first) first.insertAdjacentHTML('afterend', videoThumbHtml);
+                    else thumbsBox.insertAdjacentHTML('beforeend', videoThumbHtml);
+                }
             }
             showMain(items[0].full);
         };
@@ -436,6 +487,7 @@
             function collect() {
                 galleryImgs = [];
                 thumbList().forEach(function (b) {
+                    if (b.hasAttribute('data-mp-video')) return;
                     var im = b.querySelector('img');
                     if (im) galleryImgs.push(im.dataset.fullImage || im.src);
                 });
@@ -467,7 +519,7 @@
                 render();
             }
 
-            mainImgEl.addEventListener('click', function () { collect(); openAt(currentThumbIndex()); });
+            mainImgEl.addEventListener('click', function () { if (videoStage) return; collect(); openAt(currentThumbIndex()); });
             lb.querySelector('.mp-lightbox__close').addEventListener('click', close);
             lbPrev.addEventListener('click', function (e) { e.stopPropagation(); step(-1); });
             lbNext.addEventListener('click', function (e) { e.stopPropagation(); step(1); });

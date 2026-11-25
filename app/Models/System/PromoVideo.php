@@ -128,6 +128,38 @@ class PromoVideo extends Model
                 ->select('client_id'));
     }
 
+    /** Caché de las claves «client-item» con video público (insignia de las cards). */
+    public const KEYS_CACHE_KEY = 'mp_promo_video_keys_v1';
+    private static ?array $clavesPublicasMemo = null;
+
+    /**
+     * ¿Este producto tiene video público? Para la insignia «▶ Video» de las
+     * cards: una consulta cacheada (10 min) para todo el catálogo en vez de
+     * una por tarjeta. HomeShowcase::forgetVideos() la invalida al aprobar,
+     * quitar o cambiar un video.
+     */
+    public static function tienePublico(?int $clientId, ?int $remoteItemId): bool
+    {
+        if (!$clientId || !$remoteItemId) {
+            return false;
+        }
+        if (self::$clavesPublicasMemo === null) {
+            self::$clavesPublicasMemo = \Illuminate\Support\Facades\Cache::remember(self::KEYS_CACHE_KEY, 600, function () {
+                return self::publico()->get(['client_id', 'remote_item_id'])
+                    ->mapWithKeys(fn ($v) => [$v->client_id . '-' . $v->remote_item_id => true])
+                    ->all();
+            });
+        }
+
+        return isset(self::$clavesPublicasMemo[$clientId . '-' . $remoteItemId]);
+    }
+
+    public static function olvidarClavesPublicas(): void
+    {
+        self::$clavesPublicasMemo = null;
+        \Illuminate\Support\Facades\Cache::forget(self::KEYS_CACHE_KEY);
+    }
+
     /** Destacados para las páginas de ebaemy (portada, página de tienda). */
     public function scopeDestacado($query)
     {

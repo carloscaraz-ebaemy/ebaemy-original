@@ -110,6 +110,17 @@
             <div class="mp-card-img-empty">Sin imagen</div>
         @endif
 
+        {{-- «▶ Video»: el producto tiene video publicado. Abajo a la izquierda
+             para no pelear con las insignias de oferta. Solo la insignia: el
+             video NO se reproduce en la card (20-30 a la vez castigarían el
+             celular y nuestro servidor); se ve en la galería de la ficha. --}}
+        @if($listing->hasPromoVideo())
+            <span class="mp-card-video" aria-label="Este producto tiene video">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/></svg>
+                Video
+            </span>
+        @endif
+
         {{-- Corazón de favoritos: top-right de la imagen. El JS de
              listing-card-script lo hidrata con el estado actual al cargar
              la vista y maneja el toggle vía POST /marketplace/favorites/toggle. --}}

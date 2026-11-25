@@ -109,6 +109,7 @@ class HomeShowcase
     public static function forgetVideos(): void
     {
         Cache::forget(self::VIDEO_CACHE_KEY);
+        PromoVideo::olvidarClavesPublicas();
     }
 
     /**

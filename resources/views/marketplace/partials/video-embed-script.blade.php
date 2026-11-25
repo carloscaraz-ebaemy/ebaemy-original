@@ -37,6 +37,10 @@
             v.src = src;
             v.controls = true;
             v.autoplay = true;
+            // Galería de la ficha: silenciado y en bucle (como una foto que
+            // se mueve); el comprador sube el volumen desde los controles.
+            if (opts.muted) { v.muted = true; v.setAttribute('muted', ''); }
+            if (opts.loop) v.loop = true;
             v.setAttribute('playsinline', '');
             v.className = 'mp-vplayer';
             return v;
