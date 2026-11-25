@@ -422,7 +422,7 @@ function md(report) {
   for (const p of report.pages) for (const r of p.runs) {
     if (r.error) { L.push(`| ${p.label} | ${r.width} | ERROR: ${r.error} |||||||||`); continue; }
     const a = r.audit;
-    L.push(`| ${p.label} | ${r.width}${a.viewport.clientWidth !== r.width ? ' (!' + a.viewport.clientWidth + ')' : ''} | ${a.horizontalScroll ? '**SÍ** (' + a.scrollWidth + ')' : 'no'} | ${a.overflowingCount} | ${a.smallTouchTargetsCount} | ${a.smallInputsCount} | ${a.tinyTextCount} | ${a.badImagesCount} | ${a.coveredInteractiveCount} | ${a.wideDialogs.length} | ${r.open ? (r.open.error ? 'ERR' : r.open.probe.blocked + '/' + r.open.probe.probed) : '—'} |`);
+    L.push(`| ${p.label} | ${r.width}${a.viewport.clientWidth !== r.width ? ' (!' + a.viewport.clientWidth + ')' : ''} | ${a.horizontalScroll ? '**SÍ** (' + a.scrollWidth + ')' : 'no'} | ${a.overflowingCount} | ${a.smallTouchTargetsCount} | ${a.smallInputsCount} | ${a.tinyTextCount} | ${a.badImagesCount} | ${a.coveredInteractiveCount} | ${a.wideDialogs.length} | ${r.open ? (r.open.error ? 'ERR' : (r.open.probe ? r.open.probe.blocked + '/' + r.open.probe.probed : 'abierto')) : '—'} |`);
   }
   L.push('');
   for (const p of report.pages) {
