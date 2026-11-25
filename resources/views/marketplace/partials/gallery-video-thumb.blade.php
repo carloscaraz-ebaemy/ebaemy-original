@@ -15,6 +15,7 @@
         data-mp-video-provider="{{ $video->isLink() ? $video->provider : 'file' }}"
         data-mp-video-orientation="{{ $video->isVertical() ? 'vertical' : 'horizontal' }}"
         data-mp-video-title="{{ $title }}"
+        data-mp-video-ratio="{{ ($video->width ?? 0) > 0 && ($video->height ?? 0) > 0 ? (int) $video->width . '/' . (int) $video->height : '' }}"
         aria-label="Ver el video de {{ $title }}"
         title="{{ $video->providerLabel() ? 'Video en ' . $video->providerLabel() : 'Video del producto' }}">
     @if($gvPoster)

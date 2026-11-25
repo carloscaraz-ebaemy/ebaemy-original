@@ -379,7 +379,7 @@
             videoStage.remove();
             videoStage = null;
             if (mainImgEl) mainImgEl.style.visibility = '';
-            if (mainBox) mainBox.classList.remove('is-video');
+            if (mainBox) mainBox.classList.remove('is-video', 'is-vertical');
         }
         function playVideo(btn) {
             if (!mainBox || !window.mpVideoPlayer) return false;
@@ -392,12 +392,18 @@
             });
             if (!player) return false;
             stopVideo();
+            var vertical = btn.getAttribute('data-mp-video-orientation') !== 'horizontal';
+            // Proporción medida del archivo (ancho/alto) cuando la tenemos:
+            // el reproductor la toma tal cual y el video se ve entero.
+            var ratio = btn.getAttribute('data-mp-video-ratio');
+            if (ratio && /^\d+\/\d+$/.test(ratio)) player.style.aspectRatio = ratio;
             videoStage = document.createElement('div');
-            videoStage.className = 'mp-gallery-video mp-gallery-video--' + (btn.getAttribute('data-mp-video-orientation') === 'horizontal' ? 'horizontal' : 'vertical')
+            videoStage.className = 'mp-gallery-video mp-gallery-video--' + (vertical ? 'vertical' : 'horizontal')
                 + ' mp-gallery-video--' + (btn.getAttribute('data-mp-video-provider') || 'file');
             videoStage.appendChild(player);
             if (mainImgEl) mainImgEl.style.visibility = 'hidden';
             mainBox.classList.add('is-video');
+            mainBox.classList.toggle('is-vertical', vertical);
             mainBox.appendChild(videoStage);
             return true;
         }

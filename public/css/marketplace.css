@@ -3144,12 +3144,20 @@ body:has(#mpConsentBar) { padding-bottom: 96px; }
 /* Reproduciendo: el reproductor ocupa el visor principal (cuadrado); el
    vertical se centra con bandas a los lados, el horizontal arriba y abajo. */
 .mp-gallery-main.is-video { background: #0f172a; cursor: default; }
-.mp-gallery-video { position: absolute; inset: 0; display: grid; place-items: center; }
-.mp-gallery-video--horizontal .mp-vplayer { width: 100%; height: auto; aspect-ratio: 16 / 9; }
-.mp-gallery-video--vertical .mp-vplayer { height: 100%; width: auto; aspect-ratio: 9 / 16; max-width: 100%; }
-/* TikTok e Instagram meten cabecera y pie dentro de su reproductor. */
-.mp-gallery-video--tiktok .mp-vplayer, .mp-gallery-video--instagram .mp-vplayer { aspect-ratio: 9 / 17; }
+.mp-gallery-video { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+/* El reproductor toma la PROPORCIÓN REAL del video (9:16 ó 16:9; la medida
+   exacta si la tenemos, por style) y el tamaño mayor que quepa ENTERO en el
+   visor: nunca se recorta. Con el iframe en otra proporción, TikTok e
+   Instagram rellenan el hueco recortando el video, por eso no se fuerza 9:17. */
+.mp-gallery-video--horizontal .mp-vplayer { width: 100%; height: auto; max-height: 100%; aspect-ratio: 16 / 9; }
+.mp-gallery-video--vertical .mp-vplayer { height: 100%; width: auto; max-width: 100%; aspect-ratio: 9 / 16; }
 .mp-gallery-video video.mp-vplayer { object-fit: contain; background: #0f172a; }
+/* Móvil: con el video vertical el visor deja de ser cuadrado y toma 9:16,
+   así el video ocupa el ancho de la pantalla en vez de quedarse en una
+   franja estrecha en el centro. */
+@media (max-width: 599px) {
+    .mp-gallery-main.is-video.is-vertical { aspect-ratio: 9 / 16; max-height: 78dvh; }
+}
 
 /* Card del catálogo: insignia «▶ Video» abajo a la izquierda de la foto. */
 .mp-card-video {
