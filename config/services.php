@@ -114,6 +114,13 @@ return [
         'key'               => env('ANTHROPIC_API_KEY'),
         'assistant_enabled' => (bool) env('MARKETPLACE_ASSISTANT_ENABLED', false),
         'assistant_model'   => env('MARKETPLACE_ASSISTANT_MODEL', 'claude-haiku-5-5'),
+        // Techo diario GLOBAL de tokens (entrada+salida) del asistente; 0 = sin tope.
+        // Con Haiku 5.5, 2 M tokens ≈ 0.50 USD/día en el peor caso.
+        'daily_tokens'      => (int) env('MARKETPLACE_ASSISTANT_DAILY_TOKENS', 2000000),
+        // Precios USD por millón de tokens, solo para la estimación del panel.
+        'price_in'          => (float) env('MARKETPLACE_ASSISTANT_PRICE_IN', 0.10),
+        'price_out'         => (float) env('MARKETPLACE_ASSISTANT_PRICE_OUT', 0.50),
+        'price_cache'       => (float) env('MARKETPLACE_ASSISTANT_PRICE_CACHE', 0.01),
     ],
 
     // Miniatura de los Reels pegados como «video del producto». Instagram

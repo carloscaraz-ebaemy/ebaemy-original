@@ -1005,6 +1005,29 @@
                     <li>Usa términos más generales (ej. "planta" en lugar de "ficus lyrata 200cm")</li>
                     <li>Prueba sin filtros: <a href="{{ route('marketplace.index', ['q' => $q]) }}" style="color:var(--mp-primary-dark);font-weight:600">buscar "{{ $q ?: 'sin filtros' }}" sin filtros</a></li>
                 </ul>
+                {{-- Rescate con el asistente: solo se muestra si el bot está encendido
+                     (la burbuja define window.mpAiAsk cuando /asistente/estado dice sí). --}}
+                @if($q)
+                    <div>
+                        <button type="button" class="mp-empty__ai" id="mpEmptyAi" hidden
+                                data-q="{{ 'Busco ' . mb_substr($q, 0, 120) . '. ¿Qué tienes parecido?' }}">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                            Pregúntale al asistente
+                        </button>
+                    </div>
+                    <script>
+                    (function () {
+                        var b = document.getElementById('mpEmptyAi');
+                        if (!b) return;
+                        var intentos = 0;
+                        var t = setInterval(function () {
+                            if (window.mpAiAsk) { b.hidden = false; clearInterval(t); }
+                            else if (++intentos > 40) clearInterval(t);
+                        }, 250);
+                        b.addEventListener('click', function () { if (window.mpAiAsk) window.mpAiAsk(b.getAttribute('data-q')); });
+                    })();
+                    </script>
+                @endif
                 <p style="margin-top:8px">
                     O explora <a href="{{ route('marketplace.index') }}" style="color:var(--mp-primary-dark);font-weight:600">todo el marketplace</a>
                     @if(isset($officialRoots) && $officialRoots->count() > 0)

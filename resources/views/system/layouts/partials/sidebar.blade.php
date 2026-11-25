@@ -101,6 +101,13 @@
                         </a>
                     </li>
 
+                    <li class="{{ (isset($path[1]) && $path[1] === 'marketplace' && ($path[2] ?? '') === 'asistente')?'nav-active':'' }}">
+                        <a class="nav-link" href="{{ route('system.marketplace.assistant') }}">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21a9 9 0 1 0 -9 -9c0 1.5 .4 2.9 1 4.1l-1 4.9l4.9 -1a9 9 0 0 0 4.1 1"/><path d="M8 12h.01M12 12h.01M16 12h.01"/></svg>
+                            <span>Asistente IA</span>
+                        </a>
+                    </li>
+
                     <li class="{{ (isset($path[1]) && $path[1] === 'marketplace' && $path[2] === 'feeds')?'nav-active':'' }}">
                         <a class="nav-link" href="{{ route('system.marketplace.feeds') }}">
                             <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 5a14 14 0 0 1 14 14M5 12a7 7 0 0 1 7 7"/><path d="M5 19m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0"/></svg>

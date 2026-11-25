@@ -97,6 +97,7 @@
             <a href="{{ route('system.marketplace.hero') }}" class="btn btn-outline-secondary btn-sm">Portada</a>
             <a href="{{ route('system.marketplace.listings') }}" class="btn btn-outline-secondary btn-sm">Listings</a>
             <a href="{{ route('system.marketplace.leads') }}" class="btn btn-outline-secondary btn-sm">Leads</a>
+            <a href="{{ route('system.marketplace.assistant') }}" class="btn btn-outline-secondary btn-sm">Asistente IA</a>
         </div>
     </div>
 

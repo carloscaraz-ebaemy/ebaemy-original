@@ -1,0 +1,12 @@
+[
+  { "consulta": "arbol de navidad", "espera": "alguno" },
+  { "consulta": "árboles navideños", "espera": "alguno" },
+  { "consulta": "pino americano", "espera": "pino" },
+  { "consulta": "cojin", "espera": "alguno" },
+  { "consulta": "cojin", "precio_max": 50, "espera": "alguno" },
+  { "consulta": "maceta", "espera": "alguno" },
+  { "consulta": "polo", "orden": "precio_asc", "espera": "alguno" },
+  { "consulta": "regalo mama", "espera": "alguno" },
+  { "consulta": "xqzwv plmkt", "espera": "ninguno" },
+  { "consulta": "zapatilla", "espera": "alguno" }
+]

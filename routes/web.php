@@ -1847,6 +1847,12 @@ if ($hostname) {
              ->middleware('throttle:60,1')->name('marketplace.assistant.status');
         Route::post('marketplace/asistente',            'Marketplace\AssistantController@message')
              ->middleware('throttle:12,1')->name('marketplace.assistant.message');
+        Route::post('marketplace/asistente/opinion',    'Marketplace\AssistantController@feedback')
+             ->middleware('throttle:30,1')->name('marketplace.assistant.feedback');
+        Route::post('marketplace/asistente/evento',     'Marketplace\AssistantController@event')
+             ->middleware('throttle:60,1')->name('marketplace.assistant.event');
+        Route::get('marketplace/asistente/historial',   'Marketplace\AssistantController@history')
+             ->middleware('throttle:30,1')->name('marketplace.assistant.history');
         // Autocompletado DNI/RUC en el checkout → nombre/razón social + ubigeo.
         Route::get('marketplace/api/lookup-document',   'MarketplaceController@lookupDocument')
              ->middleware('throttle:30,1')->name('marketplace.lookup.document');
@@ -2215,6 +2221,9 @@ if ($hostname) {
                 // Portada de temporada del inicio (fase 2 del rediseño).
                 Route::get('portada',                 'System\MarketplaceAdminController@hero')->name('hero');
                 Route::post('portada',                'System\MarketplaceAdminController@heroUpdate')->name('hero.update');
+                // Asistente de compras (chat con Claude): métricas, conversaciones y gasto.
+                Route::get('asistente',               'System\MarketplaceAssistantAdminController@index')->name('assistant');
+                Route::get('asistente/{id}',          'System\MarketplaceAssistantAdminController@show')->name('assistant.show')->whereNumber('id');
                 Route::get('leads',                   'System\MarketplaceAdminController@leads')->name('leads');
                 Route::get('leads/export',            'System\MarketplaceAdminController@exportLeads')->name('leads.export');
                 Route::post('leads/{id}/retry',       'System\MarketplaceAdminController@retryLead')->name('leads.retry');
