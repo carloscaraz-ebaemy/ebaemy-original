@@ -17,11 +17,18 @@
     $shipPending = $packages->contains(fn ($p) => !$p->ship || !empty($p->ship['pending']));
     $place = collect([$order->delivery_district, $order->delivery_province])->filter()->map(fn ($t) => mb_convert_case(mb_strtolower($t), MB_CASE_TITLE))->unique()->implode(', ');
     $statusText = [
+        'pending'    => ['Avisando a la tienda…', 'is-wait'],
         'dispatched' => ['La tienda ya tiene tu pedido', 'is-ok'],
         'delivered'  => ['Entregado', 'is-ok'],
-        'failed'     => ['Avisando a la tienda…', 'is-wait'],
-        'cancelled'  => ['Cancelado', 'is-bad'],
+        'failed'     => ['No pudimos avisar a la tienda todavía; lo reintentamos en minutos', 'is-wait'],
+        'cancelled'  => ['Cancelado por la tienda', 'is-bad'],
     ];
+    // El estado REAL del pedido manda sobre el mensaje de éxito: antes un
+    // pedido cancelado o que no llegó a ninguna tienda decía «¡Listo!».
+    $orderCancelled = $order->status === 'cancelled';
+    $orderPartial   = in_array($order->status, ['partially_cancelled', 'partially_confirmed', 'pending'], true);
+    $allDelivered   = $packages->isNotEmpty() && $packages->every(fn ($p) => $p->status === 'delivered');
+    $flash = session('mp_message');
 @endphp
 
 @push('styles')
@@ -98,10 +105,23 @@
 @section('content')
 <div class="mp-ok">
 
-    <section class="mp-ok-hero {{ $isUnpaid && $usingMP ? 'is-wait' : '' }}">
-        <div class="mp-ok-hero__icon" aria-hidden="true">{{ $isUnpaid && $usingMP ? '⏳' : '✓' }}</div>
+    @if($flash)
+        <div class="mp-ok-card" role="status" style="margin-bottom:12px;border-color:#fcd34d;background:#fffbeb">{{ $flash }}</div>
+    @endif
+
+    <section class="mp-ok-hero {{ ($isUnpaid && $usingMP) || $orderPartial ? 'is-wait' : '' }} {{ $orderCancelled ? 'is-bad' : '' }}">
+        <div class="mp-ok-hero__icon" aria-hidden="true">{{ $orderCancelled ? '✕' : (($isUnpaid && $usingMP) || $orderPartial ? '⏳' : '✓') }}</div>
         <div>
-            @if($isPaid)
+            @if($orderCancelled)
+                <h1>Tu pedido fue cancelado</h1>
+                <p>{{ $multi ? 'Ninguna de las tiendas pudo tomar tu pedido' : 'La tienda no pudo tomar tu pedido' }}. No se te cobró nada. Si quieres, vuelve a intentarlo o escríbenos.</p>
+            @elseif($allDelivered)
+                <h1>¡Pedido entregado{{ $firstName ? ', ' . $firstName : '' }}!</h1>
+                <p>{{ $multi ? 'Todas las tiendas marcaron tu pedido como entregado' : 'La tienda marcó tu pedido como entregado' }}. Si algo llegó mal, tienes 7 días para pedir cambio o devolución.</p>
+            @elseif($orderPartial && !$usingMP)
+                <h1>Recibimos tu pedido{{ $firstName ? ', ' . $firstName : '' }}</h1>
+                <p>Estamos avisando a {{ $multi ? 'las tiendas' : 'la tienda' }}. Abajo ves el estado de cada paquete; si alguno no llega a la tienda en unos minutos, lo reintentamos solos.</p>
+            @elseif($isPaid)
                 <h1>¡Pago confirmado{{ $firstName ? ', ' . $firstName : '' }}!</h1>
                 <p>Recibimos tu pago. {{ $multi ? 'Cada tienda ya fue avisada' : 'La tienda ya fue avisada' }} y te escribirá para coordinar la entrega.</p>
             @elseif($isUnpaid && $usingMP)
@@ -125,7 +145,7 @@
 
     <div class="mp-ok-grid">
         <div>
-            @unless($isUnpaid && $usingMP)
+            @unless(($isUnpaid && $usingMP) || $orderCancelled || $allDelivered)
                 <section class="mp-ok-card">
                     <h2>Qué pasa ahora</h2>
                     <ol class="mp-ok-steps">

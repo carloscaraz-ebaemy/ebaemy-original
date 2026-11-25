@@ -42,6 +42,14 @@ class RemindAbandonedMarketplaceOrders extends Command
         $dryRun = (bool) $this->option('dry-run');
         $limit  = max(1, (int) $this->option('limit'));
 
+        // «Abandonado» = creó el pedido y no pagó. Solo existe con pasarela.
+        // Sin ella (la tienda cobra) el pedido se despacha al instante y el
+        // correo mentiría: promete una reserva de stock que no existe.
+        if (!\App\Services\System\MarketplaceCheckoutService::paymentsEnabled()) {
+            $this->info('Sin pasarela de pago activa: no hay pedidos abandonados por pago.');
+            return 0;
+        }
+
         $now = now();
         $minAge  = $now->copy()->subHours(2);   // espera 2h antes del 1er recordatorio
         $maxAge  = $now->copy()->subDays(7);    // ignora pedidos viejos (>7d)

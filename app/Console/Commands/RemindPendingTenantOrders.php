@@ -52,8 +52,15 @@ class RemindPendingTenantOrders extends Command
         $maxAge   = $now->copy()->subDays(7);
         $cooldown = $now->copy()->subHours(12);
 
+        // Candidatos: subpedidos que la tienda YA tiene (despachados) y que
+        // llevan más de 2 h. Antes se buscaban los `pending`, que son los que
+        // todavía NO llegaron a la tienda: se le pedía atender un pedido que
+        // no existía en su panel, y los que sí tenía sin atender nunca
+        // recibían aviso. Si la tienda ya lo movió de «Pago pendiente», se
+        // descarta más abajo mirando su BD.
         $candidates = TenantMarketplaceOrder::query()
-            ->where('status', TenantMarketplaceOrder::STATUS_PENDING)
+            ->where('status', TenantMarketplaceOrder::STATUS_DISPATCHED)
+            ->whereNotNull('tenant_order_id')
             ->where('created_at', '<=', $minAge)
             ->where('created_at', '>=', $maxAge)
             ->where(function ($q) {
@@ -88,6 +95,10 @@ class RemindPendingTenantOrders extends Command
             if ($dryRun) continue;
 
             try {
+                if (!$this->sigueSinAtender($sub)) {
+                    $this->line('    · la tienda ya lo atendió, sin recordatorio');
+                    continue;
+                }
                 $this->sendReminderFor($sub, $reminderNum);
 
                 $sub->update([
@@ -150,19 +161,30 @@ class RemindPendingTenantOrders extends Command
             $contact = $this->resolveContact($client);
 
             if (!empty($contact['email'])) {
-                try { \App\Models\System\Configuration::setConfigSmtpMail(); } catch (\Throwable $_) {}
-                Mail::to($contact['email'])->send(
-                    new MarketplaceTenantOrderMail(
-                        $order, $sub, $items, (float) $sub->subtotal,
-                        $client->hostname->fqdn, true, $reminderNum
-                    )
-                );
-                Log::info('marketplace tenant reminder email sent', [
-                    'sub_id'         => $sub->id,
-                    'tenant'         => $client->hostname->fqdn,
-                    'to'             => $contact['email'],
-                    'reminder_num'   => $reminderNum,
-                ]);
+                // El correo puede fallar (SMTP caído desde 2026-09). Antes la
+                // excepción cortaba aquí: no salía el WhatsApp y no se
+                // actualizaba reminder_count, así que se repetía cada hora.
+                try {
+                    try { \App\Models\System\Configuration::setConfigSmtpMail(); } catch (\Throwable $_) {}
+                    Mail::to($contact['email'])->send(
+                        new MarketplaceTenantOrderMail(
+                            $order, $sub, $items, (float) $sub->subtotal,
+                            $client->hostname->fqdn, true, $reminderNum
+                        )
+                    );
+                    Log::info('marketplace tenant reminder email sent', [
+                        'sub_id'         => $sub->id,
+                        'tenant'         => $client->hostname->fqdn,
+                        'to'             => $contact['email'],
+                        'reminder_num'   => $reminderNum,
+                    ]);
+                } catch (\Throwable $e) {
+                    Log::warning('marketplace tenant reminder email failed', [
+                        'sub_id' => $sub->id,
+                        'tenant' => $client->hostname->fqdn,
+                        'error'  => $e->getMessage(),
+                    ]);
+                }
             }
 
             if (!empty($contact['phone'])) {
@@ -185,6 +207,30 @@ class RemindPendingTenantOrders extends Command
                     'reminder_num' => $reminderNum,
                 ]);
             }
+        } finally {
+            $tenancy->tenant($prev);
+        }
+    }
+
+    /**
+     * ¿El pedido sigue en «Pago pendiente» (status_order_id = 1) en la BD de
+     * la tienda? Si ya lo movió, no hay nada que recordar. Si no se puede
+     * consultar, se asume que sigue sin atender (mejor un aviso de más).
+     */
+    private function sigueSinAtender(TenantMarketplaceOrder $sub): bool
+    {
+        $client = Client::with('hostname.website')->where('hostname_id', $sub->hostname_id)->first();
+        if (!$client || !$client->hostname || !$client->hostname->website) {
+            return true;
+        }
+        $tenancy = app(Environment::class);
+        $prev = $tenancy->tenant();
+        try {
+            $tenancy->tenant($client->hostname->website);
+            $estado = DB::connection('tenant')->table('orders')->where('id', $sub->tenant_order_id)->value('status_order_id');
+            return $estado === null || (int) $estado === 1;
+        } catch (\Throwable $_) {
+            return true;
         } finally {
             $tenancy->tenant($prev);
         }

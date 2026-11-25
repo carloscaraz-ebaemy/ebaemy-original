@@ -84,6 +84,10 @@ return [
     // En producción: credenciales APP_USR-* (live).
     // El webhook_secret se valida contra el header x-signature.
     'mercadopago' => [
+        // Interruptor explícito. Decisión del negocio (2026-11-25): el
+        // marketplace NO cobra; cada tienda coordina el pago con el comprador.
+        // Sin este true, el token por sí solo no activa la pasarela.
+        'enabled'         => (bool) env('MARKETPLACE_PAYMENTS_ENABLED', false),
         'access_token'    => env('MP_ACCESS_TOKEN'),
         'public_key'      => env('MP_PUBLIC_KEY'),
         'webhook_secret'  => env('MP_WEBHOOK_SECRET'),

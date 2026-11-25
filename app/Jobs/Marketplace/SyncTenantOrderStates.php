@@ -37,30 +37,46 @@ class SyncTenantOrderStates implements ShouldQueue
     public $timeout = 600;
     public $tries   = 1;
 
-    // status_order_id del tenant → status del snapshot.
-    // 1=Pendiente, 2=Verificado → 'confirmed' (no cambia, ya esta asi)
-    // 3=Despachado → 'confirmed' (sigue sin "completar"; se completa con entrega)
-    // 4=Entregado/Completado → 'completed'
-    // 5=Cancelado/Anulado → 'cancelled'
+    // status_order_id del tenant → status del snapshot. Ids según la
+    // migración tenant 2026_03_23_000004: 1 Pago pendiente, 2 Verificado,
+    // 3 En preparación, 4 Enviado, 5 Cancelado, 6 Entregado. (El mapa viejo
+    // daba 4 = completado y no conocía el 6: «Enviado» se cerraba y
+    // «Entregado» retrocedía a confirmado.)
     private const STATUS_MAP = [
         1 => 'confirmed',
         2 => 'confirmed',
         3 => 'confirmed',
-        4 => 'completed',
+        4 => 'confirmed',
         5 => 'cancelled',
+        6 => 'completed',
+    ];
+
+    // Y lo mismo hacia `tenant_marketplace_orders.status`, que es lo que ve el
+    // comprador en su confirmación: hasta ahora nadie escribía `delivered` ni
+    // `cancelled` para tiendas locales y el paquete decía «La tienda ya tiene
+    // tu pedido» para siempre.
+    private const SUB_STATUS_MAP = [
+        5 => 'cancelled',
+        6 => 'delivered',
     ];
 
     public function handle(): void
     {
-        // Listamos sub-orders activos (no en estado final del snapshot)
-        // con un marketplace_user_id asociado a la orden padre.
+        // Subpedidos despachados que aún no están en estado final (entregado
+        // o cancelado), con o sin comprador registrado: el estado del paquete
+        // lo ve también el comprador invitado en su confirmación. Solo los de
+        // los últimos 60 días: lo anterior no va a cambiar.
         $subs = DB::connection('system')->table('tenant_marketplace_orders as sub')
             ->join('marketplace_orders as mo', 'mo.id', '=', 'sub.marketplace_order_id')
             ->whereNotNull('sub.tenant_order_id')
-            ->whereNotNull('mo.marketplace_user_id')
+            ->whereNotIn('sub.status', ['delivered', 'cancelled'])
+            ->where('sub.created_at', '>=', now()->subDays(60))
             ->select(
+                'sub.id as sub_id',
+                'sub.status as sub_status',
                 'sub.hostname_id',
                 'sub.tenant_order_id',
+                'mo.id as mo_id',
                 'mo.marketplace_user_id',
                 'mo.order_number'
             )
@@ -89,9 +105,22 @@ class SyncTenantOrderStates implements ShouldQueue
                     // Volver a system para escribir snapshot.
                     $tenancy->tenant(null);
 
+                    $parentsToRecompute = [];
                     foreach ($rows as $r) {
                         $tOrder = $tenantOrders->get($r->tenant_order_id);
                         if (!$tOrder) continue;
+
+                        // Estado del paquete para el comprador (tabla puente).
+                        $subStatus = self::SUB_STATUS_MAP[(int) $tOrder->status_order_id] ?? null;
+                        if ($subStatus && $subStatus !== $r->sub_status) {
+                            DB::connection('system')->table('tenant_marketplace_orders')
+                                ->where('id', $r->sub_id)
+                                ->update(['status' => $subStatus, 'updated_at' => now()]);
+                            $parentsToRecompute[$r->mo_id] = true;
+                        }
+
+                        // Snapshot del comprador registrado: solo si lo hay.
+                        if (!$r->marketplace_user_id) continue;
                         $newStatus = self::STATUS_MAP[$tOrder->status_order_id] ?? 'confirmed';
 
                         $existing = MarketplaceUserOrder::where('hostname_id', $r->hostname_id)
@@ -117,6 +146,12 @@ class SyncTenantOrderStates implements ShouldQueue
                             (int) ($existing->items_count ?? 0),
                             $existing->product_categories ?? [],
                         )->onQueue('default');
+                    }
+
+                    foreach (array_keys($parentsToRecompute) as $moId) {
+                        try {
+                            \App\Models\System\MarketplaceOrder::find($moId)?->recomputeStatus();
+                        } catch (\Throwable $_) {}
                     }
                 } catch (\Throwable $e) {
                     Log::warning('SyncTenantOrderStates per-tenant fail', [

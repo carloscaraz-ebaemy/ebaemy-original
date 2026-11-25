@@ -36,13 +36,22 @@ class MarketplaceCheckoutService
     ) {}
 
     /**
-     * ¿MercadoPago está activo? Si MP_ACCESS_TOKEN está vacío, caemos al
-     * flujo legacy (dispatch inmediato sin pasarela). Esto evita romper
-     * tenants que aún no configuraron credenciales MP.
+     * ¿Cobra la plataforma? Decisión del negocio (2026-11-25): en el
+     * marketplace NADIE cobra; el comprador paga a cada tienda cuando esta le
+     * escribe. Por eso la pasarela exige un interruptor explícito
+     * (MARKETPLACE_PAYMENTS_ENABLED=true) además del token: antes bastaba con
+     * que alguien pusiera MP_ACCESS_TOKEN en el .env para que el marketplace
+     * empezara a cobrar por adelantado sin que nadie lo decidiera.
      */
+    public static function paymentsEnabled(): bool
+    {
+        return (bool) config('services.mercadopago.enabled')
+            && !empty(config('services.mercadopago.access_token'));
+    }
+
     private function mercadopagoEnabled(): bool
     {
-        return !empty(config('services.mercadopago.access_token'));
+        return static::paymentsEnabled();
     }
 
     /**

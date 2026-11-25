@@ -51,9 +51,12 @@ class MarketplaceMultiOrderDispatcher
         foreach ($subOrders as $sub) {
             $tenantItems = $items->get($sub->hostname_id, collect());
             if ($tenantItems->isEmpty()) {
+                // Cuenta como intento: sin esto el cron lo reintentaba cada
+                // 15 min para siempre (retry_count nunca llegaba al tope).
                 $sub->update([
-                    'status'     => TenantMarketplaceOrder::STATUS_FAILED,
-                    'sync_error' => 'Sin items para esta tienda',
+                    'status'      => TenantMarketplaceOrder::STATUS_FAILED,
+                    'sync_error'  => 'Sin items para esta tienda',
+                    'retry_count' => (int) $sub->retry_count + 1,
                 ]);
                 $failedCount++;
                 continue;
@@ -100,8 +103,9 @@ class MarketplaceMultiOrderDispatcher
 
         if (!$client || !$client->hostname || !$client->hostname->website) {
             $sub->update([
-                'status'     => TenantMarketplaceOrder::STATUS_FAILED,
-                'sync_error' => 'Tenant no disponible',
+                'status'      => TenantMarketplaceOrder::STATUS_FAILED,
+                'sync_error'  => 'Tenant no disponible',
+                'retry_count' => (int) $sub->retry_count + 1,
             ]);
             return ['success' => false, 'error' => 'Tenant no disponible'];
         }
@@ -223,7 +227,23 @@ class MarketplaceMultiOrderDispatcher
                 'external_order_ref'=> $order->order_number,
             ];
 
-            $tenantOrder = TenantOrder::crearTolerandoEsquemaViejo($payload);
+            // Idempotencia: si un intento anterior YA creó el pedido en la
+            // tienda y falló después (correo colgado, timeout), el reintento
+            // no debe crear un segundo pedido. El número MP-* es único y se
+            // guarda en external_order_ref.
+            $tenantOrder = TenantOrder::where('external_order_ref', $order->order_number)
+                ->where('channel_id', $channel->id)
+                ->orderBy('id')
+                ->first();
+            if ($tenantOrder) {
+                Log::info('marketplace dispatch: pedido ya existía en la tienda, se reutiliza', [
+                    'order'  => $order->order_number,
+                    'tenant' => $client->hostname->fqdn,
+                    'id'     => $tenantOrder->id,
+                ]);
+            } else {
+                $tenantOrder = TenantOrder::crearTolerandoEsquemaViejo($payload);
+            }
             $orderId = $tenantOrder->id;
 
             // Destino que el comprador dio en el checkout central -> envio

@@ -344,13 +344,32 @@ class MarketplaceCheckoutController extends Controller
      */
     public function paymentReturn(Request $request)
     {
-        $externalRef = $request->input('external_reference');
-        if (!$externalRef) {
+        // Sin pasarela activa esta ruta no tiene razón de ser. Antes seguía
+        // viva y, con cualquier número de pedido en `external_reference`,
+        // metía ese pedido en la sesión del visitante: podía ver nombre,
+        // documento, teléfono y dirección de un comprador ajeno.
+        if (!MarketplaceCheckoutService::paymentsEnabled()) {
+            abort(404);
+        }
+
+        $externalRef  = (string) $request->input('external_reference', '');
+        $preferenceId = (string) $request->input('preference_id', '');
+        if ($externalRef === '' || $preferenceId === '') {
             return redirect()->route('marketplace.cart')
                 ->with('mp_message', 'No se pudo identificar el pedido. Si pagaste, revisa tu correo en unos minutos.');
         }
 
-        // Ahora la sesión que pagó SÍ puede ver la confirmación
+        // Mercado Pago devuelve el `preference_id` que ESTA orden generó al
+        // crear la preferencia; solo quien pasó por la pasarela lo conoce.
+        // Si no coincide, no se abre nada.
+        $order = MarketplaceOrder::where('order_number', $externalRef)
+            ->where('mp_preference_id', $preferenceId)
+            ->first();
+        if (!$order) {
+            return redirect()->route('marketplace.cart')
+                ->with('mp_message', 'No se pudo verificar el pago de ese pedido. Si pagaste, revisa tu correo en unos minutos.');
+        }
+
         $placed = collect(session('mp_orders_placed', []));
         if (!$placed->contains($externalRef)) {
             $placed = $placed->push($externalRef)->take(-50)->values()->all();
@@ -419,6 +438,10 @@ class MarketplaceCheckoutController extends Controller
      */
     public function paymentRetry(string $number)
     {
+        if (!MarketplaceCheckoutService::paymentsEnabled()) {
+            abort(404);
+        }
+
         $allowedNumbers = collect(session('mp_orders_placed', []));
         if (!$allowedNumbers->contains($number)) {
             abort(403);

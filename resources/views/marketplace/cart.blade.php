@@ -156,6 +156,10 @@
 
 @section('content')
 
+@if(session('mp_message'))
+    <div role="status" style="margin:0 0 14px;padding:12px 14px;border:1px solid #fcd34d;background:#fffbeb;border-radius:12px;font-size:14px">{{ session('mp_message') }}</div>
+@endif
+
 <nav class="mp-breadcrumb" aria-label="breadcrumb">
     <a href="{{ route('marketplace.index') }}">Marketplace</a>
     <span class="sep">›</span>

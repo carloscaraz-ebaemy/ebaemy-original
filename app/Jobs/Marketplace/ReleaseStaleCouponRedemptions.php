@@ -36,12 +36,23 @@ class ReleaseStaleCouponRedemptions implements ShouldQueue
     {
         $cutoff = now()->subHours(self::STALE_HOURS);
 
-        // Sub-orders con cupon platform usado y pedido viejo no-paid.
+        // Qué es un canje «perdido» depende de si la plataforma cobra:
+        //  - Con pasarela: el pedido quedó sin pagar 24 h (abandonó el pago).
+        //  - Sin pasarela (modo actual: la tienda cobra): NINGÚN pedido llega
+        //    nunca a `paid`, así que el criterio anterior liberaba TODOS los
+        //    cupones usados al día siguiente y se podían reutilizar sin tope.
+        //    Aquí solo se libera si el pedido terminó cancelado.
         $rows = DB::connection('system')->table('tenant_marketplace_orders as sub')
             ->join('marketplace_orders as mo', 'mo.id', '=', 'sub.marketplace_order_id')
             ->whereNotNull('sub.platform_coupon_assignment_id')
             ->where('mo.created_at', '<', $cutoff)
-            ->where('mo.payment_status', '!=', 'paid')
+            ->when(
+                \App\Services\System\MarketplaceCheckoutService::paymentsEnabled(),
+                fn ($q) => $q->where('mo.payment_status', '!=', 'paid'),
+                fn ($q) => $q->where(function ($w) {
+                    $w->where('mo.status', 'cancelled')->orWhere('sub.status', 'cancelled');
+                })
+            )
             ->select('sub.platform_coupon_assignment_id as asg_id', 'mo.order_number')
             ->get();
 
