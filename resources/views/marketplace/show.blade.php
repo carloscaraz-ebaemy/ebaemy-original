@@ -1733,6 +1733,12 @@
                     @endif
                 </p>
             @endif
+            @php $mpPay = \App\Services\Marketplace\PaymentSummaryText::short(\App\Services\Marketplace\PaymentSummaryText::from($mpShip)); @endphp
+            <p class="mp-ship__pay">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+                @if($mpPay)Pagas a la tienda con <strong>{{ $mpPay }}</strong>, al confirmar tu pedido.
+                @else Pagas directamente a la tienda; te indica cómo al confirmar tu pedido.@endif
+            </p>
             <p class="mp-ship__seller">
                 Vendido y despachado por <strong>{{ $listing->seller_display }}</strong>
                 @if($listing->tenant_fqdn)
@@ -1756,6 +1762,8 @@
         .mp-ship__pending { font-size: 13px; color: #6b7280; margin: 0; }
         .mp-ship__returns { font-size: 12.5px; color: #374151; margin: 8px 0 0; padding-top: 8px; border-top: 1px solid #f3f4f6; }
         .mp-ship__returns a { color: var(--mp-primary, #0c7c75); }
+        .mp-ship__pay { display: flex; align-items: flex-start; gap: 7px; font-size: 13px; color: #374151; margin: 8px 0 0; padding-top: 8px; border-top: 1px solid #f3f4f6; line-height: 1.4; }
+        .mp-ship__pay svg { flex: 0 0 auto; margin-top: 2px; color: var(--mp-primary, #0c7c75); }
         .mp-ship__seller { font-size: 12.5px; color: #6b7280; margin: 10px 0 0; padding-top: 8px; border-top: 1px dashed #e5e7eb; }
         /* Subrayado: el color solo no lo distingue del texto (axe link-in-text-block). */
         .mp-ship__seller a { color: var(--mp-primary, #0c7c75); text-decoration: underline; text-underline-offset: 2px; }

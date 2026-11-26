@@ -88,12 +88,20 @@
                                 </tr>
                                 @if(($sub->discount_amount ?? 0) > 0)
                                     <tr class="table-light" style="color:#15803d">
-                                        <td colspan="3" class="text-end">Cupón <code>{{ $sub->coupon_code ?? '—' }}</code></td>
+                                        <td colspan="3" class="text-end">Cupón de la tienda <code>{{ $sub->coupon_code ?? '—' }}</code></td>
                                         <td class="text-end">-S/ {{ number_format($sub->discount_amount, 2) }}</td>
                                     </tr>
+                                @endif
+                                @if(($sub->platform_discount_amount ?? 0) > 0)
+                                    <tr class="table-light" style="color:#15803d">
+                                        <td colspan="3" class="text-end">Cupón ebaemy <code>{{ $sub->platform_coupon_code ?? '—' }}</code> <small class="text-muted">— lo asume ebaemy: a liquidar con la tienda</small></td>
+                                        <td class="text-end">-S/ {{ number_format($sub->platform_discount_amount, 2) }}</td>
+                                    </tr>
+                                @endif
+                                @if(($sub->discount_amount ?? 0) > 0 || ($sub->platform_discount_amount ?? 0) > 0)
                                     <tr class="table-light">
-                                        <td colspan="3" class="text-end fw-bold">Total tienda</td>
-                                        <td class="text-end fw-bold">S/ {{ number_format(max(0, $sub->subtotal - $sub->discount_amount), 2) }}</td>
+                                        <td colspan="3" class="text-end fw-bold">El cliente paga a la tienda</td>
+                                        <td class="text-end fw-bold">S/ {{ number_format(max(0, $sub->subtotal - (float) $sub->discount_amount - (float) ($sub->platform_discount_amount ?? 0)), 2) }}</td>
                                     </tr>
                                 @endif
                             </tfoot>

@@ -426,6 +426,34 @@ class MarketplaceCartService
         return $this->doValidateStock(true);
     }
 
+    /**
+     * Descuenta del listing (y de la variante) las unidades del carrito.
+     *
+     * Solo dentro de la transacción del checkout y DESPUÉS de
+     * validateStockWithLock(): las filas están bloqueadas y el stock alcanza.
+     * No baja de cero. La próxima sincronización (físico − comprometido en la
+     * tienda) vuelve a escribir la cifra real; mientras tanto el marketplace ya
+     * no ofrece lo que este pedido se llevó.
+     */
+    public function reserveStock(): void
+    {
+        $cart = $this->get();
+        foreach ($cart['items'] ?? [] as $line) {
+            $qty = (int) ($line['quantity'] ?? 0);
+            if ($qty <= 0) {
+                continue;
+            }
+            if (!empty($line['listing_variant_id'])) {
+                \App\Models\System\MarketplaceListingVariant::query()
+                    ->where('id', $line['listing_variant_id'])
+                    ->update(['stock' => \Illuminate\Support\Facades\DB::raw('GREATEST(0, stock - ' . $qty . ')')]);
+            }
+            MarketplaceListing::query()
+                ->where('id', $line['listing_id'])
+                ->update(['stock' => \Illuminate\Support\Facades\DB::raw('GREATEST(0, stock - ' . $qty . ')')]);
+        }
+    }
+
     private function doValidateStock(bool $lock): array
     {
         $errors = [];

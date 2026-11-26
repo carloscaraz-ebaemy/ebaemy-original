@@ -192,6 +192,19 @@ class MarketplaceMultiOrderDispatcher
             // «Estado del pago» en App\Models\Tenant\Order.
             $pagado = $order->payment_status === 'paid';   // 'paid' es del pedido PADRE (system)
 
+            // Lo que el comprador vio como total de ESTA tienda: subtotal menos
+            // el cupón de la tienda y menos el cupón de ebaemy. Hasta el
+            // 2026-11-25 el cupón de ebaemy no llegaba al pedido de la tienda:
+            // el comprador veía un total y la tienda le cobraba otro.
+            $descTienda   = round((float) ($sub->discount_amount ?? 0), 2);
+            $descEbaemy   = round((float) ($sub->platform_discount_amount ?? 0), 2);
+            $totalCliente = round(max(0, $orderSubtotal - $descTienda - $descEbaemy), 2);
+            $notasPago    = "Marketplace pedido {$order->order_number} — " . ($order->delivery_notes ?? '-');
+            if ($descEbaemy > 0) {
+                $notasPago .= ' | Cupón ebaemy ' . ($sub->platform_coupon_code ?: '') . ': -S/ ' . number_format($descEbaemy, 2)
+                    . ' (lo asume ebaemy; el cliente paga S/ ' . number_format($totalCliente, 2) . ')';
+            }
+
             // Eloquent y NO `insertGetId()`: con el insert crudo ningun campo
             // nuevo de `orders` llegaba jamas a los pedidos del marketplace a
             // menos que alguien recordara editar este array a mano — asi se
@@ -213,9 +226,9 @@ class MarketplaceMultiOrderDispatcher
                 // descuento ya se calculó en TenantMarketplaceOrder.discount_amount.
                 // Aquí lo propagamos al Order del tenant para que su contabilidad,
                 // métricas y comprobante reflejen el descuento real.
-                'total'             => round(max(0, $orderSubtotal - (float) ($sub->discount_amount ?? 0)), 2),
+                'total'             => $totalCliente,
                 'subtotal'          => $orderSubtotal,
-                'total_discount'    => round((float) ($sub->discount_amount ?? 0), 2),
+                'total_discount'    => round($descTienda + $descEbaemy, 2),
                 'reference_payment' => 'marketplace',
                 'status_order_id'   => 1, // Pendiente
                 'payment_status'    => $pagado ? TenantOrder::PAYMENT_CAPTURED : null,
@@ -223,7 +236,7 @@ class MarketplaceMultiOrderDispatcher
                 'channel_id'        => $channel->id,
                 'warehouse_id'      => $channel->warehouse_id,
                 'seller_id'         => null,
-                'marketplace_notes' => "Marketplace pedido {$order->order_number} — " . ($order->delivery_notes ?? '-'),
+                'marketplace_notes' => $notasPago,
                 'external_order_ref'=> $order->order_number,
             ];
 
@@ -243,6 +256,7 @@ class MarketplaceMultiOrderDispatcher
                 ]);
             } else {
                 $tenantOrder = TenantOrder::crearTolerandoEsquemaViejo($payload);
+                $this->reservarStockEnTienda($tenantOrder, $jsonItems, $channel->warehouse_id ? (int) $channel->warehouse_id : null, $order->order_number);
             }
             $orderId = $tenantOrder->id;
 
@@ -314,8 +328,8 @@ class MarketplaceMultiOrderDispatcher
             // y solo despues volvemos a sistema. La sub_update y dispatched_at
             // pueden esperar porque usan UsesSystemConnection (tabla system).
 
-            $this->notifyTenant($client, $order, $sub, $items, $orderSubtotal);
-            $this->notifyTenantWhatsApp($client, $order, $items, $orderSubtotal);
+            $this->notifyTenant($client, $order, $sub, $items, $totalCliente);
+            $this->notifyTenantWhatsApp($client, $order, $items, $totalCliente, $descTienda + $descEbaemy);
 
             // Volver a sistema central
             $tenancy->tenant(null);
@@ -522,11 +536,39 @@ class MarketplaceMultiOrderDispatcher
      * Si ambos están configurados el seller recibe 2 mensajes — preferible
      * a no recibir ninguno.
      */
+    /**
+     * Reserva en la tienda (stock_committed) lo que el comprador se llevó, con
+     * el mismo servicio que usa el checkout de la tienda online y el alta
+     * manual. Hasta el 2026-11-25 el pedido nacía en «Por confirmar» sin
+     * reservar nada: el marketplace publicaba físico − comprometido y volvía a
+     * ofrecer las mismas unidades a los 15 min. La reserva se libera al anular
+     * (OrderService::cancelEcommerceOrder) y se consume al despachar. Solo en
+     * el PRIMER intento: un reintento reutiliza el pedido y no reserva dos veces.
+     * Best-effort: si falla, el pedido sigue y queda en el log.
+     */
+    private function reservarStockEnTienda(TenantOrder $tenantOrder, array $jsonItems, ?int $warehouseId, string $orderNumber): void
+    {
+        try {
+            $lineas = array_map(fn ($i) => [
+                'item_id'    => (int) ($i['id'] ?? 0),
+                'variant_id' => $i['variant_id'] ?? null,
+                'quantity'   => (float) ($i['quantity'] ?? 0),
+            ], $jsonItems);
+            app(\App\Services\Tenant\StockReservation::class)->reservar($lineas, $warehouseId);
+            Log::info('marketplace dispatch: stock reservado en la tienda', ['order' => $orderNumber, 'tenant_order_id' => $tenantOrder->id]);
+        } catch (\Throwable $e) {
+            Log::warning('marketplace dispatch: no se pudo reservar stock en la tienda', [
+                'order' => $orderNumber, 'tenant_order_id' => $tenantOrder->id, 'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
     private function notifyTenantWhatsApp(
         Client $client,
         MarketplaceOrder $order,
         Collection $items,
-        float $subtotal
+        float $subtotal,
+        float $descuento = 0.0
     ): void {
         // 1) Intentar con clients.phone_ws (flujo seller_applications nuevo).
         $phone = preg_replace('/\D+/', '', (string) ($client->phone_ws ?? ''));
@@ -560,7 +602,11 @@ class MarketplaceMultiOrderDispatcher
             $msg  = "🛍️ *Nuevo pedido marketplace* {$order->order_number}\n\n";
             $msg .= "🏪 Tienda: {$tenantFqdn}\n";
             $msg .= "🛒 {$titleSummary}\n";
-            $msg .= "💰 Total: *S/ " . number_format($subtotal, 2) . "*\n\n";
+            if ($descuento > 0) {
+                $msg .= "🏷️ Descuento aplicado: -S/ " . number_format($descuento, 2) . "\n";
+            }
+            $msg .= "💰 El cliente paga: *S/ " . number_format($subtotal, 2) . "*\n";
+            $msg .= "💳 El pago lo coordinas tú con el cliente (no pasa por ebaemy).\n\n";
             $msg .= "👤 Cliente: *{$order->customer_name}*\n";
             $msg .= "📱 " . $order->customer_phone . "\n";
             if ($order->customer_email) $msg .= "✉️ {$order->customer_email}\n";

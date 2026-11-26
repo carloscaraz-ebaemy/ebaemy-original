@@ -607,6 +607,11 @@ class MarketplaceCheckoutController extends Controller
                 'ship'     => $conDestino
                     ? \App\Services\Marketplace\ShippingSummaryText::forZone($listing->shipping ?? null, $zona, $subtotal)
                     : null,
+                // Cómo pagarle a esta tienda (nadie cobra en el marketplace).
+                'pay'      => \App\Services\Marketplace\PaymentSummaryText::instructions(
+                    \App\Services\Marketplace\PaymentSummaryText::from(is_array($listing->shipping ?? null) ? $listing->shipping : null)
+                ),
+                'pay_notes' => \App\Services\Marketplace\PaymentSummaryText::from(is_array($listing->shipping ?? null) ? $listing->shipping : null)['notes'] ?? null,
             ];
         })->values();
 

@@ -155,13 +155,14 @@ class StoreShipping
             'pickup_ready_hours' => $d['pickup_ready_hours'] ?? null,
             'agency_fee_mode' => $d['agency_fee_mode'] ?? null, 'agency_fee' => $d['agency_fee'] ?? null,
             'cutoff_time' => $d['cutoff_time'] ?? null,
-        ]);
+        ] + (is_array($d['pay'] ?? null) ? $this->payAttributes($d['pay']) : []));
         $s = $this->buildSummary($st, (float) ($d['free_from'] ?? 0));
 
         return [
             'lines' => \App\Services\Marketplace\ShippingSummaryText::lines($s),
             'notes' => \App\Services\Marketplace\ShippingSummaryText::notes($s),
             'badge' => \App\Services\Marketplace\ShippingSummaryText::badge($s),
+            'pay'   => \App\Services\Marketplace\PaymentSummaryText::short($s['pay'] ?? null),
         ];
     }
 
@@ -194,7 +195,88 @@ class StoreShipping
             // Cambios y devoluciones (StoreReturnsPolicy): viaja en el mismo
             // resumen para que la ficha diga «Cambios hasta N días».
             'returns'   => $this->returnsSummary(),
+            // «¿Cómo te pagan?»: en el marketplace nadie cobra, así que el
+            // comprador necesita saber cómo pagarle a ESTA tienda
+            // (PaymentSummaryText). null = la tienda no puso nada.
+            'pay'       => $this->paySummary($st),
         ];
+    }
+
+    /** Medios de pago que acepta la tienda, o null si no marcó ninguno. */
+    private function paySummary(ShippingSetting $st): ?array
+    {
+        if (!$this->hasPayColumns()) {
+            return null;
+        }
+        $tel = fn ($v) => $v ? preg_replace('/\D+/', '', (string) $v) : null;
+        $p = array_filter([
+            'yape'     => $tel($st->pay_yape_phone) ? ['phone' => $tel($st->pay_yape_phone), 'name' => $st->pay_yape_name ?: null] : null,
+            'plin'     => $tel($st->pay_plin_phone) ? ['phone' => $tel($st->pay_plin_phone), 'name' => $st->pay_plin_name ?: null] : null,
+            'transfer' => trim((string) $st->pay_transfer) ?: null,
+            'cash'     => $st->pay_cash ? true : null,
+            'card'     => $st->pay_card ? true : null,
+            'notes'    => trim((string) $st->pay_notes) ?: null,
+        ]);
+        unset($p['notes']);
+        if (!$p) {
+            return null;
+        }
+        if (trim((string) $st->pay_notes) !== '') {
+            $p['notes'] = trim((string) $st->pay_notes);
+        }
+
+        return $p;
+    }
+
+    private function hasPayColumns(): bool
+    {
+        static $tiene = null;
+        if ($tiene === null) {
+            try {
+                $tiene = \Illuminate\Support\Facades\Schema::connection('tenant')->hasColumn('shipping_settings', 'pay_yape_phone');
+            } catch (\Throwable $e) {
+                $tiene = false;
+            }
+        }
+
+        return $tiene;
+    }
+
+    /**
+     * Datos de pago para el formulario. Si la tienda aún no escribió nada y
+     * ya tiene Yape configurado en Pagos → Configuración (módulo Payment),
+     * se proponen esos datos: el número es el mismo.
+     */
+    private function payFormData(ShippingSetting $st): array
+    {
+        $d = [
+            'pay_yape_phone' => $st->pay_yape_phone,
+            'pay_yape_name'  => $st->pay_yape_name,
+            'pay_plin_phone' => $st->pay_plin_phone,
+            'pay_plin_name'  => $st->pay_plin_name,
+            'pay_transfer'   => $st->pay_transfer,
+            'pay_cash'       => (bool) $st->pay_cash,
+            'pay_card'       => (bool) $st->pay_card,
+            'pay_notes'      => $st->pay_notes,
+            'pay_suggested'  => false,
+        ];
+        if (!$this->hasPayColumns()) {
+            return $d;
+        }
+        if (empty($d['pay_yape_phone']) && empty($d['pay_plin_phone']) && empty($d['pay_transfer']) && !$d['pay_cash'] && !$d['pay_card']) {
+            try {
+                $pc = \Modules\Payment\Models\PaymentConfiguration::first();
+                if ($pc && $pc->enabled_yape && $pc->telephone_yape) {
+                    $d['pay_yape_phone'] = $pc->telephone_yape;
+                    $d['pay_yape_name']  = $pc->name_yape;
+                    $d['pay_suggested']  = true;
+                }
+            } catch (\Throwable $e) {
+                // Sin módulo de pagos: no se propone nada.
+            }
+        }
+
+        return $d;
     }
 
     private function returnsSummary(): ?array
@@ -330,6 +412,7 @@ class StoreShipping
             'pickup_ready_hours' => $st->pickup_ready_hours ?? 24,
             'free_from'          => (float) (optional(Configuration::first())->ecommerce_free_shipping_threshold ?? 0) ?: null,
             'cutoff_time'        => $st->cutoff_hhmm,
+            'pay'                => $this->payFormData($st),
             'agencies_catalog'   => \App\Models\Tenant\ShippingRequest::AGENCIES,
             // Oficina de Shalom de origen: con ella se cotiza el viaje real.
             'shalom_origin_id'   => $st->shalom_origin_id ? (int) $st->shalom_origin_id : null,
@@ -387,6 +470,33 @@ class StoreShipping
             'shalom_package.width'   => ['nullable', 'numeric', 'min:0', 'max:300'],
             'shalom_package.height'  => ['nullable', 'numeric', 'min:0', 'max:300'],
             'shalom_package.weight'  => ['nullable', 'numeric', 'min:0', 'max:500'],
+            // «¿Cómo te pagan?» (todo opcional).
+            'pay'                => ['nullable', 'array'],
+            'pay.pay_yape_phone' => ['nullable', 'string', 'max:20', 'regex:/^[\d\s+\-]{6,20}$/'],
+            'pay.pay_yape_name'  => ['nullable', 'string', 'max:80'],
+            'pay.pay_plin_phone' => ['nullable', 'string', 'max:20', 'regex:/^[\d\s+\-]{6,20}$/'],
+            'pay.pay_plin_name'  => ['nullable', 'string', 'max:80'],
+            'pay.pay_transfer'   => ['nullable', 'string', 'max:300'],
+            'pay.pay_cash'       => ['nullable', 'boolean'],
+            'pay.pay_card'       => ['nullable', 'boolean'],
+            'pay.pay_notes'      => ['nullable', 'string', 'max:200'],
+        ];
+    }
+
+    /** Las columnas de pago, limpias, a partir de lo que mandó el formulario. */
+    private function payAttributes(array $pay): array
+    {
+        $txt = fn ($v, int $max) => ($v = trim((string) ($v ?? ''))) !== '' ? mb_substr($v, 0, $max) : null;
+
+        return [
+            'pay_yape_phone' => $txt($pay['pay_yape_phone'] ?? null, 20),
+            'pay_yape_name'  => $txt($pay['pay_yape_name'] ?? null, 80),
+            'pay_plin_phone' => $txt($pay['pay_plin_phone'] ?? null, 20),
+            'pay_plin_name'  => $txt($pay['pay_plin_name'] ?? null, 80),
+            'pay_transfer'   => $txt($pay['pay_transfer'] ?? null, 300),
+            'pay_cash'       => !empty($pay['pay_cash']),
+            'pay_card'       => !empty($pay['pay_card']),
+            'pay_notes'      => $txt($pay['pay_notes'] ?? null, 200),
         ];
     }
 
@@ -424,6 +534,9 @@ class StoreShipping
         if (array_key_exists('shalom_air_enabled', $d)
             && \Illuminate\Support\Facades\Schema::connection('tenant')->hasColumn('shipping_settings', 'shalom_air_enabled')) {
             $st->shalom_air_enabled = (bool) $d['shalom_air_enabled'];
+        }
+        if (array_key_exists('pay', $d) && is_array($d['pay']) && $this->hasPayColumns()) {
+            $st->fill($this->payAttributes($d['pay']));
         }
         // La tarifa «llevarlo a la agencia» es la misma que usa el módulo de Envíos.
         if (!empty($d['agency_fee_mode'])) {

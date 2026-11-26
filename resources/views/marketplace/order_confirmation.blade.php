@@ -82,6 +82,13 @@
 .mp-ok-row .v.is-free { color: #15803d; }
 .mp-ok-row .v.is-pending { color: #b45309; }
 .mp-ok-row--total { font-weight: 700; color: var(--mp-ink, #0f172a); font-size: 14.5px; }
+.mp-ok-pay { margin-top: 12px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 10px; padding: 10px 12px; }
+.mp-ok-pay__t { font-weight: 800; font-size: 13.5px; color: #14532d; margin-bottom: 6px; }
+.mp-ok-pay__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; }
+.mp-ok-pay__list li { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 14px; color: #0f172a; }
+.mp-ok-pay__list li b { min-width: 92px; }
+.mp-ok-pay__list li span { overflow-wrap: anywhere; }
+.mp-ok-pay__n { margin: 8px 0 0; font-size: 12.5px; color: #166534; line-height: 1.4; }
 .mp-ok-wa { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 12px; background: #16a34a; color: #fff; border-radius: 10px; padding: 10px 14px; font-weight: 700; font-size: 14px; text-decoration: none; }
 .mp-ok-wa:hover { background: #15803d; color: #fff; text-decoration: none; }
 
@@ -194,6 +201,22 @@
                                 <span class="v {{ $ship && $ship['free'] ? 'is-free' : '' }} {{ !$ship || $ship['pending'] ? 'is-pending' : '' }}">{{ $ship['text'] ?? 'Te lo confirma la tienda' }}</span>
                             </div>
                             <div class="mp-ok-row mp-ok-row--total"><span>Productos de este paquete</span><span class="v">S/ {{ number_format($pk->total, 2) }}</span></div>
+                            @if(!$isPaid && $pk->status !== 'cancelled')
+                                <div class="mp-ok-pay">
+                                    <div class="mp-ok-pay__t">Cómo pagar a {{ $pk->name }}</div>
+                                    @if(!empty($pk->pay))
+                                        <ul class="mp-ok-pay__list">
+                                            @foreach($pk->pay as $m)
+                                                <li><b>{{ $m['method'] }}</b> <span>{{ $m['detail'] }}</span></li>
+                                            @endforeach
+                                        </ul>
+                                        @if($pk->pay_notes)<p class="mp-ok-pay__n">{{ $pk->pay_notes }}</p>@endif
+                                        <p class="mp-ok-pay__n">Paga cuando la tienda confirme tu pedido y el envío. Guarda la constancia.</p>
+                                    @else
+                                        <p class="mp-ok-pay__n">La tienda te indicará cómo pagar cuando te escriba (Yape, Plin, transferencia o contra entrega).</p>
+                                    @endif
+                                </div>
+                            @endif
                             @if($pk->whatsapp)
                                 <a class="mp-ok-wa" href="https://wa.me/{{ $pk->whatsapp }}?text={{ rawurlencode($waText) }}" target="_blank" rel="noopener">💬 Escribir a {{ $pk->name }}</a>
                             @endif

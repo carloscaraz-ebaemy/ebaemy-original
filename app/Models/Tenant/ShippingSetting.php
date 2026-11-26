@@ -48,6 +48,9 @@ class ShippingSetting extends Model
         'shalom_air_enabled',
         // Paquete típico para estimar el flete (ver ShalomPackage).
         'shalom_package',
+        // «¿Cómo te pagan?» cuando el pedido llega por el marketplace (StoreShipping).
+        'pay_yape_phone', 'pay_yape_name', 'pay_plin_phone', 'pay_plin_name',
+        'pay_transfer', 'pay_cash', 'pay_card', 'pay_notes',
     ];
 
     // La contraseña de Shalom Pro nunca sale en un toArray()/JSON.
@@ -68,6 +71,8 @@ class ShippingSetting extends Model
         'province_cost'       => 'decimal:2',
         'province_agencies'   => 'array',
         'pickup_enabled'      => 'boolean',
+        'pay_cash'            => 'boolean',
+        'pay_card'            => 'boolean',
         'shipping_confirmed_at' => 'datetime',
         'shalom_pro_password'   => 'encrypted',
         'shalom_package'        => 'array',

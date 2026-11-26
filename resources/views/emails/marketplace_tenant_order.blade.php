@@ -75,9 +75,25 @@
                                 </td>
                             </tr>
                         @endforeach
+                        @php
+                            $mtDescTienda = (float) ($sub->discount_amount ?? 0);
+                            $mtDescEbaemy = (float) ($sub->platform_discount_amount ?? 0);
+                        @endphp
+                        @if($mtDescTienda > 0)
+                            <tr style="border-top:1px solid #e5e7eb">
+                                <td style="padding:8px 14px;font-size:13px;color:#15803d">Tu cupón {{ $sub->coupon_code }}</td>
+                                <td style="padding:8px 14px;text-align:right;font-size:13px;color:#15803d">-S/ {{ number_format($mtDescTienda, 2) }}</td>
+                            </tr>
+                        @endif
+                        @if($mtDescEbaemy > 0)
+                            <tr style="border-top:1px solid #e5e7eb">
+                                <td style="padding:8px 14px;font-size:13px;color:#15803d">Cupón ebaemy {{ $sub->platform_coupon_code }} <span style="color:#6b7280">(lo asume ebaemy)</span></td>
+                                <td style="padding:8px 14px;text-align:right;font-size:13px;color:#15803d">-S/ {{ number_format($mtDescEbaemy, 2) }}</td>
+                            </tr>
+                        @endif
                         <tr style="background:#f0fdfa;border-top:2px solid #0f8a82">
                             <td style="padding:14px 14px;font-size:14px;font-weight:600;color:#0c6b65">
-                                Total del pedido
+                                El cliente te paga
                             </td>
                             <td style="padding:14px 14px;text-align:right;font-size:17px;font-weight:800;color:#0c6b65;letter-spacing:-.01em">
                                 S/ {{ number_format($subtotal, 2) }}

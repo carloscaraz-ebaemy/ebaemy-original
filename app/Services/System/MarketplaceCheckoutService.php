@@ -122,6 +122,10 @@ class MarketplaceCheckoutService
      * @param array $customer  keys: name, doc_type, doc_number, phone, email,
      *                                address, department, province, district, notes
      * @return array{success: bool, order?: MarketplaceOrder, errors?: array, message?: string}
+     *
+     * Pago: NADIE cobra en el marketplace (decisión del dueño, 2026-11-25).
+     * Cada tienda coordina el pago con sus propios medios
+     * (StoreShipping «¿Cómo te pagan?» → PaymentSummaryText).
      */
     public function process(array $customer, ?Request $request = null): array
     {
@@ -172,6 +176,16 @@ class MarketplaceCheckoutService
                 if (!empty($stockErrorsLocked)) {
                     throw new \RuntimeException(implode(' | ', $stockErrorsLocked));
                 }
+
+                // RESERVA en el marketplace: el stock del listing (y de la
+                // variante) baja AHORA, con las filas aún bloqueadas, para que
+                // el siguiente comprador ya no vea esas unidades. La reserva
+                // de verdad la hace el dispatcher en la tienda
+                // (stock_committed); la sincronización de stock, que publica
+                // físico − comprometido, confirma esta cifra en minutos. Antes
+                // se validaba y no se descontaba nada: dos compradores
+                // simultáneos completaban los dos su pedido.
+                $this->cart->reserveStock();
 
                 $totalAll      = 0.0;
                 $itemsAll      = 0;

@@ -296,6 +296,8 @@ input.mp-co-invalid, select.mp-co-invalid, textarea.mp-co-invalid {
                         @if($stores->count() > 1)<span class="mp-co-pk-tag">Paquete {{ $loop->iteration }}</span>@endif
                         <span class="name">Lo envía {{ $store['tenant_name'] }}</span>
                     </div>
+                    @php $coPay = \App\Services\Marketplace\PaymentSummaryText::short(\App\Services\Marketplace\PaymentSummaryText::from($store['shipping'] ?? null)); @endphp
+                    <p class="mp-co-pk-pay">{{ $coPay ? 'Le pagas con ' . $coPay . '.' : 'Te indica cómo pagar al confirmar.' }}</p>
                     @foreach($store['items'] as $line)
                         <div class="mp-co-line">
                             <span>{{ $line['quantity'] }}× {{ \Illuminate\Support\Str::limit($line['title'] . (!empty($line['variant_name']) ? ' · ' . $line['variant_name'] : ''), 44) }}</span>
@@ -436,6 +438,7 @@ input.mp-co-invalid, select.mp-co-invalid, textarea.mp-co-invalid {
 /* Paquetes y envio por destino */
 .mp-co-pk-intro { background: #f0fdfa; border: 1px solid #99f6e4; color: #115e59; border-radius: 10px; padding: 10px 12px; font-size: 13px; margin: 0 0 4px; }
 .mp-co-pk-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
+.mp-co-pk-pay { margin: 0 0 8px; font-size: 12.5px; color: #64748b; }
 .mp-co-pk-tag { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; background: #0c7c75; color: #fff; border-radius: 6px; padding: 2px 7px; }
 .mp-co-pk-ship { display: flex; justify-content: space-between; gap: 12px; margin-top: 10px; padding: 8px 10px; background: #f8fafc; border-radius: 8px; font-size: 13px; }
 .mp-co-pk-ship__v { font-weight: 700; color: #6b7280; text-align: right; }

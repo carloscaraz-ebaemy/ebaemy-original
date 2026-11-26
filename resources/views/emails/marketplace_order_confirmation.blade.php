@@ -87,11 +87,37 @@
                                             <td align="right" style="color:#16a34a;font-weight:600">-S/ {{ number_format($storeDiscount, 2) }}</td>
                                         </tr>
                                     @endif
+                                    @php $platDiscount = (float) ($sub->platform_discount_amount ?? 0); @endphp
+                                    @if($platDiscount > 0)
+                                        <tr>
+                                            <td style="padding:2px 0;color:#16a34a;font-weight:600">Cupón ebaemy {{ $sub->platform_coupon_code }}</td>
+                                            <td align="right" style="color:#16a34a;font-weight:600">-S/ {{ number_format($platDiscount, 2) }}</td>
+                                        </tr>
+                                    @endif
                                     <tr>
-                                        <td style="padding:6px 0 0;font-weight:700">Total tienda</td>
-                                        <td align="right" style="padding:6px 0 0;font-weight:700;color:#0c6b65">S/ {{ number_format(max(0, $subtotal - $storeDiscount), 2) }}</td>
+                                        <td style="padding:6px 0 0;font-weight:700">Pagas a la tienda</td>
+                                        <td align="right" style="padding:6px 0 0;font-weight:700;color:#0c6b65">S/ {{ number_format(max(0, $subtotal - $storeDiscount - $platDiscount), 2) }}</td>
                                     </tr>
                                 </table>
+                                @php
+                                    $payListing = $items->pluck('listing')->filter()->first();
+                                    $payInstr = \App\Services\Marketplace\PaymentSummaryText::instructions(
+                                        \App\Services\Marketplace\PaymentSummaryText::from(is_array($payListing->shipping ?? null) ? $payListing->shipping : null)
+                                    );
+                                @endphp
+                                @if(($order->payment_status ?? 'unpaid') !== 'paid')
+                                    <div style="margin-top:10px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:10px 12px;font-size:13px;color:#14532d">
+                                        <div style="font-weight:700;margin-bottom:4px">Cómo pagar a esta tienda</div>
+                                        @if($payInstr)
+                                            @foreach($payInstr as $m)
+                                                <div><b>{{ $m['method'] }}:</b> {{ $m['detail'] }}</div>
+                                            @endforeach
+                                            <div style="margin-top:6px;color:#166534">Paga cuando la tienda confirme tu pedido y el envío. Guarda la constancia.</div>
+                                        @else
+                                            <div>La tienda te indicará cómo pagar cuando te escriba (Yape, Plin, transferencia o contra entrega).</div>
+                                        @endif
+                                    </div>
+                                @endif
                             </td></tr>
                         </table>
                     @endforeach

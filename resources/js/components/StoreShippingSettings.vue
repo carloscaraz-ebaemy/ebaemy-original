@@ -5,7 +5,7 @@
          marketplace. La vista previa la redacta el servidor con las mismas
          frases que verá el comprador. -->
     <el-dialog
-        title="¿Cómo envías tus productos?"
+        title="¿Cómo envías y cómo te pagan?"
         :visible="visible"
         width="520px"
         top="6vh"
@@ -222,6 +222,34 @@
                     <p class="ss__small">Pedidos antes de esa hora salen el mismo día hábil.</p>
                 </section>
 
+                <!-- Cómo te pagan (marketplace: nadie cobra, el comprador te paga a ti) -->
+                <section class="ss__block">
+                    <h4 class="ss__h">¿Cómo te pagan?</h4>
+                    <p class="ss__small" style="margin:0 0 6px">En ebaemy.com el comprador te paga directamente. Lo que marques aquí se le muestra al confirmar su pedido.</p>
+                    <p v-if="pay.pay_suggested" class="ss__small" style="color:#0c6b65;margin:0 0 6px">Te proponemos el Yape que ya tienes en Pagos. Guarda para confirmarlo.</p>
+                    <div class="ss__row">
+                        <span class="ss__lbl">Yape</span>
+                        <el-input v-model="pay.pay_yape_phone" size="small" maxlength="20" placeholder="Celular" class="ss__num" inputmode="tel"></el-input>
+                        <el-input v-model="pay.pay_yape_name" size="small" maxlength="80" placeholder="Titular" class="ss__sel"></el-input>
+                    </div>
+                    <div class="ss__row">
+                        <span class="ss__lbl">Plin</span>
+                        <el-input v-model="pay.pay_plin_phone" size="small" maxlength="20" placeholder="Celular" class="ss__num" inputmode="tel"></el-input>
+                        <el-input v-model="pay.pay_plin_name" size="small" maxlength="80" placeholder="Titular" class="ss__sel"></el-input>
+                    </div>
+                    <div class="ss__row">
+                        <span class="ss__lbl">Transferencia</span>
+                        <el-input v-model="pay.pay_transfer" size="small" maxlength="300" placeholder="Banco, titular, cuenta y CCI" class="ss__sel ss__sel--wide"></el-input>
+                    </div>
+                    <div class="ss__row">
+                        <el-checkbox v-model="pay.pay_cash">Efectivo al recibir</el-checkbox>
+                        <el-checkbox v-model="pay.pay_card">Tarjeta (POS) al recibir</el-checkbox>
+                    </div>
+                    <div class="ss__row">
+                        <el-input v-model="pay.pay_notes" size="small" maxlength="200" placeholder="Nota para el comprador (opcional), ej. «Envíanos la captura por WhatsApp»" class="ss__sel ss__sel--wide"></el-input>
+                    </div>
+                </section>
+
                 <!-- Vista previa -->
                 <section class="ss__preview" aria-live="polite">
                     <div class="ss__preview-t">Así lo verá tu cliente</div>
@@ -231,13 +259,14 @@
                         <span v-if="l.detail" class="ss__pl-d">{{ l.detail }}</span>
                     </div>
                     <div v-for="n in preview.notes" :key="n" class="ss__pn">{{ n }}</div>
+                    <div class="ss__pn">{{ preview.pay ? 'Pagas a la tienda con ' + preview.pay + '.' : 'Pagas directamente a la tienda; te indica cómo al confirmar.' }}</div>
                 </section>
             </template>
         </div>
 
         <span slot="footer">
             <el-button size="small" @click="close">Cancelar</el-button>
-            <el-button type="primary" size="small" :loading="saving" @click="save">Guardar envíos</el-button>
+            <el-button type="primary" size="small" :loading="saving" @click="save">Guardar envíos y pagos</el-button>
         </span>
     </el-dialog>
 </template>
@@ -251,7 +280,8 @@ export default {
         reason: { type: String, default: '' },
     },
     data() {
-        return { loading: false, saving: false, f: null, catalog: [], preview: { lines: [], notes: [] }, timer: null, oficinas: [], buscando: false,
+        return { loading: false, saving: false, f: null, catalog: [], preview: { lines: [], notes: [], pay: null }, timer: null, oficinas: [], buscando: false,
+            pay: { pay_yape_phone: '', pay_yape_name: '', pay_plin_phone: '', pay_plin_name: '', pay_transfer: '', pay_cash: false, pay_card: false, pay_notes: '', pay_suggested: false },
             pkgTipo: '', pkgTam: 'PAQUETE L', pkgL: null, pkgA: null, pkgH: null, pkgKg: null,
             pkgTamanos: [{ v: 'SOBRE', l: 'Sobre' }, { v: 'PAQUETE XXS', l: 'XXS' }, { v: 'PAQUETE XS', l: 'XS' }, { v: 'PAQUETE S', l: 'S' }, { v: 'PAQUETE M', l: 'M' }, { v: 'PAQUETE L', l: 'L' }], pro: null, proUser: '', proPass: '', guardandoPro: false, proClave: '', proClaveAlt: '', guardandoClave: false };
     },
@@ -263,6 +293,7 @@ export default {
     watch: {
         visible(v) { if (v) this.load(); },
         f: { deep: true, handler() { this.schedulePreview(); } },
+        pay: { deep: true, handler() { this.schedulePreview(); } },
     },
     methods: {
         load() {
@@ -287,6 +318,7 @@ export default {
                         shalom_origin_id: d.shalom_origin_id || null,
                         shalom_air_enabled: d.shalom_air_enabled !== false,
                     };
+                    this.pay = Object.assign({}, this.pay, d.pay || {});
                     this.oficinas = d.shalom_origin ? [d.shalom_origin] : [];
                     const pk = d.shalom_package || null;
                     this.pkgTipo = pk ? pk.type : '';
@@ -354,7 +386,7 @@ export default {
             clearTimeout(this.timer);
             this.timer = setTimeout(() => {
                 if (!this.f) return;
-                this.$http.post('/store-shipping/preview', this.f)
+                this.$http.post('/store-shipping/preview', Object.assign({}, this.f, { pay: this.pay }))
                     .then(r => { this.preview = r.data || { lines: [], notes: [] }; })
                     .catch(() => {});
             }, 250);
@@ -368,7 +400,7 @@ export default {
                 const pkg = this.pkgTipo === 'size' ? { type: 'size', size: this.pkgTam }
                     : this.pkgTipo === 'bulto' ? { type: 'bulto', length: this.pkgL, width: this.pkgA, height: this.pkgH, weight: this.pkgKg }
                     : null;
-                this.$http.post('/store-shipping', Object.assign({}, this.f, { shalom_package: pkg }))
+                this.$http.post('/store-shipping', Object.assign({}, this.f, { shalom_package: pkg, pay: this.pay }))
                     .then(r => {
                         this.$message.success((r.data && r.data.message) || 'Envíos guardados');
                         this.$emit('saved');
@@ -421,6 +453,7 @@ export default {
 .ss__row { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-top: 6px; color: #334155; }
 .ss__row--between { justify-content: space-between; margin-top: 0; }
 .ss__small { color: #64748b; font-size: 12px; margin: 4px 0 0; }
+.ss__lbl { min-width: 84px; font-weight: 600; }
 .ss__preview { background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 10px; padding: 10px 12px; margin-top: 6px; }
 .ss__preview-t { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: #64748b; margin-bottom: 6px; }
 .ss__pl { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; padding: 4px 0; }
