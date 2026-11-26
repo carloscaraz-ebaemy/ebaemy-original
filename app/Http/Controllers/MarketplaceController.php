@@ -2898,7 +2898,10 @@ class MarketplaceController extends Controller
      */
     public function metaCatalog(Request $request)
     {
-        $query = MarketplaceListing::published();
+        // hasPublicPage y no published(): un agotado sigue en el feed como
+        // «out of stock». Si desaparece, Merchant Center lo da de baja y al
+        // reponerlo vuelve a pasar la revisión desde cero (2026-11-26).
+        $query = MarketplaceListing::hasPublicPage();
         $title = 'ebaemy Marketplace';
 
         // Feed POR TIENDA: ?tienda={subdomain}. Resuelve el hostname por el
@@ -3159,7 +3162,9 @@ class MarketplaceController extends Controller
         $xml .= '    <g:item_group_id>' . $esc($group) . "</g:item_group_id>\n";
         $xml .= '    <g:title>' . $esc(mb_substr($title, 0, 150)) . "</g:title>\n";
         $xml .= '    <g:description>' . $esc($description ?: $title) . "</g:description>\n";
-        $xml .= '    <g:link>' . $esc($l->public_url) . "</g:link>\n";
+        // La ficha abre con ESA variante elegida (`?variant=` es el id de
+        // marketplace_listing_variants, el mismo que usan las cards).
+        $xml .= '    <g:link>' . $esc($l->public_url . '?variant=' . $v->id) . "</g:link>\n";
         if ($image) {
             $xml .= '    <g:image_link>' . $esc($image) . "</g:image_link>\n";
         }
@@ -3169,10 +3174,18 @@ class MarketplaceController extends Controller
             $xml .= '    <g:sale_price>' . $price . "</g:sale_price>\n";
         }
         $xml .= '    <g:condition>new</g:condition>' . "\n";
-        $xml .= '    <g:identifier_exists>no</g:identifier_exists>' . "\n";
+        // Google: identifier_exists=no significa «sin GTIN, sin MPN y sin
+        // marca». Mandarlo junto con mpn+brand era una contradicción que
+        // Merchant Center marcaba en cada variante. Con SKU y marca se
+        // declaran ambos y se omite identifier_exists; si falta alguno, «no».
+        $mpn = $v->sku ? mb_substr($v->sku, 0, 70) : null;
+        if (!($mpn && $brand)) {
+            $xml .= '    <g:identifier_exists>no</g:identifier_exists>' . "\n";
+            $mpn = null;
+        }
         $xml .= \App\Services\Marketplace\ProductFeedFormatter::shippingXml(is_array($l->shipping ?? null) ? $l->shipping : null);
-        if ($v->sku) {
-            $xml .= '    <g:mpn>' . $esc(mb_substr($v->sku, 0, 70)) . "</g:mpn>\n";
+        if ($mpn) {
+            $xml .= '    <g:mpn>' . $esc($mpn) . "</g:mpn>\n";
         }
         if ($brand) {
             $xml .= '    <g:brand>' . $esc($brand) . "</g:brand>\n";

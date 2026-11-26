@@ -37,7 +37,7 @@
                 <!-- Ajustes de la tienda: un solo grupo, mismo estilo. -->
                 <div class="ie-tb-group" role="group" aria-label="Ajustes de la tienda">
                     <button type="button" class="ie-tb-btn ie-shipping-btn"
-                            title="Costos y plazos de envío de tu tienda" @click="askShipping()">
+                            title="Costos y plazos de envío, y cómo te pagan los compradores de ebaemy.com" @click="askShipping()">
                         <i class="fa fa-truck"></i><span>Envíos</span>
                     </button>
                     <button type="button" class="ie-tb-btn ie-returns-btn"
@@ -115,6 +115,14 @@
         ></feature-tour>
         <!-- Publicidad (2026-10): un globo sobre el botón, una vez por usuario.
              Si también toca la guía general, espera su turno (FeatureTour). -->
+        <!-- Cómo te pagan (2026-11): el comprador del marketplace te paga a ti;
+             la tienda pone Yape/Plin/cuenta dentro del diálogo de Envíos. -->
+        <feature-tour
+            v-if="itemsCount !== 0 && !fromInvite && !fromShippingInvite && !fromReturnsInvite && !fromAdsInvite"
+            tour-key="pagos-tienda-2026-11"
+            :delay="1200"
+            :steps="tourPagosSteps"
+        ></feature-tour>
         <feature-tour
             v-if="itemsCount !== 0 && !fromInvite && !fromShippingInvite && !fromReturnsInvite && !fromAdsInvite"
             tour-key="publicidad-2026-10"
@@ -700,6 +708,11 @@ export default {
             adsDialogVisible: new URLSearchParams(window.location.search).get('publicidad') === '1',
             fromAdsInvite: new URLSearchParams(window.location.search).get('publicidad') === '1',
             showAdsNewBadge: new Date() <= NOVEDAD_PUBLICIDAD_HASTA,
+            tourPagosSteps: [{
+                target: '.ie-shipping-btn',
+                title: 'Di cómo te pagan',
+                body: 'En ebaemy.com el comprador te paga directamente a ti. Entra en Envíos y marca Yape, Plin, transferencia o pago al recibir: se lo mostramos al confirmar su pedido, con tu número y titular, para que no tengas que explicarlo por WhatsApp.',
+            }],
             tourAdsSteps: [{
                 target: '.ie-ads-btn',
                 title: 'Pide publicidad desde aquí',
