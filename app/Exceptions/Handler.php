@@ -195,6 +195,8 @@ class Handler extends ExceptionHandler
                 // tambien caen en la pagina de error en vez de escaparse.
                 $ecView = match(true) {
                     $statusCode === 503 => 'ecommerce::errors.503',
+                    // Tienda bloqueada (LockedTenant): misma pagina "volvemos pronto".
+                    $statusCode === 410 => 'ecommerce::errors.503',
                     $statusCode === 404 => 'ecommerce::errors.404',
                     $statusCode >= 500  => 'ecommerce::errors.500',
                     default             => null,

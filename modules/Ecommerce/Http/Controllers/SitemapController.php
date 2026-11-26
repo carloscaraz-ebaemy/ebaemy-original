@@ -28,6 +28,13 @@ class SitemapController extends Controller
             abort(404);
         }
 
+        // Tienda bloqueada desde el SuperAdmin: sus paginas responden 410, asi
+        // que el sitemap no puede seguir ofreciendolas a Google.
+        $config = \App\Models\Tenant\Configuration::firstCached();
+        if ($config && $config->isLockedTenant()) {
+            abort(404);
+        }
+
         $domain = request()->getScheme() . '://' . request()->getHost();
         $base   = $domain . '/ecommerce';
 

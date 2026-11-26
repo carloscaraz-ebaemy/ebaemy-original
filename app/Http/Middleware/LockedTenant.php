@@ -43,11 +43,14 @@ class LockedTenant
         }
 
         if($configuration->isLockedTenant()){
-            // En el storefront el visitante no tiene nada que ver con el
-            // bloqueo: 503 le muestra la pagina "volvemos pronto" y le dice a
-            // Google que reintente en vez de desindexar la tienda. En el panel
-            // sigue siendo 403, que es lo correcto para quien si tiene cuenta.
-            abort($request->is('ecommerce*') ? 503 : 403);
+            // Storefront: el visitante ve la pagina "volvemos pronto" (vista
+            // 503 del ecommerce) pero con status 410. Antes era 503 y tres
+            // tiendas bloqueadas desde marzo/abril salian en Search Console
+            // como «Error del servidor (5xx)» durante meses: un 503 promete
+            // volver pronto y Google lo trata como fallo nuestro. 410 = «ya no
+            // esta», exclusion normal; al desbloquear, el sitemap vuelve a
+            // listar las URLs y Google las reindexa. En el panel sigue 403.
+            abort($request->is('ecommerce*') ? 410 : 403);
         }
 
         UserControlHelper::checkActiveUser();
