@@ -186,6 +186,14 @@ export default {
 };
 </script>
 
+<style>
+/* La lista de sugerencias de Google (.pac-container) se cuelga del <body>
+   con z-index 1000, y el formulario del pedido vive en un el-dialog
+   (z-index 2000+): las direcciones SÍ llegaban pero quedaban detrás del
+   modal, y parecía que el buscador no buscaba. */
+.pac-container { z-index: 10000 !important; }
+</style>
+
 <style scoped>
 .dm-lbl { display: block; font-size: 13px; font-weight: 700; color: #0f172a; margin: 10px 0 6px; }
 .dm-lbl.req::after { content: " *"; color: #dc2626; }
