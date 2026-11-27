@@ -2372,6 +2372,7 @@ if ($hostname) {
             
             Route::get('information', 'System\ConfigurationController@InfoIndex')->name('system.information');
             Route::get('status/servidor', 'System\StatusController@server')->name('system.status.server');
+            Route::get('status/tiendas', 'System\StatusController@stores')->name('system.status.stores');
             // Videos promocionales: extra de pago por tienda + bandeja de aprobación.
             Route::get('promo-videos', 'System\PromoVideoController@index')->name('system.promo_videos');
             Route::post('promo-videos/defaults', 'System\PromoVideoController@saveDefaults')->name('system.promo_videos.defaults');

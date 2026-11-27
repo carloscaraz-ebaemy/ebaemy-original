@@ -248,6 +248,18 @@ class StatusController extends Controller
         ]);
     }
 
+    /** Salud de cada tienda: qué tiene sincronizado con el marketplace y qué le falta. */
+    public function stores(Request $request, \App\Services\System\StoreHealth $health)
+    {
+        if ($request->boolean('actualizar')) {
+            $health->snapshot(true);
+
+            return redirect()->route('system.status.stores');
+        }
+
+        return view('system.status.stores', ['s' => $health->snapshot()]);
+    }
+
     //para graficas
     public function history()
     {
