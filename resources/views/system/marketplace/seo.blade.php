@@ -25,6 +25,44 @@
         </div>
     @endif
 
+    {{-- ═════════ Enlaces de los catálogos (feeds) ═════════ --}}
+    {{-- Lo que hay que pegar en Google Merchant Center («Añadir productos desde
+         un archivo» → enlace) y en Meta Commerce Manager. Antes solo estaban
+         en el robots.txt y en la memoria de quien los hizo. --}}
+    @php
+        $mpFeeds = [
+            ['Google Merchant Center', url('/feeds/google-merchant.xml'), 'Merchant Center → Productos → Añadir productos → «Añadir productos desde un archivo» → usar un enlace. País Perú, idioma español, obtención diaria.'],
+            ['Meta (Facebook / Instagram) — Commerce Manager', url('/feeds/meta-catalog.xml'), 'Commerce Manager → Catálogo → Fuentes de datos → «Feed de datos» → URL programada.'],
+        ];
+    @endphp
+    <div class="card mb-3" id="mpFeeds">
+        <div class="card-body">
+            <h6 class="mb-1" style="font-weight:700">📦 Enlaces del catálogo para Google y Meta</h6>
+            <p class="text-muted small mb-3">Todos los productos publicados en el marketplace, con variantes, ofertas y categorías, en el formato que piden Google y Meta. Se regenera en cada descarga; no hay que subir nada a mano.</p>
+            @foreach($mpFeeds as [$nombre, $urlFeed, $ayuda])
+                <div class="mb-3">
+                    <label class="form-label fw-bold mb-1">{{ $nombre }}</label>
+                    <div class="input-group">
+                        <input type="text" class="form-control font-monospace" value="{{ $urlFeed }}" readonly onclick="this.select()" aria-label="Enlace del catálogo para {{ $nombre }}" style="font-size:13px">
+                        <button type="button" class="btn btn-outline-primary" data-copy="{{ $urlFeed }}">Copiar</button>
+                        <a class="btn btn-outline-secondary" href="{{ $urlFeed }}" target="_blank" rel="noopener">Abrir</a>
+                    </div>
+                    <small class="text-muted">{{ $ayuda }}</small>
+                </div>
+            @endforeach
+        </div>
+    </div>
+    <script>
+    document.querySelectorAll('#mpFeeds [data-copy]').forEach(function (b) {
+        b.addEventListener('click', function () {
+            var t = b.getAttribute('data-copy');
+            var done = function () { var x = b.textContent; b.textContent = '¡Copiado!'; setTimeout(function () { b.textContent = x; }, 1500); };
+            if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(done, function () { window.prompt('Copia el enlace:', t); });
+            else window.prompt('Copia el enlace:', t);
+        });
+    });
+    </script>
+
     <form method="POST" action="{{ route('system.marketplace.seo.update') }}" enctype="multipart/form-data" class="row g-3">
         @csrf
 
